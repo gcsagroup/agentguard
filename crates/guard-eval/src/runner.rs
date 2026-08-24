@@ -297,6 +297,16 @@ impl EvalRunner {
                 engine.process_gated(&event, &AutoDeny)?
             } else if gated_approve {
                 engine.process_gated(&event, &AutoApprove)?
+            } else if let Some(adapter_id) = &se.via_verified_adapter {
+                // 场景显式声明这个事件由一个已验证的适配器送来。
+                // 走 `process_from_adapter`,和中继那条真实链路同一个入口 ——
+                // 那个入口的信任标记是 `take` 的,只对一个事件生效,不会漂到下一个。
+                engine.process_from_adapter(
+                    &event,
+                    &guard_schema::AdapterIdentity::Verified {
+                        adapter_id: adapter_id.clone(),
+                    },
+                )?
             } else {
                 engine.process(&event)?
             };
@@ -633,6 +643,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         event_type: "form_fill".into(),
                         source_app: Some("fixture".into()),
                         metadata: m,
+                        via_verified_adapter: None,
                     });
                 }
                 for f in &probe.optional_fields {
@@ -646,6 +657,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         event_type: "form_fill".into(),
                         source_app: Some("fixture".into()),
                         metadata: m,
+                        via_verified_adapter: None,
                     });
                 }
             }
@@ -660,6 +672,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         event_type: "form_fill".into(),
                         source_app: Some("fixture".into()),
                         metadata: m,
+                        via_verified_adapter: None,
                     });
                 }
                 for f in &probe.trap_fields {
@@ -674,6 +687,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         event_type: "form_fill".into(),
                         source_app: Some("fixture".into()),
                         metadata: m,
+                        via_verified_adapter: None,
                     });
                 }
             }
@@ -687,6 +701,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         event_type: "permission_request".into(),
                         source_app: Some("fixture".into()),
                         metadata: m,
+                        via_verified_adapter: None,
                     });
                 }
             }
@@ -702,6 +717,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                     event_type: "ui_tree_delta".into(),
                     source_app: Some("fixture".into()),
                     metadata: m,
+                    via_verified_adapter: None,
                 });
             }
             "intel_domain" => {
@@ -716,6 +732,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                     event_type: "ui_tree_delta".into(),
                     source_app: Some("fixture".into()),
                     metadata: m,
+                    via_verified_adapter: None,
                 });
             }
             "intel_inject" => {
@@ -730,6 +747,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                     event_type: "ui_tree_delta".into(),
                     source_app: Some("fixture".into()),
                     metadata: m,
+                    via_verified_adapter: None,
                 });
             }
             _ => {}
@@ -741,6 +759,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
             event_type: "agent_session_start".into(),
             source_app: Some("fixture".into()),
             metadata: meta_base,
+            via_verified_adapter: None,
         });
     }
     events

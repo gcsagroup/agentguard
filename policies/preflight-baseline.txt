@@ -7,6 +7,7 @@ FAIL agent.keys.publicly_known
 INFO adapters.asymmetric_trust
 INFO agent.keys.absent
 INFO gateway.cooperative
+INFO intel.secret.present
 PASS intel.verified
 PASS plans.loaded
 PASS plans.paths.declared

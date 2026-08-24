@@ -1710,7 +1710,10 @@ fn main() -> Result<()> {
                     .map_err(|e| anyhow::anyhow!("读不到基线文件 {}: {e}", path.display()))?;
                 let d = preflight::diff_baseline(&findings, &text);
                 if d.is_clean() {
-                    println!("preflight 基线一致({} 条结论)", preflight::baseline_lines(&findings).len());
+                    println!(
+                        "preflight 基线一致({} 条结论)",
+                        preflight::baseline_lines(&findings).len()
+                    );
                 } else {
                     eprintln!("\npreflight 结论和基线不一致:");
                     for l in &d.added {

@@ -323,6 +323,9 @@ impl BehaviourEvent {
             event_type: self.event_type.clone(),
             source_app: self.source_app.clone(),
             metadata: self.metadata.clone(),
+            // 行为日志回放里没有适配器签名信息 —— 那些日志是从真实会话录下来的,
+            // 而录制格式里没有这一项。保守取 None:不给自己发信任。
+            via_verified_adapter: None,
         }
     }
 
@@ -618,6 +621,8 @@ pub fn synthesize_suite_events(profile: &AgentProfile, suite: &ProbeSuite) -> Ve
             event_type: event_type.to_string(),
             source_app: Some(app.clone()),
             metadata: m,
+            // 探针回放同样不带适配器签名。保守取 None。
+            via_verified_adapter: None,
         });
     };
 

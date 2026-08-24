@@ -155,6 +155,22 @@ pub struct ScenarioEvent {
     pub source_app: Option<String>,
     #[serde(default)]
     pub metadata: std::collections::HashMap<String, String>,
+    /// 这个事件是**由一个已验证的适配器**送进来的,值是那个适配器的 id。
+    ///
+    /// # 为什么评测集需要能表达这个
+    ///
+    /// 适配器断言签名整套机制以前在评测集里**一条覆盖都没有** —— 场景格式压根
+    /// 表达不了"这个事件的签名验过了"。于是那套机制只有单元测试,而单元测试看不到
+    /// 端到端的判决。
+    ///
+    /// 更直接的原因:应用签名摘要的证明力不超过携带它的适配器
+    /// (见 `AdapterIdentity::may_grant_trust`)。所以一个想描述"这个应用的身份
+    /// **确实**验证通过"的场景,必须能说出摘要是谁送来的 —— 否则它描述的是一个
+    /// 在真实部署里不成立的状态。
+    ///
+    /// 写在 YAML 里是刻意的:一个给自己发信任的场景应该在 diff 里一眼看得见。
+    #[serde(default)]
+    pub via_verified_adapter: Option<String>,
 }
 
 impl Scenario {

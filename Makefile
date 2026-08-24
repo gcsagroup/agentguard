@@ -1,4 +1,4 @@
-.PHONY: check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -157,8 +157,30 @@ check-msrv:
 # 挂进 `make check`:它不需要任何额外工具链(只是把源码复制一份改写 cfg 再编),
 # 而它挡住的正是本项目栽过两次的那类 bug —— 只在另一个平台上出现的编译失败。
 # 脚本头部写了它能查到什么、查不到什么。
-check-macos-paths:
+# 名字有过误导。这个 target 编译的是 mac-adapter 里 macOS 专属的**代码路径**
+# (cfg 分支),它**不验**路径判决语义 —— 而一次外部评审在 macOS 上跑出的 8 个失败
+# 全都是路径判决语义(firmlink 把 /home 解成 /System/Volumes/Data/home,而 /System
+# 在敏感目录表里,于是用户自己的文档被判成系统文件)。
+#
+# 一个叫 "check-macos-paths" 的 target 打印 PASS,读的人会合理地以为 macOS 的路径
+# 处理验过了。所以拆成两个名字,各自说清自己验的是什么。语义那半边是纯函数 +
+# 写死的 macOS 形状输入,**在 Linux 上也跑**(见 guard-schema::paths 里的
+# dealias_platform_volumes 那几条测试) —— 否则这类 bug 永远只有 macOS 能发现。
+check-macos-cfg:
 	./scripts/check-macos-paths.sh
+
+check-macos-path-semantics:
+	cargo test -p guard-schema --lib paths::tests -- --exact \
+		paths::tests::数据卷前缀下的用户文档不算敏感 \
+		paths::tests::private别名下的系统目录仍然算敏感 \
+		paths::tests::private下面只折已知的三个名字 \
+		paths::tests::普通路径不受折叠影响 \
+		paths::tests::真正的system路径不被折叠 \
+		paths::tests::折叠是幂等的 \
+		paths::tests::数据卷根折成根 \
+		paths::tests::家目录经过别名也认得出来
+
+check-macos-paths: check-macos-cfg check-macos-path-semantics
 
 # 部署自检,**当真门禁用**。
 #

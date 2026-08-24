@@ -49,9 +49,12 @@
 //! 3. **把已存在的最长前缀做 `canonicalize`**——这一步是为了抓符号链接。`~/ws/link -> /etc` 用纯词法
 //!    归约看不出来，因为词法上它确实在 `~/ws` 下面。
 //! 4. 剩下不存在的那一段做词法归约（解 `.` 和 `..`）
+//! 5. **去掉 macOS 的卷别名前缀**，把结果归一到一个空间（见 [`dealias_platform_volumes`]）
 //!
 //! 顺序反了就有洞：先词法归约再 canonicalize，`~/ws/link/../../etc` 会先被词法解成 `~/etc`，
 //! 符号链接那一跳就丢了。
+//!
+//! 第 5 步必须在 canonicalize **之后**：它要处理的正是 canonicalize 产出的那种形状。
 
 use std::path::{Component, Path, PathBuf};
 
@@ -269,7 +272,75 @@ pub fn resolve(operand: &str, ctx: ResolveContext) -> Result<PathBuf, String> {
             Component::RootDir | Component::Prefix(_) => {}
         }
     }
-    Ok(out)
+    // 五、去掉 macOS 的卷别名,归一到一个空间。必须在 canonicalize 之后 ——
+    // 它处理的就是 canonicalize 产出的那种形状。
+    Ok(dealias_platform_volumes(&out))
+}
+
+/// 去掉 macOS 的 firmlink / synthetic 卷别名前缀,把路径归一到**逻辑**形式。
+///
+/// # 这是在修什么
+///
+/// macOS 上 `/home`、`/tmp`、`/var`、`/etc` 都不是真目录,是 firmlink 或
+/// synthetic 链接。`std::fs::canonicalize` 会把它们解成物理位置:
+///
+/// ```text
+/// /home            → /System/Volumes/Data/home
+/// /Users/me/doc    → /System/Volumes/Data/Users/me/doc   (经过 firmlink 时)
+/// /etc/hosts       → /private/etc/hosts
+/// /tmp/x           → /private/tmp/x
+/// ```
+///
+/// 而敏感目录表里有 `/System`。于是**用户自己的文档被判成系统文件** ——
+/// `/System/Volumes/Data/Users/me/Documents/x.md` 命中"在系统目录 /System 之内"。
+/// 这不是假想:一次外部评审在 macOS 上跑出 8 个失败,全是这个,已经影响到删除、
+/// 复制和工作区授权的判决。
+///
+/// # 两个方向都会坏,而危险的是另一个方向
+///
+/// 误判成敏感只是误报,吵但安全。反过来才要命:一条写成 `/etc/**` 的策略,
+/// 拿到的却是 `/private/etc/passwd`,前缀匹配**不成立** —— 规则静默地不生效。
+/// 工作区边界同理:工作区是 `/Users/me/proj`,而路径解成
+/// `/System/Volumes/Data/Users/me/proj/f`,于是"在工作区内"判不出来。
+///
+/// 所以修法不是往敏感目录表里继续加别名(那是打地鼠,而且只修得了误报那一半),
+/// 而是把两边归一到同一个空间。
+///
+/// # 为什么**不**用 `#[cfg(target_os = "macos")]`
+///
+/// 因为那样这个 bug 就永远只有 macOS 能发现。这个仓库已经为同一个形状吃过亏 ——
+/// `check-macos-paths.sh` 那个脚本存在的理由就是"跨平台 crate 的自动化只对它当前
+/// 能编译的那个平台负责"。而那个脚本只查**编译**,不查语义,所以这条它一个字
+/// 都没说。
+///
+/// 无条件生效是安全的:Linux 上没有 `/System/Volumes/Data` 这种路径,所以对真实的
+/// Linux 路径是恒等变换(有测试钉住)。而且别名折叠的方向永远是"更敏感"那边 ——
+/// `/System/Volumes/Data/etc` 折成 `/etc` 之后更敏感,不是更宽松。
+pub fn dealias_platform_volumes(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+
+    // 数据卷根:firmlink 视图下每一条用户路径都在它下面。
+    // 折完之后必须还是绝对路径 —— `/System/Volumes/Data` 本身折成 `/`。
+    for prefix in ["/System/Volumes/Data/", "/System/Volumes/Data"] {
+        if let Some(rest) = s.strip_prefix(prefix) {
+            let rest = rest.trim_start_matches('/');
+            return PathBuf::from(format!("/{rest}"));
+        }
+    }
+
+    // `/private` 下面**只有这几个**是 synthetic 别名。不做通配 ——
+    // 一个真叫 `/private/myproject` 的目录不该被折成 `/myproject`。
+    for name in ["etc", "var", "tmp"] {
+        let full = format!("/private/{name}");
+        if s == full {
+            return PathBuf::from(format!("/{name}"));
+        }
+        if let Some(rest) = s.strip_prefix(&format!("{full}/")) {
+            return PathBuf::from(format!("/{name}/{rest}"));
+        }
+    }
+
+    path.to_path_buf()
 }
 
 /// 找到路径里最长的、真实存在的前缀并 canonicalize 它，返回它和剩下那一段。
@@ -372,8 +443,22 @@ pub fn sensitive_target_with_home(
     intent: PathIntent,
     home: Option<&Path>,
 ) -> Option<String> {
+    // 先归一化 macOS 的卷别名。`resolve` 那边已经做过一次,这里再做一次不是多余:
+    //
+    //   - 这个函数是**公开**的,调用方不一定经过 `resolve`(测试、以及任何直接拿到
+    //     一条已 canonicalize 过的路径的地方);
+    //   - 它是真正做出安全判决的那个函数,而判决函数应该自己保证输入空间。
+    //
+    // 折叠是幂等的,所以做两次和做一次结果一样。
+    let path = &dealias_platform_volumes(path);
     let s = path.to_string_lossy();
     let lower = s.to_lowercase();
+
+    // 家目录也要归一化后再比 —— 否则 `/Users/me` 和
+    // `/System/Volumes/Data/Users/me` 会被当成两个不同的目录,于是"删掉整个家目录"
+    // 这条判不出来。
+    let home = home.map(dealias_platform_volumes);
+    let home = home.as_deref();
 
     // 根目录本身。
     let comps: Vec<_> = path.components().collect();
@@ -387,7 +472,8 @@ pub fn sensitive_target_with_home(
     // 家目录本身（删掉整个家目录）。
     if let Some(home) = home {
         let h = std::fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
-        if path == h && intent.needs_write() {
+        let h = dealias_platform_volumes(&h);
+        if *path == h && intent.needs_write() {
             return Some(format!("{s:?} 是家目录本身"));
         }
     }
@@ -658,6 +744,161 @@ mod tests {
     }
 
     // ---------- 归约 ----------
+
+    // ---------- macOS 卷别名(在 Linux 上也跑) ----------
+
+    /// **这一轮补的判决 bug。** 用户自己的文档不能因为路过 firmlink 就被判成系统文件。
+    ///
+    /// macOS 上 `canonicalize` 会把用户路径解成 `/System/Volumes/Data/...`,
+    /// 而 `/System` 在敏感目录表里。一次外部评审在 macOS 上跑出 8 个失败,全是这个。
+    ///
+    /// 这条测试**在 Linux 上也跑** —— 输入是写死的 macOS 形状字符串,不碰文件系统。
+    /// 这是刻意的:如果做成 `#[cfg(target_os = "macos")]`,这个 bug 就永远只有
+    /// macOS 能发现,而这个仓库已经为同一个形状吃过一次亏。
+    #[test]
+    fn 数据卷前缀下的用户文档不算敏感() {
+        for p in [
+            "/System/Volumes/Data/Users/me/Documents/x.md",
+            "/System/Volumes/Data/home/agent/proj/a.txt",
+        ] {
+            assert_eq!(
+                sensitive_target_with_home(
+                    Path::new(p),
+                    PathIntent::Delete,
+                    Some(Path::new("/home/agent"))
+                ),
+                None,
+                "{p} 被误判成敏感"
+            );
+        }
+    }
+
+    /// 危险的那个方向:写成 `/etc` 的策略必须能命中 `/private/etc`。
+    ///
+    /// 误判成敏感只是误报,吵但安全。**漏判**才要命 —— 一条写成 `/etc/**` 的规则
+    /// 拿到 `/private/etc/passwd` 时前缀匹配不成立,规则静默地不生效。
+    #[test]
+    fn private别名下的系统目录仍然算敏感() {
+        for (p, 期望片段) in [
+            ("/private/etc/hosts", "/etc"),
+            ("/private/var/db/x", "/var"),
+        ] {
+            let got = sensitive_target_with_home(Path::new(p), PathIntent::Write, None)
+                .unwrap_or_else(|| panic!("{p} 漏判了 —— 这是那个危险的方向"));
+            assert!(got.contains(期望片段), "{p} 的理由里没有 {期望片段}:{got}");
+        }
+    }
+
+    /// `/private` 下面只有 etc / var / tmp 是别名,不做通配。
+    ///
+    /// 一个真叫 `/private/myproject` 的目录不该被折成 `/myproject` —— 那会把一条
+    /// 普通路径改写成另一条,而改写后的那条可能正好命中某条策略。
+    #[test]
+    fn private下面只折已知的三个名字() {
+        assert_eq!(
+            dealias_platform_volumes(Path::new("/private/myproject/src")),
+            PathBuf::from("/private/myproject/src")
+        );
+        assert_eq!(
+            dealias_platform_volumes(Path::new("/private/etcetera/x")),
+            PathBuf::from("/private/etcetera/x"),
+            "前缀匹配写松了:etcetera 被当成 etc 了"
+        );
+    }
+
+    /// 对真实的 Linux 路径必须是恒等变换 —— 无条件生效的前提就是这一条。
+    #[test]
+    fn 普通路径不受折叠影响() {
+        for p in [
+            "/home/agent/proj/a.txt",
+            "/etc/hosts",
+            "/var/log/syslog",
+            "/tmp/x",
+            "/usr/local/bin/tool",
+            "/Systemd/x",
+            "/System/Library/Frameworks",
+        ] {
+            assert_eq!(
+                dealias_platform_volumes(Path::new(p)),
+                PathBuf::from(p),
+                "{p} 被动了"
+            );
+        }
+    }
+
+    /// `/System/Library` 这类**真正的**系统路径不能被折掉。
+    ///
+    /// 只有 `/System/Volumes/Data` 那个前缀是数据卷根。写松成 `/System/` 的话,
+    /// `/System/Library/Frameworks` 会折成 `/Library/Frameworks` —— 仍然敏感,
+    /// 但那是碰巧;`/System/Applications` 折成 `/Applications` 也是碰巧。
+    /// 靠碰巧的安全属性下一次改动就没了。
+    #[test]
+    fn 真正的system路径不被折叠() {
+        assert!(
+            sensitive_target_with_home(
+                Path::new("/System/Library/Frameworks/x.framework"),
+                PathIntent::Write,
+                None
+            )
+            .is_some(),
+            "真正的 /System 路径漏判了"
+        );
+    }
+
+    /// 折叠是幂等的 —— `resolve` 和 `sensitive_target` 各做一次,结果必须一样。
+    #[test]
+    fn 折叠是幂等的() {
+        for p in [
+            "/System/Volumes/Data/Users/me/x",
+            "/private/etc/hosts",
+            "/home/agent/x",
+        ] {
+            let once = dealias_platform_volumes(Path::new(p));
+            let twice = dealias_platform_volumes(&once);
+            assert_eq!(once, twice, "{p} 折两次和折一次不一样");
+        }
+    }
+
+    /// 数据卷根本身折成 `/`,不能折出一个相对路径。
+    #[test]
+    fn 数据卷根折成根() {
+        assert_eq!(
+            dealias_platform_volumes(Path::new("/System/Volumes/Data")),
+            PathBuf::from("/")
+        );
+        assert_eq!(
+            dealias_platform_volumes(Path::new("/System/Volumes/Data/")),
+            PathBuf::from("/")
+        );
+        // 折出来的必须还是绝对路径 —— 相对路径会让后面每一处前缀匹配都失效。
+        for p in [
+            "/System/Volumes/Data",
+            "/System/Volumes/Data/",
+            "/private/etc",
+        ] {
+            assert!(
+                dealias_platform_volumes(Path::new(p)).is_absolute(),
+                "{p} 折出了相对路径"
+            );
+        }
+    }
+
+    /// 家目录本身也要归一化后再比。
+    ///
+    /// 否则 `/Users/me` 和 `/System/Volumes/Data/Users/me` 被当成两个目录,
+    /// 于是"删掉整个家目录"这条判不出来。
+    #[test]
+    fn 家目录经过别名也认得出来() {
+        assert!(
+            sensitive_target_with_home(
+                Path::new("/System/Volumes/Data/Users/me"),
+                PathIntent::Delete,
+                Some(Path::new("/Users/me"))
+            )
+            .is_some(),
+            "经过数据卷别名的家目录没被认出来"
+        );
+    }
 
     #[test]
     fn 波浪号展开成家目录() {

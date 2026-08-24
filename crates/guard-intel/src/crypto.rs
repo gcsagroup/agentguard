@@ -238,7 +238,10 @@ mod 私钥权限 {
                 Ok(_) => panic!("mode {bad:o} 应该被拒绝"),
                 Err(e) => e,
             };
-            assert!(err.contains("chmod 600"), "mode {bad:o} 的报错没给出修法:{err}");
+            assert!(
+                err.contains("chmod 600"),
+                "mode {bad:o} 的报错没给出修法:{err}"
+            );
         }
         // 收回来就能用了。
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();

@@ -4,7 +4,7 @@
 //! `node --check`,也就是只验语法。一个语法完全正确的 `innerHTML = \`...\`` 它一句
 //! 话都不会说。而这几条恰恰都是"语法没问题、语义是洞"的形状。
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -24,6 +24,7 @@ fn read(rel: &str) -> String {
 /// 这条测试盯的是**那一类写法**,不是那一行代码 —— 修好一处但下次又写回来的话,
 /// 只有类级别的检查拦得住。
 #[test]
+#[allow(non_snake_case)]
 fn 前端不再出现innerHTML赋值() {
     let files = [
         "apps/desktop-macos/src/main.js",
@@ -64,7 +65,8 @@ fn 前端不再出现innerHTML赋值() {
 fn 两个外壳都配了限制性csp() {
     for app in ["desktop-macos", "desktop-windows"] {
         let conf = read(&format!("apps/{app}/src-tauri/tauri.conf.json"));
-        let v: serde_json::Value = serde_json::from_str(&conf).expect("tauri.conf.json 不是合法 JSON");
+        let v: serde_json::Value =
+            serde_json::from_str(&conf).expect("tauri.conf.json 不是合法 JSON");
         let csp = &v["app"]["security"]["csp"];
         assert!(
             csp.is_string(),
@@ -72,10 +74,7 @@ fn 两个外壳都配了限制性csp() {
         );
         let csp = csp.as_str().unwrap();
         for 必须有 in ["default-src 'none'", "object-src 'none'", "base-uri 'none'"] {
-            assert!(
-                csp.contains(必须有),
-                "{app} 的 CSP 缺 `{必须有}`:{csp}"
-            );
+            assert!(csp.contains(必须有), "{app} 的 CSP 缺 `{必须有}`:{csp}");
         }
         assert!(
             !csp.contains("unsafe-inline") && !csp.contains("unsafe-eval"),
@@ -95,11 +94,17 @@ fn 两个外壳都配了限制性csp() {
 fn readme不使用被自己文档否掉的词() {
     let readme = read("README.md");
     let 禁用词 = [
-        ("实时拦截", "上线评估文档说了不能称为实时:轮询之间的事看不见"),
+        (
+            "实时拦截",
+            "上线评估文档说了不能称为实时:轮询之间的事看不见",
+        ),
         ("实时阻断", "同上"),
         ("沙箱隔离", "上线评估文档说了不能称为沙箱"),
         ("不可绕过", "工具网关是合作式的,agent 直接 exec 就绕过了"),
-        ("零信任", "适配器断言仍可被本机持令牌方伪造(方向受限,但不是零信任)"),
+        (
+            "零信任",
+            "适配器断言仍可被本机持令牌方伪造(方向受限,但不是零信任)",
+        ),
     ];
     let mut 命中 = Vec::new();
     for (词, 为什么) in 禁用词 {

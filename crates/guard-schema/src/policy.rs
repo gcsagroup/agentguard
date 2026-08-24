@@ -462,6 +462,25 @@ impl AppIdentity {
         matches!(self, Self::Verified { .. })
     }
 
+    /// 这次**看到过一个对得上的签名摘要** —— 不管携带它的适配器验没验过。
+    ///
+    /// 和 `is_verified()` 分开,是因为两者管的是两个方向:
+    ///
+    ///   - `is_verified()`:能不能**继承**这个应用的特权。要求摘要有可信来源。
+    ///   - `had_matching_digest()`:之前有没有钉住过一个摘要。用来发现**换人** ——
+    ///     同一个包先出示 A 后出示 B,那个「变」本身就是证据,和谁送来的无关。
+    ///
+    /// 这个区分是被自己的评测集抓出来的。把 `AttestationUnverified` 引进来的时候
+    /// 漏了这一条,于是 `prev.is_verified()` 变成 false,**中途换签名者不再被发现** ——
+    /// 一个修复换来了另一个洞。那正是这个项目反复警惕的形状:
+    /// 证据**反对**一个声明的时候,谁送来的都算。
+    pub fn had_matching_digest(&self) -> bool {
+        matches!(
+            self,
+            Self::Verified { .. } | Self::AttestationUnverified { .. }
+        )
+    }
+
     /// The registry's own name for this app, when the package resolved *and* the
     /// presented name agrees with it. This — never `event.source_app` — is what a
     /// name-keyed lookup may trust.

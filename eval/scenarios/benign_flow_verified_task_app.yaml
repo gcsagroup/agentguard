@@ -14,8 +14,16 @@ events:
     metadata:
       task_apps: "Meituan"
       task_profile: book_hotel
+  # 摘要由一个**已验证的适配器**送来 —— 也就是伴生应用去问了操作系统
+  # (Android GET_SIGNING_CERTIFICATES),再用自己的密钥签了这条断言。
+  #
+  # 这一行不是样板。应用签名证书摘要是**公开**的,所以"事件里带了正确的摘要"
+  # 这件事任何拿到 API 令牌的调用方都做得到。摘要的证明力不超过携带它的适配器,
+  # 于是一个想描述"这个应用的身份**确实**验证通过"的场景,必须说出摘要是谁送来的。
+  # 去掉这一行,这个场景描述的就是一个在真实部署里不成立的状态。
   - event_type: ui_tree_delta
     source_app: Meituan
+    via_verified_adapter: android-companion
     metadata:
       package: "com.sankuai.meituan"
       signer_sha256: "1111111111111111111111111111111111111111111111111111111111111111"

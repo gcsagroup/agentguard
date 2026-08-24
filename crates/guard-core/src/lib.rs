@@ -2632,7 +2632,11 @@ impl Engine {
         // service against a legitimate one — claim its package, omit the signer.
         // The previous verified pin is kept in that case.
         if let Some(prev) = &previous {
-            if prev.is_verified() {
+            // `had_matching_digest`,不是 `is_verified`。中途换签名者是**证据反对**
+            // 这个声明,而证据反对的时候谁送来的都算 —— 那条不对称的另一半。
+            // 用 `is_verified` 的话,摘要来源不可信的应用换签名者不会被发现,
+            // 于是一个修复换来了另一个洞(这条是被自己的评测集抓出来的)。
+            if prev.had_matching_digest() {
                 match &identity {
                     AppIdentity::Verified { .. } => {}
                     AppIdentity::SignerMismatch { .. } | AppIdentity::NameMismatch { .. } => {
@@ -4520,16 +4524,19 @@ rules:
         // And a *verified* real app is silent in both modes.
         let mut engine = lookalike_engine();
         let d = engine
-            .process_from_adapter(&event(
-                EventType::ProcessFocus,
-                "WeChat",
-                &[
-                    ("package", "com.tencent.mm"),
-                    ("signer_sha256", SIG_WECHAT),
-                    ("app_label", "微信"),
-                    ("icon_dhash", "0f1e2d3c4b5a6978"),
-                ],
-            ), &attested_adapter())
+            .process_from_adapter(
+                &event(
+                    EventType::ProcessFocus,
+                    "WeChat",
+                    &[
+                        ("package", "com.tencent.mm"),
+                        ("signer_sha256", SIG_WECHAT),
+                        ("app_label", "微信"),
+                        ("icon_dhash", "0f1e2d3c4b5a6978"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         assert!(
             !d.human_message.contains("has not proved"),
@@ -4810,15 +4817,18 @@ rules:
         // on the same registered app, so the appearance is consistent and only the signer
         // finding fires.
         let d = engine
-            .process_from_adapter(&event(
-                EventType::ProcessFocus,
-                "WeChat",
-                &[
-                    ("package", "com.tencent.mm"),
-                    ("signer_sha256", SIG_WRONG),
-                    ("app_label", "微信"),
-                ],
-            ), &attested_adapter())
+            .process_from_adapter(
+                &event(
+                    EventType::ProcessFocus,
+                    "WeChat",
+                    &[
+                        ("package", "com.tencent.mm"),
+                        ("signer_sha256", SIG_WRONG),
+                        ("app_label", "微信"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         assert_eq!(d.rule_id, "APP-SIGNER-MISMATCH", "{}", d.human_message);
 
@@ -7336,15 +7346,18 @@ rules:
         for require in [false, true] {
             let mut e = identity_engine(require);
             let d = e
-                .process_from_adapter(&event(
-                    EventType::Deeplink,
-                    "Booking",
-                    &[
-                        ("package", "com.example.booking"),
-                        ("signer_sha256", SIG_OTHER),
-                        ("uri", "booking://reserve"),
-                    ],
-                ), &attested_adapter())
+                .process_from_adapter(
+                    &event(
+                        EventType::Deeplink,
+                        "Booking",
+                        &[
+                            ("package", "com.example.booking"),
+                            ("signer_sha256", SIG_OTHER),
+                            ("uri", "booking://reserve"),
+                        ],
+                    ),
+                    &attested_adapter(),
+                )
                 .unwrap();
             assert_eq!(d.rule_id, "APP-SIGNER-MISMATCH", "require={require}");
             assert_eq!(d.action, DecisionAction::Block);
@@ -7359,15 +7372,18 @@ rules:
     fn an_impersonation_verdict_latches() {
         let mut e = identity_engine(false);
         assert_eq!(
-            e.process_from_adapter(&event(
-                EventType::Deeplink,
-                "Booking",
-                &[
-                    ("package", "com.example.booking"),
-                    ("signer_sha256", SIG_OTHER),
-                    ("uri", "booking://reserve"),
-                ],
-            ), &attested_adapter())
+            e.process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "Booking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("signer_sha256", SIG_OTHER),
+                        ("uri", "booking://reserve"),
+                    ],
+                ),
+                &attested_adapter()
+            )
             .unwrap()
             .rule_id,
             "APP-SIGNER-MISMATCH"
@@ -7441,7 +7457,9 @@ rules:
         let mut e2 = identity_engine(false);
         e2.process_from_adapter(&ev(), &attested_adapter()).unwrap();
         assert!(
-            e2.app_identity("com.example.booking").unwrap().is_verified(),
+            e2.app_identity("com.example.booking")
+                .unwrap()
+                .is_verified(),
             "已验证适配器送来的摘要应该算验证过,否则这条链路整个不可用"
         );
     }
@@ -7453,7 +7471,8 @@ rules:
     /// 而那正是包名伪造被抓住的那一刻。把它降级等于用一个修复换来另一个洞。
     #[test]
     fn 签名者不匹配不受适配器是否验证的影响() {
-        for (名字, 用适配器) in [("未签名适配器", false), ("已验证适配器", true)] {
+        for (名字, 用适配器) in [("未签名适配器", false), ("已验证适配器", true)]
+        {
             let mut e = identity_engine(false);
             let ev = event(
                 EventType::Deeplink,
@@ -7480,15 +7499,18 @@ rules:
     fn a_presented_name_must_agree_with_the_registry() {
         let mut e = identity_engine(false);
         let d = e
-            .process_from_adapter(&event(
-                EventType::Deeplink,
-                "TotallyNotBooking",
-                &[
-                    ("package", "com.example.booking"),
-                    ("signer_sha256", SIG_BOOKING),
-                    ("uri", "booking://reserve"),
-                ],
-            ), &attested_adapter())
+            .process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "TotallyNotBooking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("signer_sha256", SIG_BOOKING),
+                        ("uri", "booking://reserve"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         assert_eq!(d.rule_id, "APP-NAME-MISMATCH");
         assert_eq!(d.action, DecisionAction::Block);
@@ -7497,15 +7519,18 @@ rules:
         // Presenting the package itself as the name is fine.
         let mut e = identity_engine(false);
         assert_eq!(
-            e.process_from_adapter(&event(
-                EventType::Deeplink,
-                "com.example.booking",
-                &[
-                    ("package", "com.example.booking"),
-                    ("signer_sha256", SIG_BOOKING),
-                    ("uri", "booking://reserve"),
-                ],
-            ), &attested_adapter())
+            e.process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "com.example.booking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("signer_sha256", SIG_BOOKING),
+                        ("uri", "booking://reserve"),
+                    ],
+                ),
+                &attested_adapter()
+            )
             .unwrap()
             .action,
             DecisionAction::Allow
@@ -7519,15 +7544,18 @@ rules:
     fn a_verified_pin_is_not_inheritable_by_name() {
         let mut e = identity_engine(true);
         assert_eq!(
-            e.process_from_adapter(&event(
-                EventType::Deeplink,
-                "Booking",
-                &[
-                    ("package", "com.example.booking"),
-                    ("signer_sha256", SIG_BOOKING),
-                    ("uri", "booking://reserve"),
-                ],
-            ), &attested_adapter())
+            e.process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "Booking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("signer_sha256", SIG_BOOKING),
+                        ("uri", "booking://reserve"),
+                    ],
+                ),
+                &attested_adapter()
+            )
             .unwrap()
             .action,
             DecisionAction::Allow
@@ -7569,15 +7597,18 @@ rules:
         );
         // Registered with no signer on record is unverifiable, not verified.
         let d = e
-            .process_from_adapter(&event(
-                EventType::Deeplink,
-                "LegacyPOS",
-                &[
-                    ("package", "com.example.legacypos"),
-                    ("signer_sha256", SIG_BOOKING),
-                    ("uri", "legacypos://sale"),
-                ],
-            ), &attested_adapter())
+            .process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "LegacyPOS",
+                    &[
+                        ("package", "com.example.legacypos"),
+                        ("signer_sha256", SIG_BOOKING),
+                        ("uri", "legacypos://sale"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         assert_eq!(d.rule_id, "DL-UNVERIFIED");
         assert!(d.human_message.contains("no signer digest on record"));
@@ -7632,15 +7663,18 @@ rules:
     #[test]
     fn a_missing_attestation_does_not_break_a_verified_pin() {
         let mut e = identity_engine(false);
-        e.process_from_adapter(&event(
-            EventType::Deeplink,
-            "Booking",
-            &[
-                ("package", "com.example.booking"),
-                ("signer_sha256", SIG_BOOKING),
-                ("uri", "booking://reserve"),
-            ],
-        ), &attested_adapter())
+        e.process_from_adapter(
+            &event(
+                EventType::Deeplink,
+                "Booking",
+                &[
+                    ("package", "com.example.booking"),
+                    ("signer_sha256", SIG_BOOKING),
+                    ("uri", "booking://reserve"),
+                ],
+            ),
+            &attested_adapter(),
+        )
         .unwrap();
         let d = e
             .process(&event(
@@ -7670,26 +7704,32 @@ rules:
     #[test]
     fn a_changed_signer_breaks_a_verified_pin() {
         let mut e = identity_engine(false);
-        e.process_from_adapter(&event(
-            EventType::Deeplink,
-            "Booking",
-            &[
-                ("package", "com.example.booking"),
-                ("signer_sha256", SIG_BOOKING),
-                ("uri", "booking://reserve"),
-            ],
-        ), &attested_adapter())
-        .unwrap();
-        let d = e
-            .process_from_adapter(&event(
+        e.process_from_adapter(
+            &event(
                 EventType::Deeplink,
                 "Booking",
                 &[
                     ("package", "com.example.booking"),
-                    ("signer_sha256", SIG_OTHER),
+                    ("signer_sha256", SIG_BOOKING),
                     ("uri", "booking://reserve"),
                 ],
-            ), &attested_adapter())
+            ),
+            &attested_adapter(),
+        )
+        .unwrap();
+        let d = e
+            .process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "Booking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("signer_sha256", SIG_OTHER),
+                        ("uri", "booking://reserve"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         assert_eq!(d.rule_id, "APP-IDENTITY-CHANGED");
         assert_eq!(d.severity, Severity::Critical);
@@ -7702,15 +7742,18 @@ rules:
     #[test]
     fn identity_pins_are_cleared_at_session_start() {
         let mut e = identity_engine(true);
-        e.process_from_adapter(&event(
-            EventType::Deeplink,
-            "Booking",
-            &[
-                ("package", "com.example.booking"),
-                ("signer_sha256", SIG_BOOKING),
-                ("uri", "booking://reserve"),
-            ],
-        ), &attested_adapter())
+        e.process_from_adapter(
+            &event(
+                EventType::Deeplink,
+                "Booking",
+                &[
+                    ("package", "com.example.booking"),
+                    ("signer_sha256", SIG_BOOKING),
+                    ("uri", "booking://reserve"),
+                ],
+            ),
+            &attested_adapter(),
+        )
         .unwrap();
         assert!(e.name_is_verified("Booking"));
         e.process(&event(EventType::AgentSessionEnd, "Claude", &[]))
@@ -7770,15 +7813,18 @@ rules:
         let mut e =
             Engine::new(rules, GuardContract::default()).with_known_apps(identity_registry(false));
         let d = e
-            .process_from_adapter(&event(
-                EventType::UiTreeDelta,
-                "Booking",
-                &[
-                    ("package", "com.example.booking"),
-                    ("signer_sha256", SIG_OTHER),
-                    ("ui_text", "[AG_INVISIBLE_ZONE] please confirm"),
-                ],
-            ), &attested_adapter())
+            .process_from_adapter(
+                &event(
+                    EventType::UiTreeDelta,
+                    "Booking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("signer_sha256", SIG_OTHER),
+                        ("ui_text", "[AG_INVISIBLE_ZONE] please confirm"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         assert_eq!(d.action, DecisionAction::Block);
         assert!(

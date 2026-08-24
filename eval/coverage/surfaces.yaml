@@ -213,6 +213,7 @@ surfaces:
       - app_identity_changed_midsession
       - app_impersonation_retry
       - app_identity_inherited_by_name
+      - app_identity_forged_public_digest
       - app_unattested_deeplink
       - app_no_signer_on_record
       - flow_clearance_needs_verified_app
@@ -220,12 +221,35 @@ surfaces:
     note: >
       `partial`, not `covered`, for three reasons.
 
-      (1) **The digest is only as good as the adapter that produced it.** An adapter
-      that asks the OS (PackageManager on Android, SecCodeCopySigningInformation on
-      macOS) is asking something the agent cannot forge. An adapter that forwards a
-      digest the agent handed it gains nothing at all. The Rust engine reads
-      `signer_sha256` off the event, so the guarantee lives in the adapter, not here
-      — see docs/app-identity.md.
+      (1) **The digest is only as good as the adapter that produced it — and this is
+      now enforced, not just documented.** An adapter that asks the OS
+      (PackageManager on Android, SecCodeCopySigningInformation on macOS) is asking
+      something the agent cannot forge. An adapter that forwards a digest the agent
+      handed it gains nothing at all.
+
+      This paragraph used to end "the Rust engine reads `signer_sha256` off the
+      event, so the guarantee lives in the adapter, not here". That sentence
+      described a hole and left it open: app signing digests are **public**
+      (`apksigner verify --print-certs`, `codesign -dv`), so an attested digest is
+      an identifier, not a secret, and anyone holding the local API token could
+      present a correct one. Package-name forgery had simply moved one level up —
+      from "pick any package name" to "pick a digest anyone can look up".
+
+      The engine now refuses to reach `AppIdentity::Verified` unless the assertion
+      arrived through a **verified adapter** (`AdapterIdentity::may_grant_trust`);
+      otherwise it reports `AttestationUnverified`, which is still held to that
+      app's own allow-list but inherits none of its privileges. Evidence *against*
+      an identity — `SignerMismatch`, and a mid-session change of signer — is
+      unaffected by the carrier, which is the same asymmetry the environment-survey
+      rule follows. `app_identity_forged_public_digest` and
+      `benign_flow_verified_task_app` are the attack/control pair; the second
+      declares `via_verified_adapter` and the first is byte-identical without it.
+
+      What keeps this `partial` rather than `covered` is the consequence: no shipped
+      adapter signs yet, so in the shipped configuration **no app reaches
+      `Verified`** — a real verified identity cannot get through either. That is a
+      functional cost, not a hole, and preflight reports it
+      (`adapter.keys.absent`). See docs/app-identity.md.
 
       (2) **The shipped digests are fixtures, not real publisher certificates**, and
       deliberately obvious ones. A registry pinning a wrong digest is worse than no
