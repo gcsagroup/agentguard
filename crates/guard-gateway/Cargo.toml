@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish.workspace = true
 description = "协作式工具网关：智能体调它而不是调原始工具，于是判决可以变成拒绝执行"
 
 [[bin]]

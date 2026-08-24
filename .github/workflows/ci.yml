@@ -9,6 +9,37 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # 格式化和 workspace 级 clippy。
+  #
+  # 以前这两条**都不在 CI 里** —— clippy 只覆盖 win-adapter,fmt 一个字都没查。
+  # 结果是 68 个文件漂出 rustfmt 规范,而且其中藏着一条 clippy 错误
+  # (guard-jail 的 redundant closure):那一行的旧折行让它一直没被报出来,
+  # 把 fmt 接进门禁的那一刻它才蹦出来。
+  #
+  # 单独一个 job,不塞进 `test`:这两条几秒钟就跑完,而 `test` 那个 matrix 要几分钟。
+  # 一个格式问题不该让人等完整套测试才看到。
+  lint:
+    name: fmt + clippy（workspace，-D warnings）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+      - name: 供应链审计（advisories / licenses / bans / sources）
+        # 以前完全没有。首次真跑抓到 22 个 crate 都没标 publish = false ——
+        # 一次手滑的 `cargo publish` 能把 `guard-core` 永久钉在 crates.io 上。
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+      - name: cargo clippy（--all-targets 是必须的）
+        # `--all-targets` 让它看得见 `#[cfg(test)]`。没有这个参数,clippy 默认
+        # 根本不检查测试代码 —— 而测试里的错误和产品代码里的一样会误导人。
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
   test:
     strategy:
       fail-fast: false
@@ -216,12 +247,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: 打印自检报告
-        # 仓库自带的这套策略**应该**报 FAIL（发布注册表钉的是夹具密钥），所以退出码
-        # 不能当门禁 —— `|| true`。真正的门禁是下一步那条单元测试:它断言"照着仓库跑"
-        # 和"可以上线"之间存在一个能被看见的差别。哪天有人把它改成期望 PASS,
-        # 那就是把陷阱又埋回去了。
-        run: cargo run -p guard-cli -- preflight || true
+      - name: 门禁 —— 自检结论必须和基线一致
+        # 以前这里是 `cargo run ... preflight || true`,和 Makefile 里那个前缀减号
+        # 同一个毛病:仓库自带的策略**应该**报 FAIL(发布注册表钉的是夹具密钥),
+        # 所以退出码不能直接当门禁 —— 于是它被吞掉了,于是一个**新出现**的 FAIL
+        # 也不拦任何人。
+        #
+        # 现在比的是"结论有没有变"。多一条拦,**少一条也拦** —— 一项检查被删掉之后
+        # 它的结论会消失,而"少了一条 WARN"看起来像修好了什么。
+        # 结论随机器而变的族(jail.*、api.token.*)在基线里只记族名,所以换 runner 不假警。
+        run: make preflight
       - name: 门禁 —— 仓库自带的策略必须报 FAIL,且原因必须是夹具密钥
         run: cargo test -p guard-cli preflight
 

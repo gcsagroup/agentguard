@@ -1,4 +1,4 @@
-.PHONY: check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -199,6 +199,20 @@ preflight:
 preflight-baseline:
 	cargo run -q -p guard-cli -- preflight --write-baseline > policies/preflight-baseline.txt
 
+# 发布门禁。跑完所有能自动验的,然后把需要凭据/真机的那几项**列出来并说清判据**。
+#
+# 软模式(默认)从不打印"可以发布" —— 它打印"自动部分通过,以下 N 项未验证"。
+# `--strict` 要求那几项都有证据文件,给真正发布时用。
+#
+# 脚本自己带一条自检:登记的证据项数不对就报脚本 bug 而不是发布通过。
+# 那条自检不是多余的 —— 这个脚本第一版就因为 bash 的 `local` 不接受非 ASCII 变量名
+# 而整体失效,六项未验证一条都没登记上,却打印了"全部通过"。
+release-gate:
+	./scripts/release-gate.sh
+
+release-gate-strict:
+	./scripts/release-gate.sh --strict
+
 # 发布产物清单(SHA-256)。不是代码签名 —— 脚本自己会把这条限制打出来。
 release-manifest:
 	./scripts/release-manifest.sh $${DIST:-dist}
@@ -214,10 +228,24 @@ release-manifest:
 check-fmt:
 	cargo fmt --all --check
 
+# 供应链门禁。在此之前这个仓库**没有任何依赖审计** —— 一个安全产品带着已知 CVE
+# 的依赖发布,比它拦住的大部分东西都严重。
+#
+# 首次真跑就抓到一件真事:22 个 crate 都没标 `publish = false`,于是一次手滑的
+# `cargo publish` 能把 `guard-core` 这种通用名字永久钉在 crates.io 上(那边的版本
+# 不可撤销)。每一条放行的理由写在 deny.toml 里,`ignore` 是空的。
+#
+# 需要 `cargo install cargo-deny --locked`。没装的时候**明确失败**并说怎么装 ——
+# 一条静默跳过的供应链检查和一条不存在的没有区别。
+check-supply-chain:
+	@command -v cargo-deny >/dev/null 2>&1 || { \
+		echo "cargo-deny 没装。装:cargo install cargo-deny --locked" >&2; exit 1; }
+	cargo deny check
+
 check-clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
-check: check-fmt check-clippy test eval coverage scoreboard leaderboard sim-capture check-shells check-macos-paths preflight
+check: check-fmt check-supply-chain check-clippy test eval coverage scoreboard leaderboard sim-capture check-shells check-macos-paths preflight
 	@echo "all local checks passed"
 	@echo "platform checks are separate targets, because each needs a toolchain:"
 	@echo "  make check-msrv       (rustup toolchain install $(MSRV))"

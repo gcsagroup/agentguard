@@ -1,0 +1,96 @@
+# 供应链门禁。`cargo deny check`,挂在 `make check` 和 CI 的 lint job 里。
+#
+# # 为什么一个安全产品必须有这个
+#
+# 在此之前这个仓库**没有任何依赖审计** —— 没有 deny.toml,没有 cargo-audit,CI 里
+# 也没有。一个安全产品带着已知 CVE 的依赖发布,比它拦住的大部分东西都严重:
+# 用户装它是为了减少风险,结果多了一个。
+#
+# 首次跑的结果:advisories ok(公告库里 1206 条,不是空库 —— "ok" 是真结论,
+# 不是没数据)、bans ok、sources ok、licenses 需要配置。
+#
+# # 这份配置的原则
+#
+# 每一条放行都要说清**为什么**。一个塞满未说明 ignore 的 deny.toml 等于没有,
+# 而且比没有更糟 —— 它让人以为查过了。所以下面没有一条 `ignore`。
+# 哪天真需要加一条,请把"为什么可以接受"和"什么时候该撤掉"写在旁边。
+
+[graph]
+# 全平台都查。只查当前平台的话,一个只在 Windows 上引入的漏洞依赖在 Linux CI 上
+# 是隐形的 —— 而这个项目三个平台都发。
+all-features = true
+
+[advisories]
+# 最严的一档:不只是有 CVE 的,连"已无人维护"的也报。
+#
+# 无人维护的依赖对这个项目尤其要紧:策略文件(规则、注册表、任务计划)全是 YAML,
+# 也就是说 YAML 解析器是**信任输入的入口**。一个没人修的解析器里出现解析漏洞时,
+# 不会有补丁等着你。
+#
+# 现在这一档是干净的,所以开着它零成本。等它哪天变红,那正是需要知道的时刻。
+unmaintained = "all"
+yanked = "deny"
+# 空的。有的话每一条都要写清理由和撤销条件。
+ignore = []
+
+[licenses]
+# 显式放行表。这里**不放行任何 copyleft**(GPL / LGPL / AGPL / MPL):
+# 桌面外壳是要签名分发的二进制,copyleft 依赖会带上源码开放义务,
+# 那是个法务决定,不该由一次 `cargo add` 悄悄做掉。
+#
+# 注意 `r-efi` 在 `cargo deny list` 里同时出现在 LGPL-2.1-or-later、MIT 和
+# Apache-2.0 下面 —— 它是多许可的,我们取 MIT。这份表里**没有** LGPL 而检查
+# 通过,就是它确实解析到了宽松那一支的证明。
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-1-Clause",              # fiat-crypto(curve25519-dalek 的域运算)
+    "BSD-2-Clause",              # zerocopy
+    "BSD-3-Clause",              # curve25519-dalek / ed25519-dalek / subtle —— 审计签名那条链
+    "ISC",                       # ring / rustls / untrusted —— TLS 那条链
+    "0BSD",                      # adler2
+    "BSL-1.0",                   # ryu(浮点格式化)
+    "Unicode-3.0",               # icu_* —— url 归一化用的
+    "Zlib",                      # miniz_oxide
+    "Unlicense",                 # memchr(MIT OR Unlicense)
+    "CDLA-Permissive-2.0",       # webpki-roots —— 根证书集合,不是代码
+]
+# 一个包声称的许可和实际带的文件不符时报错,而不是猜。
+unused-allowed-license = "warn"
+confidence-threshold = 0.9
+
+[bans]
+# 多版本共存设成 warn 而不是 deny。
+#
+# 树里确实有重复(hashbrown 0.14/0.17、getrandom 0.2/0.4、syn 2/3、
+# windows-sys 0.52/0.61)。这些几乎全部来自传递依赖,压不动;设成 deny 只会逼人
+# 加一串 skip 例外,最后那串例外就是新的"没人看的配置"。
+multiple-versions = "warn"
+# 通配版本号(`version = "*"`)对**从 registry 拿**的依赖是危险的:构建结果取决于
+# 解析那一刻 crates.io 上有什么。
+wildcards = "deny"
+# 但 workspace 内部的 path 依赖除外 —— 它们根本不从 registry 取,写 `workspace = true`
+# 时 Cargo 生成的就是通配。不加这一条的话,门禁报的全是自己的 crate,
+# 于是真正的外部通配依赖被埋在噪音里。
+allow-wildcard-paths = true
+
+# 明确不要的东西。这不是"坏 crate"名单,是**架构决定**名单 ——
+# 它们出现意味着有人无意中改变了这个项目的一项技术选择。
+deny = [
+    # TLS 走 rustls。openssl 冒出来意味着某个新依赖把一个 C 库和一套完全不同的
+    # 证书验证路径拖进来了 —— 对一个安全产品,那是需要有人点头的决定,
+    # 不是一次 `cargo add` 的副作用。
+    { name = "openssl-sys", reason = "TLS 统一走 rustls;引入 openssl 需要显式决策" },
+    { name = "native-tls", reason = "同上" },
+]
+
+[sources]
+# 只从 crates.io 拿。
+#
+# 这一条是这份配置里最直接的供应链防线:一个指向随便某个 git URL 的依赖,
+# 意味着构建产物取决于那个仓库当下的内容 —— 没有版本、没有 checksum、
+# 也没有 crates.io 的不可变性保证。
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish.workspace = true
 description = "Aura-lite safe shell scaffold with allowlisted tools and denied actions"
 
 [dependencies]

@@ -43,6 +43,18 @@ authors = ["AgentGuard Contributors"]
 # 装守卫之前先升级工具链;而不写这一行的效果更糟 —— 谁都不知道底线在哪,
 # 直到某个用户的 CI 炸掉。
 rust-version = "1.87"
+# **不发布到 crates.io。**
+#
+# 这不是洁癖。这 22 个 crate 叫的是 `guard-core`、`guard-schema` 这类通用名字,
+# 而 crates.io 上的版本是**不可撤销**的:一次手滑的 `cargo publish` 会把一个
+# rc 版本永久钉在那个名字上,而且从此任何人 `cargo add guard-core` 拿到的是
+# 这个项目的内部代码 —— 对一个安全产品,那是把内部实现细节和一个可被依赖的
+# 名字一起送出去。
+#
+# 这一行是被供应链门禁逼出来的:`cargo deny` 的 wildcard 检查对"可发布的 crate"
+# 不放行 path 依赖(crates.io 不允许 path 依赖),于是它把每个 crate 都报了一遍。
+# 那个报错指向的是真问题 —— 不该发布的东西没被标成不发布。
+publish = false
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
