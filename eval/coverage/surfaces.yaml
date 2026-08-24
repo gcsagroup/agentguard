@@ -214,6 +214,7 @@ surfaces:
       - app_impersonation_retry
       - app_identity_inherited_by_name
       - app_identity_forged_public_digest
+      - app_identity_pin_ride_after_signed
       - app_unattested_deeplink
       - app_no_signer_on_record
       - flow_clearance_needs_verified_app
@@ -244,6 +245,20 @@ surfaces:
       rule follows. `app_identity_forged_public_digest` and
       `benign_flow_verified_task_app` are the attack/control pair; the second
       declares `via_verified_adapter` and the first is byte-identical without it.
+
+      A third scenario, `app_identity_pin_ride_after_signed`, covers the **mixed**
+      sequence — one legitimately signed sighting followed by an unsigned event
+      claiming the same package. That was the hole in the first version of this fix,
+      found by an independent adversarial review: the downgrade changed the *computed*
+      identity while every consumer reads the *stored pin* (`app_identities`), and the
+      downgrade path early-returned before updating it. So one signed sighting
+      re-opened the hole for the rest of the session — in precisely the deployment
+      shape where the fix was supposed to matter. No scenario covered the mixed
+      sequence at the time: every scenario set `via_verified_adapter` on all
+      identity-bearing events or on none. The scenario asserts on a HIGH-tier data
+      flow rather than on the deeplink, because the deeplink sits in that app's own
+      allow-list either way — the privilege that actually leaked is the
+      `verified_names` entry.
 
       What keeps this `partial` rather than `covered` is the consequence: no shipped
       adapter signs yet, so in the shipped configuration **no app reaches

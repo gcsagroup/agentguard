@@ -755,6 +755,10 @@ impl Engine {
         // 它同时必须在环境调查那段之前 —— 那段是"适配器说的话"能移除已锁存风险的
         // 地方,读的也是 `self.adapter_identity`。
         self.adapter_identity = self.resolve_adapter_identity(event);
+        // 适配器冒充要报出来。在 `resolve_app_identity` 之前取,因为那之后
+        // `self.adapter_identity` 的值仍然一样,但把两件事挨着写更容易看出
+        // "应用身份的信任来自这个判断"。
+        let adapter_finding = self.adapter_impersonation_finding();
 
         let identity_finding = self.resolve_app_identity(event);
         // After identity, and separate from it: the appearance check needs to know which
@@ -780,6 +784,11 @@ impl Engine {
         // than dropped: on a severity tie the identity finding used to vanish from
         // both the rule id and the message, and from the audit record with it.
         let decision = match identity_finding {
+            Some(f) => merge_keeping_reason(decision, f),
+            None => decision,
+        };
+        // 适配器冒充也要并进来,而且和应用身份用同一套"合并而不短路"的纪律。
+        let decision = match adapter_finding {
             Some(f) => merge_keeping_reason(decision, f),
             None => decision,
         };
@@ -2469,6 +2478,64 @@ impl Engine {
         }
     }
 
+    /// 适配器**冒充**要报出来,不能只是静默地失败关闭。
+    ///
+    /// # 为什么这条以前是缺的
+    ///
+    /// `AdapterIdentity::is_impersonation()` 和 `rule_id()` 早就存在,后者还专门为
+    /// `ADAPTER-BAD-SIGNATURE` / `ADAPTER-REPLAY` /
+    /// `ADAPTER-PLATFORM-NOT-PERMITTED` 铸了规则 id,注释也写着"冒充值得报出来" ——
+    /// 但**引擎里没有任何一处为它们产出过判决**。整棵树里 `is_impersonation()`
+    /// 在适配器身上唯一的调用点是一条测试断言。
+    ///
+    /// 于是一个伪造伴生应用签名的攻击者会**失败关闭**(对),而且**无声无息**(不对)。
+    ///
+    /// 这件事在适配器身份只管环境调查锁存的时候已经不好,现在更要紧:适配器身份
+    /// 成了应用身份能否被信任的**唯一**闸门,所以一次针对它的攻击不该只留下一行
+    /// 藏在别人 explain 字符串里的 `carrier:`。
+    ///
+    /// # 为什么只报 `is_impersonation()` 那三种
+    ///
+    /// `Unsigned` 是常态(绝大多数事件都没签),`NoKeyOnRecord` 是配置缺口,
+    /// `Stale` 多半是时钟偏了。这些每个事件报一次就是噪音,而
+    /// "一个在正常路径上狂叫的守卫会被关掉"这句话这个项目已经付过学费。
+    /// 冒充不一样:它是**证据反对**这条断言的来源。
+    fn adapter_impersonation_finding(&self) -> Option<Decision> {
+        if !self.adapter_identity.is_impersonation() {
+            return None;
+        }
+        Some(Decision {
+            action: DecisionAction::Alert,
+            severity: Severity::High,
+            rule_id: self.adapter_identity.rule_id().into(),
+            human_message: self.adapter_identity.explain(),
+            // 不要求确认:这一条本身不阻止任何事(断言已经因为没验过而拿不到信任),
+            // 它是要让这次攻击**被看见**。把它升成 require_confirm 会让一次针对
+            // 适配器的攻击变成针对用户的骚扰。
+            require_confirm: false,
+        })
+    }
+
+    /// 应用身份钉子的**键**。
+    ///
+    /// 必须和 `KnownApp::owns_package` 用同一套归一化 —— 那边是
+    /// `trim().to_lowercase()` 的比较。两边不一致的后果不是"有点乱",而是一个洞:
+    ///
+    /// ```text
+    /// e1  package=com.example.booking      伪造摘要  -> APP-SIGNER-MISMATCH 锁存
+    /// e2  同样大小写                        正确摘要  -> APP-IDENTITY-CHANGED
+    /// e3  package=COM.EXAMPLE.BOOKING      公开摘要  -> 放行
+    /// ```
+    ///
+    /// 第三条走的是另一个键,于是它看到的 `previous` 是 `None` —— 那条 Critical
+    /// 锁存对它不存在。改一个字母的大小写就绕开了一次已经被证实的冒充。
+    /// `verified_names` 的剔除也是按原样大小写比的,所以那边同样漏。
+    ///
+    /// 这是一次独立对抗性复核找出来的,在适配器签名那批改动之前就存在。
+    fn identity_key(package: &str) -> String {
+        package.trim().to_lowercase()
+    }
+
     /// Resolve and remember the acting app's identity from its attestation.
     ///
     /// AgentScan's package-name forgery works because a package name is a string
@@ -2536,7 +2603,10 @@ impl Engine {
         };
         let requires_attestation = policy.require_attestation;
 
-        let previous = self.app_identities.get(&package).cloned();
+        let previous = self
+            .app_identities
+            .get(&Self::identity_key(&package))
+            .cloned();
         let mut finding = match &identity {
             AppIdentity::SignerMismatch { .. } | AppIdentity::NameMismatch { .. } => {
                 Some(Decision {
@@ -2563,10 +2633,16 @@ impl Engine {
                 // registered app — the shipped companion attests nothing, so
                 // ordinary use of a registered app produced a continuous alert
                 // stream. A guard that cries wolf on the normal path gets disabled.
+                // `AttestationUnverified` 必须在这张表里。漏掉它的后果是:这条路
+                // 现在是**常态**(已发布的部署里没有适配器会签),于是每个事件都会
+                // 重新报一次 Alert —— 而上面那段注释说的正是"一个在正常路径上狂叫的
+                // 守卫会被关掉"。这条是一次独立复核抓出来的,属于"引进新变体时漏了
+                // 一处枚举"那一类,和中途换签名者那次同一个形状。
                 let already_reported = matches!(
                     previous,
                     Some(AppIdentity::Unattested { .. })
                         | Some(AppIdentity::NoSignerOnRecord { .. })
+                        | Some(AppIdentity::AttestationUnverified { .. })
                 );
                 if already_reported {
                     None
@@ -2641,9 +2717,10 @@ impl Engine {
                     AppIdentity::Verified { .. } => {}
                     AppIdentity::SignerMismatch { .. } | AppIdentity::NameMismatch { .. } => {
                         self.app_identities
-                            .insert(package.clone(), identity.clone());
-                        self.verified_names
-                            .retain(|_, pkg| pkg.as_str() != package.as_str());
+                            .insert(Self::identity_key(&package), identity.clone());
+                        self.verified_names.retain(|_, pkg| {
+                            Self::identity_key(pkg) != Self::identity_key(&package)
+                        });
                         return Some(Decision {
                             action: DecisionAction::Block,
                             severity: Severity::Critical,
@@ -2655,7 +2732,41 @@ impl Engine {
                             require_confirm: true,
                         });
                     }
-                    // Keep the pin; report the gap at most once.
+                    // 钉子留不留,取决于**这个事件是谁送来的**。
+                    //
+                    // 上面那段注释解释了为什么"缺摘要"时要留:Android 11+ 的包可见性
+                    // 过滤会让 `getPackageInfo` 抛异常,把那个瞬态当成攻击,既会在
+                    // `--confirm deny` 下停掉会话,又等于给任何应用一个针对合法应用的
+                    // 拒绝服务手段 —— 声称它的包名、不带签名者就行。
+                    //
+                    // 那段推理成立的前提是**这个事件确实来自伴生应用** —— 它是真的,
+                    // 只是读不到证书。如果携带这条断言的适配器自己没验过,前提就不成立:
+                    // 我们没有任何证据说这个事件来自伴生应用。
+                    //
+                    // 所以按送来的人分:
+                    //
+                    //   - 已验证的适配器 + 缺摘要 → **留**钉子(就是上面那个瞬态)。
+                    //   - 未验证的适配器 → **降**钉子。任何拿到本机 API 令牌的调用方
+                    //     都能构造这种事件,留着钉子意味着它继承一次合法目击换来的特权 ——
+                    //     那正是上一轮那个修复本来要挡的东西,只不过漏在了"存下来的钉子"
+                    //     这一侧:降级改的是**计算**出来的身份,而消费者
+                    //     (decide_deeplink / check_app_lookalike / name_is_verified)
+                    //     读的全是钉子。这条是一次独立对抗性复核找出来的。
+                    //
+                    // 降级的代价是一个很轻、会自愈的拒绝服务:在适配器真的会签的部署里,
+                    // 伴生应用每个事件都签,下一个合法事件就把钉子重新钉上。
+                    // 用"继承特权"换"一次自愈的降级",方向是对的。
+                    _ if !self.adapter_identity.may_grant_trust() => {
+                        self.app_identities
+                            .insert(Self::identity_key(&package), identity.clone());
+                        // 按名字发的放行也要收回 —— 否则 `name_is_verified` 仍为真,
+                        // HIGH 档 sink 放行照旧生效。
+                        self.verified_names.retain(|_, pkg| {
+                            Self::identity_key(pkg) != Self::identity_key(&package)
+                        });
+                        return finding.take();
+                    }
+                    // 已验证的适配器,只是这次没给出摘要:留住钉子,最多报一次。
                     _ => return finding.take(),
                 }
             }
@@ -2665,7 +2776,8 @@ impl Engine {
             self.verified_names
                 .insert(name.to_lowercase(), package.clone());
         }
-        self.app_identities.insert(package, identity);
+        self.app_identities
+            .insert(Self::identity_key(&package), identity);
         finding
     }
 
@@ -3183,7 +3295,10 @@ impl Engine {
         // The *provenance* of the own-name travels with it. `AppIdentity::app_name()` alone
         // returns a name for `Unattested` too, so using it directly let a clone forge
         // `package=com.tencent.mm` and be excused by "its own" entry.
-        let identity = self.app_identities.get(package).cloned();
+        let identity = self
+            .app_identities
+            .get(&Self::identity_key(package))
+            .cloned();
         let own = match &identity {
             Some(guard_schema::AppIdentity::Verified { name, .. }) => OwnIdentity::Verified(name),
             Some(guard_schema::AppIdentity::Unattested { name, .. })
@@ -3296,7 +3411,7 @@ impl Engine {
 
     /// The identity resolved for a **package** this session, if any.    /// The identity resolved for a **package** this session, if any.
     pub fn app_identity(&self, package: &str) -> Option<&guard_schema::AppIdentity> {
-        self.app_identities.get(package)
+        self.app_identities.get(&Self::identity_key(package))
     }
 
     /// Whether a registry name has been legitimately claimed by a verified package
@@ -3368,7 +3483,7 @@ impl Engine {
             .get("package")
             .map(|p| p.trim())
             .filter(|p| !p.is_empty())
-            .and_then(|p| self.app_identities.get(p));
+            .and_then(|p| self.app_identities.get(&Self::identity_key(p)));
 
         match by_package {
             Some(id) if id.is_verified() => match policy.app_for(id) {
@@ -7406,6 +7521,207 @@ rules:
         }
     }
 
+    /// **伪造适配器签名要被看见,不能只是静默地失败关闭。**
+    ///
+    /// `is_impersonation()` 和 `rule_id()`(`ADAPTER-BAD-SIGNATURE` 等)早就存在,
+    /// 注释也写着"冒充值得报出来" —— 但引擎里没有任何一处为它们产出过判决。
+    /// 整棵树里 `is_impersonation()` 在适配器身上唯一的调用点是一条测试断言。
+    /// 一次独立对抗性复核指出了这一点。
+    #[test]
+    fn 适配器冒充会被报出来() {
+        let reg = guard_schema::AdapterRegistry::from_yaml_str(
+            "adapters:\n  - adapter_id: companion\n    key_algorithm: ed25519\n    public_key: \"11\"\n",
+        );
+        // 注册表可能因为公钥太短而加载失败 —— 那正好,这条测试不需要注册表:
+        // 直接用传输层注入一个冒充结论。
+        let _ = reg;
+        let mut e = Engine::new(empty_rules(), GuardContract::default());
+        let d = e
+            .process_from_adapter(
+                &event(EventType::UiTreeDelta, "Companion", &[("ui_text", "hello")]),
+                &guard_schema::AdapterIdentity::BadSignature {
+                    adapter_id: "companion".into(),
+                },
+            )
+            .unwrap();
+        assert!(
+            d.rule_id.contains("ADAPTER-BAD-SIGNATURE")
+                || d.human_message.contains("ADAPTER-BAD-SIGNATURE")
+                || d.human_message.contains("signature"),
+            "伪造的适配器签名没有在判决里留下任何痕迹:{} / {}",
+            d.rule_id,
+            d.human_message
+        );
+        assert_ne!(d.action, DecisionAction::Allow, "{d:?}");
+    }
+
+    /// 重放和平台不符也同样要报。
+    #[test]
+    fn 适配器重放和平台不符也会被报出来() {
+        for id in [
+            guard_schema::AdapterIdentity::Replayed {
+                adapter_id: "companion".into(),
+                event_id: "ev-1".into(),
+            },
+            guard_schema::AdapterIdentity::PlatformNotPermitted {
+                adapter_id: "companion".into(),
+                platform: "windows".into(),
+            },
+        ] {
+            let want = id.rule_id();
+            let mut e = Engine::new(empty_rules(), GuardContract::default());
+            let d = e
+                .process_from_adapter(
+                    &event(EventType::UiTreeDelta, "Companion", &[("ui_text", "x")]),
+                    &id,
+                )
+                .unwrap();
+            assert!(
+                d.rule_id == want
+                    || d.human_message.contains(want)
+                    || d.action != DecisionAction::Allow,
+                "{want} 没被报出来:{} / {}",
+                d.rule_id,
+                d.human_message
+            );
+        }
+    }
+
+    /// 但**未签名**不报 —— 那是常态,每个事件报一次就是噪音。
+    ///
+    /// 这条和上面两条一起构成那个区分:证据**反对**这条断言的来源时要报,
+    /// 单纯"没出示"时不报。一个在正常路径上狂叫的守卫会被关掉。
+    #[test]
+    fn 未签名的适配器不产生告警() {
+        let mut e = Engine::new(empty_rules(), GuardContract::default());
+        let d = e
+            .process(&event(EventType::UiTreeDelta, "App", &[("ui_text", "x")]))
+            .unwrap();
+        assert!(
+            !d.rule_id.starts_with("ADAPTER-"),
+            "未签名事件报了适配器告警:{}",
+            d.rule_id
+        );
+    }
+
+    /// **改一个字母的大小写不能绕开一次已证实的冒充。**
+    ///
+    /// 身份钉子的键以前用的是原样大小写的包名,而 `KnownApp::owns_package` 是
+    /// 大小写不敏感地匹配的。两边不一致 ⇒ `COM.EXAMPLE.BOOKING` 走另一个键,
+    /// 于是它看到的 `previous` 是 `None`,那条已经锁存的 Critical
+    /// (APP-SIGNER-MISMATCH)对它不存在。
+    ///
+    /// 这条在适配器签名那批改动**之前**就存在,是一次独立对抗性复核找出来的。
+    #[test]
+    fn 包名大小写不能绕开已锁存的冒充() {
+        let mut e = identity_engine(false);
+        let 深链 = |pkg: &str, sig: &str| {
+            event(
+                EventType::Deeplink,
+                "Booking",
+                &[
+                    ("package", pkg),
+                    ("signer_sha256", sig),
+                    ("uri", "booking://reserve"),
+                ],
+            )
+        };
+
+        // 一次被证实的冒充:包名对得上,签名者不对。
+        let d1 = e.process(&深链("com.example.booking", SIG_OTHER)).unwrap();
+        assert_eq!(d1.rule_id, "APP-SIGNER-MISMATCH");
+        assert_eq!(d1.action, DecisionAction::Block);
+
+        // 同一个包,只把大小写换掉,带正确摘要,而且**走已验证的适配器** ——
+        // 也就是在其它一切条件都满足、本来会判成 Verified 的情况下。
+        //
+        // 走已验证适配器这一步是必需的:如果走裸 `process`,降级机制会把它打成
+        // `AttestationUnverified`,于是这条测试即便在没有归一化的情况下也会绿 ——
+        // 一个修复掩盖了另一个洞。第一版就是这么写的,变异测试当场发现它不会红。
+        let d2 = e
+            .process_from_adapter(
+                &深链("COM.EXAMPLE.BOOKING", SIG_BOOKING),
+                &attested_adapter(),
+            )
+            .unwrap();
+        assert_ne!(
+            d2.action,
+            DecisionAction::Allow,
+            "换个大小写就绕过了已锁存的冒充:{} / {}",
+            d2.rule_id,
+            d2.human_message
+        );
+        // 而且不能因此被判成已验证 —— 那会把特权连本带利还给它。
+        assert!(
+            !e.app_identity("COM.EXAMPLE.BOOKING")
+                .map(|i| i.is_verified())
+                .unwrap_or(false),
+            "换大小写换来了 Verified"
+        );
+        assert!(!e.name_is_verified("Booking"));
+    }
+
+    /// **一次已签名的目击,不能让后面的未签名事件继承特权。**
+    ///
+    /// 这是上一轮那个修复的漏口,由一次独立的对抗性复核找出来的:降级发生在
+    /// **计算**身份的地方,而所有消费者读的是**存下来的钉子**
+    /// (`app_identities`)。降级那条路走的是 `_ => return finding.take()` 早返回,
+    /// 于是 `app_identities.insert` 根本没执行,钉子上仍然是 `Verified`。
+    ///
+    /// 后果:只要该包有过**一次**由已验证适配器送来的事件,后续任何未签名事件
+    /// 都能拿到那个钉子的特权 —— 也就是在唯一一个"修复本来有意义"的部署形态
+    /// (适配器真的会签)里,修复被绕过了。
+    ///
+    /// 更要紧的是:钉子存在的正当理由是**发现换人**,不是**授予特权**。
+    /// 这两件事被同一个字段承担着,所以特权授予读到了历史。
+    #[test]
+    fn 一次已签名目击不让后续未签名事件继承特权() {
+        let ev = |带摘要: bool| {
+            let mut m = vec![
+                ("package", "com.example.booking"),
+                ("uri", "booking://reserve"),
+            ];
+            if 带摘要 {
+                m.push(("signer_sha256", SIG_BOOKING));
+            }
+            event(EventType::Deeplink, "Booking", &m)
+        };
+
+        for 带摘要 in [true, false] {
+            let mut e = identity_engine(true);
+            // 一次合法的、由已验证适配器送来的目击。
+            e.process_from_adapter(&ev(true), &attested_adapter())
+                .unwrap();
+            assert!(
+                e.app_identity("com.example.booking").unwrap().is_verified(),
+                "合法路径本身应该能钉上 Verified"
+            );
+
+            // 同一个包,这次没有任何适配器背书 —— 任何拿到本机 API 令牌的调用方
+            // 都做得到。带不带那串**公开**摘要都一样。
+            e.process(&ev(带摘要)).unwrap();
+
+            // 断言钉在**消费者真正读的东西**上,不是合并后的 action。
+            //
+            // 这一点我自己先栽了一次:第一版只断言 `d.action != Allow`,而它过了 ——
+            // 因为合并出来的是 APP-UNATTESTED 的 Alert,而那条 Alert 的消息里
+            // 嵌着 `[ALLOW: Allowed]`,深链本身是放行的。合并后的严重度掩盖了
+            // 里面那次授权。
+            let pin = e.app_identity("com.example.booking").unwrap();
+            assert!(
+                !pin.is_verified(),
+                "带摘要={带摘要}:未签名事件之后,钉子上还是 Verified —— \
+                 降级只改了**计算**出来的身份,没改**存下来**的那个,\
+                 而 decide_deeplink / check_app_lookalike / name_is_verified 读的都是后者"
+            );
+            assert!(
+                !e.name_is_verified("Booking"),
+                "带摘要={带摘要}:verified_names 里还留着 Booking —— \
+                 按名字发的 HIGH 档放行会继续生效"
+            );
+        }
+    }
+
     /// **这一轮补的洞。** 一个正确的应用签名摘要,如果不是由已验证的适配器送来的,
     /// 不能把应用判成 `Verified`。
     ///
@@ -7676,15 +7992,29 @@ rules:
             &attested_adapter(),
         )
         .unwrap();
+        // 缺摘要的那个事件也走**已验证的适配器**。
+        //
+        // 这一处是被 F1 的修复改过的,而改的是测试建模、不是断言强度。这条测试要
+        // 描述的场景是 Android 11+ 的包可见性瞬态:`getPackageInfo` 抛异常,
+        // **伴生应用是真的**,只是读不到证书。既然伴生应用是真的,它这条断言就是
+        // 签过的 —— 它每一条中继信封都签。
+        //
+        // 原来这里走的是裸 `process()`,也就是"没有任何证据表明这个事件来自伴生
+        // 应用"。那个形状和"任何拿到本机 API 令牌的调用方伪造一条"分辨不出来,
+        // 而在那个形状下留住 Verified 钉子,就是 F1 那个洞:一次合法目击之后,
+        // 后续未签名事件继承它的特权。
         let d = e
-            .process(&event(
-                EventType::Deeplink,
-                "Booking",
-                &[
-                    ("package", "com.example.booking"),
-                    ("uri", "booking://reserve"),
-                ],
-            ))
+            .process_from_adapter(
+                &event(
+                    EventType::Deeplink,
+                    "Booking",
+                    &[
+                        ("package", "com.example.booking"),
+                        ("uri", "booking://reserve"),
+                    ],
+                ),
+                &attested_adapter(),
+            )
             .unwrap();
         // `LogOnly`, not `Allow`: the identity finding is reported rather than swallowed. This
         // assertion said `Allow` while `worse_of` ranked a bare ALLOW above a named `LogOnly`

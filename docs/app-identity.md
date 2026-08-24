@@ -24,6 +24,7 @@ An app's identity is now its **signing certificate**.
 | `Unattested` | registered package, no digest supplied | `APP-UNATTESTED`, once per app; privilege withheld only under `require_attestation` |
 | `NoSignerOnRecord` | registered package, entry lists no signers | same — a registry gap, reported as one |
 | `Unregistered` | not in the registry | no privileges to inherit; stays quiet |
+| `AttestationUnverified` | digest matched, but the assertion arrived through an **unverified adapter** | `APP-UNATTESTED`, once per app; still held to that app's own allow-list, inherits **none** of its privileges |
 
 `identify` resolves **only** by package and signer. A presented display name is
 checked *against* the registry (`identify_as`), never used to look anything up —
@@ -195,18 +196,50 @@ filtering makes `getPackageInfo` throw `NameNotFoundException` for apps the
 companion cannot see — indistinguishable from "not installed" if it were swallowed.
 `Unreadable` becomes `APP-UNATTESTED`, never `Verified` and never silently clean.
 
-### The boundary that remains
+### The boundary — now enforced, not just documented
 
-**The digest is only as good as the adapter that produced it.** The Rust engine
-reads `signer_sha256` off the event, so:
+**The digest is only as good as the adapter that produced it.**
 
 - an adapter that queries the OS (Android's `AppAttestor`) genuinely moves the
   trust boundary — the agent cannot forge a `PackageManager` answer;
 - an adapter that forwards a digest the agent handed it gains **nothing at all**.
   It is worth exactly as much as the package name was.
 
-This is why `agentscan-package-forgery` is `partial` rather than `covered` in the
-coverage matrix, alongside the two platforms with no attestation at all.
+This section used to end there, and that was the bug. It described the boundary
+and left it open: the engine read `signer_sha256` off the event and could not tell
+the two kinds of adapter apart. App signing digests are **public**
+(`apksigner verify --print-certs`, `codesign -dv`) — an identifier, not a secret —
+so anyone holding the local API token could present a correct one. Package-name
+forgery had simply moved one level up, from "pick any package name" to "pick a
+digest anyone can look up".
+
+The engine now refuses to reach `Verified` unless the assertion arrived through a
+verified adapter (`AdapterIdentity::may_grant_trust`). Three consequences, each of
+which had to be got right separately:
+
+1. **The downgrade must reach the stored pin, not just the computed identity.**
+   `app_identities` is what every consumer reads (`decide_deeplink`,
+   `check_app_lookalike`, `name_is_verified`). The first version of this fix
+   downgraded the computed value and early-returned before updating the pin, so a
+   single signed sighting left a `Verified` pin that every later unsigned event
+   inherited. An unsigned carrier now degrades the pin and prunes `verified_names`.
+   A **verified** carrier that merely omits the digest still keeps the pin — that
+   is the Android 11+ package-visibility transient, and the DoS reasoning for
+   keeping it holds only when we know the event came from the companion.
+2. **Evidence *against* an identity is unaffected by the carrier.**
+   `SignerMismatch` / `NameMismatch` are never downgraded, and the mid-session
+   signer-change latch uses `had_matching_digest()` (true for both `Verified` and
+   `AttestationUnverified`) rather than `is_verified()`. Getting this wrong once
+   silently disabled change detection; the eval corpus caught it.
+3. **Adapter impersonation is reported.** `ADAPTER-BAD-SIGNATURE`,
+   `ADAPTER-REPLAY` and `ADAPTER-PLATFORM-NOT-PERMITTED` existed as rule ids that
+   no code path ever emitted. Now that adapter identity is the sole gate on app
+   trust, an attack on it failing closed *and silently* was not good enough.
+
+`agentscan-package-forgery` stays `partial` rather than `covered`, but for a
+different reason than before: no shipped adapter signs, so in the shipped
+configuration **no app reaches `Verified` at all**. That is a functional cost, not
+a hole, and `preflight` reports it as `adapter.keys.absent`.
 
 ## The shipped digests are fixtures
 
