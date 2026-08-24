@@ -1,0 +1,39 @@
+[package]
+name = "guard-audit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Local SQLite audit log and session summaries for AgentGuard"
+
+[features]
+default = ["sqlite-bundled"]
+## Plain bundled SQLite (no at-rest encryption).
+sqlite-bundled = ["rusqlite/bundled"]
+## SQLCipher at-rest encryption. Build with:
+##   cargo test -p guard-audit --no-default-features --features sqlcipher
+## On macOS, bundled-sqlcipher links Apple Security framework for crypto.
+sqlcipher = ["rusqlite/bundled-sqlcipher"]
+## Alias for release desktop builds that want encryption.
+release-secure = ["sqlcipher"]
+
+[dependencies]
+guard-schema = { workspace = true }
+guard-privacy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+rusqlite = { workspace = true }
+uuid = { workspace = true }
+sha2 = "0.10"
+hex = "0.4"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+# 适配器签名可能是 ECDSA P-256 —— 见 signing.rs 的 AdapterVerifyKey:
+# Android 的 minSdk 26 上 java.security 没有 Ed25519(要 API 33),
+# 而 P-256 从 API 1 就有,还能走 Android Keystore 让私钥留在 TEE 里。
+p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std", "pkcs8"] }
+rand = "0.8"
+
+[dev-dependencies]
+tempfile = "3"

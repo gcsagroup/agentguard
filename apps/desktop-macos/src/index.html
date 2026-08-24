@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AgentGuard macOS</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+  <body>
+    <main class="layout">
+      <header>
+        <div>
+          <h1>AgentGuard</h1>
+          <p class="subtitle">macOS Menu Bar · Phase 2</p>
+        </div>
+        <div class="header-actions">
+          <label class="locale-picker">
+            <span data-i18n="language.label">Language</span>
+            <select id="locale-select">
+              <option value="system" data-i18n="language.system">System</option>
+              <option value="en" data-i18n="language.en">English</option>
+              <option value="zh-Hans" data-i18n="language.zhHans">简体中文</option>
+              <option value="zh-Hant" data-i18n="language.zhHant">繁體中文</option>
+            </select>
+          </label>
+          <div id="status-pill" class="pill idle" data-i18n="status.idle">Idle</div>
+        </div>
+      </header>
+
+      <section id="coverage-banner" class="card coverage sim" role="status">
+        <strong id="coverage-title" data-i18n="coverage.checking">Protection coverage: checking…</strong>
+        <ul id="coverage-lines" class="tcc-list"></ul>
+      </section>
+
+      <section id="tcc-panel" class="card tcc">
+        <h2 data-i18n="tcc.title">Permission setup (TCC)</h2>
+        <p class="muted" data-i18n="tcc.description">Without permission, only simulation and extension protection are active.</p>
+        <ul id="tcc-hints" class="tcc-list"></ul>
+        <div class="btn-row">
+          <button id="btn-tcc" data-i18n="tcc.probe">Check permissions</button>
+          <button id="btn-reload-intel" class="secondary" data-i18n="intel.reload">Reload threat intel</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2 data-i18n="guard.title">Guard controls</h2>
+          <!--
+            Aura §4.4: naming the task is what selects its plan, and with it the session's resource
+            ceiling. Left blank the session is unscoped, exactly as before — but the field exists, so
+            the shell is no longer structurally unable to say what it was asked to do. The options
+            are the profiles in policies/task-plans.yaml that carry a `scope:`.
+          -->
+          <label class="task-profile">
+            <span data-i18n="guard.task">Task</span>
+            <select id="task-profile">
+              <option value="" data-i18n="guard.taskNone">(unscoped)</option>
+              <option value="book_hotel">book_hotel</option>
+              <option value="order_food">order_food</option>
+              <option value="navigation_jump">navigation_jump</option>
+              <option value="preference_save">preference_save</option>
+            </select>
+          </label>
+          <div class="btn-row">
+            <button id="btn-start" data-i18n="guard.start">Start session</button>
+            <button id="btn-end" class="secondary" data-i18n="guard.end">End session</button>
+            <button id="btn-resume" class="secondary" data-i18n="guard.resume">Resume</button>
+          </div>
+          <label class="check" id="auto-approve-row">
+            <input type="checkbox" id="auto-approve" />
+            <span data-i18n="guard.autoApprove">Auto-approve critical confirmations (debug builds only)</span>
+          </label>
+          <h3 class="subhead" data-i18n="ax.title">Accessibility (live AX)</h3>
+          <p class="muted small" data-i18n="ax.description">Requires Accessibility permission.</p>
+          <div class="btn-row wrap">
+            <button id="btn-ax-probe" class="secondary" data-i18n="ax.probe">Probe AX</button>
+            <button id="btn-ax-poll" data-i18n="ax.poll">Capture frontmost AX</button>
+            <button id="btn-ax-auto" class="secondary" data-i18n="ax.auto">Auto-poll AX</button>
+          </div>
+          <h3 class="subhead">ScreenCaptureKit</h3>
+          <p class="muted small" data-i18n="sck.description">Requires Screen Recording permission.</p>
+          <div class="btn-row wrap">
+            <button id="btn-sck-probe" class="secondary" data-i18n="sck.probe">Probe SCK</button>
+            <button id="btn-sck-start" data-i18n="sck.start">Start capture</button>
+            <button id="btn-sck-stop" class="secondary" data-i18n="sck.stop">Stop</button>
+            <button id="btn-sck-poll" class="secondary" data-i18n="sck.poll">Poll frames</button>
+          </div>
+          <p id="caps" class="muted"></p>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="threat.title">Simulate threats</h2>
+          <div class="btn-row wrap">
+            <button data-threat="payment" data-i18n="threat.payment">Payment confirmation</button>
+            <button data-threat="fm" class="secondary" data-i18n="threat.fm">Optional PII</button>
+            <button data-threat="trap" class="secondary" data-i18n="threat.trap">Privacy trap</button>
+            <button data-threat="overlay" class="secondary" data-i18n="threat.overlay">Transparent overlay</button>
+            <button data-threat="inject" class="secondary" data-i18n="threat.inject">Intel injection</button>
+            <button data-threat="domain" class="secondary" data-i18n="threat.domain">Malicious domain</button>
+            <button data-threat="capture" class="secondary" data-i18n="threat.capture">Overlay frame</button>
+            <button data-threat="netmon" class="secondary" data-i18n="threat.netmon">Exfiltration monitor</button>
+          </div>
+          <div class="btn-row wrap">
+            <button id="btn-sync-policy" class="secondary" data-i18n="policy.sync">Sync enterprise policy</button>
+          </div>
+          <ul id="decisions" class="log"></ul>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row-between">
+          <h2 data-i18n="audit.title">Audit timeline</h2>
+          <div class="btn-row">
+            <button id="btn-export-report" class="secondary" data-i18n="audit.export">Export summary</button>
+            <button id="btn-refresh" class="secondary" data-i18n="common.refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </section>
+    </main>
+
+    <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <h2 data-i18n="confirm.title">High-risk action confirmation</h2>
+        <p id="confirm-msg"></p>
+        <p class="meta" id="confirm-meta"></p>
+        <div class="btn-row">
+          <button id="confirm-deny" class="danger" data-i18n="confirm.deny">Deny and pause</button>
+          <button id="confirm-approve" data-i18n="confirm.approve">Allow once</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

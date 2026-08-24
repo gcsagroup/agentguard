@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">在 AgentGuard 会话期间观察界面节点，并将检测结果序列化为 JSON。</string>
+    <string name="notification_channel_name">AgentGuard 会话</string>
+    <string name="notification_title">AgentGuard 会话运行中</string>
+    <string name="notification_text">正在监控辅助功能事件</string>
+    <string name="app_title">AgentGuard 移动伴侣</string>
+    <string name="session_active">会话：%1$s</string>
+    <string name="session_inactive">没有活动会话</string>
+    <string name="events_path">事件：%1$s</string>
+    <string name="start_session">开始守护会话</string>
+    <string name="stop_session">停止守护会话</string>
+    <string name="refresh_risk">刷新最近风险</string>
+    <string name="open_accessibility">打开辅助功能设置</string>
+    <string name="relay_on">桌面转发：已开启</string>
+    <string name="relay_off">桌面转发：已关闭</string>
+    <string name="desktop_api_url">桌面 API 地址</string>
+    <string name="bearer_token">Bearer 令牌（来自桌面 CLI）</string>
+    <string name="relay_help">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <string name="last_risk_none">最近风险：无</string>
+    <string name="last_risk">最近风险：%1$s — %2$s</string>
+    <string name="last_risk_raw">最近风险：%1$s</string>
+    <string name="language_system">语言：跟随系统</string>
+    <string name="language_en">语言：English</string>
+    <string name="language_zh_hans">语言：简体中文</string>
+    <string name="language_zh_hant">语言：繁體中文</string>
+    <string name="risk_trap">已填写隐私陷阱字段：%1$s</string>
+    <string name="risk_optional_pii">已填写非必要个人信息：%1$s</string>
+    <string name="risk_payment">检测到支付确认</string>
+    <string name="risk_transfer">检测到资金转账</string>
+    <string name="risk_trap_widget">检测到隐私陷阱控件</string>
+    <string name="risk_overlay">检测到浮层或提示词注入标记</string>
+    <string name="risk_engine_confirm">守护引擎要求确认此操作</string>
+    <string name="task_profile_label">任务名（留空 = 不限定范围）</string>
+    <string name="relay_offline">中继未连上引擎：%1$s</string>
+    <string name="relay_connected">中继已连上引擎</string>
+    <string name="notif_permission_rationale">需要确认时是靠通知找到你的。不给通知权限，被拦下的操作只会写进日志。</string>
+    <string name="risk_deeplink">检测到可疑深层链接</string>
+    <string name="risk_broadcast_input_sink">另一个应用（%1$s）正在监听智能体的文本输入广播 — 键入的所有内容都可被读取</string>
+    <string name="risk_foreign_a11y">另一个无障碍服务（%1$s）已启用，可读取键入文本（含密码）</string>
+    <string name="env_clean">环境：没有可见应用监听输入广播，也没有其他无障碍服务被启用</string>
+    <string name="env_risk">环境风险：%1$s</string>
+    <string name="env_unknown">环境检查不可用（%1$s）</string>
+    <string name="show_adapter_key">显示适配器公钥</string>
+    <string name="adapter_key_help">把它填到 policies/adapter-registry.yaml 里 adapter_id: android-companion 那张卡上,并写 key_algorithm: ecdsa-p256。不填的话桌面会把这个伴生应用的调查当成未签名:可以增加风险,但清不掉风险。</string>
+</resources>

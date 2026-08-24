@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AgentGuard</title>
+    <style>
+      body {
+        font-family: system-ui, "PingFang SC", sans-serif;
+        margin: 0;
+        padding: 12px;
+        width: 320px;
+        background: #0f1419;
+        color: #e8eef7;
+      }
+      h1 { font-size: 14px; margin: 0 0 8px; }
+      .row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+      select { margin-left: auto; background: #182230; color: #e8eef7; border: 1px solid #33465f; border-radius: 6px; padding: 3px 5px; }
+      .muted { color: #8fa3bf; font-size: 12px; }
+      ul { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow: auto; }
+      li {
+        background: #182230;
+        border-radius: 8px;
+        padding: 8px;
+        margin-bottom: 6px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <h1 data-i18n="extensionName">AgentGuard Web Shield</h1>
+      <select id="locale">
+        <option value="system" data-i18n="system">System</option>
+        <option value="en" data-i18n="english">English</option>
+        <option value="zh_CN" data-i18n="simplifiedChinese">简体中文</option>
+        <option value="zh_TW" data-i18n="traditionalChinese">繁體中文</option>
+      </select>
+    </div>
+    <div class="row">
+      <input type="checkbox" id="native" />
+      <label for="native" data-i18n="nativeForward">Forward to desktop (Native Messaging)</label>
+    </div>
+    <p class="muted" id="hint" data-i18n="recentDetections">Recent detections</p>
+    <ul id="list"></ul>
+    <script src="popup.js"></script>
+  </body>
+</html>

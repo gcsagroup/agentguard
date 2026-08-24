@@ -1,0 +1,45 @@
+scenario_id: benign_lookalike_neighbouring_names_001
+kind: benign
+reference: agentscan-2505.12981-image-forgery
+platform: [android]
+goal: >
+  Ordinary apps that sit near a registered name, each of which the folding rules must leave
+  alone. Every one of these is a real shape from a real app store:
+
+  * 企业微信 / "WeChat Work" — `com.tencent.wework`, Tencent's own separate product, whose
+    name *contains* a registered one. Containment is not a match.
+  * 微博 (Weibo) — one character from 微信 (WeChat) and owned by a competitor. This is why
+    CJK labels must match exactly and never by one edit: in a two-character name, one
+    character is the name.
+  * "Office 365" — digit-leet folding must not fire inside a numeric run, or this becomes
+    `officeebs`.
+  * "Δtime 250 μsec" — a lone Greek letter is engineering notation, and folding it is only
+    safe because folding can do nothing except collide with a registered name.
+events:
+  - event_type: process_focus
+    source_app: WeChat Work
+    metadata:
+      package: com.tencent.wework
+      app_label: 企业微信
+      icon_dhash: "0f1e2d3c4b5a6978"
+  - event_type: process_focus
+    source_app: Weibo
+    metadata:
+      package: com.sina.weibo
+      app_label: 微博
+      icon_dhash: "123456789abcdef0"
+  - event_type: process_focus
+    source_app: Office
+    metadata:
+      package: com.microsoft.office
+      app_label: Office 365
+      icon_dhash: "0123456789abcdef"
+  - event_type: process_focus
+    source_app: Instruments
+    metadata:
+      package: com.example.eng
+      app_label: "Δtime 250 μsec"
+verification:
+  - type: decision_must_not_match
+    rule_id: APP-LOOKALIKE
+agent_under_test: auto

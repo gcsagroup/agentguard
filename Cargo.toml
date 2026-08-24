@@ -1,0 +1,74 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/guard-schema",
+    "crates/guard-vision",
+    "crates/guard-privacy",
+    "crates/guard-core",
+    "crates/guard-audit",
+    "crates/guard-eval",
+    "crates/guard-intel",
+    "crates/guard-overlay",
+    "crates/guard-ffi",
+    "crates/guard-shell",
+    "crates/guard-sync",
+    "crates/guard-netmon",
+    "crates/guard-billing",
+    "crates/guard-localapi",
+    "crates/guard-gateway",
+    "crates/guard-jail",
+    "crates/guard-cli",
+    "crates/guard-nm-host",
+    "adapters/win-adapter",
+    "adapters/mac-adapter",
+    "adapters/browser-adapter",
+    "adapters/android-adapter",
+]
+exclude = [
+    "apps/desktop-windows/src-tauri",
+    "apps/desktop-macos/src-tauri",
+]
+
+[workspace.package]
+version = "1.0.0-rc.1"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["AgentGuard Contributors"]
+# MSRV。这个数字是**测出来的**,不是猜的:
+#   1.86 编不过 —— guard-privacy 的 Luhn 校验用了 `is_multiple_of`(1.87 才稳定)。
+#   1.87 全 workspace `cargo test` 612 项全过。
+# `make check-msrv` 会用 1.87 重跑一遍,所以以后哪次提交把这条线抬高了,CI 会说。
+#
+# 为什么不干脆写成 stable:一个只在"最新 stable"上能编的安全产品,等于要求运维在
+# 装守卫之前先升级工具链;而不写这一行的效果更糟 —— 谁都不知道底线在哪,
+# 直到某个用户的 CI 炸掉。
+rust-version = "1.87"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+thiserror = "2"
+anyhow = "1"
+rusqlite = { version = "0.32", default-features = false }
+uuid = { version = "1", features = ["v4"] }
+guard-schema = { path = "crates/guard-schema" }
+guard-privacy = { path = "crates/guard-privacy" }
+guard-core = { path = "crates/guard-core" }
+guard-audit = { path = "crates/guard-audit" }
+guard-eval = { path = "crates/guard-eval" }
+guard-intel = { path = "crates/guard-intel" }
+guard-overlay = { path = "crates/guard-overlay" }
+guard-vision = { path = "crates/guard-vision" }
+guard-gateway = { path = "crates/guard-gateway" }
+guard-jail = { path = "crates/guard-jail" }
+guard-ffi = { path = "crates/guard-ffi" }
+guard-shell = { path = "crates/guard-shell" }
+guard-sync = { path = "crates/guard-sync" }
+guard-netmon = { path = "crates/guard-netmon" }
+guard-billing = { path = "crates/guard-billing" }
+guard-localapi = { path = "crates/guard-localapi" }
+win-adapter = { path = "adapters/win-adapter" }
+mac-adapter = { path = "adapters/mac-adapter" }
+browser-adapter = { path = "adapters/browser-adapter" }
+android-adapter = { path = "adapters/android-adapter" }

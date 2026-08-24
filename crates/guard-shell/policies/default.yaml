@@ -1,0 +1,41 @@
+policy_id: aura-lite-default
+version: "1.0"
+
+# Tools the agent may invoke without extra scrutiny.
+allowlisted_tools:
+  - read_file
+  - list_dir
+  - grep
+  - search
+  - web_fetch
+
+# Actions always denied (payment, transfer, install, etc.).
+denied_actions:
+  - payment
+  - transfer
+  - install
+  - uninstall
+  - delete_system
+  - exec_sudo
+  - send_money
+  - wire_transfer
+
+# Actions that require user confirmation before proceeding.
+require_confirm:
+  - write_file
+  - run_terminal
+  - network_request
+  - send_email
+  - modify_config
+
+# (A)I Sees A7 (arXiv 2607.00333 §IV-C): reject shell-interpolation constructs
+# (`;` `|` backtick `$(` `&&` redirection …) in tool operands. Keep this on
+# unless the host provably execs an argv vector with no shell involved.
+deny_shell_metacharacters: true
+
+# Tools whose operands are URLs, where `&`/`?` are query syntax rather than
+# shell operators. The exemption applies only to operands that really are URLs.
+url_arg_tools:
+  - web_fetch
+  - browser
+  - open_url

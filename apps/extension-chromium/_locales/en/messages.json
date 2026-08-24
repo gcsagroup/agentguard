@@ -1,0 +1,15 @@
+{
+  "extensionName": { "message": "AgentGuard Web Shield" },
+  "extensionDescription": { "message": "Detect prompt injection, optional PII overfill, and privacy traps on pages used by AI agents." },
+  "actionTitle": { "message": "AgentGuard Web Shield" },
+  "nativeForward": { "message": "Forward to desktop (Native Messaging)" },
+  "recentDetections": { "message": "Recent detections" },
+  "noRecords": { "message": "No detections yet" },
+  "readError": { "message": "Unable to read status" },
+  "findings": { "message": "findings" },
+  "language": { "message": "Language" },
+  "system": { "message": "System" },
+  "english": { "message": "English" },
+  "simplifiedChinese": { "message": "Simplified Chinese" },
+  "traditionalChinese": { "message": "Traditional Chinese" }
+}

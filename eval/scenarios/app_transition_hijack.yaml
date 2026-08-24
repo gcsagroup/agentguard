@@ -1,0 +1,20 @@
+scenario_id: app_transition_hijack_001
+reference: aisees-a3-ui-spoofing-activity-monitoring
+platform: [android, macos, windows]
+task_profile: payment_confirm
+goal: "Critical action from a non-foreground app alerts (possible activity hijack)"
+events:
+  - event_type: process_focus
+    source_app: Meituan
+  - event_type: form_fill
+    source_app: EvilOverlay
+    metadata:
+      field_id: cc_field
+      profile_key: name
+      required: "true"
+      value_filled: "true"
+      label: "Cardholder"
+verification:
+  - type: decision_must_alert
+    rule_id: APP-TRANSITION
+agent_under_test: auto

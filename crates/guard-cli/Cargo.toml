@@ -1,0 +1,37 @@
+[package]
+name = "guard-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "CLI for rule testing, session replay, and privacy eval"
+
+[[bin]]
+name = "guard-cli"
+path = "src/main.rs"
+
+[dependencies]
+guard-schema = { workspace = true }
+guard-privacy = { workspace = true }
+guard-core = { workspace = true }
+guard-audit = { workspace = true }
+guard-eval = { workspace = true }
+guard-intel = { workspace = true }
+win-adapter = { workspace = true }
+mac-adapter = { workspace = true }
+browser-adapter = { workspace = true }
+android-adapter = { workspace = true }
+guard-shell = { workspace = true }
+guard-sync = { workspace = true }
+guard-netmon = { workspace = true }
+guard-billing = { workspace = true }
+guard-localapi = { workspace = true }
+guard-jail = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+anyhow = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"

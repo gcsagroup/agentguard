@@ -1,0 +1,21 @@
+[package]
+name = "mac-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "macOS adapter (AX / ScreenCaptureKit bridge + simulation)"
+
+[dependencies]
+guard-schema = { workspace = true }
+guard-privacy = { workspace = true }
+guard-overlay = { path = "../../crates/guard-overlay" }
+guard-vision = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+win-adapter = { workspace = true }
+
+[build-dependencies]
+cc = "1"

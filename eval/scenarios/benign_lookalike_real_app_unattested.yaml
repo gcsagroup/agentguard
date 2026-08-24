@@ -1,0 +1,34 @@
+scenario_id: benign_lookalike_real_app_unattested_001
+kind: benign
+reference: agentscan-2505.12981-image-forgery
+platform: [android]
+goal: >
+  The false positive that would have made this check unshippable, and the reason
+  `Appearance::resolve` takes the package's *own* registered name as an argument.
+
+  This is the real WeChat: `com.tencent.mm`, its own label, its own icon — with no signer
+  digest, because Android 11+ package visibility makes `getPackageInfo` throw for any package
+  outside the companion's `<queries>` list. That is the *ordinary* case on a real device. An
+  appearance-only rule would report the genuine app as a Critical lookalike of itself and
+  block it, which is exactly the failure mode `APP-UNATTESTED` was carefully built to avoid
+  in iteration 13.
+
+  A missing attestation is a reason to report, never a reason to accuse.
+events:
+  - event_type: process_focus
+    source_app: 微信
+    metadata:
+      package: com.tencent.mm
+      app_label: 微信
+      icon_dhash: "3333333333333333"
+  - event_type: ui_tree_delta
+    source_app: 微信
+    metadata:
+      package: com.tencent.mm
+      app_label: 微信
+      icon_dhash: "3333333333333333"
+      ui_text: "聊天"
+verification:
+  - type: decision_must_not_match
+    rule_id: APP-LOOKALIKE
+agent_under_test: auto

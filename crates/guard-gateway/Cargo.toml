@@ -1,0 +1,33 @@
+[package]
+name = "guard-gateway"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "协作式工具网关：智能体调它而不是调原始工具，于是判决可以变成拒绝执行"
+
+[[bin]]
+name = "agentguard-mcp"
+path = "src/bin/agentguard_mcp.rs"
+
+[dependencies]
+guard-schema = { workspace = true }
+guard-shell = { workspace = true }
+guard-core = { workspace = true }
+# `default-features = false` 删掉了。
+#
+# 它一直是个空操作:guard-audit 是通过 [workspace.dependencies] 引的,而那里没写
+# default-features,所以 cargo 直接忽略这个键 —— 并且警告说以后可能变成硬错误。
+#
+# 保留它的"意图"也没意义:整个 workspace 共用一次特性解析,guard-core 引 guard-audit
+# 时是带默认特性的,所以 sqlite-bundled 无论如何都是开的。要真的关掉,得改
+# [workspace.dependencies] —— 那会影响每一个成员,是另一件事(见 make test-sqlcipher)。
+guard-audit = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tiny_http = "0.12"
+
+[dev-dependencies]
+serde_yaml = { workspace = true }

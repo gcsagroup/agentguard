@@ -1,0 +1,193 @@
+# Task plan library for trajectory alignment (Aura §4.3.2).
+#
+# The agent names a task (`task_profile` on agent_session_start); this file says
+# what that task is permitted to do. The plan is deliberately *not* something the
+# agent supplies — a plan the agent wrote would authorise whatever the agent was
+# about to do, the same mistake as letting an event assert its own sink clearance.
+#
+# What each clause buys, and why a bare `allow:` list is not enough: the old
+# TASK-DRIFT check compared the task *label* on an event against the session's, so
+# a sequence that drifted while keeping its label was invisible. `order`, `max` and
+# `terminal` are what make label-preserving drift detectable.
+#
+#   allow     step kinds this task may take at all. `observe` is always permitted.
+#   max       occurrences per kind. 0 documents a prohibition explicitly.
+#   order     a step may not occur before every earlier entry has occurred.
+#   terminal  the step that completes the task; plan steps after it are drift.
+#   scope     the RESOURCE ceiling (Aura §4.4 `S_max`): which apps, data keys and
+#             hosts those steps may touch. See below.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# `scope:` — what `allow`/`max`/`order` could not say
+#
+# Those three constrain what *kinds* of step a task may take. They say nothing
+# about which resources the steps touch, and a probe of the engine before this
+# existed showed the cost:
+#
+#   navigation_jump, then a UI delta from "OnlineBank"   → Allow
+#   book_hotel, then form_fill medical_record_id         → Allow
+#   book_hotel, then form_fill social_security_number    → Allow
+#
+# A navigation task walked into a banking app, because "app switch" is a permitted
+# kind. A hotel booking filled a medical record id, because `disclose_high` is a
+# permitted kind and nothing enumerated which HIGH keys a hotel booking needs.
+# That is the over-provisioning Aura calls God Mode.
+#
+# The ceiling belongs here, not in the event stream, for the reason at the top of
+# this file: a session declares `task_apps` / `task_data_keys` / `task_hosts` as a
+# **request**, and the effective grant is the intersection. Narrowing is safe;
+# picking your own ceiling is not a ceiling.
+#
+# ABSENT is not EMPTY, and the difference is load-bearing:
+#   (key omitted)  this plan does not constrain that dimension — the check does
+#                  not run, and a plan written before `scope:` existed is
+#                  unchanged.
+#   hosts: []      an explicit statement that the task never egresses, the same
+#                  way `max: {network_egress: 0}` documents a prohibition.
+#
+# paths:         读/写路径天花板（见 docs/interception-design.md 的 B0 / B2）。和上面三维
+#                共用 `narrow()`，所以性质一样：没声明就是请求被忽略而不是被批准；grant 是
+#                交集永不是并集；越界会被记录成 SCOPE-OVER-REQUEST。
+#
+#                这一维同时是将来 `guard-jail` 生成沙箱 profile 的输入——引擎推理的东西和
+#                内核执行的东西必须是同一句话，所以它写在这里，而不是另开一个沙箱策略文件。
+#
+#                条目必须是绝对路径或 `~/` 开头，不能含通配符或未归约的 `..`。这三种写法
+#                会让同一份策略在不同调用现场授权不同的目录，或者在归约阶段静默失效；校验
+#                会直接拒绝它们。
+#                只给 read 不给 write，就等于这个任务在文件系统上是只读的。
+#
+# The lists below are deliberately tight — least privilege is the point — and an
+# operator adding an app to a task has to add it here. That cost is the feature.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Step kinds are *derived from the events themselves* (see StepKind), so this works
+# with the adapters as they are — no adapter has to learn a new field first.
+#
+# `require_plan: false` — a session naming an unlisted profile is reported and then
+# runs unconstrained. Failing closed would block every profile an operator has not
+# yet written a plan for, which means the library never gets adopted; the report is
+# what tells them which plans are missing.
+require_plan: false
+plans:
+  - task_profile: book_hotel
+    goal: "Reserve a room and pay for it once"
+    allow: [app_switch, disclose_low, disclose_high, request_permission, confirm_payment, recall_memory, network_egress]
+    max:
+      confirm_payment: 1
+      # Bounded, not forbidden. `network_egress: 0` was written when the eval runner silently
+      # mapped the corpus's `network_meta` events to `ui_tree_delta`, so no scenario ever
+      # exercised egress on this profile and the contradiction with `scope.hosts` below went
+      # unnoticed — a booking that pays through Stripe egresses by definition. The step kind is
+      # bounded here; `scope.hosts` bounds *where*.
+      network_egress: 3
+      transfer_funds: 0
+      persist_memory: 0
+      run_shell: 0
+    # A payment before any of the booking details have been entered is not this
+    # task, whatever it is labelled.
+    order: [disclose_low, confirm_payment]
+    terminal: confirm_payment
+    scope:
+      # Meituan books hotels — it is one of its main businesses in this market — and
+      # leaving it out made the corpus's own benign booking control a Critical block.
+      # A ceiling is a policy statement, and getting it wrong denies legitimate work
+      # rather than failing safe. That the corpus caught it is the mechanism working.
+      apps: ["Booking", "Meituan", "美团", "Stripe"]
+      # Written in the SAME vocabulary as GuardContract's `low_keys`/`high_keys`.
+      # The first draft of this list invented names (`full_name`,
+      # `credit_card_number`) that the contract and the corpus do not use, so it
+      # blocked nine legitimate scenarios — a ceiling in a vocabulary nobody speaks
+      # denies everything, which is a very bad way to be strict.
+      #
+      # A hotel does need a passport number (foreign guests) and a date of birth.
+      # It does not need `id_number`, `home_address` or a medical record, and
+      # `allow: [disclose_high]` alone would have granted all three.
+      data_keys:
+        ["name", "check_in", "check_out", "guest_count", "seat_preference",
+         "phone_number", "email", "date_of_birth", "passport_number", "payment_info"]
+      # The domain, not a list of its subdomains: an entry covers the host itself and
+      # any subdomain of it, on the **dot boundary**. Granting `checkout.stripe.com`
+      # instead looks tighter and is worse — it means every new Stripe endpoint needs
+      # a policy edit, and it made the host-forgery scenario untestable, because a
+      # phishing host cannot end with a subdomain it does not control.
+      # `booking.example` was a fictional domain — a grant that can never match reads as policy
+      # and is none. The apps' own backends are here because a granted app talking to its own
+      # site is the normal path, not an exfiltration: leaving them out made every real booking a
+      # High `require_confirm` block once the host check started seeing network events.
+      hosts: ["stripe.com", "booking.com", "meituan.com"]
+      # 订票要读行程资料、写行程单。除此之外这个任务不需要碰磁盘。
+      paths:
+        read: ["~/Documents/travel"]
+        write: ["~/Documents/travel/itineraries"]
+
+  - task_profile: order_food
+    goal: "Place one food order"
+    allow: [app_switch, disclose_low, confirm_payment, recall_memory, network_egress]
+    max:
+      confirm_payment: 1
+      disclose_high: 0
+      network_egress: 3
+      transfer_funds: 0
+      run_shell: 0
+    order: [disclose_low, confirm_payment]
+    terminal: confirm_payment
+    scope:
+      apps: ["Meituan", "Eleme", "美团", "饿了么", "Stripe"]
+      # No `passport_number`, no `date_of_birth`: a food order has no use for either,
+      # and `max: {disclose_high: 0}` already bars HIGH keys — the two agree, and a
+      # reader should not have to derive one from the other.
+      data_keys:
+        ["name", "food_preference", "diet_note", "order_note", "quantity",
+         "language", "phone_number", "home_address"]
+      hosts: ["stripe.com", "meituan.com", "ele.me"]
+      # 点餐不需要写任何文件。只声明一个只读的收货地址目录，write 一个都不给——
+      # 于是这个任务在文件系统上是只读的。
+      paths:
+        read: ["~/Documents/addresses"]
+
+  - task_profile: preference_save
+    goal: "Save a user preference to the sanctioned store"
+    allow: [persist_memory, recall_memory, disclose_low]
+    max:
+      persist_memory: 2
+      disclose_high: 0
+      confirm_payment: 0
+      transfer_funds: 0
+      network_egress: 0
+      run_shell: 0
+    terminal: persist_memory
+    scope:
+      # A preference save touches the sanctioned store and nothing else, and
+      # `hosts: []` says so rather than leaving it to `max: {network_egress: 0}`.
+      # The two agree here on purpose: one bounds the step kind, the other the
+      # resource, and a reader should not have to infer either from the other.
+      data_keys: ["seat_preference", "food_preference", "diet_note", "language", "loyalty_tier"]
+      hosts: []
+      # 这批任务里唯一本职就要写盘的，而它只该写自己的配置目录。
+      paths:
+        read: ["~/.config/agentguard"]
+        write: ["~/.config/agentguard"]
+
+  - task_profile: navigation_jump
+    goal: "Open a route in a maps app"
+    allow: [app_switch, disclose_low]
+    max:
+      disclose_high: 0
+      confirm_payment: 0
+      transfer_funds: 0
+      network_egress: 0
+      persist_memory: 0
+      run_shell: 0
+    terminal: app_switch
+    scope:
+      # The tightest profile in the library, and the one the probe walked out of.
+      apps: ["AMap", "高德地图", "Google Maps", "Maps"]
+      data_keys: ["destination", "origin", "search_query"]
+      hosts: []
+      # 跳转导航完全不碰磁盘。两个列表都空着，是一句明确的"不给"，
+      # 和 `max: {run_shell: 0}` 记录禁止的方式一样。
+      paths:
+        read: []
+        write: []
+

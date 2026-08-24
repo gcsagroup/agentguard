@@ -1,0 +1,18 @@
+policy_id: standard
+version: "1.0"
+low_keys:
+  - name
+  - food_preference
+  - language
+high_keys:
+  - phone_number
+  - email
+  - id_number
+  - home_address
+  - payment_info
+  - date_of_birth
+  - passport_number
+on_high_access: require_confirm
+on_optional_pii_fill: alert
+on_trap_widget_fill: block
+on_memory_write: require_confirm

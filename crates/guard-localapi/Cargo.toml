@@ -1,0 +1,23 @@
+[package]
+name = "guard-localapi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Loopback HTTP status/audit API for AgentGuard"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tiny_http = "0.12"
+guard-schema = { workspace = true }
+guard-core = { workspace = true }
+guard-audit = { workspace = true }
+guard-intel = { workspace = true }
+android-adapter = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+ureq = "2"

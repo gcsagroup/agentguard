@@ -1,0 +1,17 @@
+[package]
+name = "guard-sync"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Enterprise / multi-device policy sync POC for AgentGuard"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+anyhow = { workspace = true }
+ureq = "2"
+
+[dev-dependencies]
+tempfile = "3"

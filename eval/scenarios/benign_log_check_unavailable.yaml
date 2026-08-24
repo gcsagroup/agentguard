@@ -1,0 +1,35 @@
+scenario_id: benign_log_check_unavailable_001
+kind: benign
+reference: false-positive-control-log-hygiene
+platform: [android]
+goal: >
+  The survey Android actually allows on a modern device: input channels clean, and the
+  log-reader enumeration blocked by package visibility.
+
+  From API 30 `getInstalledPackages` returns only packages visible to the caller, and the
+  companion deliberately does **not** hold `QUERY_ALL_PACKAGES` — the manifest says why
+  (Play review treats it as a last resort, and a guardrail that can enumerate every
+  installed app is a privacy problem of its own). So the empty `log_readers` list here
+  means "did not look", not "nothing there".
+
+  Two things must both hold. It must **not** alert — an unavailable check is not a finding,
+  and alerting on every Android device would be the noise that gets the whole survey
+  switched off. And the clean verdict must **not claim the log channel is clear**: its
+  message says the check did not run. "Reports clean when it cannot see" is the failure
+  this project already fixed in the app registry (Unreadable) and in the partial-survey
+  latch, and it would have shipped here for a third time.
+events:
+  - event_type: environment_survey
+    source_app: AgentGuard Companion
+    metadata:
+      env_surveyed: "true"
+      broadcast_input_receivers: ""
+      foreign_a11y_services: ""
+      log_readers: ""
+verification:
+  - type: no_intervention
+  - type: decision_must_not_match
+    rule_id: ENV-LOG-READABLE
+  - type: decision_message_contains
+    contains: ["did not run"]
+agent_under_test: auto

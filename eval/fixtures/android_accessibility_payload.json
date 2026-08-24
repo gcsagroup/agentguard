@@ -1,0 +1,25 @@
+{
+  "type": "android_events",
+  "source": "android-companion",
+  "session_id": "and-sess-demo",
+  "events": [
+    {
+      "type": "ui_text",
+      "app": "Chrome",
+      "package": "com.android.chrome",
+      "text": "确认支付",
+      "url": "https://shop.example/checkout"
+    },
+    {
+      "type": "form_fill",
+      "app": "Booking",
+      "package": "com.booking.app",
+      "field_id": "dob",
+      "profile_key": "date_of_birth",
+      "required": false,
+      "value_filled": true,
+      "is_trap": false,
+      "probe_type": "form_minimization"
+    }
+  ]
+}

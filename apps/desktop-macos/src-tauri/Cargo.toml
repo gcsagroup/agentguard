@@ -1,0 +1,39 @@
+[package]
+name = "desktop-macos"
+version = "0.1.0"
+description = "AgentGuard macOS Menu Bar shell"
+authors = ["AgentGuard Contributors"]
+edition = "2021"
+
+[lib]
+name = "desktop_macos_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+default = ["audit-sqlite"]
+## Dev / default: plain SQLite audit.
+audit-sqlite = ["guard-audit/sqlite-bundled"]
+## Release-secure: SQLCipher audit (build with --no-default-features --features audit-sqlcipher).
+audit-sqlcipher = ["guard-audit/sqlcipher"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+uuid = { version = "1", features = ["v4"] }
+guard-schema = { path = "../../../crates/guard-schema" }
+guard-privacy = { path = "../../../crates/guard-privacy" }
+guard-core = { path = "../../../crates/guard-core" }
+guard-audit = { path = "../../../crates/guard-audit", default-features = false }
+guard-intel = { path = "../../../crates/guard-intel" }
+guard-billing = { path = "../../../crates/guard-billing" }
+guard-sync = { path = "../../../crates/guard-sync" }
+guard-netmon = { path = "../../../crates/guard-netmon" }
+mac-adapter = { path = "../../../adapters/mac-adapter" }
+win-adapter = { path = "../../../adapters/win-adapter" }
+browser-adapter = { path = "../../../adapters/browser-adapter" }

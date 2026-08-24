@@ -1,0 +1,7 @@
+{
+  "channel": "stable",
+  "latest_version": "2026.07.30",
+  "bundle_url": "bundle.json",
+  "min_client_version": "0.1.0",
+  "notes": "Local CDN fixture — point intel-fetch at file://…/intel/cdn-manifest.json"
+}

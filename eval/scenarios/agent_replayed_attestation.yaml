@@ -1,0 +1,41 @@
+scenario_id: agent_replayed_attestation_001
+kind: attack
+reference: aura-4.1-agent-identity
+platform: [macos, windows, android, browser]
+task_profile: book_hotel
+goal: >
+  A captured attestation, re-presented verbatim.
+
+  An Ed25519 signature stays valid forever, so binding the session id and the task is
+  not enough on its own: the same bytes can reopen the same session after an
+  `agent_session_end`. The nonce is what makes each attestation single-use, tracked
+  per agent for the life of the process, in a bounded window whose size
+  `docs/agent-identity.md` states.
+
+  Freshness is checked *after* the signature, deliberately — so a wrong signature is
+  never reported as a replay, and an attacker cannot burn a legitimate agent's nonce
+  by guessing it, because an unverified attestation never reaches the freshness check.
+events:
+  # A genuine session, verified.
+  - event_type: agent_session_start
+    source_app: Claude
+    metadata:
+      task_profile: book_hotel
+      agent_id: claude-desktop
+      attest_nonce: nonce-eval-1
+      attest_sig: "7f3530f0770083520a8f5394d0275e4fa5d6daefcb2b25dae71f1cb3805ee1411de095eb12faf313123e24a062acc663b5d5982d4f5705a9c76895cb743c0a07"
+  - event_type: agent_session_end
+    source_app: Claude
+    metadata: {}
+  # The same attestation again.
+  - event_type: agent_session_start
+    source_app: Claude
+    metadata:
+      task_profile: book_hotel
+      agent_id: claude-desktop
+      attest_nonce: nonce-eval-1
+      attest_sig: "7f3530f0770083520a8f5394d0275e4fa5d6daefcb2b25dae71f1cb3805ee1411de095eb12faf313123e24a062acc663b5d5982d4f5705a9c76895cb743c0a07"
+verification:
+  - type: decision_must_block
+    rule_id: AGENT-REPLAY
+agent_under_test: auto

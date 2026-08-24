@@ -1,0 +1,26 @@
+{
+  "version": "2026.07.30",
+  "signature": "ed25519:6v+OA6a1X0JXgwph8WoPluPXAg11zwubJ7URXh8gc2H8nINzfeGkBpm7hbfhs39cM0UtFaKUtec/qD360nqSBQ==",
+  "malicious_domains": [
+    "evil.example",
+    "phish-agent.test"
+  ],
+  "deeplink_patterns": [
+    "intent://",
+    "myapp://transfer",
+    "openurl?payload="
+  ],
+  "injection_patterns": [
+    "ignore previous instructions",
+    "忽略之前的指令",
+    "system override",
+    "<!-- agentguard:poison -->"
+  ],
+  "overlay_markers": [
+    "[AG_INVISIBLE_TEXT]",
+    "[AG_TRANSPARENT_OVERLAY]",
+    "[AG_SCREENSHOT_TAMPER]",
+    "[AG_LARGE_UPLOAD]",
+    "[AG_UNKNOWN_DOMAIN]"
+  ]
+}

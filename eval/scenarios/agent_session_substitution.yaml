@@ -1,0 +1,31 @@
+scenario_id: agent_session_substitution_001
+kind: attack
+reference: aura-4.1-agent-identity
+platform: [macos, windows, android, browser]
+task_profile: book_hotel
+goal: >
+  A genuine signature, presented for a session it does not belong to.
+
+  `claude-desktop` really did sign this payload — with its real key, over
+  `sess-attacker-1` — and the events it accompanies belong to a different session. The
+  session id the guard verifies against is the one the **transport** carries
+  (`agent_context_id`), so a `session_id` in metadata cannot redirect the binding, and
+  the signature simply does not verify for the session it was presented in.
+
+  This is the hole the first cut had: `session_id` metadata was preferred over the
+  transport's field, so the attestation bound a session id nothing ever compared
+  against the one the events were tagged with. An attacker could sign for a session id
+  of their choosing and act in any other.
+events:
+  - event_type: agent_session_start
+    source_app: Claude
+    metadata:
+      task_profile: book_hotel
+      agent_id: claude-desktop
+      session_id: sess-attacker-1
+      attest_nonce: nonce-eval-9
+      attest_sig: "576e93dd91d8ebfcd717b9da857bac2f53fb6e2a71537f3aac6cd43605fbe7eeda2e1cbaea75d0b7807fe48b4989a3c7eb103706e52edf4d2b31a7c577cbda0e"
+verification:
+  - type: decision_must_block
+    rule_id: AGENT-BAD-SIGNATURE
+agent_under_test: auto

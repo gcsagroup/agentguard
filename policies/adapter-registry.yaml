@@ -1,0 +1,75 @@
+# 适配器身份卡:让"适配器说的话"可验证。
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 这份模板**刻意一把公钥都不钉**。
+#
+# 理由是从 agent 注册表那边学到的:发布注册表钉了两把私钥在仓库里的夹具密钥,
+# 而"真实部署请替换"只写在注释里 —— 注释不是执行。运维照抄之后,那两把钥匙成了
+# 任何人都能用的钥匙。判决层现在会把它们认出来并拒掉,但更好的做法是**一开始就不发**。
+#
+# 所以这里每一张卡都没有 public_key,于是每一张都报 NoKeyOnRecord,于是
+# **没有任何适配器断言能移除风险**。这是安全的默认:失败往保守那边倒。
+#
+# 代价要说清楚:一次真实的"环境已经恢复干净"的调查也清不掉锁存的风险,
+# 守卫会一直悲观下去。`agentguard preflight` 会把这件事作为 WARN 报出来。
+# 要让它生效,给正在跑的适配器各配一把:
+#
+#   agentguard adapter-keygen --adapter-id android-companion
+#
+# 私钥留在适配器那一侧,公钥填到下面对应的卡上。
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# # 这个机制拦的是什么
+#
+# 引擎的一部分输入不是它自己观察到的,而是适配器告诉它的:环境调查的结果、
+# 浮层标记、显示身份是否读取失败。这些字段是从事件 metadata 里读的,而入口
+# (`/v1/events`)之前只有一道 bearer 令牌 —— FFI 连令牌都没有。
+#
+# 伪造方向里最坏的一个:伪造一份 env_surveyed=true、四张风险清单全空的环境调查,
+# 把一个已经锁存的 Critical 风险清掉。完整调查会**覆盖**锁存状态,那是它存在的
+# 意义,也是这个洞的形状。
+#
+# 规则是非对称的,而且不需要任何开关就默认安全:
+#
+#   **未经验证的适配器断言只能增加风险,永远不能移除风险。**
+#
+# 伪造"有风险"只能给自己制造误报;伪造"干净"才是攻击,而那需要一个验过的签名。
+#
+# # platforms 是干什么的
+#
+# 钉住这张卡可以声称的平台。空表示任意。钉上之后,一把泄露的 Android 密钥不能
+# 用来伪造 macOS 侧的断言 —— Android 伴生应用没有理由发一个 platform: macos 的事件。
+
+adapters:
+  # Android 伴生应用,通过 `adb reverse` 打到 `/v1/events`。
+  #
+  # 这是**唯一**在产出 environment_survey 的适配器,也就是这个机制唯一真正要保护的
+  # 那条路。它**会签**了 —— 用 ECDSA P-256,不是 Ed25519,两个理由:
+  #
+  #   1. minSdk 26 上 java.security 的 Ed25519 要 API 33 才有。在一个安全产品里
+  #      自带一份手写的 Ed25519,是拿密码学实现风险去换算法一致性,不值得。
+  #   2. 更重要的:P-256 能走 Android Keystore,**私钥留在 TEE / StrongBox 里
+  #      根本不出硬件**。这比一个软件密钥文件更强 —— 即便 App 的私有目录被读走,
+  #      签名能力也拿不走。
+  #
+  # 公钥是**每台设备一把**,所以这里没法预填。在伴生应用里点"显示适配器公钥",
+  # 把那 130 位十六进制填到下面的 public_key。不填的话它的调查算未签名:
+  # 可以加风险,不能清风险。
+  - adapter_id: android-companion
+    display_name: AgentGuard Companion (Android)
+    key_algorithm: ecdsa-p256
+    platforms: [android]
+    notes: "每设备一把 Keystore 密钥;在应用里取公钥填到这里。"
+
+  # macOS 外壳。它构造 GuardEvent,所以走逐事件签名那条路
+  # (guard_schema::assertion_message_for),不是信封那条。
+  - adapter_id: macos-shell
+    display_name: AgentGuard (macOS)
+    platforms: [mac, macos]
+    notes: "逐事件签名路径。"
+
+  # Windows 外壳,同上。
+  - adapter_id: windows-shell
+    display_name: AgentGuard (Windows)
+    platforms: [windows]
+    notes: "逐事件签名路径。"

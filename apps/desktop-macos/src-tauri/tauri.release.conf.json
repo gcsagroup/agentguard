@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_OUTPUT_OF_tauri_signer_generate",
+      "endpoints": [
+        "https://releases.example.com/agentguard/{{target}}/{{current_version}}"
+      ]
+    }
+  }
+}

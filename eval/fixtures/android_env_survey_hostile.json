@@ -1,0 +1,26 @@
+{
+  "type": "android_events",
+  "source": "android-companion",
+  "session_id": "env-survey-1",
+  "events": [
+    {
+      "type": "env_survey",
+      "app": "AgentGuard Companion",
+      "package": "com.agentguard.companion",
+      "broadcast_input_receivers": [
+        "com.evil.keylog/.InputReceiver"
+      ],
+      "foreign_a11y_services": [
+        "com.evil.keylog/.SnifferService"
+      ],
+      "broadcast_actions": [
+        "ADB_INPUT_B64",
+        "ADB_INPUT_TEXT"
+      ],
+      "text_capturing_services": [
+        "com.evil.keylog/.SnifferService"
+      ],
+      "scan_errors": []
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+policy_id: enterprise-poc
+version: "0.1.0"
+require_confirm_critical: true
+block_malicious_domains: true
+pro_features:
+  unlimited_audit: true
+  custom_rules: true
+  enterprise_export: true
+allowed_agents:
+  - Claude
+  - ChatGPT
+  - Cursor

@@ -1,0 +1,17 @@
+# preflight 期望结论基线。`LEVEL id`;随机器而变的族记成 `ENV 前缀*`。
+# 更新方法:agentguard preflight --write-baseline > policies/preflight-baseline.txt
+# 改这个文件等于声明"这个变化是有意的" —— 评审时应该问为什么。
+ENV api.token.*
+ENV jail.*
+FAIL agent.keys.publicly_known
+INFO adapters.asymmetric_trust
+INFO agent.keys.absent
+INFO gateway.cooperative
+PASS intel.verified
+PASS plans.loaded
+PASS plans.paths.declared
+PASS rules.loaded
+WARN adapter.keys.absent
+WARN agent.attestation.optional
+WARN apps.signers.absent
+WARN audit.unsigned

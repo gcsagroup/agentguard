@@ -1,0 +1,17 @@
+[package]
+name = "guard-ffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "C ABI for AgentGuard engine (Swift / macOS)"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+guard-core = { workspace = true }
+guard-schema = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }

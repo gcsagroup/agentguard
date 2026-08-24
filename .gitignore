@@ -1,0 +1,64 @@
+# Rust / Cargo
+/target/
+**/target/
+.cargo-cache/
+
+# Node / frontend
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# Tauri / desktop
+apps/desktop-*/src-tauri/target/
+apps/desktop-*/dist/
+apps/**/src-tauri/target/
+
+# Android
+apps/android-companion/.gradle/
+apps/android-companion/**/build/
+*.jks
+*.keystore
+
+# OS / editor
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Logs / debug
+*.log
+*.pdb
+
+# Secrets / local device state (never commit)
+intel/keys/secret.hex
+*.secret.hex
+policies/device-cache.yaml
+policies/entitlement.json
+
+# Generated eval / acceptance artifacts (regenerate via make)
+eval/leaderboard.json
+eval/leaderboard.html
+eval/scoreboard.json
+eval/scoreboard.html
+eval/acceptance-report.json
+eval/acceptance-report.md
+eval/session-report.json
+eval/session-report.md
+
+# Packaging leftovers
+*.dmg
+**/rw.*.dmg
+apps/**/bundle/dmg/
+policies/audit-signing.key
+policies/audit-signing.key.pub
+
+# 归档 / 待删目录。评审里见过一次 `_to_delete/agentguard-iter27.tar.gz` 混进
+# `git add .` —— 一个几十兆的历史快照进了提交历史,而从历史里去掉它很难。
+_to_delete/
+*.tar.gz
+*.tgz
+*.zip

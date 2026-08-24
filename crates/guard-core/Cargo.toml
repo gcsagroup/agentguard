@@ -1,0 +1,18 @@
+[package]
+name = "guard-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Event pipeline and Allow/Alert/Block decision engine"
+
+[dependencies]
+guard-schema = { workspace = true }
+guard-privacy = { workspace = true }
+guard-audit = { workspace = true }
+guard-intel = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }

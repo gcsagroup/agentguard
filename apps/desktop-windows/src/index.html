@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AgentGuard</title>
+    <script type="module" src="/main.js" defer></script>
+    <style>
+    .caps-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem}
+    .cap{display:grid;grid-template-columns:auto auto 1fr;gap:.5rem;align-items:baseline;
+         font-size:.86rem;padding:.35rem .5rem;border-radius:4px;border:1px solid transparent}
+    .cap-name{font-weight:600}
+    .cap-val{font-variant:all-small-caps;letter-spacing:.04em}
+    .cap-why{opacity:.75;font-size:.8rem}
+    .cap-ok{border-color:#2f7d5b40;background:#2f7d5b14}
+    .cap-no{border-color:#a3382f40;background:#a3382f14}
+    .cap-mode{font-size:.82rem;opacity:.85;line-height:1.5;padding:.35rem .5rem}
+  </style>
+</head>
+  <body>
+    <main class="layout">
+      <header>
+        <div>
+          <h1>AgentGuard</h1>
+          <p class="subtitle">Windows Desktop · Phase 2 / productize</p>
+        </div>
+        <div class="header-actions">
+          <label class="locale-picker">
+            <span data-i18n="language_label">Language</span>
+            <select id="locale-select">
+              <option value="system" data-i18n="system">System</option>
+              <option value="en" data-i18n="en">English</option>
+              <option value="zh-Hans" data-i18n="zhHans">简体中文</option>
+              <option value="zh-Hant" data-i18n="zhHant">繁體中文</option>
+            </select>
+          </label>
+          <div id="status-pill" class="pill idle" data-i18n="idle">Idle</div>
+        </div>
+      </header>
+
+      <section class="grid">
+        <div class="card">
+          <h2 data-i18n="guard">Guard controls</h2>
+          <div class="btn-row">
+            <!--
+              Aura §4.4: naming the task selects its plan, and with it the session resource ceiling.
+              Blank is unscoped — the pre-existing behaviour.
+            -->
+            <label class="task-profile"><span>Task</span>
+              <select id="task-profile">
+                <option value="">(unscoped)</option>
+                <option value="book_hotel">book_hotel</option>
+                <option value="order_food">order_food</option>
+                <option value="navigation_jump">navigation_jump</option>
+                <option value="preference_save">preference_save</option>
+              </select>
+            </label>
+            <button id="btn-start" data-i18n="start">Start session</button>
+            <button id="btn-end" class="secondary" data-i18n="end">End session</button>
+            <button id="btn-resume" class="secondary" data-i18n="resume">Resume</button>
+          </div>
+          <label class="check" id="auto-approve-row">
+            <input type="checkbox" id="auto-approve" />
+            <span data-i18n="autoApprove">Auto-approve critical confirmations (test only)</span>
+          </label>
+          <div class="btn-row">
+            <button id="btn-reload-intel" class="secondary" data-i18n="reloadIntel">Reload threat intel</button>
+          </div>
+          <p id="caps" class="muted"></p>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="observation">Live observation</h2>
+          <div class="btn-row">
+            <button id="btn-poll-now" class="secondary" data-i18n="pollNow">Observe once now</button>
+          </div>
+          <div id="observe-status" class="caps-list"></div>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="threats">Simulate threats</h2>
+          <p class="muted" data-i18n="threatsNote">Replays fixtures through the engine. Not observation — these buttons prove the rules fire, not that this machine is being watched.</p>
+          <div class="btn-row wrap">
+            <button data-threat="payment" data-i18n="payment">Payment confirmation</button>
+            <button data-threat="fm" class="secondary" data-i18n="fm">Optional PII</button>
+            <button data-threat="trap" class="secondary" data-i18n="trap">Privacy trap</button>
+            <button data-threat="overlay" class="secondary" data-i18n="overlay">Transparent overlay</button>
+            <button data-threat="inject" class="secondary" data-i18n="inject">Intel injection</button>
+            <button data-threat="domain" class="secondary" data-i18n="domain">Malicious domain</button>
+            <button data-threat="netmon" class="secondary" data-i18n="netmon">Exfiltration monitor</button>
+          </div>
+          <div class="btn-row wrap">
+            <button id="btn-sync-policy" class="secondary" data-i18n="syncPolicy">Sync enterprise policy</button>
+          </div>
+          <ul id="decisions" class="log"></ul>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row-between">
+          <h2 data-i18n="audit">Audit timeline</h2>
+          <div class="btn-row">
+            <button id="btn-export-report" class="secondary" data-i18n="export">Export summary</button>
+            <button id="btn-refresh" class="secondary" data-i18n="refresh">Refresh</button>
+          </div>
+        </div>
+        <div id="timeline" class="timeline"></div>
+      </section>
+    </main>
+
+    <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <h2 data-i18n="confirm">High-risk action confirmation</h2>
+        <p id="confirm-msg"></p>
+        <p class="meta" id="confirm-meta"></p>
+        <div class="btn-row">
+          <button id="confirm-deny" class="danger" data-i18n="deny">Deny and pause</button>
+          <button id="confirm-approve" data-i18n="approve">Allow once</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

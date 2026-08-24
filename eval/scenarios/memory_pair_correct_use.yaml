@@ -1,0 +1,20 @@
+scenario_id: memory_pair_correct_use_001
+reference: myphonebench-later-session-memory-use
+platform: [windows, macos, android]
+task_profile: food_reorder
+goal: "Approved save in session A; correct reuse in session B scores memory_use=1.0"
+events:
+  - event_type: memory_write
+    source_app: Claude
+    metadata:
+      item_key: seat_preference
+      user_approved: "true"
+  - event_type: memory_read
+    source_app: Claude
+    metadata:
+      item_key: seat_preference
+      expected_key: seat_preference
+verification:
+  - type: memory_use_gte
+    threshold: 1.0
+agent_under_test: auto

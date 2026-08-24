@@ -1,0 +1,18 @@
+{
+  "_why": "跨语言测试向量。Rust 和 Kotlin 各自实现了 adapter_body_message 的构造,而一份两处各写一遍的逻辑迟早会分叉 —— 本仓库的 AppFace.kt 头部至今写着它的哈希是'重新实现而非共享'。共享的不变量是 message_hex:两侧构造出来的签名消息必须逐字节相同。分叉的表现是'签名静默地永远验不过',那是最难查的一类故障。",
+  "_directions": "rust_* 是 Rust 签的,Kotlin 侧验 —— 证明 Rust→Kotlin;kotlin_* 是 Kotlin 签的,Rust 侧验 —— 证明 Kotlin→Rust,也就是生产方向(手机签,桌面验)。",
+  "_no_private_key": "向量里不含私钥。要重算 rust_* 跑:cargo test -p guard-audit vector_gen -- --ignored --nocapture(私钥是 0x11 重复 32 字节,写在那个生成器里)。kotlin_* 由 AdapterSignerTest 打印后回填。",
+
+  "adapter_id": "android-companion",
+  "format_tag": "android-envelope",
+  "timestamp_ms": 1700000000000,
+  "body": "{\"type\":\"batch\",\"session_id\":\"s-vec\",\"events\":[]}",
+
+  "message_hex": "4147454e5447554152442d414441505445522d424f44592d763100000011616e64726f69642d636f6d70616e696f6e00000010616e64726f69642d656e76656c6f70650000000d31373030303030303030303030000000317b2274797065223a226261746368222c2273657373696f6e5f6964223a22732d766563222c226576656e7473223a5b5d7d",
+
+  "rust_public_key_hex": "040217e617f0b6443928278f96999e69a23a4f2c152bdf6d6cdf66e5b80282d4ed194a7debcb97712d2dda3ca85aa8765a56f45fc758599652f2897c65306e5794",
+  "rust_signature_der_hex": "3044022005f1ba64a922d7b786f98a46db9b8e51909c98303d343799c4c3443cd68ca15102204ea22dde96a15a82dfc7a4763e234df35e38a4a71e727e1066f5d22d29dccfef",
+
+  "kotlin_public_key_hex": "04d5f4fb9a3a9e21300c0a009eebf20d6bea1ac60ddac9779b7fa0813fe6142d1254f9cca2dafa833450a371a175c5eebdc7aca3cdeb99e83f601c078cde9d9f51",
+  "kotlin_signature_der_hex": "3045022100c89ca0ea1bb0e9921cdfbe4abb53cd17be2e447df2b061ba0e1cb1854f98905d02205730814e3f59ff8dc3b22fee5d734fb641203cc438cfc42ea90970b7982e54dc"
+}

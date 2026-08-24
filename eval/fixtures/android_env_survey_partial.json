@@ -1,0 +1,15 @@
+{
+  "type": "android_events",
+  "source": "android-companion",
+  "session_id": "env-survey-3",
+  "events": [
+    {
+      "type": "env_survey",
+      "app": "AgentGuard Companion",
+      "package": "com.agentguard.companion",
+      "foreign_a11y_services": [],
+      "broadcast_actions": ["ADB_INPUT_B64", "ADB_INPUT_TEXT"],
+      "scan_errors": ["queryBroadcastReceivers unavailable (package visibility)"]
+    }
+  ]
+}

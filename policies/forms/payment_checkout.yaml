@@ -1,0 +1,25 @@
+schema_id: payment_checkout
+match_apps:
+  - Stripe
+  - Checkout
+  - PayPal
+  - Chrome
+  - Safari
+required_labels:
+  - card
+  - payment
+  - 卡号
+  - name
+  - 姓名
+optional_labels:
+  - date of birth
+  - birthday
+  - phone
+  - email
+  - 电话
+  - 邮箱
+trap_labels:
+  - Save card for partners
+  - marketing
+  - 第三方共享
+  - Get coupons

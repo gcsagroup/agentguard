@@ -1,0 +1,43 @@
+[package]
+name = "win-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Windows platform adapter: real UI Automation + GDI frame capture on Windows, scenario replay everywhere"
+
+[dependencies]
+guard-schema = { workspace = true }
+guard-vision = { workspace = true }
+guard-overlay = { workspace = true }
+guard-privacy = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Real Win32/UIA bindings, and only on Windows: a Linux or macOS build of this crate
+# must still compile (the eval harness and the CLI depend on it everywhere), so the
+# native modules are `cfg(windows)` and this dependency is target-scoped.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Accessibility",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    # Windows.Media.Ocr: the OCR that ships with the OS. Offline, free, no model files, and
+    # simplified + traditional Chinese are installed by default. The structural counterpart of
+    # the Vision framework the macOS path uses.
+    "Media_Ocr",
+    "Graphics_Imaging",
+    "Security_Cryptography",
+    "Storage_Streams",
+    "Globalization",
+    "Foundation",
+] }
+windows-core = "0.62"
+# For blocking on `RecognizeAsync`'s IAsyncOperation from a synchronous poller.
+windows-future = "0.3"

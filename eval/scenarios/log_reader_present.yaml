@@ -1,0 +1,38 @@
+scenario_id: log_reader_present_001
+kind: attack
+reference: agentscan-2505.12981-log-leakage
+platform: [android]
+task_profile: book_hotel
+goal: >
+  AgentScan §3.8: an app on the device holds `READ_LOGS`, so anything the agent, its host
+  or **this guard** writes to logcat is collectable — without touching the accessibility
+  stream and without registering for any broadcast.
+
+  Reported on its own rule at `Low`, deliberately, and both halves of that are choices.
+  On its own, because a log reader does not see keystrokes and an accessibility service
+  does not need the log: one finding standing for two exposures sends an operator to fix
+  the wrong one. At `Low`, because `READ_LOGS` is `signature|privileged` — a third-party
+  holder means an OEM preinstall or a rooted device — and because the mitigation that
+  matters here is on *our* side, not the operator's: `guard_privacy::log_safe` redacts
+  what this guard itself writes, and that is enforced by unit tests rather than by this
+  scenario.
+
+  The survey is otherwise clean, which is the point: without a separate verdict this
+  device would have reported `ENV-CLEAN`.
+events:
+  - event_type: environment_survey
+    source_app: AgentGuard Companion
+    metadata:
+      ui_text: "[AG_LOG_READER]"
+      env_surveyed: "true"
+      broadcast_input_receivers: ""
+      foreign_a11y_services: ""
+      log_readers: "com.oem.diagnostics"
+      # The survey says it could actually enumerate packages. Without this the empty case
+      # would be indistinguishable from "Android would not let me look" — see
+      # docs/log-hygiene.md, and `a_survey_that_could_not_enumerate_does_not_claim_a_clean_log`.
+      log_readers_enumerable: "true"
+verification:
+  - type: decision_must_alert
+    rule_id: ENV-LOG-READABLE
+agent_under_test: auto

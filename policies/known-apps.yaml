@@ -1,0 +1,91 @@
+# Known-app registry (AgentScan system layer): app identity + deeplink allow-lists +
+# declared appearance.
+#
+# An app's identity is its **signing certificate**, not its package name.
+# AgentScan reports package-name forgery succeeding against all four
+# system-interacting agents it tested, for a structural reason: the package name
+# is a string the attacker picks. `packages:` is matched exactly (no substring —
+# `com.sankuai.meituan.evil` used to inherit Meituan's deeplink allow-list), and a
+# registered app's privileges are granted only on a verified `signers:` match.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THE DIGESTS BELOW ARE FIXTURES, NOT REAL PUBLISHER CERTIFICATES.
+#
+# They exist so the eval corpus can exercise verified / mismatched / unattested
+# identity deterministically. They are deliberately obvious (repeated nibbles) so
+# nobody mistakes them for pinned production values. A real deployment must obtain
+# each digest from the platform and pin it:
+#
+#   Android   adb shell pm list packages -f | grep <pkg>
+#             apksigner verify --print-certs <apk> | grep 'SHA-256 digest'
+#             or, on device: PackageManager.getPackageInfo(pkg,
+#             GET_SIGNING_CERTIFICATES).signingInfo.apkContentsSigners → SHA-256
+#   macOS     codesign -dv --verbose=4 /Applications/X.app  (Team ID + CDHash)
+#   Windows   Get-AuthenticodeSignature X.exe | Select -Expand SignerCertificate
+#
+# Shipping invented digests as if they were real would be worse than shipping
+# none: it would look verified and verify nothing. See docs/app-identity.md.
+#
+# THE SAME APPLIES TO `icon_dhash:` BELOW, AND MORE SHARPLY.
+#
+# An `icon_dhash` entry is an **accusation template**: any app whose icon hashes
+# within 4 of 64 bits, and which is not this app, is reported as a lookalike. A
+# wrong hash therefore does not fail closed, it accuses an innocent app. The
+# values below are the same obvious repeated-nibble fixtures as the digests, and
+# they are *valid* hashes (a flat-icon hash would be refused at load) but they
+# are not any real app's icon. Compute a real one from the publisher's icon:
+#
+#   magick icon.png -depth 8 rgba:/tmp/icon.rgba
+#   guard-cli icon-dhash --raw /tmp/icon.rgba --width <w> --height <h>
+#
+# `labels:` is the app's other legitimate display names — the localised ones
+# above all. It is also accusation-side only: an entry here can make an app that
+# is *not* this app into a finding, and can never make an app into this app.
+#
+# A four-letter Latin name is BELOW the information floor and is not protectable
+# by label at all: `AMap` folds to `amap`, and so do the French community-
+# agriculture apps named `AMAP` and the Serbian name `Амар`. AMap is therefore
+# protected by its icon and its package, not its name. An entry that declares an
+# appearance and ends up with no usable face is a load error rather than a silent
+# no-op. See docs/app-lookalike.md.
+# ─────────────────────────────────────────────────────────────────────────────
+apps:
+  - name: Meituan
+    packages: ["com.sankuai.meituan"]
+    signers: ["1111111111111111111111111111111111111111111111111111111111111111"]
+    labels: ["美团"]
+    icon_dhash: ["1111111111111111"]
+    deeplink_prefixes: ["imeituan://", "https://www.meituan.com/"]
+  - name: AMap
+    packages: ["com.autonavi.minimap"]
+    signers: ["2222222222222222222222222222222222222222222222222222222222222222"]
+    labels: ["高德地图"]
+    icon_dhash: ["2222222222222222"]
+    deeplink_prefixes: ["amapuri://", "androidamap://", "https://www.amap.com/"]
+  - name: WeChat
+    packages: ["com.tencent.mm"]
+    signers: ["3333333333333333333333333333333333333333333333333333333333333333"]
+    # 微信 only. NOT 企业微信 / "WeChat Work" — that is com.tencent.wework, a
+    # different and entirely legitimate app. Listing it here would make the real
+    # WeChat Work a Critical block on every event.
+    labels: ["微信"]
+    icon_dhash: ["3333333333333333"]
+    deeplink_prefixes: ["weixin://", "wechat://"]
+  - name: Eleme
+    packages: ["me.ele"]
+    signers: ["4444444444444444444444444444444444444444444444444444444444444444"]
+    labels: ["饿了么"]
+    icon_dhash: ["4444444444444444"]
+    deeplink_prefixes: ["eleme://", "https://www.ele.me/"]
+  - name: Stripe
+    packages: ["com.stripe.android"]
+    signers: ["5555555555555555555555555555555555555555555555555555555555555555"]
+    icon_dhash: ["5555555555555555"]
+    deeplink_prefixes: ["stripe://", "https://checkout.stripe.com/", "https://pay.stripe.com/"]
+  # An app registered with no signer on record. Kept deliberately: a registry in
+  # the field will have entries like this, and the engine must report
+  # NoSignerOnRecord rather than quietly treating "cannot verify" as "verified".
+  - name: LegacyPOS
+    packages: ["com.example.legacypos"]
+    signers: []
+    deeplink_prefixes: ["legacypos://"]

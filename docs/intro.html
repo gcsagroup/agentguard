@@ -1,0 +1,915 @@
+<title>AgentGuard Conformance Statement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+SC:wght@400;500;600&display=swap">
+<style>
+/* ============================================================
+   AgentGuard — bilingual conformance statement
+   Palette: cool blue-biased neutrals (a calibration-target grey),
+   one steel-blue accent, and a separate three-state semantic trio
+   because "covered / partial / none" is the content, not decoration.
+   ============================================================ */
+:root{
+  --paper:#EFF3F5; --surface:#FFFFFF; --sunken:#E4EAEE;
+  --ink:#131A21; --ink-2:#54626E; --ink-3:#7B8996;
+  --rule:#C6D0D7; --rule-soft:#DBE3E8;
+  --accent:#1D5C7C; --accent-soft:#E1EDF3;
+  --ok:#1F6A4B; --ok-bg:#E2EFE8; --ok-line:#8FC0A9;
+  --part:#8A5D12; --part-bg:#F4ECDA; --part-line:#D2B478;
+  --no:#9B382F; --no-bg:#F6E4E2; --no-line:#D69A93;
+  --callout-code-bg:rgba(155,56,47,.10);
+  --shadow:0 1px 0 rgba(19,26,33,.04), 0 8px 24px -18px rgba(19,26,33,.35);
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --f-zh:"IBM Plex Sans SC","IBM Plex Sans","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F141A; --surface:#161D24; --sunken:#1D252D;
+    --ink:#DBE2E9; --ink-2:#8A98A5; --ink-3:#6F7D8A;
+    --rule:#2A333C; --rule-soft:#212A32;
+    --accent:#72BCDB; --accent-soft:#17303D;
+    --ok:#5EBD90; --ok-bg:#14291F; --ok-line:#2F5F47;
+    --part:#D5A343; --part-bg:#2A2314; --part-line:#5F4E22;
+    --no:#E0827A; --no-bg:#2B1917; --no-line:#5F332E;
+  --callout-code-bg:rgba(224,130,122,.16);
+    --callout-code-bg:rgba(224,130,122,.16);
+    --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 28px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F141A; --surface:#161D24; --sunken:#1D252D;
+  --ink:#DBE2E9; --ink-2:#8A98A5; --ink-3:#6F7D8A;
+  --rule:#2A333C; --rule-soft:#212A32;
+  --accent:#72BCDB; --accent-soft:#17303D;
+  --ok:#5EBD90; --ok-bg:#14291F; --ok-line:#2F5F47;
+  --part:#D5A343; --part-bg:#2A2314; --part-line:#5F4E22;
+  --no:#E0827A; --no-bg:#2B1917; --no-line:#5F332E;
+  --shadow:0 1px 0 rgba(0,0,0,.3), 0 10px 28px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--f-body); font-size:16px; line-height:1.62;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.wrap{max-width:1160px; margin:0 auto; padding:0 clamp(18px,4vw,44px)}
+
+/* ---------- bilingual spine ---------- */
+.bi{
+  display:grid; grid-template-columns:1fr 1fr;
+  column-gap:clamp(26px,4.4vw,58px); row-gap:0;
+  position:relative;
+}
+.bi::before{
+  content:""; position:absolute; top:0; bottom:0; left:50%;
+  width:1px; background:var(--rule-soft);
+}
+.bi > *{min-width:0}
+.zh{font-family:var(--f-zh); line-height:1.78}
+.en{font-family:var(--f-body)}
+.zh :is(p,li),.en :is(p,li){margin:0 0 .72em}
+.zh > :last-child,.en > :last-child{margin-bottom:0}
+
+@media (max-width:760px){
+  .bi{grid-template-columns:1fr; row-gap:0}
+  .bi::before{display:none}
+  .en{
+    margin-top:.65rem; padding-top:.65rem;
+    border-top:1px dashed var(--rule-soft); color:var(--ink-2);
+  }
+  .en::before{
+    content:"EN"; display:block; font-family:var(--f-mono);
+    font-size:10px; letter-spacing:.14em; color:var(--ink-3); margin-bottom:.3rem;
+  }
+}
+
+/* ---------- masthead ---------- */
+header.mast{border-bottom:1px solid var(--rule); background:var(--surface)}
+.mast-in{padding:clamp(34px,6vw,68px) 0 clamp(28px,4vw,44px)}
+.eyebrow{
+  font-family:var(--f-mono); font-size:11.5px; font-weight:500;
+  letter-spacing:.17em; text-transform:uppercase; color:var(--ink-3);
+  display:flex; flex-wrap:wrap; gap:.35em 1.1em; margin-bottom:clamp(18px,3vw,30px);
+}
+.eyebrow b{color:var(--accent); font-weight:600}
+.eyebrow span + span::before{content:"\2022"; color:var(--rule); margin-right:1.05em}
+h1{
+  font-family:var(--f-display); font-weight:800; margin:0 0 .1em;
+  font-size:clamp(30px,5.4vw,54px); line-height:1.04;
+  letter-spacing:-.022em; text-wrap:balance;
+}
+h1.zh-h{font-family:var(--f-zh); font-weight:600; letter-spacing:-.01em}
+.lede{font-size:clamp(15px,1.5vw,16.5px); color:var(--ink-2); margin-top:1.1em}
+.lede strong{color:var(--ink); font-weight:600}
+code,kbd{
+  font-family:var(--f-mono); font-size:.88em;
+  background:var(--sunken); padding:.1em .38em; border-radius:3px;
+  color:var(--ink); white-space:nowrap;
+}
+a{color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2.5px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:2px}
+
+/* ---------- stat band ---------- */
+.band{
+  border-bottom:1px solid var(--rule); background:var(--sunken);
+}
+.stats{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(142px,1fr));
+  gap:1px; background:var(--rule); border-left:1px solid var(--rule); border-right:1px solid var(--rule);
+}
+.stat{background:var(--surface); padding:clamp(14px,2vw,20px) clamp(12px,1.6vw,18px)}
+.stat .n{
+  font-family:var(--f-mono); font-weight:600; font-variant-numeric:tabular-nums;
+  font-size:clamp(18px,2.1vw,23px); letter-spacing:-.025em; line-height:1.2; color:var(--ink);
+  display:block; white-space:nowrap;
+}
+.stat .k{
+  font-family:var(--f-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); margin-top:.5em; display:block;
+}
+.stat .kz{font-family:var(--f-zh); font-size:12.5px; color:var(--ink-2); letter-spacing:0; text-transform:none; margin-top:.15em; display:block}
+
+/* ---------- sections ---------- */
+section{padding:clamp(40px,6vw,76px) 0; border-bottom:1px solid var(--rule)}
+.sec-head{margin-bottom:clamp(24px,3.4vw,40px)}
+.sec-num{
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-3); display:block; margin-bottom:.7em;
+}
+h2{
+  font-family:var(--f-display); font-weight:700; font-size:clamp(22px,3.1vw,32px);
+  line-height:1.14; letter-spacing:-.018em; margin:0; text-wrap:balance;
+}
+h2.zh-h{font-family:var(--f-zh); font-weight:600; letter-spacing:0}
+.sec-note{color:var(--ink-2); font-size:14.5px; margin-top:.9em}
+
+/* ---------- can / cannot ---------- */
+.ledger{display:grid; gap:clamp(18px,2.6vw,26px)}
+.group{
+  background:var(--surface); border:1px solid var(--rule);
+  border-radius:2px; box-shadow:var(--shadow); overflow:hidden;
+}
+.group > h3{
+  margin:0; padding:.85rem clamp(14px,2vw,22px);
+  border-bottom:1px solid var(--rule-soft); background:var(--sunken);
+  font-family:var(--f-mono); font-weight:600; font-size:12px;
+  letter-spacing:.11em; text-transform:uppercase; color:var(--ink-2);
+  display:flex; align-items:baseline; gap:.8em; flex-wrap:wrap;
+}
+.group > h3 .zh-t{font-family:var(--f-zh); font-size:14px; letter-spacing:.02em; text-transform:none; color:var(--ink)}
+.item{padding:clamp(13px,1.8vw,18px) clamp(14px,2vw,22px); border-top:1px solid var(--rule-soft)}
+.item:first-of-type{border-top:0}
+.item .bi{font-size:14.7px}
+.item .zh b,.item .en b{font-weight:600; color:var(--ink)}
+.ledger--yes .group{border-left:3px solid var(--ok-line)}
+.ledger--no .group{border-left:3px solid var(--no-line)}
+.trace{
+  font-family:var(--f-mono); font-size:11.5px; color:var(--ink-3);
+  margin-top:.6em; display:block; white-space:normal; line-height:1.5;
+}
+.two-up{display:grid; grid-template-columns:1fr; gap:clamp(38px,5vw,64px)}
+/* The two ledgers stack full width so each bilingual column keeps a readable
+   measure; the equal-weight argument is carried by the index band above and by
+   the two ledgers sharing one treatment, not by cramming four text columns. */
+.faces{
+  display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule);
+  border:1px solid var(--rule); margin-bottom:clamp(30px,4vw,46px);
+}
+@media (max-width:620px){.faces{grid-template-columns:1fr}}
+.facecard{background:var(--surface); padding:clamp(15px,2vw,22px); display:flex; flex-direction:column; gap:.5rem}
+.facecard--yes{border-top:3px solid var(--ok-line)}
+.facecard--no{border-top:3px solid var(--no-line)}
+.facecard .fc-top{display:flex; align-items:baseline; gap:.6em}
+.facecard .fc-n{
+  font-family:var(--f-mono); font-weight:600; font-size:clamp(26px,3.4vw,36px);
+  line-height:1; letter-spacing:-.03em; font-variant-numeric:tabular-nums;
+}
+.facecard--yes .fc-n{color:var(--ok)} .facecard--no .fc-n{color:var(--no)}
+.facecard .fc-l{font-family:var(--f-zh); font-weight:600; font-size:17px; color:var(--ink)}
+.facecard .fc-le{font-family:var(--f-display); font-weight:700; font-size:15px; color:var(--ink-2); letter-spacing:-.01em}
+.facecard .fc-d{font-size:13.5px; color:var(--ink-2); line-height:1.6}
+.facecard .fc-d .z{font-family:var(--f-zh); display:block; color:var(--ink)}
+.face-head{
+  display:flex; align-items:baseline; gap:.7em; flex-wrap:wrap;
+  margin:0 0 1.1rem; padding-bottom:.7rem; border-bottom:2px solid var(--ink);
+}
+.face-head h3{
+  font-family:var(--f-display); font-weight:700; font-size:clamp(18px,2.2vw,23px);
+  margin:0; letter-spacing:-.012em;
+}
+.face-head .zh-h3{font-family:var(--f-zh); font-weight:600}
+.face-head .count{
+  font-family:var(--f-mono); font-size:11px; font-weight:600; letter-spacing:.09em;
+  color:var(--ink-3); font-variant-numeric:tabular-nums; text-transform:uppercase;
+  border:1px solid var(--rule); border-radius:2px; padding:.12em .45em; align-self:center;
+}
+
+/* ---------- chips ---------- */
+.chip{
+  display:inline-flex; align-items:center; gap:.4em;
+  font-family:var(--f-mono); font-size:10.5px; font-weight:600;
+  letter-spacing:.07em; text-transform:uppercase;
+  padding:.2em .5em; border-radius:2px; border:1px solid; white-space:nowrap;
+  vertical-align:.08em;
+}
+.chip--ok{color:var(--ok); background:var(--ok-bg); border-color:var(--ok-line)}
+.chip--part{color:var(--part); background:var(--part-bg); border-color:var(--part-line)}
+.chip--no{color:var(--no); background:var(--no-bg); border-color:var(--no-line)}
+.chip--n{color:var(--ink-2); background:var(--sunken); border-color:var(--rule)}
+
+/* ---------- tables ---------- */
+.scroller{overflow-x:auto; border:1px solid var(--rule); border-radius:2px; background:var(--surface); box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; min-width:720px; font-size:14px}
+thead th{
+  text-align:left; font-family:var(--f-mono); font-weight:600; font-size:10.5px;
+  letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3);
+  padding:.8rem .9rem; background:var(--sunken); border-bottom:1px solid var(--rule);
+  position:sticky; top:0; white-space:nowrap;
+}
+tbody td{padding:.82rem .9rem; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--accent-soft)}
+td .zh-c{font-family:var(--f-zh); display:block; color:var(--ink)}
+td .en-c{display:block; color:var(--ink-2); font-size:12.8px; margin-top:.15em; line-height:1.5}
+td .mono{font-family:var(--f-mono); font-size:12.5px; color:var(--ink-2); display:block; margin-top:.3em}
+th.plat,td.plat{width:15%}
+.pname{font-family:var(--f-display); font-weight:700; font-size:15px; letter-spacing:-.01em; display:block}
+
+/* ---------- details ---------- */
+details{
+  background:var(--surface); border:1px solid var(--rule); border-radius:2px;
+  margin-bottom:12px; box-shadow:var(--shadow);
+}
+details[open]{border-color:var(--accent)}
+summary{
+  cursor:pointer; padding:.95rem clamp(14px,2vw,20px); list-style:none;
+  display:flex; align-items:baseline; gap:.75em; flex-wrap:wrap;
+}
+summary::-webkit-details-marker{display:none}
+summary::before{
+  content:"+"; font-family:var(--f-mono); font-weight:600; color:var(--accent);
+  width:1em; flex:none; font-size:15px;
+}
+details[open] > summary::before{content:"\2212"}
+summary .s-zh{font-family:var(--f-zh); font-weight:600; font-size:15.5px; color:var(--ink)}
+summary .s-en{font-size:13px; color:var(--ink-2)}
+summary .s-tag{
+  margin-left:auto; font-family:var(--f-mono); font-size:10.5px; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--ink-3); white-space:nowrap;
+}
+.d-body{padding:0 clamp(14px,2vw,20px) clamp(16px,2vw,20px); border-top:1px solid var(--rule-soft); padding-top:clamp(14px,2vw,18px)}
+.d-body > * + *{margin-top:1.05rem}
+
+/* ---------- rule grid ---------- */
+.rules{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft)}
+.rulefam{background:var(--surface); padding:.8rem .9rem}
+.rulefam .fname{font-family:var(--f-mono); font-weight:600; font-size:12px; letter-spacing:.06em; color:var(--accent); display:flex; justify-content:space-between; gap:.6em}
+.rulefam .fname span{color:var(--ink-3); font-weight:400}
+.rulefam .fdesc{font-family:var(--f-zh); font-size:12.8px; color:var(--ink-2); margin-top:.35em; line-height:1.6}
+.rulefam .fdesc em{font-family:var(--f-body); font-style:normal; display:block; font-size:12px; color:var(--ink-3)}
+
+/* ---------- cmd ---------- */
+pre{
+  margin:0; overflow-x:auto; background:var(--sunken); border:1px solid var(--rule-soft);
+  border-radius:2px; padding:.9rem 1rem; font-family:var(--f-mono); font-size:12.5px;
+  line-height:1.75; color:var(--ink);
+}
+pre .c{color:var(--ink-3)}
+
+/* ---------- callout ---------- */
+.callout{
+  border:1px solid var(--no-line); background:var(--no-bg);
+  border-left:3px solid var(--no); border-radius:2px;
+  padding:clamp(16px,2.4vw,22px);
+}
+.callout .ctitle{
+  font-family:var(--f-mono); font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--no); font-weight:600; margin-bottom:.8em;
+}
+.callout .bi{font-size:14.7px}
+.callout code{background:var(--callout-code-bg)}
+
+/* ---------- footer ---------- */
+footer{padding:clamp(34px,5vw,58px) 0 clamp(48px,7vw,80px); background:var(--surface)}
+.papers{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1px; background:var(--rule-soft); border:1px solid var(--rule-soft); margin-bottom:clamp(24px,3vw,34px)}
+.paper{background:var(--surface); padding:.9rem 1rem}
+.paper .pid{font-family:var(--f-mono); font-size:11px; letter-spacing:.08em; color:var(--ink-3)}
+.paper .pt{display:block; margin-top:.35em; font-size:13.5px; line-height:1.5; color:var(--ink)}
+.fine{font-size:13px; color:var(--ink-2)}
+.fine .bi{font-size:13px}
+hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38px) 0}
+
+@media (prefers-reduced-motion: no-preference){
+  .stat,.group,details{transition:border-color .16s ease, background-color .16s ease}
+}
+</style>
+
+<header class="mast">
+  <div class="wrap mast-in">
+    <div class="eyebrow">
+      <span><b>AgentGuard</b></span><span>1.0.0-rc.1</span><span>Rust · 20 workspace crates</span>
+      <span>Apache-2.0</span><span>2026-08</span>
+    </div>
+    <div class="bi">
+      <div class="zh">
+        <h1 class="zh-h">能做什么，<br>不能做什么</h1>
+        <p class="lede">AgentGuard 是 GUI 智能体的<strong>旁路观察器</strong>：它看智能体看到的屏幕、读到的无障碍树、填过的表单、拉起的 deeplink 和外发流量的元数据，然后给出 <strong>允许 / 告警 / 阻断</strong>。它<strong>不</strong>是沙箱，不接管系统调用，也不拦网络。</p>
+        <p class="lede">这一页把能力和边界排在<strong>同等大小的版面</strong>上——因为项目本身就是这么写文档的：<code>guard-cli coverage</code> 会去仓库里核对覆盖矩阵的每一条声明，声明不成立命令就失败。下面每个数字都能用一条命令复现。<br><br><strong>2026-08 更新：</strong>Windows 从"一行 UIA 代码都没有"变成真实的 UI Automation 遍历 + GDI 抓帧；Android 从 7 个序列化器里 3 个有调用方变成 8 个；两个桌面壳子<strong>第一次被编译过</strong>——此前 CI 只用 <code>rustfmt --check</code> 验证它们，那只解析、不解析引用，所以两个 Tauri 应用的代码从没被编译器看过。（更正：我先前写过"它们引用的图标文件不存在，根本构建不出来"——那是错的，是我拿到的仓库副本不完整造成的。图标一直都在。）</p>
+      </div>
+      <div class="en">
+        <h1>What it does,<br>and what it doesn't</h1>
+        <p class="lede">AgentGuard is an <strong>out-of-band observer</strong> for GUI agents. It watches what an agent sees and types — screen frames, accessibility trees, form fills, deeplinks, network-flow metadata — and returns <strong>Allow / Alert / Block</strong>. It does not block traffic. It is <strong>not</strong> a sandbox — with one exception now: on Linux, for a process <em>it</em> launches, <code>agentguard-jail</code> applies a kernel-enforced filesystem boundary that does not depend on the guarded process cooperating. Everywhere else, and for every other layer, enforcement is <strong>cooperative</strong>: it stops what goes through it.</p>
+        <p class="lede">This page gives capabilities and limits <strong>equal space on the page</strong>, because that is how the repository documents itself: <code>guard-cli coverage</code> checks every claim in the coverage matrix against the repo, and an unbacked claim fails the command. Every figure below is reproducible with one command.<br><br><strong>Updated 2026-08:</strong> Windows went from not one line of UIA to a real UI Automation walk plus GDI capture; Android from 3 of 7 serializers having callers to 8; and both desktop shells were <strong>compiled for the first time</strong> — CI had only ever verified them with <code>rustfmt --check</code>, which parses and does not resolve, so no compiler had looked at either Tauri app. (Correction: I previously wrote that they referenced icon files missing from the repository and could not be built at all. That was wrong — an artefact of an incomplete working copy on my side. The icons were there all along.)<br><br><strong>Also new:</strong> a cooperative MCP tool gateway, a filesystem path model wired into the signed audit trail, the kernel-enforced Linux boundary above, and a release-blocker pass (<code>docs/发布阻塞项.md</code>), and signed adapter assertions with an asymmetric trust rule (<code>docs/适配器断言签名.md</code>). What this project may and may not claim, and who it is responsible to ship to, is now a separate document: <code>docs/上线评估.md</code>. The short version: <strong>it is an honest observation-and-accountability system with a cooperative layer of dissuasion and one narrow real boundary.</strong> Shipping it as that is responsible. Shipping it as "protection" is not.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="band">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><span class="n">691</span><span class="k">tests passing</span><span class="kz">655 Rust · 31 Kotlin · 5 壳</span></div>
+      <div class="stat"><span class="n">125/125</span><span class="k">scoreboard</span><span class="kz">记分板场景</span></div>
+      <div class="stat"><span class="n">104/104</span><span class="k">release acceptance</span><span class="kz">发布验收</span></div>
+      <div class="stat"><span class="n">13/16/1</span><span class="k">covered / partial / none</span><span class="kz">30 个攻击面</span></div>
+      <div class="stat"><span class="n">1.10%</span><span class="k">attack-miss rate</span><span class="kz">攻击漏检 (1 / 91)</span></div>
+      <div class="stat"><span class="n">0.0%</span><span class="k">false positives</span><span class="kz">误报 (0 / 34 良性)</span></div>
+      <div class="stat"><span class="n">3</span><span class="k">platforms observing</span><span class="kz">macOS · Windows · Android</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= TIER 1: EVALUATOR ========================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head bi">
+      <div class="zh">
+        <span class="sec-num">§ 1 — 两面 / equal weight</span>
+        <h2 class="zh-h">能做的 17 件事，做不到的 18 件事</h2>
+        <p class="sec-note">左右两栏是同一份内容的中英对照。每条后面的灰色小字是这条声明的出处——代码路径、命令，或者仓库里承认这条限制的那份文档。</p>
+      </div>
+      <div class="en">
+        <span class="sec-num">§ 1 — Two faces</span>
+        <h2>17 things it does. 18 things it does not.</h2>
+        <p class="sec-note">The two columns are the same content in Chinese and English. The grey line under each item is where that claim comes from — a code path, a command, or the document in the repo that admits the limit.</p>
+      </div>
+    </div>
+
+    <div class="faces">
+      <div class="facecard facecard--yes">
+        <div class="fc-top"><span class="fc-n">17</span><span class="fc-l">能做</span><span class="fc-le">What it does</span></div>
+        <div class="fc-d"><span class="z">三端实时观察（macOS / Windows / Android），共用一份像素与 UI 树分析；注入与情报、结构化隐私识别、污点格、身份与计划、审计与评测。</span>Live observation on three platforms (macOS / Windows / Android) over one shared pixel-and-tree analysis; injection and intel, structural privacy recognition, a taint lattice, identity and plan alignment, audit and evaluation.</div>
+      </div>
+      <div class="facecard facecard--no">
+        <div class="fc-top"><span class="fc-n">18</span><span class="fc-l">不能做</span><span class="fc-le">What it does not</span></div>
+        <div class="fc-d"><span class="z">不是沙箱、不保护文件系统；iOS 仍是占位；Windows 看不到别的进程叠上来的窗口、也没有 OCR；Android 的确认是事后通知不是拦停；三端都没有人在真机上跑过。</span>Not a sandbox and no filesystem protection; iOS is still a stub; Windows cannot see another process's window composited on top and has no OCR; Android confirmation is a notification after the fact, not a gate; and nobody has run any of the three on real hardware.</div>
+      </div>
+    </div>
+
+    <div class="two-up">
+      <!-- ========== CAN ========== -->
+      <div>
+        <div class="face-head">
+          <h3 class="zh-h3">能做</h3><h3>What it does</h3>
+          <span class="count">17 items</span>
+        </div>
+        <div class="ledger ledger--yes">
+
+          <div class="group">
+            <h3><span class="zh-t">屏幕感知</span> Screen perception <span class="chip chip--ok">macOS + Windows</span></h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>1 · 潜阈注入</b>：把低对比度文字压在画面里，人看不见、VLM 读得到。两段对比度带 <code>[0.008,0.08)</code> 与 <code>[0.08,0.22)</code>，命中后触发 Vision OCR 复核。</div>
+              <div class="en"><b>1 · Subliminal injection</b> — low-contrast text a human misses and a VLM reads. Two contrast bands, <code>[0.008,0.08)</code> and <code>[0.08,0.22)</code>, with a Vision OCR re-read on a hit.</div>
+            </div><span class="trace">mac-adapter/src/subliminal.rs · OVL-007, OVL-004 · (A)I Sees §IV-B</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>2 · 不可见区与透明浮层</b>：圆角/挖孔屏的物理不可见区按论文公式 <code>w = R − √(R² − (R−y)²)</code> 建模，加透明度与字号启发式。</div>
+              <div class="en"><b>2 · Invisible zones and transparent overlays</b> — the physically invisible zone of a rounded or cut-out display, modelled with the paper's own <code>w = R − √(R² − (R−y)²)</code>, plus opacity and font-size heuristics.</div>
+            </div><span class="trace">guard-overlay::DisplayGeometry · OVL-001/002/006/012 · unit-tested at R=132 → w≈78</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>3 · 截图被篡改</b>：对每帧算亮度+色度网格摘要，局部改动与整屏重绘可区分；另有色度隐写与 LSB 提示。</div>
+              <div class="en"><b>3 · Screenshot tampering</b> — a luma-plus-chroma grid digest per frame separates a localized edit from a global repaint; chroma-steganography and LSB hints run alongside.</div>
+            </div><span class="trace">mac-adapter/src/framehash.rs, stego.rs · OVL-003/011/013 · <code>make frame-digest-demo</code></span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>4 · 一份实现，两个平台跑</b>：上面这三项的算术全在 <code>guard-vision</code> 里，macOS 的 ScreenCaptureKit 和 Windows 的 GDI 都只负责交像素。平台适配器不带阈值。<b>这不是整洁，是这个项目最常犯的错</b>——第 17 轮发过一个"在最需要它的平台上从不运行"的脱敏器，<code>AppFace.kt</code> 头部至今写着它的哈希是"重新实现而非共享"。一个阈值的两份拷贝不是一条规则写两遍，是两条同名的规则。</div>
+              <div class="en"><b>4 · One implementation, two platforms</b> — the arithmetic behind the three items above lives in <code>guard-vision</code>; macOS's ScreenCaptureKit and Windows's GDI only hand over pixels. A platform adapter carries no thresholds. <b>This is not tidiness, it is this project's most repeated mistake</b>: iteration 17 shipped a redactor that never ran on the platform that needed it, and <code>AppFace.kt</code>'s header still says its hash is "reimplemented rather than shared". Two copies of a threshold are not one rule written twice; they are two rules with one name.</div>
+            </div><span class="trace">crates/guard-vision — 47 tests · <code>stats_from_pixels</code> is the single entry point, so a new platform cannot silently run three of five detectors</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>5 · 无障碍树与屏幕不一致</b>：把 AX 文本和同一屏 OCR 出来的文本做词集交叉验证——论文里覆盖面最广的那个 surface（9 个智能体中 8 个中招）。<b>macOS 和 Windows 都跑</b>：前者用 Vision，后者用系统自带的 <code>Windows.Media.Ocr</code>。而「何时读、加多少对比度、带多少文字出来」是<b>共享常量</b>——不共享的话，一端会安静地比另一端读得少，而那看起来像屏幕更干净。</div>
+              <div class="en"><b>5 · Accessibility tree diverging from the render</b> — token-set cross-validation of AX text against OCR of the same screen. The broadest surface in the papers: 8 of 9 agents vulnerable. <b>Runs on macOS and Windows</b>: Vision there, the OS's own <code>Windows.Media.Ocr</code> here. <em>When to read</em>, <em>how much contrast</em> and <em>how much text travels</em> are <b>shared constants</b> — unshared, one platform quietly reads less than the other, and that looks like a cleaner screen.</div>
+            </div><span class="trace">guard-vision/src/viewtree.rs · guard-vision/src/ocr.rs — the policy is shared, and a test asserts the Objective-C bridge still matches it · OVL-009, OVL-010</span></div>
+          </div>
+
+          <div class="group">
+            <h3><span class="zh-t">注入与情报</span> Injection &amp; intel</h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>6 · 提示注入与角色标记逃逸</b>：内容按来源打标签装进隔离信封，标记全转义，所以内容关不掉自己的信封、也伪造不出更高信任的来源；<code>&lt;|im_start|&gt;</code>、<code>### System:</code>、<code>[INST]</code> 这类伪造对话轮次会被识别。</div>
+              <div class="en"><b>6 · Prompt injection and role-marker breakout</b> — content is wrapped in an origin-tagged envelope with total markup escaping, so it can neither close its own envelope nor claim a higher-trust origin. Forged turns (<code>&lt;|im_start|&gt;</code>, <code>### System:</code>, <code>[INST]</code>) are detected.</div>
+            </div><span class="trace">guard-privacy/src/isolation.rs · FW-BREAKOUT, OVL-004 · <code>guard-cli isolate | scan-content</code></span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>7 · 恶意域名与情报包</b>：威胁情报用 Ed25519 签名分发，可从 CDN manifest 拉取并热加载，签名不过就不加载。</div>
+              <div class="en"><b>7 · Malicious domains, on a signed bundle</b> — threat intel ships Ed25519-signed, pulls from a CDN manifest and hot-reloads; a bad signature does not load.</div>
+            </div><span class="trace">guard-intel · INTEL-DOMAIN, INTEL-INJECT, CRIT-004, PRIV-005</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>8 · 看得见和读得到不一样的文字</b>：零宽字符、Unicode tag block、bidi 覆写（Trojan Source）、拉丁词里掺西里尔/希腊同形字、组合符堆叠、超长 token。发现只报类别和计数，从不回传文本。</div>
+              <div class="en"><b>8 · Text that renders differently from how it reads</b> — zero-width characters, the Unicode tag block, bidi <em>overrides</em> (Trojan Source), Latin words carrying Cyrillic or Greek lookalikes, combining stacks, oversized tokens. Findings carry a class and a count, never the text.</div>
+            </div><span class="trace">guard-privacy/src/anomaly.rs · FW-TEXT-ANOMALY · docs/text-anomalies.md</span></div>
+          </div>
+
+          <div class="group">
+            <h3><span class="zh-t">隐私与信息流</span> Privacy &amp; information flow</h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>9 · 结构化敏感信息识别（不用模型）</b>：Luhn 校验的银行卡、mod-97 的 IBAN、ISO 7064 的身份证、带前缀的 API 密钥、PEM 私钥、E.164 电话。<b>只有被标记为 verified 的实体才会抬高标签</b>：Luhn 卡号、mod-97 IBAN、ISO 7064 身份证，<b>以及靠发行方前缀或 PEM 头识别出的密钥（这两个只看形状，没有算术校验）</b>。邮箱、电话、SSN、护照、生日一律 <code>verified: false</code>——只报告，永不改判，所以猜测不能拦流量。</div>
+              <div class="en"><b>9 · Structural PII recognition, with no model</b> — Luhn-verified cards, mod-97 IBANs, ISO 7064 resident ids, prefixed API secrets, PEM keys, E.164 phones. <b>Only entities flagged <code>verified</code> move a label</b>: Luhn cards, mod-97 IBANs, ISO 7064 ids — <b>plus API secrets matched on an issuer prefix or a bare PEM header, which is shape alone, not arithmetic</b>. Email, phone, SSN, passport and DOB are all <code>verified: false</code>: reported, never reclassifying, so a guess cannot block traffic.</div>
+            </div><span class="trace">guard-privacy/src/entity.rs · Aura §4.2 · findings are redacted to class + masked tail</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>10 · 污点格与解密申请</b>：内容带敏感度标签并向下游继承，高敏内容只能流向已验证签名的应用；降级要显式申请，非法降级直接拒。</div>
+              <div class="en"><b>10 · A taint lattice with declassification</b> — labels are inherited downstream, HIGH-sensitivity content may only reach an app whose signature is verified, and declassification must be requested; an illegal one is refused.</div>
+            </div><span class="trace">FLOW-CONF / DERIVE / DECLASSIFY-REQUEST / DECLASSIFY-BAD / NWD · docs/information-flow.md</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>11 · MyPhoneBench 式隐私打分</b>：过度索权（OP）、陷阱抵抗（TR）、表单最小化（FM）三项探针，加一张行为画像排行榜。</div>
+              <div class="en"><b>11 · MyPhoneBench-style privacy scoring</b> — over-permissioning, trap-resistance and form-minimization probes, plus a behaviour-profile leaderboard.</div>
+            </div><span class="trace">guard-eval · <code>guard-cli leaderboard</code> · docs/myphonebench-mapping.md</span></div>
+          </div>
+
+          <div class="group">
+            <h3><span class="zh-t">身份、计划、会话权限</span> Identity, plan, session scope</h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>12 · 应用身份靠签名证书，不靠名字</b>：包名对应的签名证书 SHA-256 钉在策略里，精确匹配。<b>外观是指控，证书才是权威</b>——克隆了微信的图标和名字永远不会让一个应用变成微信，只会让它被指控。</div>
+              <div class="en"><b>12 · App identity is the signing certificate, not the name</b> — a SHA-256 of the signing cert pinned per package, matched exactly. <b>Appearance is the accusation; the certificate is the authority.</b> Cloning WeChat's icon and name never makes an app WeChat — it only makes it the finding.</div>
+            </div><span class="trace">guard-schema/src/visual.rs · APP-SIGNER-MISMATCH, APP-LOOKALIKE, APP-IDENTITY-CHANGED · AgentScan §3.5–3.6</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>13 · 计划-轨迹对齐与会话最小权限</b>：动作要落在声明过的计划里，顺序、预算、完成后再动手都会报；会话权限是<b>天花板 ∩ 请求</b>——请求超出天花板的部分被记录并拒绝，而不是悄悄放大。</div>
+              <div class="en"><b>13 · Plan-trajectory alignment and session least privilege</b> — an action must sit inside a declared plan; order, budget and acting-after-completion are all reported. A session's scope is <b>ceiling ∩ request</b>, so an over-request is recorded and refused rather than silently granted.</div>
+            </div><span class="trace">PLAN-* (6) , SCOPE-DATA / HOST / OVER-REQUEST · Aura §4.3–4.4 · policies/task-plans.yaml</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>14 · 关键节点确认 + 可验证审计</b>：付款、删除这类关键动作强制人工确认；审计行<b>总是</b>做哈希链；<b>逐条签名在桌面应用里默认开，其他入口是可选的</b>（<code>--audit-signing-key</code> / <code>AGENTGUARD_AUDIT_SIGNING_KEY</code>）——没有签名时，一个能正确重算哈希链的篡改者抓不住，这正是 <code>make audit-signing-demo</code> 演示的东西。Android 侧还能调查环境：谁开了无障碍服务、谁能收广播输入、谁能读日志。</div>
+              <div class="en"><b>14 · Critical-node confirmation and a verifiable audit trail</b> — payment and delete-class actions require human confirmation; audit rows are <b>always</b> hash-chained, and <b>per-row signing is on in the desktop apps and opt-in everywhere else</b> (<code>--audit-signing-key</code> / <code>AGENTGUARD_AUDIT_SIGNING_KEY</code>). Without it, a tamperer who correctly re-hashes the chain is not caught — which is exactly what <code>make audit-signing-demo</code> demonstrates. On Android it also surveys the environment: which accessibility services are enabled, who can receive broadcast input, who can read the log.</div>
+            </div><span class="trace">CRIT-001…005, ENV-A5, ENV-A6, ENV-LOG-READABLE · <code>guard-cli audit-verify</code> · <code>make audit-signing-demo</code></span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>15 · 一个内核执行的文件系统边界——只在 Linux 上，只对它自己启动的进程。</b>这是全篇唯一一处强制力<b>不</b>依赖被约束方配合的地方：<code>agentguard-jail</code> 从计划的 <code>scope.paths</code> 天花板生成约束，在 <code>pre_exec</code> 里落下 user + mount namespace，越界写拿到内核的 <code>EROFS</code>。9 条集成测试全部从 jail <b>外面</b>用文件系统状态核对，因为"<code>launch()</code> 返回了 Ok"和这个项目反复抓到的那种缺陷是同一形状。Landlock 只实现了探测；一台只有 Landlock 的机器上 <code>launch()</code> 拒绝启动而不是退化成不约束。</div>
+              <div class="en"><b>15 · One kernel-enforced filesystem boundary — Linux only, and only for processes it launches itself.</b> This is the single place on this page where enforcement does <b>not</b> depend on the guarded party cooperating. <code>agentguard-jail</code> derives the constraint from a plan's <code>scope.paths</code> ceiling and applies a user + mount namespace in <code>pre_exec</code>; an out-of-bounds write gets <code>EROFS</code> from the kernel. All 9 integration tests check filesystem state from <b>outside</b> the jail, because "<code>launch()</code> returned Ok" is the same defect shape this project keeps catching. The Landlock backend is probe-only; on a Landlock-only host <code>launch()</code> refuses rather than degrading to no constraint.</div>
+            </div><span class="trace">crates/guard-jail · <code>make check-jail</code> · docs/内核约束.md</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>16 · 一个把危险工具调用按住等人回答的 MCP 网关——<b>合作式</b>。</b><code>agentguard-mcp</code> 是个 MCP 服务器，智能体把工具调用路由给它，它判决之后再决定执不执行；确认是靠<b>按住 JSON-RPC 响应</b>实现的，超时一律拒绝。<code>describe()</code> 和 <code>execute()</code> 是分开的两个函数，所以"说了什么"和"做了什么"不会漂。它拦的是<b>经过它</b>的调用——智能体直接 exec 就绕过了，这是设计而不是缺陷，代码里那个常量就叫 <code>ENFORCEMENT = "cooperative"</code>。</div>
+              <div class="en"><b>16 · An MCP gateway that holds a dangerous tool call until a human answers — <b>cooperatively</b>.</b> <code>agentguard-mcp</code> is an MCP server: the agent routes tool calls through it, and it judges before deciding whether to run them. Confirmation is implemented by <b>holding the JSON-RPC response</b>, and a timeout always denies. <code>describe()</code> and <code>execute()</code> are separate functions so what it says and what it does cannot drift. It stops what <b>goes through it</b> — an agent that execs directly has bypassed it, which is the design and not a defect; the constant in the code is literally <code>ENFORCEMENT = "cooperative"</code>.</div>
+            </div><span class="trace">crates/guard-gateway (24 tests) · docs/工具网关.md</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>17 · 认出自己发布的那把假钥匙，并在上线前把配置的缺口说出来。</b>发布注册表钉的两把 Ed25519 公钥，私钥是仓库里的单字节种子。此前这件事只写在 YAML 注释里（"真实部署请替换"）——<b>注释不是执行</b>：照抄它再打开 <code>require_attestation</code>，任何人都能伪造出一个<b>验签通过</b>的 attestation。现在判决层认得它们，判 <code>AGENT-KEY-PUBLICLY-KNOWN</code> 而不是 <code>Verified</code>，失败是关闭的。<code>agentguard preflight</code> 会把这类缺口列出来（有 FAIL 时退出码 1），而且<b>仓库自带的这套配置就报 FAIL</b>——"照着仓库跑"和"可以上线"之间必须有一个看得见的差别。</div>
+              <div class="en"><b>17 · It recognises the fake key it ships with, and names the gaps in a deployment before it goes live.</b> The shipped registry pins two Ed25519 public keys whose private halves are single-byte seeds in this repository. That used to be stated only in a YAML comment ("replace for real deployments") — and <b>a comment is not enforcement</b>: copy it, turn on <code>require_attestation</code>, and anyone can forge an attestation that <b>verifies</b>. The judgment layer now recognises those keys and returns <code>AGENT-KEY-PUBLICLY-KNOWN</code> rather than <code>Verified</code>; failure is closed. <code>agentguard preflight</code> lists gaps of this kind and exits 1 on any FAIL — and <b>the configuration in this repository reports FAIL</b>, because "runs from the repo" and "fit to deploy" must differ visibly.</div>
+            </div><span class="trace">guard_schema::PUBLICLY_KNOWN_AGENT_KEYS · <code>agentguard preflight</code> · docs/发布阻塞项.md</span></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ========== CANNOT ========== -->
+      <div>
+        <div class="face-head">
+          <h3 class="zh-h3">不能做</h3><h3>What it does not do</h3>
+          <span class="count">18 items</span>
+        </div>
+        <div class="ledger ledger--no">
+
+          <div class="group">
+            <h3><span class="zh-t">最重要的一条</span> The one that matters most <span class="chip chip--no">by design</span></h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>1 · 它不是沙箱，不保护文件系统。</b>AgentGuard <b>不会</b>阻止智能体删掉项目目录以外的文件。三个各自足够的理由：<b>(a)</b> 没有文件系统事件类型——<code>EventType</code> 里没有 <code>FileWrite</code>、<code>FileDelete</code>、<code>ProcessExec</code>，引擎根本看不到文件操作；<b>(b)</b> <code>guard-shell</code> 没有路径模型，<code>find / -delete</code> 和删项目目录得到的是同一个答案；<b>(c)</b> 什么都不强制——<code>SafeShell::propose()</code> 返回一个枚举，仓库里没有 seccomp、没有 Landlock、没有 <code>sandbox-exec</code>、没有 ptrace。要这层保护，请交给操作系统。</div>
+              <div class="en"><b>1 · It is not a sandbox and it does not protect the filesystem.</b> AgentGuard <b>will not</b> stop an agent deleting files outside your project directory. Three reasons, each sufficient alone: <b>(a)</b> there is no filesystem event type — <code>EventType</code> has no <code>FileWrite</code>, <code>FileDelete</code> or <code>ProcessExec</code>, so the engine never sees a file operation; <b>(b)</b> <code>guard-shell</code> has no path model, and <code>find / -delete</code> gets the same verdict as deleting the project; <b>(c)</b> nothing is enforced — <code>SafeShell::propose()</code> returns an enum, and there is no seccomp, no Landlock, no <code>sandbox-exec</code>, no ptrace anywhere in the repository. That protection has to come from the OS.</div>
+            </div><span class="trace">docs/scope-and-non-goals.md — measured verdicts for all four delete forms are tabulated there</span></div>
+          </div>
+
+          <div class="group">
+            <h3><span class="zh-t">平台缺口</span> Platform gaps</h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>2 · Windows 的覆盖比 macOS 窄两处。</b>抓帧走 GDI <code>BitBlt</code>，读的是<b>目标窗口自己的渲染</b>——别的进程叠在它上面画的钓鱼窗口不在这些像素里，除非那个窗口本身就是前台窗口。<code>Windows.Graphics.Capture</code> 采的是合成后的桌面，能补上这个洞，没选它是因为那是异步 WinRT + D3D11 设备 + 帧池，几百行代码的失败模式这个仓库的 CI 一条都跑不到。另外<b>不采集应用签名摘要</b>，所以 <code>APP-SIGNER-MISMATCH</code> 和 <code>APP-LOOKALIKE</code> 在这里没有输入。<br><br>屏幕文字识别<b>有</b>了（<code>Windows.Media.Ocr</code>，系统自带、离线、默认装简繁中文），所以 AX↔屏幕交叉验证在这边会跑——但本机没装识别语言包时它不可用，那两条规则就<b>不运行</b>，报的是「没有结论」不是「干净」。</div>
+              <div class="en"><b>2 · Windows coverage is narrower than macOS in two places.</b> Capture is GDI <code>BitBlt</code> on the target window's device context, so it reads <b>that window's own rendering</b>: a phishing window drawn over it by another process is not in those pixels unless it is itself the foreground window. <code>Windows.Graphics.Capture</code> samples the composed desktop and would close the gap; it was not chosen because it is async WinRT with a D3D11 device and a frame pool, several hundred lines whose failure modes this repository's CI cannot reach. And <b>no signing digest is collected</b>, so <code>APP-SIGNER-MISMATCH</code> and <code>APP-LOOKALIKE</code> have no input there.<br><br>Screen text it now <b>does</b> read (<code>Windows.Media.Ocr</code> — ships with the OS, offline, simplified and traditional Chinese installed by default), so the AX↔screen cross-validation runs here. On a host with no recognizer language pack it is unavailable and those two rules <b>do not run</b> — reporting nothing, which is not reporting clean.</div>
+            </div><span class="trace">win_adapter::capture::GRAPHICS_CAPTURE_NOTE — the trade is recorded next to the code that makes it · docs/windows-observation.md</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>3 · iOS 是个占位</b>：40 行 SwiftUI 加一个 README，没有 Xcode 工程，没接引擎。</div>
+              <div class="en"><b>3 · iOS is a placeholder</b> — 40 lines of SwiftUI and a README. No Xcode project, not wired to the engine.</div>
+            </div><span class="trace">apps/ios-webshield/Sources/ContentView.swift (40 lines)</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>4 · Android 的确认是事后通知，不是拦停。</b>中继现在<b>会读</b>引擎的答复了（此前发出去就不管，所以引擎判 <code>Block</code> + <code>require_confirm</code> 时手机永远不知道），<code>require_confirm</code> 会弹一条高优先级通知，报的是<b>引擎的规则</b>而不是本地启发式的猜测。但伴生应用观察的是<b>已经发生</b>的无障碍事件——没有任何一个点是「把动作按住等人回答」。桌面上那个模态框是在动作发生前挡住的。把两者都记成「Critical Confirm ✅」，正是旧那张能力表干的事。另外 <code>deeplink</code> 这一种<b>仍然不发</b>：无障碍服务看不到 intent，唯一的观察办法是把自己注册成 <code>ACTION_VIEW</code> 的处理者，也就是去劫持用户的链接——为一个事件类型付这个代价，这个项目不干。</div>
+              <div class="en"><b>4 · Android confirmation is post-hoc, not a gate.</b> The relay now <b>reads</b> the engine's answer — it was fire-and-forget, so a <code>Block</code> with <code>require_confirm</code> reached nothing — and a <code>require_confirm</code> verdict raises a high-importance notification naming <b>the engine's rule</b> rather than a local heuristic's guess. But the companion observes an accessibility event that has <b>already happened</b>; there is no point at which it holds the action and waits. On the desktop the modal blocks before the action proceeds. Calling both "Critical Confirm ✅" is what the old capability matrix did. Separately, <code>deeplink</code> is <b>still not emitted</b>: an accessibility service does not see intents, and the only way to observe <code>ACTION_VIEW</code> is to register as its handler — intercepting the user's links, which this project will not do for one event type.</div>
+            </div><span class="trace">docs/android-completeness.md · 9 个种类里 8 个有真实来源；第九个在函数上写明了为什么没有，而不是留成一个没人调用的符号</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>5 · 浏览器扩展没有会话概念</b>，只发 <code>ui_text</code> 和 <code>form_fill</code> 两种事件；所有跟会话绑定的规则在扩展上都不生效。</div>
+              <div class="en"><b>5 · The browser extension has no session concept at all</b> and emits two event kinds, <code>ui_text</code> and <code>form_fill</code>; every session-bound rule is inert there.</div>
+            </div><span class="trace">apps/extension-chromium · 2 event kinds found by grep</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>6 · 没有人在真机上跑过这三端。</b>Windows 的 UIA 遍历和 GDI 抓帧能为 <code>x86_64-pc-windows-msvc</code> 编译，CI 在 <code>windows-latest</code> 上构建并测试；macOS 的 Objective-C 桥在 <code>macos-latest</code> 上编译；Android 的 APK 在 CI 里打出来。<b>这三件事都不等于"看着它守护过一个真实的智能体"</b>，而这个仓库里没有任何东西做过后者：没有 instrumented test、没有真机运行记录、没有一次人工验收。iOS 的 Swift 仍然没有任何东西编译它。</div>
+              <div class="en"><b>6 · Nobody has run any of the three on real hardware.</b> The Windows UIA walk and GDI capture compile for <code>x86_64-pc-windows-msvc</code>, and CI builds and tests them on <code>windows-latest</code>; the macOS Objective-C bridges compile on <code>macos-latest</code>; the Android APK is assembled in CI. <b>None of that is the same as having watched it guard a real agent</b>, and nothing in this repository has: no instrumented test, no device run, no manual acceptance. The iOS Swift is still compiled by nothing at all.</div>
+            </div><span class="trace">.github/workflows/ci.yml — 5 jobs: test (macOS+Ubuntu), windows, macos-shell, android, frontend</span></div>
+          </div>
+
+          <div class="group">
+            <h3><span class="zh-t">机制自己的天花板</span> Ceilings of the mechanisms</h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>7 · 图标哈希不能拦，只能记。</b>在 30 个同风格生成图标上实测：无关图标对的距离是 0–27（不是理想的"接近 32"），6.6% 落在 4 bit 以内，4 对完全撞哈希——8×8 网格分不出一笔的差别。分布重叠，没有阈值能分开，所以只有图标证据时判 <code>LogOnly</code>。代价是<b>论文里 10/10 成功的那个攻击场景，在我们的语料里被永久记成一次漏检</b>：这就是漏检率 1.10% 而不是 0.0% 的原因。</div>
+              <div class="en"><b>7 · The icon hash can log, not intervene.</b> Measured over 30 generated icons in one style: unrelated pairs run 0–27 bits apart (not the ideal "near 32"), 6.6% land within 4 bits, and four pairs collide exactly — an 8×8 grid cannot resolve one stroke. The distributions overlap, so no threshold separates them, and icon-only evidence is <code>LogOnly</code>. The price: <b>the paper's 10/10 attack is counted as a permanent miss in our own corpus</b> — that is why the miss rate is 1.10% and not 0.0%.</div>
+            </div><span class="trace">guard-schema test <code>the_icon_channel_false_match_rate_is_measured_not_assumed</code> — it regenerates and prints these figures; the assertions themselves are looser bounds · known miss pinned by <code>guard-eval::acceptance</code> known_misses = [lookalike_cloned_icon_only_001]</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>8 · 名字比对只覆盖两种拼写形变</b>（相邻换位、字母重复）。通用的"一次编辑"规则会把 Stride、Strive、Stripes、Stripo、Strip、WebChat、Elemi 全变成 Critical 阻断，所以它被收窄了。<b>包含关系不算匹配</b>——"WeChat Pay" 逃过这条规则，因为"企业微信"是个真实存在的不同应用。四个字母的拉丁名（比如策略里自带的 AMap）在信息量门槛之下，无法用名字保护。</div>
+              <div class="en"><b>8 · Only two typo shapes are matched</b> — adjacent transposition and a doubled letter. A general one-edit rule turned Stride, Strive, Stripes, Stripo, Strip, WebChat and Elemi into Critical blocks, so it was narrowed. <b>Containment is not a match</b>: "WeChat Pay" escapes the rule, because WeChat Work is a real and different app. Four-letter Latin names — the registry's own AMap — sit below the information floor and are not protectable by label.</div>
+            </div><span class="trace">guard-schema/src/visual.rs · MIN_LABEL_WEIGHT = 5</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>9 · 这不是 NER。</b>没有模型。只识别<b>有结构</b>的东西——校验和、发行方前缀、关键词旁边的形状。人名、街道地址、雇主、病情这些只有语言学信号的类别，一个都识别不了。</div>
+              <div class="en"><b>9 · This is not NER.</b> There is no model. It recognises entities with <b>structure</b> — a checksum, an issuer prefix, a keyword next to a shape. The classes whose only signal is linguistic — a person's name, a street address, an employer, a medical condition — it cannot recognise at all.</div>
+            </div><span class="trace">guard-privacy/src/entity.rs · surfaces.yaml aura-ii note (1)</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>10 · 约 2 FPS 的抓帧看不到 TOCTOU 窗口的短端。</b>论文测出的窗口是 50–500 ms，均值约 210 ms；50 ms 那一头需要在使用点做一次即时双抓，现在没有。</div>
+              <div class="en"><b>10 · A ~2 FPS capture stream cannot observe the short end of the TOCTOU window.</b> The paper measures 50–500 ms, mean ~210 ms; the 50 ms end needs an on-demand double capture at the point of use, which does not exist.</div>
+            </div><span class="trace">surfaces.yaml aisees-a4 note</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>11 · 弹窗劫持比对的是一个扁平字符串指纹</b>（<code>event_type|source_app|ui_text</code>），不是结构化的树哈希；它回答不了"目标坐标下面的元素还是原来那个吗"——而基于坐标的点击重定向要的正是后者。仓库里<b>没有任何命中测试</b>（没有 <code>AXUIElementCopyElementAtPosition</code>）。</div>
+              <div class="en"><b>11 · Pop-up interference is caught by a flat string fingerprint</b> — <code>event_type|source_app|ui_text</code>, not a structural tree hash. It cannot answer "is the element under the target coordinate still the intended one", which is exactly what a coordinate-based click redirection needs. There is <b>no hit-testing anywhere</b> in the repo (no <code>AXUIElementCopyElementAtPosition</code>).</div>
+            </div><span class="trace">Engine::revalidate_ui · UI-REVALIDATE · surfaces.yaml agentscan-popup note</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>12 · 不读 logcat。</b>论文讲的是智能体往日志里泄露；我们只报告"谁能读日志"、并且不再往里写敏感内容——读不了，因为 <code>READ_LOGS</code> 是 signature|privileged，我们要的权限正是我们在警告的那个。而且 API 30 以后包可见性把这项调查也堵住了：不申请 <code>QUERY_ALL_PACKAGES</code> 时列表是空的，此时判据明确写"这项检查没跑"，而不是"干净"。</div>
+              <div class="en"><b>12 · No logcat monitoring.</b> The paper's framing is an agent leaking <em>into</em> the log; we report who can read it and stop contributing to it. We cannot read it: <code>READ_LOGS</code> is signature|privileged — the check we would need is the permission we are warning about. Past API 30 package visibility closes the survey too: without <code>QUERY_ALL_PACKAGES</code> the list is empty, and the verdict then says the check <em>did not run</em> rather than that it was clean.</div>
+            </div><span class="trace">docs/log-hygiene.md · ENV-LOG-READABLE · log_readers_enumerable defaults false</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>13 · 不是网络防火墙、不是杀毒/EDR。</b><code>guard-netmon</code> 只读流量<b>元数据</b>的启发式，不代理、不拦截、不阻断；没有恶意软件检测、没有进程树分析、没有持久化排查。</div>
+              <div class="en"><b>13 · Not a network firewall, not an antivirus or EDR.</b> <code>guard-netmon</code> reads flow <b>metadata</b> heuristics — it does not proxy, intercept or block. No malware detection, no process-tree analysis, no persistence hunting.</div>
+            </div><span class="trace">docs/scope-and-non-goals.md — other non-goals</span></div>
+          </div>
+
+          <div class="group">
+            <h3><span class="zh-t">信任缺口</span> Trust gaps</h3>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>14 · 只有 Android 采集应用签名，所以强制验签默认关闭。</b>桌面壳子和浏览器宿主不发签名摘要，把 <code>require_attestation</code> 打开会连已注册应用自己的 deeplink 一起拦掉。关着的时候身份仍然会被解析、冒充仍然会被阻断，但一个未验签的应用回退到<b>可伪造的名字匹配</b>拿它的白名单。</div>
+              <div class="en"><b>14 · Only Android collects a signing digest, so enforcement is off by default.</b> The desktop shells and the browser host send no attestation, and <code>require_attestation: true</code> would block a registered app's own deeplinks there. With it off, identity is still resolved and impersonation still blocked, but an unattested app falls back to the <b>forgeable name match</b> for its allow-list.</div>
+            </div><span class="trace">policies/agent-registry.yaml — <code>require_attestation: false</code> · docs/app-identity.md</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>15 · 智能体身份是"按会话"，不是"按动作"。</b>只有会话开始被签名——每个事件都签会把一次 Ed25519 运算放到无障碍热路径上，现在没有适配器做得到。所以<b>能往已认证会话里注入事件的攻击者，继承这个会话的归属</b>。另外没有双向认证：智能体分不出真守卫和一个"什么都批准"的壳子。防重放的 nonce 存在内存里、<b>每个 agent id</b> 上限 8192 条，进程重启就忘——总留存量随不同 agent id 的数量增长。</div>
+              <div class="en"><b>15 · Agent identity is per session, not per action.</b> Only the session start is signed — signing every event would put an Ed25519 operation on the accessibility hot path and no adapter can do that today. So <b>anything able to inject events into an attested session inherits its attribution.</b> There is no mutual attestation either: an agent cannot tell a real guard from a shim that approves everything. Replay defence is in-memory and bounded at 8192 nonces <b>per agent id</b>, forgotten on restart — total retention scales with the number of distinct agent ids.</div>
+            </div><span class="trace">docs/agent-identity.md · surfaces.yaml aura-i notes (1)–(3)</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>16 · 适配器的断言可以增加风险，但伪造不出「干净」。</b>环境调查、浮层标记这类"适配器说的话"是从事件里读的，而入口只有一道 bearer 令牌（FFI 连令牌都没有）。所以规则是<b>非对称</b>的：<b>未经验证的断言只能增加风险，永远不能移除风险。</b>伪造"有风险"只能给攻击者自己制造一次误报；伪造一份 <code>env_surveyed=true</code>、清单全空的调查去清掉已锁存的 Critical 风险——那个方向已经关上了，需要一个验证过的 Ed25519 签名。<br><br>Android 伴生应用<b>会签了</b>——用 ECDSA P-256 而不是 Ed25519，因为 minSdk 26 上 <code>java.security</code> 没有 Ed25519（要 API 33），而 P-256 能走 Android Keystore，<b>私钥留在 TEE / StrongBox 里根本不出硬件</b>。算法是卡上写明的，不是从公钥长度猜的——猜是算法混淆那类漏洞的标准入口。签名消息在两端各有一份实现，所以有一份<b>两个方向都覆盖</b>的跨语言向量钉住它们不分叉。<br><br>剩下的限制照说：两个桌面外壳还没接；公钥是每设备一把，不填进注册表的话它的调查仍然算未签名。</div>
+              <div class="en"><b>16 · Adapter assertions can add risk but cannot forge "clean".</b> "What the adapter says" — an environment survey, an overlay marker — is read off the event, behind one bearer token (and the FFI has no auth at all). So the rule is <b>asymmetric</b>: <b>an unverified assertion may only add risk, never remove it.</b> Forging "risk present" only earns the attacker a false alarm; forging an <code>env_surveyed=true</code> survey with empty lists to clear a latched Critical risk — that direction is now closed, and needs a verified Ed25519 signature.<br><br>The Android companion <b>now signs</b> — with ECDSA P-256 rather than Ed25519, because <code>java.security</code> has no Ed25519 at minSdk 26 (it needs API 33) and because P-256 goes through Android Keystore, so <b>the private key never leaves the TEE / StrongBox</b>. The algorithm is named on the card, never inferred from key length — inference is the standard entry point for algorithm-confusion bugs. The signing message has one implementation on each side, so a cross-language vector covering <b>both directions</b> pins them together.<br><br>The remaining limits stand: neither desktop shell is wired, and the public key is per-device — a companion whose key is not in the registry still counts as unsigned.</div>
+            </div><span class="trace">surfaces.yaml agentscan-log-leakage notes (5)–(6) · Makefile:44</span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>17 · 两类夹具，保障强度不一样。</b><code>known-apps.yaml</code> 里的签名摘要是<b>刻意一眼假</b>的（重复的半字节），并且有测试强制它们保持这样——钉错的摘要比不钉更糟，它看起来验过了实际什么都没验。但 <code>agent-registry.yaml</code> 里的密钥是<b>真的 Ed25519 公钥</b>，肉眼分不出和生产值的区别，那里唯一的保障是一条断言"文件里写着 FIXTURE KEYS 横幅"的测试。这些密钥的私钥半边就在仓库里。</div>
+              <div class="en"><b>17 · Two kinds of fixture, with unequal guarantees.</b> The signing digests in <code>known-apps.yaml</code> are <b>obviously fake</b> (repeated nibbles) and a test enforces that they stay so — a registry pinning a wrong digest is worse than none, because it looks verified and verifies nothing. But the keys in <code>agent-registry.yaml</code> are <b>real Ed25519 public keys</b>, indistinguishable by eye from production values, and the only guard there is a test asserting the file carries a <code>FIXTURE KEYS</code> banner. Their private halves are in the repo.</div>
+            </div><span class="trace">docs/release-security.md · docs/audit-encryption.md · <code>AGENTGUARD_AUDIT_KEY</code></span></div>
+            <div class="item"><div class="bi">
+              <div class="zh"><b>18 · 我们的数字不是论文的数字。</b>1.10% 是<b>我们自己语料</b>上的漏检率，不是论文的 ASR，两者不可比。<code>ask_user</code>（MyPhoneBench 四个契约工具之一）状态是 <code>none</code>——完全没实现。PQSR 只在 3 个任务上测过（另有 4 个未测），这个样本量小到不该单独引用。<code>rustc</code> 最低版本没钉，两个 Tauri crate 在本次环境里只做了解析检查、没有编译。</div>
+              <div class="en"><b>18 · Our numbers are not the papers' numbers.</b> 1.10% is a miss rate on <b>our own corpus</b>, not an ASR, and the two are not comparable. <code>ask_user</code> — one of MyPhoneBench's four contract tools — has status <code>none</code>: not implemented. PQSR is measured over 3 tasks with 4 unmeasured, a sample too small to quote on its own. MSRV is unpinned, and the two Tauri crates were parse-checked rather than compiled in this environment.</div>
+            </div><span class="trace">docs/eval-methodology.md · docs/leaderboard-comparability.md · eval/acceptance-report.json</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= PLATFORMS ========================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head bi">
+      <div class="zh">
+        <span class="sec-num">§ 2 — 平台</span>
+        <h2 class="zh-h">哪些平台上真的在观察</h2>
+        <p class="sec-note">这张表按<b>代码</b>写。上一版 <code>docs/platform-matrix.md</code> 有三处夸大，都已按代码改掉：Android 的"确认 ✅（通知）"——<code>POST_NOTIFICATIONS</code> 声明了却从没在运行时申请，API 33+ 上永远没授权；iOS 那行描述的代码不存在；Windows 那两行背后的适配器里<b>一行 Win32 代码都没有</b>。<b>一张没有东西去核对的表会漂移，而且往乐观的方向漂。</b></p>
+      </div>
+      <div class="en">
+        <span class="sec-num">§ 2 — Platforms</span>
+        <h2>Where it actually observes</h2>
+        <p class="sec-note">This table is written from <b>code</b>. The previous <code>docs/platform-matrix.md</code> overstated in three places, all now corrected against the code: Android's "Critical Confirm ✅ (notif)" — <code>POST_NOTIFICATIONS</code> was declared and never requested at runtime, so on API 33+ it was never granted; the iOS row described code that does not exist; and the two Windows rows sat behind an adapter with <b>not one line of Win32 code</b> in it. <b>A table nothing verifies drifts, and it drifts optimistic.</b></p>
+      </div>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr>
+            <th class="plat">平台 / Platform</th>
+            <th>观察来源 / Observation source</th>
+            <th>状态 / Status</th>
+            <th>缺什么 / What's missing</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="plat"><span class="pname">macOS</span><span class="mono">12.3+ · Tauri</span></td>
+            <td>
+              <span class="zh-c">真实的 <code>AXUIElement</code> 遍历器 + ScreenCaptureKit 取帧，像素级潜阈/隐写/帧摘要分析，Vision OCR；抓帧固定约 2 FPS，两个轮询器（SCK 帧 1.5 秒、AX 树 2.5 秒）。</span>
+              <span class="en-c">A real <code>AXUIElement</code> walker plus ScreenCaptureKit frames, pixel-level subliminal / stego / frame-digest analysis, and Vision OCR. Capture is pinned at ~2 FPS with two pollers: SCK frames at 1.5 s, the AX tree at 2.5 s.</span>
+              <span class="mono">AgentGuardAX.m (199 lines) · AgentGuardSCK.m (519 lines) · 4 event kinds</span>
+            </td>
+            <td><span class="chip chip--ok">live</span><span class="mono">覆盖最完整的一端<br>the most complete of the three</span></td>
+            <td>
+              <span class="zh-c">不采集应用签名摘要。签名与公证现在是脚本会跑的一步（默认 ad-hoc，所以本机重新构建后 TCC 授权不会失效）——但没有 Developer ID 就不能分发。</span>
+              <span class="en-c">No signing digest is collected. Signing and notarization are now a step the build actually runs (ad-hoc by default, so TCC grants survive a local rebuild) — but without a Developer ID it is not distributable.</span>
+              <span class="mono">TCC-gated: Accessibility + Screen Recording · CI: macos-shell</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="plat"><span class="pname">Windows</span><span class="mono">10/11 · Tauri</span></td>
+            <td>
+              <span class="zh-c">真实的 UI Automation 遍历（control view，深度 12 / 1500 节点 / 每层 120 兄弟，超限会<b>上报</b>而不是静默截断）+ GDI <code>BitBlt</code> 抓帧（带 <code>CAPTUREBLT</code>，所以分层窗口在内），像素分析<b>与 macOS 同一份代码</b>。</span>
+              <span class="en-c">A real UI Automation walk (control view; capped at depth 12 / 1500 nodes / 120 siblings, and a cap that bites is <b>reported</b> rather than silently truncating) plus GDI <code>BitBlt</code> capture with <code>CAPTUREBLT</code> so layered windows are included. The pixel analysis is <b>the same code as macOS</b>.</span>
+              <span class="mono">uia.rs · capture.rs · ocr.rs · 3 event kinds · 2.5 s poller tied to the session</span>
+            </td>
+            <td><span class="chip chip--ok">live</span><span class="mono">从"一行 UIA 都没有"到这里<br>from not one line of UIA</span></td>
+            <td>
+              <span class="zh-c">看不到合成后的桌面，所以别的进程叠上来的钓鱼窗口不在像素里；不采集应用签名。本机没装识别语言包时 OCR 不可用，那两条规则就不运行。</span>
+              <span class="en-c">No composed-desktop capture, so a phishing window from another process is not in the pixels; no signing digest. On a host with no recognizer language pack OCR is unavailable and those two rules do not run.</span>
+              <span class="mono">CI: windows job — cargo test + clippy -D warnings + shell tests</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="plat"><span class="pname">Android</span><span class="mono">API 26–34 · Kotlin</span></td>
+            <td>
+              <span class="zh-c">真实的 AccessibilityService；<code>PackageManager</code> 取签名摘要与图标 dHash；环境调查；窗口列表查浮层；系统权限弹窗解析（中英双语）；浏览器地址栏取主机；会话事件带任务名。</span>
+              <span class="en-c">A real AccessibilityService; signing digests and icon dHashes from <code>PackageManager</code>; the environment survey; overlay detection from the window list; runtime permission dialogs parsed in English and Chinese; hosts from a browser address bar; session events naming the task.</span>
+              <span class="mono">9 个种类里 8 个有真实来源 · 24 个单元测试 · APK 在 CI 里打出</span>
+            </td>
+            <td><span class="chip chip--ok">live</span><span class="mono">此前 7 个序列化器只有 3 个有调用方<br>3 of 7 serializers had callers</span></td>
+            <td>
+              <span class="zh-c">确认是事后通知不是拦停；没有 <code>deeplink</code> 来源；不读 logcat；看不到像素所以没有不透明度；中继仍是 <code>adb reverse</code> 的开发接线。</span>
+              <span class="en-c">Confirmation is a notification after the fact, not a gate; no <code>deeplink</code> source; no logcat; no pixels, so no opacity; the relay is still an <code>adb reverse</code> development wiring.</span>
+              <span class="mono">CI: android job — unit tests + assembleDebug</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="plat"><span class="pname">Chromium</span><span class="mono">MV3 extension</span></td>
+            <td>
+              <span class="zh-c">真实的 MV3 扩展 + Native Messaging 宿主，发 <code>ui_text</code> 与 <code>form_fill</code>。</span>
+              <span class="en-c">A real MV3 extension with a native-messaging host, emitting <code>ui_text</code> and <code>form_fill</code>.</span>
+            </td>
+            <td><span class="chip chip--part">partial</span><span class="mono">2 事件种类 / 2 event kinds</span></td>
+            <td>
+              <span class="zh-c">完全没有会话概念，所以所有会话作用域的规则在这里都不生效。CI 只做语法检查。</span>
+              <span class="en-c">No session concept at all, so every session-scoped rule is inert here. CI syntax-checks it and nothing more.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="plat"><span class="pname">Headless</span><span class="mono">engine · CLI · FFI</span></td>
+            <td>
+              <span class="zh-c">纯 Rust，任何 Rust 能编译的地方都能跑：47 个 CLI 子命令、8 个环回 HTTP 端点、C ABI 的 FFI、离线场景语料回放。</span>
+              <span class="en-c">Pure Rust, anywhere Rust compiles: 47 CLI subcommands, 8 loopback HTTP endpoints, a C-ABI FFI, and offline replay of the scenario corpus.</span>
+            </td>
+            <td><span class="chip chip--ok">portable</span><span class="mono">CI: macOS + Ubuntu + Windows</span></td>
+            <td>
+              <span class="zh-c"><code>guard-ffi</code> 在仓库内没有使用方；MSRV 未钉。</span>
+              <span class="en-c"><code>guard-ffi</code> has no in-tree consumer; MSRV is unpinned.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="plat"><span class="pname">iOS</span><span class="mono">stub</span></td>
+            <td>
+              <span class="zh-c">没有。40 行 SwiftUI 片段 + README。</span>
+              <span class="en-c">None. A 40-line SwiftUI snippet and a README.</span>
+            </td>
+            <td><span class="chip chip--no">not built</span></td>
+            <td>
+              <span class="zh-c">Xcode 工程、与引擎的连接——全部。没有任何 CI 作业编译它。</span>
+              <span class="en-c">The Xcode project, the connection to the engine — all of it. No CI job compiles it.</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="spine">
+
+    <div class="callout">
+      <div class="ctitle">读这张表的方式 / How to read that table</div>
+      <div class="bi">
+        <div class="zh">引擎本身是跨平台的 Rust，规则在哪都能跑——但<b>规则跑得动，不等于有东西喂给它</b>。适配器不发某类事件，对应的规则就是惰性的，而且它报的是"没有结论"，不是"干净"。这就是为什么"三端都在观察"之后，上面每一行的"缺什么"仍然要单独读：Windows 上 <code>OVL-009</code> 不会误报，因为它<b>压根不运行</b>。<br><br>还有一层：<b>能编译、能过 CI，不等于有人看着它守护过一个真实的智能体。</b>这个仓库里没有任何东西做过后者。</div>
+        <div class="en">The engine is portable Rust and the rules run everywhere — but <b>a rule that can run is not a rule that is being fed</b>. Where an adapter emits no events of a kind, the rules over that kind are inert, and inert reports <em>nothing</em> rather than <em>clean</em>. Which is why, now that all three platforms observe, each row's "what's missing" still has to be read on its own: <code>OVL-009</code> produces no false positives on Windows because it <b>does not run there</b>.<br><br>And one layer further: <b>compiling, and passing CI, is not the same as anyone having watched it guard a real agent.</b> Nothing in this repository has.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= TIER 2: ENGINEER ========================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head bi">
+      <div class="zh">
+        <span class="sec-num">§ 3 — 给要接入的人</span>
+        <h2 class="zh-h">细节：逐条攻击面、规则族、接入方式、默认关掉的东西</h2>
+        <p class="sec-note">下面这几块默认收起。每块都能对应到仓库里的一个文件或一条命令。</p>
+      </div>
+      <div class="en">
+        <span class="sec-num">§ 3 — For engineers</span>
+        <h2>Detail: every surface, every rule family, the integration paths, and what ships off</h2>
+        <p class="sec-note">Collapsed by default. Each block maps to a file or a command in the repo.</p>
+      </div>
+    </div>
+
+    <details>
+      <summary>
+        <span class="s-zh">30 个已发表攻击面，逐条</span>
+        <span class="s-en">All 30 published attack surfaces</span>
+        <span class="s-tag">13 covered · 16 partial · 1 none</span>
+      </summary>
+      <div class="d-body">
+        <div class="bi">
+          <div class="zh"><code>guard-cli coverage</code> 会核对这张矩阵：每个规则 id 必须在规则集里存在，每个场景必须存在<b>并且通过</b>，没有任何场景被悄悄漏掉。<b>手工维护的矩阵会烂；被 CI 验证的矩阵不可能声明自己没有的覆盖。</b></div>
+          <div class="en"><code>guard-cli coverage</code> verifies this matrix: every rule id named must exist in the ruleset, every scenario must exist <b>and pass</b>, and no scenario may be silently uncovered. <b>A hand-maintained matrix rots; one that CI verifies cannot claim coverage it does not have.</b></div>
+        </div>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>论文 / Paper</th><th>攻击面 / Surface</th><th>论文结果 / Paper result</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">(A)I Sees §IV-B</td><td><span class="zh-c">潜阈视觉注入</span><span class="en-c">Subliminal visual injection</span></td><td class="mono">18/20–20/20, six VLM backends</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">(A)I Sees §IV-B</td><td><span class="zh-c">不可见区注入（圆角 / 挖孔）</span><span class="en-c">Invisible-zone injection</span></td><td class="mono">payload in the invisible zone</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">(A)I Sees §IV-B</td><td><span class="zh-c">UI 仿冒（钓鱼 Activity 盖在目标应用上）</span><span class="en-c">UI spoofing</span></td><td class="mono">20/20, all five frameworks</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">(A)I Sees §IV-C</td><td><span class="zh-c">TOCTOU 窗口内篡改截图</span><span class="en-c">Screenshot tampering in the TOCTOU window</span></td><td class="mono">19/20–20/20 vs 4 of 5</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">(A)I Sees §IV-C</td><td><span class="zh-c">广播输入拦截</span><span class="en-c">Broadcast input interception</span></td><td class="mono">20/20 vs three agents</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">(A)I Sees §IV-C</td><td><span class="zh-c">外来无障碍服务嗅探凭据</span><span class="en-c">Credential sniffing via a foreign a11y service</span></td><td class="mono">20/20, all five frameworks</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">(A)I Sees §IV-C</td><td><span class="zh-c">宿主侧命令注入（对 VLM 文本用 shell=True）</span><span class="en-c">Host-side command injection</span></td><td class="mono">20/20 vs four agents</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">AgentScan GUI</td><td><span class="zh-c">通过显示内容做提示注入</span><span class="en-c">Prompt injection via display</span></td><td class="mono">multiple agents vulnerable</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">AgentScan GUI</td><td><span class="zh-c">透明浮层</span><span class="en-c">Transparent overlay</span></td><td class="mono">multiple agents vulnerable</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">AgentScan GUI</td><td><span class="zh-c">弹窗干扰（决策与执行之间插入）</span><span class="en-c">Pop-up interference</span></td><td class="mono">10/10 on 7 agents</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">AgentScan GUI</td><td><span class="zh-c">视图树干扰（层级与渲染分歧）</span><span class="en-c">Viewtree interference</span></td><td class="mono">8 of 9 agents — the broadest</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">AgentScan GUI</td><td><span class="zh-c">图像伪造应用身份（克隆图标 + 名字）</span><span class="en-c">Image forgery for app identity</span></td><td class="mono">10/10 (100%) on 3 agents</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">AgentScan sys</td><td><span class="zh-c">Deeplink 伪造</span><span class="en-c">Deeplink forgery</span></td><td class="mono">system-interacting agents</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">AgentScan sys</td><td><span class="zh-c">包名伪造</span><span class="en-c">Package-name forgery</span></td><td class="mono">all 4 system-interacting agents</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">AgentScan sys</td><td><span class="zh-c">日志泄露</span><span class="en-c">Log leakage</span></td><td class="mono">3 agents vulnerable</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">AgentScan LLM</td><td><span class="zh-c">Glitch token</span><span class="en-c">Glitch tokens</span></td><td class="mono">5 agents; unresolved in the paper</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">AgentScan LLM</td><td><span class="zh-c">恶意指令 / 恶意域名</span><span class="en-c">Malicious instructions and domains</span></td><td class="mono">multiple agents vulnerable</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">Aura §4.1</td><td><span class="zh-c">支柱 i：智能体身份注册与认证</span><span class="en-c">Pillar i: agent identity and attestation</span></td><td class="mono">design proposal</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">Aura §4.2</td><td><span class="zh-c">支柱 ii：语义防火墙（来源标签、PII、上下文隔离）</span><span class="en-c">Pillar ii: semantic firewall</span></td><td class="mono">design proposal</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">Aura §4.3</td><td><span class="zh-c">支柱 iii：污点格、继承、降级</span><span class="en-c">Pillar iii: taint lattice and declassification</span></td><td class="mono">design proposal</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">Aura §4.3</td><td><span class="zh-c">支柱 iii：计划-轨迹对齐</span><span class="en-c">Pillar iii: plan-trajectory alignment</span></td><td class="mono">design proposal</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">Aura §4.4</td><td><span class="zh-c">支柱 iv：不可否认、可归属的审计</span><span class="en-c">Pillar iv: non-deniable attributed audit</span></td><td class="mono">design proposal</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">Aura</td><td><span class="zh-c">关键节点拦截与确认门</span><span class="en-c">Critical Node interception</span></td><td class="mono">MobileSafetyBench ASR 40% → 4.4%</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">Aura §4.4</td><td><span class="zh-c">会话级最小权限（会话令牌受 S_max 约束）</span><span class="en-c">Session-scoped least privilege</span></td><td class="mono">removes "God Mode" over-provisioning</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">MyPhoneBench</td><td><span class="zh-c">过度索权探针</span><span class="en-c">Over-permissioning probe</span></td><td class="mono">300 tasks / 10 apps / 5 models</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">MyPhoneBench</td><td><span class="zh-c">陷阱抵抗探针</span><span class="en-c">Trap-resistance probe</span></td><td class="mono">TR(t) = max(0, 1 − viol/traps)</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">MyPhoneBench</td><td><span class="zh-c">表单最小化探针</span><span class="en-c">Form-minimization probe</span></td><td class="mono">0.25 per optional field filled</td><td><span class="chip chip--ok">covered</span></td></tr>
+              <tr><td class="mono">MyPhoneBench</td><td><span class="zh-c">跨会话记忆使用</span><span class="en-c">Cross-session memory use</span></td><td class="mono">50 paired tasks</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">MyPhoneBench</td><td><span class="zh-c">隐私限定成功率 PQSR(τ)</span><span class="en-c">Privacy-qualified success rate</span></td><td class="mono">τ = 0.7</td><td><span class="chip chip--part">partial</span></td></tr>
+              <tr><td class="mono">MyPhoneBench</td><td><span class="zh-c"><code>ask_user</code>：不猜，去问</span><span class="en-c"><code>ask_user</code>: clarifying instead of guessing</span></td><td class="mono">one of the four contract tools</td><td><span class="chip chip--no">none</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="s-zh">规则族与判据 id</span>
+        <span class="s-en">Rule families and verdict ids</span>
+        <span class="s-tag">27 declarative + 65 engine-emitted = 92</span>
+      </summary>
+      <div class="d-body">
+        <div class="bi">
+          <div class="zh">两类东西。<b>声明式规则</b>写在 <code>crates/guard-schema/rules/p0_rules.yaml</code> 里，能改、能加。<b>引擎判据</b>是 Rust 里的状态机结论，改不了策略就改不了它们。这个区分很重要：一条 YAML 规则可以被策略调松，一个引擎判据不行。</div>
+          <div class="en">Two different things. <b>Declarative rules</b> live in <code>crates/guard-schema/rules/p0_rules.yaml</code> and can be edited or extended. <b>Engine verdicts</b> are conclusions of state machines in Rust and cannot be relaxed by policy. The distinction matters: a YAML rule can be loosened; an engine verdict cannot.</div>
+        </div>
+        <div class="rules">
+          <div class="rulefam"><div class="fname">CRIT-001…005 <span>yaml</span></div><div class="fdesc">关键动作确认门<em>Critical-action confirmation gate</em></div></div>
+          <div class="rulefam"><div class="fname">OVL-001…013 <span>yaml</span></div><div class="fdesc">浮层、潜阈、帧完整性、隐写、视图树分歧<em>Overlay, subliminal, frame integrity, stego, viewtree divergence</em></div></div>
+          <div class="rulefam"><div class="fname">PRIV-001…005 <span>yaml</span></div><div class="fdesc">隐私陷阱、越应用取数、语义防火墙<em>Privacy traps, cross-app reads, semantic firewall</em></div></div>
+          <div class="rulefam"><div class="fname">ENV-A5 · A6 · LOG-READABLE <span>yaml</span></div><div class="fdesc">Android 环境调查（作用域限定在 environment_survey 事件，否则页面能伪造）<em>Android environment survey, event-scoped so a page cannot forge one</em></div></div>
+          <div class="rulefam"><div class="fname">UI-REVALIDATE <span>yaml</span></div><div class="fdesc">执行前重新校验界面指纹<em>Re-validate the UI fingerprint before acting</em></div></div>
+          <div class="rulefam"><div class="fname">APP-* <span>10 engine</span></div><div class="fdesc">签名不符、身份变更、仿冒外观、脱离任务、未验签<em>Signer mismatch, identity change, lookalike face, off-task, unattested</em></div></div>
+          <div class="rulefam"><div class="fname">AGENT-* <span>9 engine</span></div><div class="fdesc">伪造签名、重放、会话不符、卡片未授权该任务<em>Forged signature, replay, session mismatch, task not on card</em></div></div>
+          <div class="rulefam"><div class="fname">FLOW-* <span>8 engine</span></div><div class="fdesc">污点格：机密、继承、降级申请、非法降级<em>Taint lattice: confidentiality, derivation, declassification</em></div></div>
+          <div class="rulefam"><div class="fname">PLAN-* <span>6 engine</span></div><div class="fdesc">缺计划、乱序、越界、超预算、无锚、完成后又动手<em>Missing, out-of-order, out-of-scope, over-budget, unanchored, after-completion</em></div></div>
+          <div class="rulefam"><div class="fname">SCOPE-* <span>3 engine</span></div><div class="fdesc">会话权限：数据键、主机、超额请求<em>Session scope: data keys, hosts, over-request</em></div></div>
+          <div class="rulefam"><div class="fname">SESSION-* · TASK-DRIFT <span>6 engine</span></div><div class="fdesc">会话生命周期、任务漂移、以及"这不是你的会话"<em>Session lifecycle, task drift, and someone-else's-session</em></div></div>
+          <div class="rulefam"><div class="fname">DL-* · INTEL-* · FW-* <span>7 engine</span></div><div class="fdesc">Deeplink 白名单、威胁情报、防火墙逃逸与文本异常<em>Deeplink allow-list, threat intel, breakout and text anomalies</em></div></div>
+          <div class="rulefam"><div class="fname">PRIV-* <span>6 engine</span></div><div class="fdesc">过度索权、陷阱、表单最小化、越应用、跨会话记忆<em>Over-permissioning, traps, form minimization, cross-app, cross-session memory</em></div></div>
+          <div class="rulefam"><div class="fname">ENV-* <span>4 engine</span></div><div class="fdesc">环境判据：干净 / 被观察 / 未知 / 输入被观察——"检查没跑"与"干净"是两回事<em>Clean / observed / unknown / input-observed — "the check did not run" is not "clean"</em></div></div>
+          <div class="rulefam"><div class="fname">SHELL-* <span>6 engine</span></div><div class="fdesc">宿主侧 shell 提议：白名单、确认、禁用动作、元字符<em>Host-side shell proposals: allow-list, confirm, denied action, metacharacters</em></div></div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="s-zh">接入方式</span>
+        <span class="s-en">Integration paths</span>
+        <span class="s-tag">47 CLI · 8 HTTP · FFI · native messaging</span>
+      </summary>
+      <div class="d-body">
+        <div class="bi">
+          <div class="zh"><b>47 个 CLI 子命令</b>覆盖从取证到运维的全部：<code>eval</code>、<code>scoreboard</code>、<code>coverage</code>、<code>acceptance-run</code>、<code>replay</code>、<code>audit-verify</code>、<code>agent-keygen</code>、<code>intel-sign</code>、<code>icon-dhash</code>、<code>api-serve</code>。<b>8 个环回 HTTP 端点</b>只绑 127.0.0.1；其中 7 个 <code>/v1/*</code> 在 bearer token 之后，<code>GET /health</code> <b>刻意不设鉴权</b>。另有 C ABI 的 <code>guard-ffi</code>（仓库内没有使用方）和给浏览器扩展用的 Native Messaging 宿主。</div>
+          <div class="en"><b>47 CLI subcommands</b> cover everything from forensics to operations: <code>eval</code>, <code>scoreboard</code>, <code>coverage</code>, <code>acceptance-run</code>, <code>replay</code>, <code>audit-verify</code>, <code>agent-keygen</code>, <code>intel-sign</code>, <code>icon-dhash</code>, <code>api-serve</code>. <b>8 loopback HTTP endpoints</b> bind 127.0.0.1 only: 7 <code>/v1/*</code> routes sit behind a bearer token and <code>GET /health</code> is <b>deliberately unauthenticated</b>. There is also a C-ABI <code>guard-ffi</code> (no in-tree consumer) and a native-messaging host for the browser extension.</div>
+        </div>
+        <pre><span class="c"># 环回 API 的全部端点 / the complete loopback surface</span>
+GET   /health             <span class="c">无鉴权 / no auth — outside the bearer gate</span>
+GET   /v1/status          <span class="c">引擎状态 / engine state</span>
+GET   /v1/audit/recent    <span class="c">最近审计行 / recent audit rows</span>
+GET   /v1/audit/report    <span class="c">会话报告 / session report</span>
+POST  /v1/events          <span class="c">适配器投递事件 / adapter event ingress</span>
+POST  /v1/confirm         <span class="c">应答关键节点确认 / answer a confirmation</span>
+POST  /v1/pause           <span class="c">暂停 / pause</span>
+POST  /v1/resume          <span class="c">恢复 / resume</span></pre>
+        <div class="bi">
+          <div class="zh">Android 伴生应用走 <code>adb reverse</code> 打到 <code>127.0.0.1:8788/v1/events</code>。这是开发接线，不是产品形态——虽然那个 token 的硬编码默认值已经删了（弱令牌会让 <code>api-serve</code> 拒绝启动）。</div>
+          <div class="en">The Android companion reaches the engine over <code>adb reverse</code> to <code>127.0.0.1:8788/v1/events</code>. That is a development wiring, not a product one — though the hardcoded token default is gone (a weak token now makes <code>api-serve</code> refuse to start).</div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="s-zh">三端各自靠什么保证</span>
+        <span class="s-en">What backs each platform</span>
+        <span class="s-tag">5 CI jobs</span>
+      </summary>
+      <div class="d-body">
+        <div class="bi">
+          <div class="zh">每个平台的代码只有在对应的工具链下才会被编译。这一点此前是空的：流水线只在 macOS 和 Ubuntu 上跑 <code>cargo test</code>，所以"能在 macOS、Windows、Android 上跑"这句话里，有两端的代码<b>从来没有被编译过</b>。两个 Tauri 壳子只用 <code>rustfmt --check</code> 验证——那只解析，不解析引用，所以编译器从没看过它们。第一次真编译就抓出两个真 bug（缺 <code>Manager</code> trait 导入；适配器不是 <code>Send</code>，后者<b>只在 Windows 上</b>是错误）。<br><br><b>更正一条我自己的错误声明：</b>我先前写过这两个应用"引用的图标 PNG 不在仓库里，根本构建不出来"。不对。那三个 PNG 一直都在，是我这边的仓库副本不完整。真实的问题只有"从没被编译过"这一条——但那一条足以解释为什么上面那两个 bug 能一直躺着。</div>
+          <div class="en">Each platform's code is only compiled by its own toolchain, and that was simply absent: the pipeline ran <code>cargo test</code> on macOS and Ubuntu, so of the three platforms the project claimed, two had code that had <b>never been compiled</b>. The two Tauri shells were verified with <code>rustfmt --check</code> — which parses and does not resolve, so no compiler had ever looked at them. The first real compile found two real bugs (a missing <code>Manager</code> trait import; an adapter that was not <code>Send</code>, the second being an error <b>on Windows only</b>).<br><br><b>Correcting a claim of my own:</b> I previously wrote that these two apps "referenced icon PNGs that were not in the repository and could not be built at all". That was false. The three PNGs were there all along; my working copy of the repository was incomplete. The real defect was only ever "never compiled" — which is by itself enough to explain how those two bugs survived.</div>
+        </div>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Job</th><th>跑什么 / Runs</th><th>它能挡住什么 / What it catches</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">test<br>macOS + Ubuntu</td>
+                  <td><span class="zh-c"><code>cargo test --workspace</code>、eval、coverage、scoreboard、审计签名与帧摘要演示</span><span class="en-c">Workspace tests, eval, coverage, scoreboard, the audit-signing and frame-digest demos</span></td>
+                  <td><span class="zh-c">引擎或共享分析的任何回退</span><span class="en-c">Any engine or shared-analysis regression</span></td></tr>
+              <tr><td class="mono">windows<br>windows-latest</td>
+                  <td><span class="zh-c">workspace 测试、<code>cargo build -p win-adapter</code>、<code>clippy -D warnings</code>、桌面壳子测试</span><span class="en-c">Workspace tests, <code>cargo build -p win-adapter</code>, <code>clippy -D warnings</code>, shell tests</span></td>
+                  <td><span class="zh-c">UI Automation 遍历或 GDI 抓帧编译不过——<b>唯一编译它们的作业</b>。<code>-D warnings</code> 是因为这一轮最严重的 bug 就是一条警告。</span><span class="en-c">The UI Automation walk or the GDI capture failing to compile — <b>the only job that compiles them</b>. <code>-D warnings</code> because this iteration's worst bug arrived as a warning.</span></td></tr>
+              <tr><td class="mono">macos-shell<br>macos-latest</td>
+                  <td><span class="zh-c"><code>cargo build -p mac-adapter</code>、桌面壳子测试、签名脚本解析</span><span class="en-c"><code>cargo build -p mac-adapter</code>, shell tests, signing-script parse</span></td>
+                  <td><span class="zh-c">Objective-C 桥（AX 遍历器、SCK）在 macOS SDK 下编译不过</span><span class="en-c">The Objective-C bridges failing to build against the macOS SDK</span></td></tr>
+              <tr><td class="mono">android<br>ubuntu-latest</td>
+                  <td><span class="zh-c"><code>:app:testDebugUnitTest</code>、<code>:app:assembleDebug</code>，APK 作为构建产物上传</span><span class="en-c"><code>:app:testDebugUnitTest</code>, <code>:app:assembleDebug</code>, APK uploaded as an artifact</span></td>
+                  <td><span class="zh-c">Kotlin 编译失败、24 个单元测试任一失败、APK 打不出来。包含<b>跨语言 dHash 契约</b>：Rust 比较器和 Kotlin 生成器都对 <code>eval/fixtures/icon_dhash_vectors.json</code> 断言，任一侧漂移两边都会红。</span><span class="en-c">Kotlin failing to compile, any of the 24 unit tests failing, or the APK failing to package. Includes the <b>cross-language dHash contract</b>: the Rust comparator and the Kotlin producer both assert against <code>eval/fixtures/icon_dhash_vectors.json</code>, so a drift fails on both sides.</span></td></tr>
+              <tr><td class="mono">frontend<br>ubuntu-latest</td>
+                  <td><span class="zh-c"><code>make check-shells</code>——7 个前端模块 + 所有 <code>.sh</code></span><span class="en-c"><code>make check-shells</code> — 7 front-end modules and every <code>.sh</code></span></td>
+                  <td><span class="zh-c">壳子 JS 里的语法错误（此前会让按钮静默失效而 Rust 全绿）。第一版这个检查<b>是假的</b>：一个 <code>|| import(...)</code> 兜底把失败吞掉了，语法坏掉的文件照样通过。</span><span class="en-c">A syntax error in either shell's JS — which used to make buttons silently do nothing while Rust stayed green. The first version of this check was <b>vacuous</b>: a <code>|| import(...)</code> fallback swallowed the failure and a broken file passed.</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bi">
+          <div class="zh"><b>没有作业编译 iOS。</b>那半个 Swift 仍然没有任何东西碰它，说"三端"时不包括它。</div>
+          <div class="en"><b>No job compiles iOS.</b> Nothing touches that Swift, and "three platforms" does not include it.</div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="s-zh">默认关掉的东西</span>
+        <span class="s-en">What ships turned off</span>
+        <span class="s-tag">3 switches</span>
+      </summary>
+      <div class="d-body">
+        <div class="bi">
+          <div class="zh"><b>1 · <code>require_attestation: false</code></b>（<code>policies/agent-registry.yaml</code>）——目前没有适配器会签名会话开始。打开之后：伪造和重放的认证仍会被拒，但未签名的会话直接过不去，而桌面壳子和浏览器宿主都不签。<br><b>2 · 审计库加密（SQLCipher）</b>——需要一个链接了 SQLCipher 的构建（默认特性是 <code>sqlite-bundled</code>，不满足时直接报错）。<b>密钥不需要你自己设</b>：环境变量 → 已有文件 → 自动生成并以 0600 写入，桌面应用走的就是这条路。脱敏不是加密：一条打过码的记录仍然在说"某个时刻某个应用里有一张支付卡"。<br><b>3 · 强制应用验签</b>——只有 Android 采集摘要，在别的平台打开会拦掉已注册应用自己的 deeplink。</div>
+          <div class="en"><b>1 · <code>require_attestation: false</code></b> (<code>policies/agent-registry.yaml</code>) — no adapter signs a session start yet. Turned on, forged and replayed attestations are still refused but an unsigned session simply cannot proceed, and neither the desktop shells nor the browser host sign.<br><b>2 · Audit-database encryption (SQLCipher)</b> — needs a SQLCipher-linked build (the default feature is <code>sqlite-bundled</code>, which hard-errors instead). <b>The key does not have to be supplied</b>: env var → existing file → auto-generated and written at mode 0600, which is the path the desktop apps take. Redaction is not encryption: a masked row still says a payment card was on screen at a time in an app.<br><b>3 · App-attestation enforcement</b> — only Android collects a digest, so turning this on elsewhere blocks a registered app's own deeplinks.</div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="s-zh">怎么自己复现这一页上的每个数字</span>
+        <span class="s-en">Reproducing every figure on this page</span>
+        <span class="s-tag">4 commands</span>
+      </summary>
+      <div class="d-body">
+        <pre><span class="c"># the engine</span>
+cargo test --workspace                       <span class="c">→ 493 passing</span>
+cargo run -p guard-cli -- coverage           <span class="c">→ 30 surfaces: 13 / 16 / 1</span>
+cargo run -p guard-cli -- scoreboard \
+    --scenarios eval/scenarios               <span class="c">→ 125/125 · miss 1.10% · FP 0.0%</span>
+cargo run -p guard-cli -- acceptance-run     <span class="c">→ 104/104 · miss 1.37% · FP 0.0%</span>
+make check                                   <span class="c">→ all of the above + the front ends</span>
+
+<span class="c"># the platforms — separate targets, because each needs its own toolchain</span>
+make check-windows       <span class="c">→ compiles the UIA walk + GDI capture for x86_64-pc-windows-msvc</span>
+                         <span class="c">  and runs clippy -D warnings on it. cargo check does not link,</span>
+                         <span class="c">  so no MSVC linker is needed:</span>
+                         <span class="c">  rustup target add x86_64-pc-windows-msvc</span>
+make check-android       <span class="c">→ 24 Kotlin unit tests + assembleDebug (needs ANDROID_HOME, JDK 17+)</span>
+make check-shell-apps    <span class="c">→ both Tauri shells, compiled rather than parsed</span>
+make check-shells        <span class="c">→ 7 front-end modules + every .sh</span></pre>
+        <div class="bi">
+          <div class="zh">两个漏检率不同是因为两个语料不同：验收门用 73 个攻击场景（1.37%），记分板用 91 个（1.10%）。<b>都是同一次漏检</b>——那个只有图标证据的克隆应用场景，它被刻意留在语料里当作一次已知的、承认的失败。<br><br><code>make check-windows</code> 里的 <code>-D warnings</code> 不是洁癖。这一轮最严重的 bug 就是 <code>rustc</code> 用一条<b>警告</b>报出来的：拿 <code>windows</code> crate 那些小驼峰常量去写 <code>match</code> 分支，Rust 会把它当成<b>新绑定</b>，第一条分支匹配一切——于是每一个 UI 元素都被判成可编辑字段。能编译、能运行、答案自信地全错。</div>
+          <div class="en">The two miss rates differ because the corpora differ: the release gate runs 73 attack scenarios (1.37%), the scoreboard 91 (1.10%). <b>It is the same single miss</b> — the icon-only cloned-app scenario, deliberately kept in the corpus as a known and admitted failure.<br><br>The <code>-D warnings</code> in <code>make check-windows</code> is not fastidiousness. This iteration's worst bug was reported by <code>rustc</code> as a <b>warning</b>: a <code>match</code> over the <code>windows</code> crate's lower-camel-case constants makes each arm a <b>new binding</b>, so the first arm matched every control type and every UI element classified as an editable field. It compiled, it ran, and it was confidently wrong.</div>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="papers">
+      <div class="paper"><span class="pid">arXiv 2607.00333</span><span class="pt">(A)I Sees What You Don't: Exploiting New Attack Surfaces in Third-Party Mobile Agents</span></div>
+      <div class="paper"><span class="pid">arXiv 2505.12981</span><span class="pt">From Assistants to Adversaries: Exploring the Security Risks of Mobile LLM Agents</span></div>
+      <div class="paper"><span class="pid">arXiv 2602.10915</span><span class="pt">Blind Gods and Broken Screens: Architecting a Secure, Intent-Centric Mobile Agent OS</span></div>
+      <div class="paper"><span class="pid">arXiv 2604.00986</span><span class="pt">Do Phone-Use Agents Respect Your Privacy?</span></div>
+    </div>
+    <div class="fine bi">
+      <div class="zh"><b>关于这一页的数字。</b>1.10% 是我们自己语料上的攻击漏检率，<b>不是</b>论文的攻击成功率——两个指标测的不是一回事，不能并排比较。误报率 0.0% 是在 34 个良性对照场景上测的，这个数字的意义完全取决于对照集有多难；语料里现在包含 emoji、ZWNJ、软连字符、bidi 隔离符和长 token，因为早先那个 0.0% 是在一个不含这些东西的语料上测出来的。<br><br>覆盖矩阵里每一个 <code>partial</code> 都带一段说明「弱在哪」的注释，那些注释是这份仓库里最有价值的部分，而不是免责声明。<br><br><b>关于拦截。</b>这一页从头到尾说的都是<b>观察</b>。观察者拦不住任何东西——看到无障碍事件的时候点击已经发生了。要真拦，守卫必须站在动作的<b>路径上</b>，而那是一次架构改动，不是一个开关。设计写在 <code>docs/interception-design.md</code>：四层路径、每层的威胁模型，以及一条不能含混的区分——<b>「配合式」控制（智能体自愿走网关，可绕）和「内核执行」控制（内核代为拒绝）不是同一种保证</b>。这个项目在自己的能力表里已经把这两者混过一次。文档目前是<b>纯设计，一行都没实现</b>。</div>
+      <div class="en"><b>On the figures.</b> 1.10% is an attack-miss rate on our own corpus and is <b>not</b> the papers' attack success rate — the two measure different things and cannot be compared side by side. The 0.0% false-positive rate is over 34 benign controls, and that number means exactly as much as the control set is hard; the corpus now contains emoji, ZWNJ, soft hyphens, bidi isolates and long tokens, because an earlier 0.0% was measured on a corpus containing none of them.<br><br>Every <code>partial</code> in the coverage matrix carries a note saying how it is weaker than the published attack. Those notes are the most valuable thing in the repository, not a disclaimer.<br><br><b>On interception.</b> Everything on this page is <b>observation</b>. An observer cannot intercept — by the time it has the accessibility event, the click has happened. Real interception requires the guard to stand <b>in the path of the action</b>, which is an architectural change rather than a switch. The design is in <code>docs/interception-design.md</code>: four possible paths, a threat model per layer, and one distinction that must never be blurred — <b>a cooperative control (the agent routes through the gateway voluntarily, and can go around it) is not the same guarantee as a kernel-enforced one</b>. This project has already conflated the two once, in its own capability matrix. The document is <b>design only; none of it is built</b>.</div>
+    </div>
+  </div>
+</footer>

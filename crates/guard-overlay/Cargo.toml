@@ -1,0 +1,12 @@
+[package]
+name = "guard-overlay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Overlay / invisible-text detection from structured UI observations"
+
+[dependencies]
+guard-schema = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

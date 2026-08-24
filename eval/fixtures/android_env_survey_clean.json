@@ -1,0 +1,20 @@
+{
+  "type": "android_events",
+  "source": "android-companion",
+  "session_id": "env-survey-2",
+  "events": [
+    {
+      "type": "env_survey",
+      "app": "AgentGuard Companion",
+      "package": "com.agentguard.companion",
+      "broadcast_actions": [
+        "ADB_INPUT_B64",
+        "ADB_INPUT_TEXT"
+      ],
+      "broadcast_input_receivers": [],
+      "foreign_a11y_services": [],
+      "text_capturing_services": [],
+      "scan_errors": []
+    }
+  ]
+}

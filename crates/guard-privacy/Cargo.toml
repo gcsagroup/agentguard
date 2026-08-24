@@ -1,0 +1,17 @@
+[package]
+name = "guard-privacy"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "GuardContract and OP/TR/FM privacy scoring (rewritten from MyPhoneBench methodology)"
+
+[dependencies]
+guard-schema = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = "0.5"

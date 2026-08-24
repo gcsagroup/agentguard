@@ -1,0 +1,244 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+      - name: Test
+        run: cargo test --workspace
+      - name: Eval scenarios
+        run: cargo run -p guard-cli -- eval --scenarios eval/scenarios
+      - name: Coverage matrix (verified against rules + scenarios)
+        run: make coverage
+
+      - name: Scoreboard
+        run: |
+          cargo run -p guard-cli -- scoreboard \
+            --scenarios eval/scenarios \
+            --out eval/scoreboard.json \
+            --html eval/scoreboard.html
+      - name: Upload scoreboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: scoreboard-${{ matrix.os }}
+          path: |
+            eval/scoreboard.json
+            eval/scoreboard.html
+      - name: Audit signing (keygen + signed log + tamper detection)
+        run: make audit-signing-demo
+
+      - name: Frame integrity (A4 localized-edit vs global repaint)
+        run: make frame-digest-demo
+
+      - name: Policy + shell smoke
+        run: |
+          cargo run -p guard-cli -- policy-status --policy policies/pro-trial.yaml
+          cargo run -p guard-cli -- policy-sync --source policies/enterprise-poc.yaml --cache /tmp/ag-policy.yaml
+          cargo run -p guard-cli -- shell-propose --tool browser.click --action navigate
+      - name: Leaderboard + billing webhook
+        run: |
+          cargo run -p guard-cli -- leaderboard
+          cargo run -p guard-cli -- billing-webhook --file eval/fixtures/billing_webhook_purchase.json --store /tmp/ag-ent.json
+          cargo run -p guard-cli -- entitlement-status --store /tmp/ag-ent.json
+      - name: Sim capture + netmon + billing
+        run: |
+          cargo run -p guard-cli -- sim-capture --confirm deny
+          cargo run -p guard-cli -- netmon-check --flow eval/fixtures/netmon_malicious_flow.json
+          TOK=$(cargo run -q -p guard-cli -- entitlement-issue --license-id ci --plan pro)
+          cargo run -p guard-cli -- entitlement-activate --token "$TOK" --store /tmp/ag-ent2.json
+          cargo run -p guard-cli -- entitlement-status --store /tmp/ag-ent2.json
+      - name: Local API + SCK probe (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cargo run -p guard-cli -- sck-probe
+          cargo test -p guard-localapi --lib
+      - name: Local API (Linux)
+        if: runner.os == 'Linux'
+        run: cargo test -p guard-localapi --lib
+      - name: Sim mac (macOS only)
+        if: runner.os == 'macOS'
+        run: cargo run -p guard-cli -- sim-mac --confirm deny
+      - name: Sim android
+        run: cargo run -p guard-cli -- sim-android --confirm deny
+
+  # ---------------------------------------------------------------------------
+  # The three platforms this project claims to run on, each verified by the
+  # toolchain that would actually build it.
+  #
+  # Before this, CI ran `cargo test` on macOS and Ubuntu and nothing else: no
+  # Windows runner, no Android SDK, no Tauri build. So "runs on macOS, Windows
+  # and Android" rested on code that had never been compiled for two of the
+  # three. Both desktop shells in fact could not be built at all — they
+  # declared icon files that were not in the repository — and the Kotlin
+  # companion had no test target, which is how four event serializers sat with
+  # no callers.
+  # ---------------------------------------------------------------------------
+
+  windows:
+    name: Windows (native adapter + shell)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Test the workspace on Windows
+        run: cargo test --workspace
+      - name: Build the native adapter with the real Win32 bindings
+        # `cfg(windows)` gates the UI Automation walk and the GDI capture, so this is the
+        # only job in which that code is compiled at all.
+        run: cargo build -p win-adapter --all-targets
+      - name: Clippy on the native adapter, warnings denied
+        # A warning is what caught this iteration's worst bug: `match` arms over the
+        # windows crate's lower-camel-case control-type constants were bindings, not
+        # comparisons, so every UI element classified as an editable field.
+        run: cargo clippy -p win-adapter --all-targets -- -D warnings
+      - name: Build the desktop shell
+        working-directory: apps/desktop-windows/src-tauri
+        run: cargo test
+
+  macos-shell:
+    name: macOS shell (native AX + SCK)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the mac adapter with the Objective-C bridges
+        # The AX walker and the ScreenCaptureKit bridge are compiled by build.rs through
+        # `cc`, so they need the macOS SDK. This is the only job that compiles them.
+        run: cargo build -p mac-adapter --all-targets
+      - name: Test the desktop shell
+        working-directory: apps/desktop-macos/src-tauri
+        run: cargo test
+      - name: Signing script runs and produces a verifiable signature
+        # Ad-hoc, no Apple account needed. It is here because macOS keys Accessibility and
+        # Screen Recording grants to the code signature: an unsigned rebuild arrives with no
+        # permissions while System Settings still shows them granted.
+        run: bash -n apps/desktop-macos/scripts/sign-and-notarize.sh
+
+  android:
+    name: Android companion (Kotlin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+        with:
+          # Explicit rather than relying on AGP's auto-download: an implicit fetch is a
+          # network dependency inside the build step, and when it fails the error is a
+          # Gradle stack trace about a missing platform rather than "the SDK is not here".
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Unit tests
+        # The Kotlin half had zero tests. These include the cross-language dHash contract:
+        # the Rust comparator and the Kotlin producer both assert against
+        # eval/fixtures/icon_dhash_vectors.json, so a drift fails on both sides instead of
+        # silently turning every icon comparison into noise.
+        working-directory: apps/android-companion
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+      - name: Assemble the APK
+        working-directory: apps/android-companion
+        run: ./gradlew --no-daemon :app:assembleDebug
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentguard-companion-debug
+          path: apps/android-companion/app/build/outputs/apk/debug/*.apk
+
+  jail:
+    name: 内核约束（guard-jail）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: 探测这台 runner 上有哪些后端
+        # 先打印出来。一个静默跳过的安全测试和一个不存在的测试没有区别，所以要能在日志里
+        # 看到这次跑到底验了什么。
+        run: cargo run -p guard-jail --bin agentguard-jail -- --probe
+      - name: 内核真的在拦
+        # 集成测试会从 jail 外面用文件系统状态核对结果。没有可用后端时它们跳过并打印原因。
+        run: cargo test -p guard-jail
+
+  macos-paths:
+    name: macOS 专属代码路径能编译
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: 把 macOS 的 cfg 改写成 linux 再编
+        # Linux 上 cargo check 会整块跳过 #[cfg(target_os = "macos")],所以那半边
+        # 代码在 CI 上从来没被编译过。本项目为此栽过两次:mac-adapter 少了一个
+        # use std::ffi::CStr(被 clippy --fix 删掉的,因为 Linux 上它确实未使用),
+        # 以及更早 NativeWinAdapter 不是 Send。两次都只在目标平台上失败。
+        #
+        # 这个 job 有一个 macos-latest 的 runner 也能跑的版本(直接 cargo check),
+        # 但它在 ubuntu 上跑,所以每一个 PR 都会经过它,不必等 macOS runner 排队。
+        run: make check-macos-paths
+
+  msrv:
+    name: MSRV 1.87
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.87
+      - uses: Swatinem/rust-cache@v2
+      - name: 用 MSRV 跑整个 workspace 的测试
+        # Cargo.toml 里的 rust-version 只是一个声明,声明不是执行。没有这个 job,
+        # 任何人用了一个 1.88 才有的 API,MSRV 就静默抬高一格,而所有测试仍然全绿 ——
+        # 因为大家都在 stable 上跑。1.87 这条线是测出来的:1.86 编不过
+        # （guard-privacy 的 Luhn 校验用了 is_multiple_of）。
+        run: cargo test --workspace
+
+  preflight:
+    name: 部署自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: 打印自检报告
+        # 仓库自带的这套策略**应该**报 FAIL（发布注册表钉的是夹具密钥），所以退出码
+        # 不能当门禁 —— `|| true`。真正的门禁是下一步那条单元测试:它断言"照着仓库跑"
+        # 和"可以上线"之间存在一个能被看见的差别。哪天有人把它改成期望 PASS,
+        # 那就是把陷阱又埋回去了。
+        run: cargo run -p guard-cli -- preflight || true
+      - name: 门禁 —— 仓库自带的策略必须报 FAIL,且原因必须是夹具密钥
+        run: cargo test -p guard-cli preflight
+
+  frontend:
+    name: Shell front ends parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax-check every shell script and front-end module
+        # No JS was checked by anything before. A syntax error in main.js produced a shell
+        # whose buttons silently did nothing, and the Rust side would still be green.
+        #
+        # One `make` target rather than a copy of the loop, because the first version of this
+        # job and the Makefile target had the same bug in two places: a
+        # `|| node --input-type=module -e "import(...)"` fallback that swallowed the failure and
+        # made both checks pass on a file with a syntax error.
+        run: make check-shells

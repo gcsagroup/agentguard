@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Optional envelope relay to desktop local API (adb reverse loopback). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      Package visibility (API 30+): queryBroadcastReceivers() only returns
+      packages this app can see. Declaring the agent text-input broadcast actions
+      here is what makes the (A)I Sees A5 survey possible without asking for
+      QUERY_ALL_PACKAGES, which is Play-policy restricted and far broader than we
+      need. Only receivers matching these exact actions become visible.
+    -->
+    <!--
+      Package visibility (Android 11 / API 30+).
+
+      Without an entry here, getPackageInfo() throws NameNotFoundException for an
+      app we cannot see, which is indistinguishable from "not installed". That made
+      every attestation Unreadable, so a registry full of pinned certificates could
+      never verify anything — the check would be present and permanently useless.
+
+      Each <package> below must match an entry in policies/known-apps.yaml. A
+      deployment that pins additional apps has to add them here too; there is no way
+      to make this list dynamic, which is the cost of not requesting the
+      QUERY_ALL_PACKAGES restricted permission (Play Store review treats that as a
+      last resort, and a guardrail that can enumerate every installed app is a
+      privacy problem of its own).
+    -->
+    <queries>
+        <intent>
+            <action android:name="ADB_INPUT_B64" />
+        </intent>
+        <intent>
+            <action android:name="ADB_INPUT_TEXT" />
+        </intent>
+        <package android:name="com.sankuai.meituan" />
+        <package android:name="com.autonavi.minimap" />
+        <package android:name="com.tencent.mm" />
+        <package android:name="me.ele" />
+        <package android:name="com.stripe.android" />
+        <package android:name="com.example.legacypos" />
+        <!--
+          AgentScan §3.6 needs the *opposite* visibility from §3.5, and the difference is
+          load-bearing.
+
+          §3.5 asks "is the app claiming to be WeChat really WeChat", which only ever concerns a
+          *registered* package — the six above. §3.6 asks "is this unregistered app dressed as
+          WeChat", and the clone is by construction **not** in that list. With only the six
+          <package> entries, `getApplicationLabel`/`getApplicationIcon` throw
+          NameNotFoundException for every clone on API 30+, `AppFace` returns nulls, the envelope
+          carries no app_label or icon_dhash, and `check_app_lookalike` returns None. The
+          mechanism would be inert on device for the one attack it exists to catch — Kotlin
+          computing a value the engine never receives, which is this project's most-repeated
+          defect.
+
+          A MAIN/LAUNCHER intent query makes every *launchable* app visible. That is the widest
+          thing this companion asks for, and the trade is stated rather than buried: it is enough
+          to enumerate the user's launcher, which is a privacy cost. It is still narrower than
+          QUERY_ALL_PACKAGES — services, providers and headless packages stay invisible — and it
+          is not a restricted permission, so it does not need a Play Store declaration. A clone
+          must be launchable to be the app the agent opens, so this is exactly the set §3.6 needs
+          and no more.
+
+          See docs/app-lookalike.md, "Package visibility is the whole mechanism".
+        -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".AgentGuardApplication"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:allowBackup="false"
+        android:label="AgentGuard Companion"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".GuardAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <service
+            android:name=".GuardForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>

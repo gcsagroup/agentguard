@@ -1,0 +1,53 @@
+# 评测语料专用的 agent 身份注册表。
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# 这不是一个可部署的文件。它在 eval/ 下面,不在 policies/ 下面,原因如下。
+#
+# 发布用的 policies/agent-registry.yaml 钉的两把公钥,私钥半边在仓库里 ——
+# 判决层现在会把它们识别出来并降级为"无法验证"
+# (AgentIdentity::PubliclyKnownKey / guard_schema::PUBLICLY_KNOWN_AGENT_KEYS)。
+# 那是对的:一个运维照抄示例注册表再打开 require_attestation,不应该得到
+# "任何人都能伪造出验签通过的 attestation"这个结果。
+#
+# 但这么一改,评测语料就再也走不到"验签通过"之后的那些检查了 ——
+# AGENT-REPLAY 和 AGENT-TASK-NOT-PERMITTED 都在 Verified 分支的下游。
+# 少了覆盖的机制等于没有机制,所以评测需要一把**不在**那张表里的密钥。
+#
+# 这个文件里的私钥同样是公开的(种子 0x11 / 0x22 重复 32 次,见下),
+# 差别只在于它不会被当成部署模板:PUBLICLY_KNOWN_AGENT_KEYS 管的是
+# policies/ 下面的东西,因为那才是运维会照抄的目录。
+# guard-schema 里有一条测试守住这个边界的两个方向:
+#   - policies/ 里钉的每一把都必须在那张表里;
+#   - eval/fixtures/ 里钉的每一把都必须**不在**那张表里。
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# 私钥(评测用,任何人都能重算):
+#   claude-desktop   种子 0x11 重复 32 次
+#   shopping-helper  种子 0x22 重复 32 次
+#
+# require_attestation 留在关闭状态,和发布默认一致。评测场景各自用
+# Scenario::require_agent_attestation 覆盖它,所以两种模式都被跑到。
+require_attestation: false
+agents:
+  - agent_id: claude-desktop
+    display_name: Claude Desktop
+    public_key: "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737"
+    # 和发布注册表保持一致:枚举而不是留空。留空意味着"任何 task",
+    # 而"任何"包含计划库没听过的 profile,那会让会话变成 unplanned,
+    # 从而把轨迹对齐检查一起关掉。
+    task_profiles: [book_hotel, order_food, preference_save, navigation_jump]
+    notes: "评测用通用助手。"
+
+  - agent_id: shopping-helper
+    display_name: Shopping Helper
+    public_key: "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0"
+    # 卡本身就是一道能力边界:这个 agent 验证通过了,仍然不许声明转账。
+    # agent_task_not_on_card 场景打的就是这里。
+    task_profiles: [order_food, book_hotel, navigation_jump]
+    notes: "只做零售类任务。"
+
+  # 注册了但没有密钥。故意保留:现场的注册表就会有这种条目,引擎必须报
+  # NoKeyOnRecord,而不是把"无法验证"当成"已验证"。
+  - agent_id: legacy-macro-bot
+    display_name: Legacy Macro Bot
+    notes: "前 attestation 时代的自动化,无法验证。"

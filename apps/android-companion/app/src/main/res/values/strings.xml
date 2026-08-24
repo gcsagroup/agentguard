@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Observes UI nodes during an active AgentGuard session and serializes findings to JSON for the Rust android-adapter.</string>
+    <string name="notification_channel_name">AgentGuard Session</string>
+    <string name="notification_title">AgentGuard session active</string>
+    <string name="notification_text">Monitoring accessibility events</string>
+    <string name="app_title">AgentGuard Companion</string>
+    <string name="session_active">Session: %1$s</string>
+    <string name="session_inactive">No active session</string>
+    <string name="events_path">Events: %1$s</string>
+    <string name="start_session">Start guard session</string>
+    <string name="stop_session">Stop guard session</string>
+    <string name="refresh_risk">Refresh last risk</string>
+    <string name="open_accessibility">Open Accessibility settings</string>
+    <string name="relay_on">Desktop relay: ON</string>
+    <string name="relay_off">Desktop relay: OFF</string>
+    <string name="desktop_api_url">Desktop API URL</string>
+    <string name="bearer_token">Bearer token (from desktop CLI)</string>
+    <string name="relay_help">USB: adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi: api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <string name="last_risk_none">Last risk: none</string>
+    <string name="last_risk">Last risk: %1$s — %2$s</string>
+    <string name="last_risk_raw">Last risk: %1$s</string>
+    <string name="language_system">Language: System</string>
+    <string name="language_en">Language: English</string>
+    <string name="language_zh_hans">语言：简体中文</string>
+    <string name="language_zh_hant">語言：繁體中文</string>
+    <string name="risk_trap">Trap field filled: %1$s</string>
+    <string name="risk_optional_pii">Optional PII filled: %1$s</string>
+    <string name="risk_payment">Payment confirmation detected</string>
+    <string name="risk_transfer">Money transfer detected</string>
+    <string name="risk_trap_widget">Privacy trap widget detected</string>
+    <string name="risk_overlay">Overlay or injection marker detected</string>
+    <string name="risk_engine_confirm">The guard engine requires confirmation for this action</string>
+    <string name="task_profile_label">Task (blank = unscoped)</string>
+    <string name="relay_offline">Relay not reaching the engine: %1$s</string>
+    <string name="relay_connected">Relay connected to the engine</string>
+    <string name="notif_permission_rationale">Notifications are how a required confirmation reaches you. Without them a blocked action is only written to the log.</string>
+    <string name="risk_deeplink">Suspicious deeplink detected</string>
+    <string name="risk_broadcast_input_sink">Another app (%1$s) is listening on the agent’s text-input broadcast — everything typed is readable</string>
+    <string name="risk_foreign_a11y">Another accessibility service (%1$s) is enabled and can read typed text, including passwords</string>
+    <string name="env_clean">Environment: no visible app is listening on the input broadcast, and no other accessibility service is enabled</string>
+    <string name="env_risk">Environment risk: %1$s</string>
+    <string name="env_unknown">Environment survey unavailable (%1$s)</string>
+    <string name="show_adapter_key">Show adapter public key</string>
+    <string name="adapter_key_help">Put this in policies/adapter-registry.yaml under adapter_id: android-companion, with key_algorithm: ecdsa-p256. Without it the desktop treats this companion\'s surveys as unsigned: they can raise risk but cannot clear it.</string>
+</resources>

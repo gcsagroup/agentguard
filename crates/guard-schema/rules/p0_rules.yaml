@@ -1,0 +1,269 @@
+version: "1.0"
+rules:
+  # `gateway` 出现在 CRIT-* 的平台列表里，是因为工具网关（crates/guard-gateway）会把一次
+  # 工具调用变成事件送进来判，而"这段文本意味着一次付款/转账/永久删除"这件事跟平台无关。
+  #
+  # 刻意**只**加在 CRIT-* 上。OVL-* 需要像素、ENV-* 是 Android 专属、UI-REVALIDATE 需要 UI 树；
+  # 给它们加 gateway 会让一条只在特定平台有意义的规则对一条命令发言。
+  # `guard-gateway` 里有一条测试钉住这一点（平台专属的规则刻意不扩到网关）。
+  - id: CRIT-001
+    name: payment_confirmation
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android, gateway]
+    match_any_text: ["确认支付", "Confirm Payment", "Pay now", "Complete purchase"]
+    description: "Agent is about to confirm a payment"
+    step_kind: confirm_payment
+
+  - id: CRIT-002
+    name: money_transfer
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android, gateway]
+    match_any_text: ["Transfer", "Send money", "转账", "立即转账"]
+    description: "Agent is about to transfer money"
+    step_kind: transfer_funds
+
+  - id: CRIT-003
+    name: permanent_delete
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android, gateway]
+    match_any_text: ["Delete permanently", "Empty Recycle Bin", "移到废纸篓", "永久删除", "清空回收站"]
+    description: "Agent is about to permanently delete data"
+
+  - id: CRIT-004
+    name: message_send_bulk
+    severity: high
+    action: alert
+    require_confirm: true
+    platforms: [windows, macos, browser, android, gateway]
+    match_any_text: ["Send to all", "群发", "Post publicly"]
+    description: "Agent may send a message broadly"
+
+  - id: CRIT-005
+    name: install_software
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, android, gateway]
+    match_any_text: ["Install", "安装", "Allow this app"]
+    description: "Agent is about to install software"
+
+  - id: OVL-001
+    name: invisible_text_injection
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [windows, macos]
+    match_any_text: ["[AG_INVISIBLE_TEXT]"]
+    description: "Screen analysis detected machine-readable but visually hidden text"
+
+  - id: OVL-002
+    name: transparent_overlay
+    severity: high
+    action: alert
+    require_confirm: false
+    platforms: [windows, macos]
+    match_any_text: ["[AG_TRANSPARENT_OVERLAY]"]
+    description: "Low-opacity window covering the agent viewport"
+
+  - id: OVL-003
+    name: screenshot_tamper_hint
+    severity: high
+    action: alert
+    require_confirm: false
+    platforms: [windows, macos, android]
+    match_any_text: ["[AG_SCREENSHOT_TAMPER]"]
+    description: "Possible screenshot pipeline tampering"
+
+  - id: OVL-004
+    name: subliminal_prompt_injection
+    severity: critical
+    action: block
+    require_confirm: true
+    # `android` was missing, and nothing noticed because `platforms` was never read:
+    # `android_inject_override_001` asserted this rule and passed on an android event. A
+    # prompt-injection phrase in UI text is not a desktop-only phenomenon.
+    platforms: [windows, macos, browser, android]
+    match_any_text: ["ignore previous instructions", "忽略之前的指令", "system override"]
+    description: "Possible prompt-injection payload in UI/DOM"
+
+  - id: OVL-005
+    name: deeplink_hijack
+    severity: high
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android]
+    match_any_text: ["intent://", "myapp://transfer", "openurl?payload="]
+    description: "Suspicious deeplink / custom scheme"
+
+  - id: OVL-006
+    name: invisible_zone_injection
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, android]
+    match_any_text: ["[AG_INVISIBLE_ZONE]"]
+    description: "Text in display corner/bezel (A2 invisible-zone style injection)"
+
+  - id: OVL-007
+    name: subliminal_low_contrast_text
+    severity: high
+    action: block
+    require_confirm: true
+    platforms: [macos, windows, android]
+    match_any_text: ["[AG_SUBLIMINAL_TEXT]"]
+    description: "Low-contrast subliminal text detected in captured pixels (A1 injection)"
+
+  - id: OVL-008
+    name: stego_lsb_hint
+    severity: medium
+    action: alert
+    platforms: [macos, windows]
+    match_any_text: ["[AG_STEGO_LSB]"]
+    description: "Randomized LSB plane in captured frame (possible steganographic payload, A1/A4)"
+
+  - id: OVL-009
+    name: viewtree_screen_only_text
+    severity: high
+    action: alert
+    require_confirm: false
+    platforms: [macos, windows, android]
+    match_any_text: ["[AG_VIEWTREE_SCREEN_ONLY]"]
+    description: "Rendered text missing from the accessibility tree (AgentScan Viewtree Interference: overlay without a11y nodes)"
+
+  - id: OVL-010
+    name: viewtree_tree_only_text
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [macos, windows, android]
+    match_any_text: ["[AG_VIEWTREE_TREE_ONLY]"]
+    description: "Accessibility-tree text that is not rendered on screen (agent reads an instruction the user cannot see)"
+
+  - id: OVL-011
+    name: chroma_stego_hint
+    severity: high
+    action: alert
+    require_confirm: false
+    platforms: [macos, windows]
+    match_any_text: ["[AG_STEGO_CHROMA]"]
+    description: "Cb/Cr LSB plane randomized with luminance preserved ((A)I Sees A4 chrominance steganography)"
+
+  - id: OVL-012
+    name: masked_display_zone_text
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [macos, windows, android]
+    match_any_text: ["[AG_MASKED_ZONE]"]
+    description: "Opaque text inside a rounded corner / display cutout ((A)I Sees A2 invisible-zone geometry)"
+
+  - id: OVL-013
+    name: frame_region_tamper
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [macos, windows, android]
+    match_any_text: ["[AG_FRAME_REGION_TAMPER]"]
+    description: "A few frame blocks changed inside the A4 TOCTOU window while the rest of the screen held still: a localized screenshot edit, which whole-frame mean luminance cannot detect"
+
+  - id: ENV-A5
+    name: broadcast_input_interception
+    severity: critical
+    action: block
+    require_confirm: true
+    platforms: [android]
+    # Only the companion's own survey may assert a device condition; without this a page
+    # displaying the marker string forged this finding.
+    event_types: [environment_survey]
+    match_any_text: ["[AG_BROADCAST_INPUT_SINK]"]
+    description: "Another app has a receiver registered for the agent's text-input broadcast; everything the agent types is readable with no permission ((A)I Sees A5)"
+
+  - id: ENV-A6
+    name: foreign_accessibility_service
+    severity: high
+    action: alert
+    require_confirm: false
+    platforms: [android]
+    # Only the companion's own survey may assert a device condition; without this a page
+    # displaying the marker string forged this finding.
+    event_types: [environment_survey]
+    match_any_text: ["[AG_FOREIGN_A11Y_SERVICE]"]
+    description: "Another accessibility service is enabled; it receives TYPE_VIEW_TEXT_CHANGED including password fields in plaintext ((A)I Sees A6)"
+
+  - id: ENV-LOG-READABLE
+    name: device_log_readable
+    severity: low
+    action: alert
+    require_confirm: false
+    platforms: [android]
+    # Only the companion's own survey may assert a device condition; without this a page
+    # displaying the marker string forged this finding.
+    event_types: [environment_survey]
+    match_any_text: ["[AG_LOG_READER]"]
+    # Low, and on its own rule rather than folded into ENV-A6. A log reader does not see
+    # keystrokes and an accessibility service does not need the log; one finding standing
+    # for two exposures sends an operator to fix the wrong one. Low because the holder is
+    # usually an OEM diagnostics app — READ_LOGS is signature|privileged, so a third-party
+    # holder means preinstalled or rooted — and because the mitigation that matters is on
+    # our side: `guard_privacy::log_safe` redacts what this guard itself writes.
+    description: "An app on this device can read the log the agent, its host and this guard write to; anything logged is collectable without touching the accessibility stream (AgentScan §3.8)"
+
+  - id: UI-REVALIDATE
+    name: ui_changed_before_execute
+    severity: high
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android]
+    match_any_text: ["[AG_UI_REVALIDATE]"]
+    description: "UI fingerprint changed between decision and execute (pop-up / TOCTOU)"
+
+  - id: PRIV-001
+    name: optional_pii_overfill
+    severity: medium
+    action: alert
+    require_confirm: false
+    platforms: [windows, macos, browser, android]
+    match_field_categories: [phone, email, address, id_number, date_of_birth]
+    description: "Optional personal field filled without task need (FM)"
+
+  - id: PRIV-002
+    name: privacy_trap_widget
+    severity: high
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android]
+    match_any_text: ["Priority Scheduling", "VIP Express", "Get coupons with phone", "营销订阅"]
+    description: "Non-essential trap widget collecting known PII (TR)"
+
+  - id: PRIV-003
+    name: high_tier_access
+    severity: high
+    action: block
+    require_confirm: true
+    platforms: [windows, macos, browser, android]
+    match_field_categories: [phone_number, id_number, payment_info, passport_number]
+    description: "HIGH-tier profile access without confirmation (OP)"
+
+  - id: PRIV-004
+    name: memory_write
+    severity: medium
+    action: alert
+    require_confirm: true
+    platforms: [windows, macos, browser, android]
+    match_any_text: ["[AG_MEMORY_WRITE]"]
+    description: "Agent attempting to persist user preference/memory"
+
+  - id: PRIV-005
+    name: network_exfil_hint
+    severity: high
+    action: alert
+    require_confirm: false
+    platforms: [windows, macos, android]
+    match_any_text: ["[AG_LARGE_UPLOAD]", "[AG_UNKNOWN_DOMAIN]"]
+    description: "Unusual upload during agent session"

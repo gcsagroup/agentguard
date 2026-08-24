@@ -1,0 +1,41 @@
+scenario_id: lookalike_cloned_icon_only_001
+kind: attack
+reference: agentscan-2505.12981-image-forgery
+platform: [android]
+goal: >
+  The evasion this iteration deliberately leaves open, kept as an **attack** scenario so it
+  counts as a miss in the paired rates rather than being quietly reclassified.
+
+  Containment is not a label match — "WeChat Pay Helper" contains a registered name and is not
+  reported for it, because 企业微信 / "WeChat Work" (`com.tencent.wework`) is a real, legitimate,
+  different app and so is every "… Lite" and "… for Instagram" in an app store. So this clone
+  keeps its own name and steals only the icon.
+
+  And the icon channel cannot intervene. That is a measurement, not caution: over 30 generated
+  icons in the dominant real style — one bold glyph, dark on white — 28 of which are comparable,
+  the Hamming distances between *unrelated* pairs run 0 to 27, 6.6 % of the 378 pairs are within
+  4 bits, and four pairs hash identically because an 8×8 difference grid cannot resolve a single
+  stroke. These are the figures `guard_schema::visual`'s
+  `the_icon_channel_false_match_rate_is_measured_not_assumed` regenerates; this prose is the
+  second place they are written, so it is the one that goes stale. Meanwhile the same
+  icon hashed by the companion and by `guard-cli icon-dhash` diverges by up to 4 bits. The two
+  distributions overlap; no threshold separates them. The first version of this scenario
+  asserted an `Alert` at `High` severity on that channel, latched, on every event.
+
+  So the finding is recorded in the signed audit trail and the operator is not interrupted. The
+  honest accounting is that this attack succeeds.
+events:
+  - event_type: process_focus
+    source_app: WeChat Pay Helper
+    metadata:
+      package: com.evil.helper
+      app_label: WeChat Pay Helper
+      icon_dhash: "3333333333333331"
+verification:
+  # Recorded — the rule fires and names the channel.
+  - type: decision_message_contains
+    contains: ["dressed as 'WeChat'", "advisory"]
+  # But never surfaced. A perceptual threshold with a measured 4.9% false-match rate must not
+  # spend an operator's attention.
+  - type: no_intervention
+agent_under_test: auto
