@@ -15,46 +15,107 @@ fn read(rel: &str) -> String {
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 {}: {e}", p.display()))
 }
 
-/// 前端不允许再出现 `innerHTML =` 赋值。
+/// 前端不允许出现任何把字符串当成标记或代码解释的写法。
 ///
 /// 审计行里的 `human_message` / `source_app` 有一部分是**受监控方能影响**的
 /// (窗口标题、URL、表单标签)。以前那一行是模板字符串塞进 innerHTML,于是一个把
 /// 窗口标题改成 `<img src=x onerror=...>` 的 agent 能在守卫自己的界面里执行脚本。
 ///
-/// 这条测试盯的是**那一类写法**,不是那一行代码 —— 修好一处但下次又写回来的话,
-/// 只有类级别的检查拦得住。
+/// # 这条测试自己被复核过一轮
+///
+/// 第一版有三个毛病,而它们正是这条测试要防的那类毛病:
+///
+///   1. **文件清单是写死的四个**,漏掉了两个 `i18n.js`(里面有 `applyTranslations()`
+///      在遍历 `[data-i18n]` 赋 `textContent` —— 下一个"加点富文本"的人最可能动的
+///      就是那里)、`background.js` 和三个 HTML。
+///   2. **`if !p.exists() { continue; }`** —— 文件一改名,这条检查对它就静默失效了。
+///      `make check-shells` 为同一个失效方式专门放了一个 `n < 3` 的数量下限,
+///      这条测试没有。
+///   3. **只禁 `innerHTML` 这一个词**。`insertAdjacentHTML`、`outerHTML`、
+///      `document.write`、`eval`、`new Function`、`setAttribute('onclick', ...)`、
+///      `srcdoc`、`createContextualFragment` 全都放行。
+///
+/// 现在改成**扫目录**、有数量下限、禁一整类 sink。
 #[test]
 #[allow(non_snake_case)]
-fn 前端不再出现innerHTML赋值() {
-    let files = [
-        "apps/desktop-macos/src/main.js",
-        "apps/desktop-windows/src/main.js",
-        "apps/extension-chromium/content.js",
-        "apps/extension-chromium/popup.js",
+fn 前端不出现把字符串当代码的写法() {
+    // 每一条都是一个真的注入 sink。加东西进来要说清它为什么算。
+    const SINKS: &[(&str, &str)] = &[
+        ("innerHTML", "把字符串当 HTML 解析"),
+        ("outerHTML", "同上"),
+        ("insertAdjacentHTML", "同上"),
+        ("document.write", "同上"),
+        ("createContextualFragment", "同上"),
+        ("srcdoc", "把字符串当一整个文档"),
+        ("eval(", "把字符串当代码"),
+        ("new Function", "同上"),
+        ("dangerouslySetInnerHTML", "同上"),
+        (".cssText", "把字符串当 CSS 解析"),
+        ("insertRule", "同上"),
     ];
+    // 内联事件处理器属性。单独一类,因为它们是 `on` + 事件名的形状。
+    const INLINE_HANDLERS: &[&str] = &[
+        "onclick=",
+        "onerror=",
+        "onload=",
+        "onmouseover=",
+        "onfocus=",
+    ];
+
+    let 前端目录 = [
+        "apps/desktop-macos/src",
+        "apps/desktop-windows/src",
+        "apps/extension-chromium",
+    ];
+    let mut 扫到的 = 0usize;
     let mut 违规 = Vec::new();
-    for f in files {
-        let p = root().join(f);
-        if !p.exists() {
-            continue;
-        }
-        for (i, line) in read(f).lines().enumerate() {
-            // 只看赋值,不看注释里提到这个词。
-            let code = line.split("//").next().unwrap_or("");
-            if code.contains("innerHTML") && code.contains('=') && !code.contains("==") {
-                违规.push(format!("{f}:{}: {}", i + 1, line.trim()));
+    for dir in 前端目录 {
+        let d = root().join(dir);
+        assert!(
+            d.is_dir(),
+            "前端目录不见了:{dir} —— 目录一改名,这条检查就静默失效"
+        );
+        for entry in std::fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if !matches!(ext, "js" | "html" | "mjs") {
+                continue;
+            }
+            扫到的 += 1;
+            let text = std::fs::read_to_string(&path).unwrap();
+            let rel = path.strip_prefix(root()).unwrap().display().to_string();
+            for (i, line) in text.lines().enumerate() {
+                // 去掉注释:注释里提到这些词是允许的(下面这些注释本身就提到了)。
+                let code = line.split("//").next().unwrap_or("");
+                for (sink, why) in SINKS {
+                    if code.contains(sink) {
+                        违规.push(format!("{rel}:{}: {sink}({why}) — {}", i + 1, line.trim()));
+                    }
+                }
+                let lower = code.to_lowercase();
+                for h in INLINE_HANDLERS {
+                    if lower.contains(h) {
+                        违规.push(format!("{rel}:{}: 内联事件处理器 {h}", i + 1));
+                    }
+                }
             }
         }
     }
+    // 数量下限:目录改名 / 文件搬走时这条检查不能静默变成空转。
+    // `make check-shells` 为同一个失效方式放了 `n < 3`;这条测试以前没有。
+    assert!(
+        扫到的 >= 9,
+        "只扫到 {扫到的} 个前端文件,像是目录结构变了 —— 这条检查可能已经在空转"
+    );
     assert!(
         违规.is_empty(),
-        "前端又出现了 innerHTML 赋值。用 textContent 或建 DOM 节点 —— \
-         这些字符串里有受监控方能影响的文本:\n{}",
+        "前端出现了把字符串当标记/代码解释的写法(共扫描 {扫到的} 个文件)。\n\
+         用 textContent 或建 DOM 节点 —— 这些字符串里有受监控方能影响的文本:\n{}",
         违规.join("\n")
     );
 }
 
-/// 两个 Tauri 外壳都必须配限制性 CSP。
+/// 两个 Tauri 外壳都必须配限制性 CSP。/// 两个 Tauri 外壳都必须配限制性 CSP。
 ///
 /// `"csp": null` 是 Tauri 的默认,意思是**不设** CSP。它和 innerHTML 那条是两道
 /// 独立的防线:任何一道都可能被将来某次改动绕过,所以两道都要在。
@@ -79,6 +140,31 @@ fn 两个外壳都配了限制性csp() {
         assert!(
             !csp.contains("unsafe-inline") && !csp.contains("unsafe-eval"),
             "{app} 的 CSP 带 unsafe-*,等于把这道防线让开:{csp}"
+        );
+        // 几个具体指令要钉住。不钉的话,有人往 script-src 里加一个 CDN 域名,
+        // 上面那些断言全都还是绿的。
+        for 必须 in ["script-src 'self'", "style-src 'self'"] {
+            assert!(csp.contains(必须), "{app} 的 CSP 里 `{必须}` 变了:{csp}");
+        }
+        assert!(
+            !csp.contains("http://") || csp.contains("http://ipc.localhost"),
+            "{app} 的 CSP 里出现了 ipc.localhost 之外的 http:// 来源:{csp}"
+        );
+    }
+
+    // 页面里不许再出现内联 <style>。
+    //
+    // 写在 tauri.conf.json 里的是 `style-src 'self'`(没有 'unsafe-inline'),而内联
+    // <style> 之所以仍能渲染,是因为 Tauri 构建时注入 nonce、运行时把
+    // `'nonce-<随机>'` 追加进 style-src —— 也就是**实际生效的 CSP 和写的那份不一样**。
+    // 后果是审计问题:读配置的人会得出"内联样式被挡住"的错误结论。
+    // 这一条是一次独立复核指出来的。
+    for app in ["desktop-macos", "desktop-windows"] {
+        let html = read(&format!("apps/{app}/src/index.html"));
+        assert!(
+            !html.contains("<style"),
+            "{app}/src/index.html 里有内联 <style> —— 搬去 styles.css,\
+             否则写在配置里的 CSP 和实际生效的那份不一致"
         );
     }
 }

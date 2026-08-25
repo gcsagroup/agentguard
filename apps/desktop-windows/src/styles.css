@@ -141,3 +141,26 @@ button:hover { filter: brightness(1.08); }
 .modal-card h2 { margin: 0 0 0.6rem; }
 button.danger { background: #c2414b; }
 
+/* 从 index.html 的内联 <style> 搬过来的。
+ *
+ * 为什么搬:tauri.conf.json 里写的是 `style-src 'self'`(没有 'unsafe-inline'),
+ * 而这个内联块之所以还能渲染,是因为 Tauri 在构建时给每个 <style> 注入
+ * `nonce="__TAURI_STYLE_NONCE__"`,运行时再把 `'nonce-<随机>'` 追加到 style-src。
+ * 也就是说**实际生效的 CSP 和写在配置里的那份不一样**。
+ *
+ * 后果不是渲染问题,是审计问题:有人读 tauri.conf.json 会得出"内联样式被挡住了"
+ * 的结论,而事实相反。而且仓库不变量测试禁止 `unsafe-inline` —— 一旦那条 nonce
+ * 通路变了,维护者第一反应就会去加它,然后撞在那条测试上,而没有任何东西记录着
+ * 这里为什么依赖 nonce。搬到外部样式表之后,写的那份和生效的那份就一致了。
+ *
+ * 这一条是一次独立复核指出来的。
+ */
+.caps-list{display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem}
+.cap{display:grid;grid-template-columns:auto auto 1fr;gap:.5rem;align-items:baseline;
+     font-size:.86rem;padding:.35rem .5rem;border-radius:4px;border:1px solid transparent}
+.cap-name{font-weight:600}
+.cap-val{font-variant:all-small-caps;letter-spacing:.04em}
+.cap-why{opacity:.75;font-size:.8rem}
+.cap-ok{border-color:#2f7d5b40;background:#2f7d5b14}
+.cap-no{border-color:#a3382f40;background:#a3382f14}
+.cap-mode{font-size:.82rem;opacity:.85;line-height:1.5;padding:.35rem .5rem}

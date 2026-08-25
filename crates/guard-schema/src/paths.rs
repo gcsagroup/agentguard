@@ -209,6 +209,15 @@ const GLOB_CHARS: &[char] = &['*', '?', '['];
 ///
 /// `Err` 的语义是"证明不了"，不是"安全"。调用方必须把它当成不能放行的理由。
 pub fn resolve(operand: &str, ctx: ResolveContext) -> Result<PathBuf, String> {
+    resolve_with_aliases(operand, ctx, VolumeAliases::for_host())
+}
+
+/// [`resolve`] 的可注入版本 —— 让 Linux 上的测试能走 macOS 那条折叠路径。
+pub fn resolve_with_aliases(
+    operand: &str,
+    ctx: ResolveContext,
+    aliases: VolumeAliases,
+) -> Result<PathBuf, String> {
     let raw = operand.trim();
     if raw.is_empty() {
         // 空操作数不是无害的。`find "" -delete` 会变成 `find -delete`，从当前目录开始递归删。
@@ -274,7 +283,10 @@ pub fn resolve(operand: &str, ctx: ResolveContext) -> Result<PathBuf, String> {
     }
     // 五、去掉 macOS 的卷别名,归一到一个空间。必须在 canonicalize 之后 ——
     // 它处理的就是 canonicalize 产出的那种形状。
-    Ok(dealias_platform_volumes(&out))
+    //
+    // **只在 macOS 上折。** 见 `VolumeAliases`:在别的平台上这是改写而不是归一化,
+    // 而改写会让守卫判决的路径和执行方写入的路径分家。
+    Ok(dealias_with(&out, aliases))
 }
 
 /// 去掉 macOS 的 firmlink / synthetic 卷别名前缀,把路径归一到**逻辑**形式。
@@ -317,6 +329,60 @@ pub fn resolve(operand: &str, ctx: ResolveContext) -> Result<PathBuf, String> {
 /// Linux 路径是恒等变换(有测试钉住)。而且别名折叠的方向永远是"更敏感"那边 ——
 /// `/System/Volumes/Data/etc` 折成 `/etc` 之后更敏感,不是更宽松。
 pub fn dealias_platform_volumes(path: &Path) -> PathBuf {
+    dealias_with(path, VolumeAliases::Fold)
+}
+
+/// 要不要折叠平台卷别名。
+///
+/// # 为什么这必须是一个开关,而不是无条件生效
+///
+/// 第一版是无条件的,理由写着"Linux 上没有 `/System/Volumes/Data` 这种路径"。
+/// **那是对文件系统的假设,不是这个函数的性质**,而且没有任何东西在保证它。
+/// 一次独立对抗性复核把后果跑出来了:
+///
+/// ```text
+/// 天花板        /tmp/ws
+/// 操作数        /System/Volumes/Data/tmp/ws/pwned.txt
+/// 守卫判决用的  /tmp/ws/pwned.txt        <- 折过的,判成"在天花板内",还跳过了人工确认
+/// 执行方写的    /System/Volumes/Data/tmp/ws/pwned.txt   <- 原始的,在 Linux 上是另一个文件
+/// ```
+///
+/// 在 macOS 上两者是同一个 inode(firmlink),所以不分叉。在 Linux 上它们是两个文件 ——
+/// 而 `guard-gateway` 和 `guard-jail` 恰好跑在 Linux 上,后者的执行器还自带
+/// `create_dir_all`,能把这个目录形状**创建出来**。于是折叠从"归一化"变成了"改写",
+/// 而改写让判决对象和执行对象分了家。
+///
+/// 所以折叠是一条 **macOS 的文件系统事实**,不是一个可移植的归一化。它按平台开关。
+///
+/// # 那怎么在 Linux 上测
+///
+/// 靠**注入**,不靠无条件生效。纯函数用写死的 macOS 形状输入直接测;应用点
+/// (`resolve` / `sensitive_target`)提供 `*_with_aliases` 变体,让 Linux 上的测试
+/// 能走 `Fold` 那条路。这样"macOS 才折"和"Linux 也测得到"两件事都成立 ——
+/// 而上一版为了后者牺牲了前者。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VolumeAliases {
+    /// 折叠 —— macOS 的语义。
+    Fold,
+    /// 原样保留 —— 其它平台。
+    Keep,
+}
+
+impl VolumeAliases {
+    /// 当前宿主平台该用哪个。
+    pub fn for_host() -> Self {
+        if cfg!(target_os = "macos") {
+            Self::Fold
+        } else {
+            Self::Keep
+        }
+    }
+}
+
+fn dealias_with(path: &Path, mode: VolumeAliases) -> PathBuf {
+    if mode == VolumeAliases::Keep {
+        return path.to_path_buf();
+    }
     let s = path.to_string_lossy();
 
     // 数据卷根:firmlink 视图下每一条用户路径都在它下面。
@@ -443,6 +509,20 @@ pub fn sensitive_target_with_home(
     intent: PathIntent,
     home: Option<&Path>,
 ) -> Option<String> {
+    sensitive_target_full(path, intent, home, VolumeAliases::for_host())
+}
+
+/// [`sensitive_target_with_home`] 的可注入版本 —— 让非 macOS 上的测试能走折叠那条路。
+///
+/// 这个参数不是为了测试方便才存在的:折叠是一条 macOS 的文件系统事实
+/// (见 [`VolumeAliases`]),而"只在 macOS 生效"和"在 Linux 上也测得到"这两件事
+/// 只能靠注入同时成立。上一版为了后者把折叠做成无条件的,代价是一个越界。
+pub fn sensitive_target_full(
+    path: &Path,
+    intent: PathIntent,
+    home: Option<&Path>,
+    aliases: VolumeAliases,
+) -> Option<String> {
     // 先归一化 macOS 的卷别名。`resolve` 那边已经做过一次,这里再做一次不是多余:
     //
     //   - 这个函数是**公开**的,调用方不一定经过 `resolve`(测试、以及任何直接拿到
@@ -450,14 +530,14 @@ pub fn sensitive_target_with_home(
     //   - 它是真正做出安全判决的那个函数,而判决函数应该自己保证输入空间。
     //
     // 折叠是幂等的,所以做两次和做一次结果一样。
-    let path = &dealias_platform_volumes(path);
+    let path = &dealias_with(path, aliases);
     let s = path.to_string_lossy();
     let lower = s.to_lowercase();
 
     // 家目录也要归一化后再比 —— 否则 `/Users/me` 和
     // `/System/Volumes/Data/Users/me` 会被当成两个不同的目录,于是"删掉整个家目录"
     // 这条判不出来。
-    let home = home.map(dealias_platform_volumes);
+    let home = home.map(|h| dealias_with(h, aliases));
     let home = home.as_deref();
 
     // 根目录本身。
@@ -472,14 +552,22 @@ pub fn sensitive_target_with_home(
     // 家目录本身（删掉整个家目录）。
     if let Some(home) = home {
         let h = std::fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
-        let h = dealias_platform_volumes(&h);
+        let h = dealias_with(&h, aliases);
         if *path == h && intent.needs_write() {
             return Some(format!("{s:?} 是家目录本身"));
         }
     }
 
     // 系统目录。写或删才算敏感——读 `/etc/hosts` 是正常的。
-    if intent.needs_write() {
+    //
+    // 先放掉几个"名字长在系统目录下、实际是每用户可写区"的例外。不放的话在 macOS 上
+    // **用户自己的临时目录**每一次写入都是 Critical:`$TMPDIR` 是
+    // `/var/folders/<hash>/T/`,而 `/var` 在下面那张表里。
+    // 这是一次独立复核指出来的,而且它是先前就存在的 —— `/private/var` 早就在表里,
+    // 折叠只是让它换了个写法。
+    //
+    // 一个在正常路径上狂叫的守卫会被关掉,这句话这个项目已经付过学费。
+    if intent.needs_write() && !is_per_user_scratch(path) {
         for dir in SYSTEM_DIRS {
             if is_within(Path::new(dir), path) {
                 return Some(format!("{s:?} 在系统目录 {dir} 之内"));
@@ -517,6 +605,39 @@ pub fn sensitive_target_with_home(
     }
 
     None
+}
+
+/// 名字落在系统目录下、但实际是**每用户可写**的暂存区。
+///
+/// 目前只有一个:macOS 的 `$TMPDIR`,形如 `/var/folders/<两级散列>/T/...`
+/// (未折叠时是 `/private/var/folders/...`)。它由 `confstr(_CS_DARWIN_USER_TEMP_DIR)`
+/// 分配,权限是每用户 0700,写它是完全正常的操作 —— 而 `/var` 在系统目录表里,
+/// 于是不放掉它的话,macOS 上每一次写临时文件都会被判成 Critical。
+///
+/// 刻意写得很窄:必须是 `/var/folders/<某>/<某>/<某>/...`,至少五段 ——
+/// 也就是 `$TMPDIR`(`.../T/`)或缓存目录(`.../C/`)那一层往下。不做
+/// `/var/folders` 通配前缀,也不放 `/var` 下面任何别的东西 ——
+/// 放宽这个例外等于在系统目录上开口子,而这个函数存在的理由只是消掉一个误报。
+fn is_per_user_scratch(path: &Path) -> bool {
+    let parts: Vec<String> = path
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(n) => Some(n.to_string_lossy().to_lowercase()),
+            _ => None,
+        })
+        .collect();
+    // ["var", "folders", "<hash1>", "<hash2>", <这一层往下才算>, ...]
+    // 未折叠形态开头多一个 "private"。
+    let tail = if parts.first().map(String::as_str) == Some("private") {
+        &parts[1..]
+    } else {
+        &parts[..]
+    };
+    // 至少五段:`/var/folders/<h1>/<h2>/T` 或 `.../C` 往下。
+    // 四段(也就是 `<h2>` 那个容器目录本身)**不**放 —— `$TMPDIR` 是它下面的 `T/`,
+    // 而容器目录本身不该被当成随便可写的暂存区。窄一点的代价是偶尔一次误报,
+    // 宽一点的代价是在 /var 上开了个口子。
+    tail.len() >= 5 && tail[0] == "var" && tail[1] == "folders"
 }
 
 /// 写/删算敏感的系统目录。
@@ -762,10 +883,11 @@ mod tests {
             "/System/Volumes/Data/home/agent/proj/a.txt",
         ] {
             assert_eq!(
-                sensitive_target_with_home(
+                sensitive_target_full(
                     Path::new(p),
                     PathIntent::Delete,
-                    Some(Path::new("/home/agent"))
+                    Some(Path::new("/home/agent")),
+                    VolumeAliases::Fold,
                 ),
                 None,
                 "{p} 被误判成敏感"
@@ -783,8 +905,9 @@ mod tests {
             ("/private/etc/hosts", "/etc"),
             ("/private/var/db/x", "/var"),
         ] {
-            let got = sensitive_target_with_home(Path::new(p), PathIntent::Write, None)
-                .unwrap_or_else(|| panic!("{p} 漏判了 —— 这是那个危险的方向"));
+            let got =
+                sensitive_target_full(Path::new(p), PathIntent::Write, None, VolumeAliases::Fold)
+                    .unwrap_or_else(|| panic!("{p} 漏判了 —— 这是那个危险的方向"));
             assert!(got.contains(期望片段), "{p} 的理由里没有 {期望片段}:{got}");
         }
     }
@@ -835,17 +958,174 @@ mod tests {
     #[test]
     fn 真正的system路径不被折叠() {
         assert!(
-            sensitive_target_with_home(
+            sensitive_target_full(
                 Path::new("/System/Library/Frameworks/x.framework"),
                 PathIntent::Write,
-                None
+                None,
+                VolumeAliases::Fold,
             )
             .is_some(),
             "真正的 /System 路径漏判了"
         );
     }
 
-    /// 折叠是幂等的 —— `resolve` 和 `sensitive_target` 各做一次,结果必须一样。
+    /// **只有 macOS 折叠卷别名。**
+    ///
+    /// 这条盯的是 `for_host()` 本身。上面那两条都**注入** `VolumeAliases`,
+    /// 所以把 `for_host()` 改成无条件 `Fold`(也就是把 F1 那个越界放回去)
+    /// 它们一条都不会红 —— 变异测试当场证明了这一点。
+    ///
+    /// 注入让"在 Linux 上也测得到 macOS 语义"成立;这一条让"只在 macOS 上生效"
+    /// 也有人盯着。两条缺一不可。
+    #[test]
+    fn 只有macos折叠卷别名() {
+        let 期望 = if cfg!(target_os = "macos") {
+            VolumeAliases::Fold
+        } else {
+            VolumeAliases::Keep
+        };
+        assert_eq!(
+            VolumeAliases::for_host(),
+            期望,
+            "折叠是一条 macOS 的文件系统事实。在别的平台上它是改写而不是归一化,\
+             而改写会让守卫判决的路径和执行方写入的路径分家(见 VolumeAliases 的文档)"
+        );
+    }
+
+    /// 走**真正的入口** `resolve()`(不注入),在非 macOS 宿主上不能折叠。
+    ///
+    /// 上一条是对 `for_host()` 的单元断言;这一条是端到端的那个性质本身 ——
+    /// 一个别名形状的操作数,归约结果必须还是它自己,于是执行方拿到的和守卫判过的
+    /// 是同一个路径。
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn 非macos宿主上真实resolve不改写别名路径() {
+        let ctx = ResolveContext::with(Some("/tmp"), Some("/tmp"));
+        let 操作数 = "/System/Volumes/Data/tmp/ws/x";
+        assert_eq!(
+            resolve(操作数, ctx).unwrap(),
+            PathBuf::from(操作数),
+            "resolve 改写了别名路径 —— 执行方会写到和判决对象不同的文件上"
+        );
+    }
+
+    /// **`resolve` 里那个折叠必须有测试盯着 —— 而且要走 `resolve`。**
+    ///
+    /// 这条测试的上一版不合格,是一次独立复核用变异测试证明的:它调的是
+    /// `dealias_platform_volumes`,没调 `resolve`,所以把折叠从 `resolve` 里
+    /// **整段删掉**,测试照样全绿。文档注释说它钉住的是"两边都过一遍 resolve",
+    /// 而它验的只是那个辅助函数和自己一致。
+    ///
+    /// 那正是这个仓库反复提防的形状:机制存在、被直接测过、然后什么都没接上。
+    #[test]
+    fn resolve在macos模式下折叠数据卷前缀() {
+        let ctx = || ResolveContext::with(Some("/home/agent"), Some("/home/agent"));
+        // Fold(macOS 语义):数据卷前缀被去掉。
+        assert_eq!(
+            resolve_with_aliases(
+                "/System/Volumes/Data/home/agent/proj/a.txt",
+                ctx(),
+                VolumeAliases::Fold
+            )
+            .unwrap(),
+            PathBuf::from("/home/agent/proj/a.txt")
+        );
+        // Keep(其它平台):原样。**这一半才是 F1 那个洞的补丁。**
+        assert_eq!(
+            resolve_with_aliases(
+                "/System/Volumes/Data/home/agent/proj/a.txt",
+                ctx(),
+                VolumeAliases::Keep
+            )
+            .unwrap(),
+            PathBuf::from("/System/Volumes/Data/home/agent/proj/a.txt")
+        );
+    }
+
+    /// **折叠不能让守卫判决的路径和执行方写入的路径分家。**
+    ///
+    /// 这是一次独立对抗性复核跑出来的越界,而它是我上一轮引入的:
+    ///
+    /// ```text
+    /// 天花板        /tmp/ws
+    /// 操作数        /System/Volumes/Data/tmp/ws/pwned.txt
+    /// 守卫判决用的  /tmp/ws/pwned.txt      <- 折过的 → 判成在天花板内,还跳过了人工确认
+    /// 执行方写的    /System/Volumes/Data/tmp/ws/pwned.txt   <- 原始的
+    /// ```
+    ///
+    /// 在 macOS 上两者是同一个 inode(firmlink),不分叉。在 Linux 上是两个文件 ——
+    /// 而 `guard-gateway` / `guard-jail` 跑在 Linux 上,后者的执行器还自带
+    /// `create_dir_all`,能把这个目录形状创建出来。
+    ///
+    /// 原来的理由是"Linux 上没有 `/System/Volumes/Data` 这种路径" —— 那是对文件系统的
+    /// 假设,不是函数的性质,而且没有任何东西在保证它。
+    #[test]
+    fn 非macos平台上别名路径不被判成在天花板内() {
+        let ctx = || ResolveContext::with(Some("/tmp"), Some("/tmp"));
+        let 天花板 = resolve_with_aliases("/tmp/ws", ctx(), VolumeAliases::Keep).unwrap();
+        let 目标 =
+            resolve_with_aliases("/System/Volumes/Data/tmp/ws/x", ctx(), VolumeAliases::Keep)
+                .unwrap();
+        assert!(
+            !is_within(&天花板, &目标),
+            "别名路径被判成在天花板 {:?} 内(解成 {:?}),而执行方会写到别的地方",
+            天花板,
+            目标
+        );
+
+        // macOS 模式下反而**应该**判成在内 —— 那边它们确实是同一个文件。
+        let 天花板m = resolve_with_aliases("/tmp/ws", ctx(), VolumeAliases::Fold).unwrap();
+        let 目标m =
+            resolve_with_aliases("/System/Volumes/Data/tmp/ws/x", ctx(), VolumeAliases::Fold)
+                .unwrap();
+        assert!(is_within(&天花板m, &目标m), "macOS 语义下应该判成在内");
+    }
+
+    /// **macOS 上用户自己的临时目录不能被判成系统目录。**
+    ///
+    /// `$TMPDIR` 是 `/var/folders/<两级散列>/T/`,而 `/var` 在系统目录表里,
+    /// 于是在 macOS 上每一次写临时文件都被判成 Critical + 要人确认。
+    /// 一个在正常路径上狂叫的守卫会被关掉 —— 这句话这个项目已经付过学费。
+    ///
+    /// 先前就存在(`/private/var` 早就在表里),一次独立复核指出来的。
+    #[test]
+    fn macos的每用户临时目录不算系统目录() {
+        for p in [
+            "/var/folders/qz/9x1abc/T/agentguard/out.txt",
+            "/private/var/folders/qz/9x1abc/T/agentguard/out.txt",
+            "/var/folders/qz/9x1abc/C/cache.bin",
+        ] {
+            for intent in [PathIntent::Write, PathIntent::Delete] {
+                assert_eq!(
+                    sensitive_target_full(Path::new(p), intent, None, VolumeAliases::Fold),
+                    None,
+                    "{p} ({intent:?}) 被判成系统目录 —— macOS 上每次写临时文件都会要人确认"
+                );
+            }
+        }
+    }
+
+    /// 但这个例外必须**很窄** —— 放宽它等于在系统目录上开口子。
+    #[test]
+    fn 临时目录例外不外溢到var其它地方() {
+        for p in [
+            "/var/log/syslog",
+            "/var/spool/cron/root",
+            "/var/folders",           // 段数不够
+            "/var/folders/qz",        // 段数不够
+            "/var/folders/qz/9x1abc", // 刚好不够(需要第四段)
+            "/var/foldersx/qz/9x1abc/T/x",
+            "/var/lib/folders/a/b/c",
+        ] {
+            assert!(
+                sensitive_target_full(Path::new(p), PathIntent::Write, None, VolumeAliases::Fold)
+                    .is_some(),
+                "{p} 被例外放掉了 —— 那是在系统目录上开口子"
+            );
+        }
+    }
+
+    /// 折叠是幂等的 —— `resolve` 和 `sensitive_target` 各做一次,结果必须一样。    /// 折叠是幂等的 —— `resolve` 和 `sensitive_target` 各做一次,结果必须一样。
     #[test]
     fn 折叠是幂等的() {
         for p in [
@@ -890,10 +1170,11 @@ mod tests {
     #[test]
     fn 家目录经过别名也认得出来() {
         assert!(
-            sensitive_target_with_home(
+            sensitive_target_full(
                 Path::new("/System/Volumes/Data/Users/me"),
                 PathIntent::Delete,
-                Some(Path::new("/Users/me"))
+                Some(Path::new("/Users/me")),
+                VolumeAliases::Fold,
             )
             .is_some(),
             "经过数据卷别名的家目录没被认出来"
