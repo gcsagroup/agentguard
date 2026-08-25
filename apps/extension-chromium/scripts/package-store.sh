@@ -12,6 +12,7 @@ cp "$ROOT/background.js" "$STAGE/"
 cp "$ROOT/content.js" "$STAGE/"
 cp "$ROOT/popup.html" "$STAGE/"
 cp "$ROOT/popup.js" "$STAGE/"
+cp "$ROOT/popup.css" "$STAGE/"
 if [[ -d "$ROOT/_locales" ]]; then
   cp -R "$ROOT/_locales" "$STAGE/_locales"
 fi

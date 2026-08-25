@@ -15,31 +15,104 @@ fn read(rel: &str) -> String {
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 {}: {e}", p.display()))
 }
 
+/// 剥掉行内注释,但**不要**被字符串里的 `//` 骗到。
+///
+/// 上一版是 `line.split("//").next()`,于是
+/// `const doc = "https://…"; el.innerHTML = x;` 里那个 `//` 把整行切掉,
+/// sink 检测直接失效。一次独立复核用这一条打穿了它。
+fn 去掉行内注释(line: &str) -> String {
+    let b: Vec<char> = line.chars().collect();
+    let mut out = String::new();
+    let mut 引号: Option<char> = None;
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        match 引号 {
+            Some(q) => {
+                out.push(c);
+                if c == '\\' {
+                    // 转义:把下一个字符一起吃掉。
+                    if i + 1 < b.len() {
+                        out.push(b[i + 1]);
+                        i += 2;
+                        continue;
+                    }
+                } else if c == q {
+                    引号 = None;
+                }
+            }
+            None => {
+                if c == '"' || c == '\'' || c == '`' {
+                    引号 = Some(c);
+                    out.push(c);
+                } else if c == '/' && i + 1 < b.len() && b[i + 1] == '/' {
+                    break;
+                } else {
+                    out.push(c);
+                }
+            }
+        }
+        i += 1;
+    }
+    out
+}
+
+/// 递归收集一个目录下的前端源文件。
+///
+/// 上一版用的是非递归 `read_dir`,而两个 Tauri 外壳的 `frontendDist` 是 `../src` ——
+/// 也就是说 `src/views/panel.js` 会**打进应用**,却既不被这条检查看到,
+/// 也不被 `make check-shells`(glob `src/*.js`)语法检查。
+fn 前端源文件(dir: &std::path::Path, out: &mut Vec<PathBuf>) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for e in rd.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            前端源文件(&p, out);
+        } else {
+            let ext = p.extension().and_then(|x| x.to_str()).unwrap_or("");
+            if matches!(ext, "js" | "mjs" | "cjs" | "ts" | "jsx" | "tsx" | "html") {
+                out.push(p);
+            }
+        }
+    }
+}
+
 /// 前端不允许出现任何把字符串当成标记或代码解释的写法。
 ///
 /// 审计行里的 `human_message` / `source_app` 有一部分是**受监控方能影响**的
 /// (窗口标题、URL、表单标签)。以前那一行是模板字符串塞进 innerHTML,于是一个把
 /// 窗口标题改成 `<img src=x onerror=...>` 的 agent 能在守卫自己的界面里执行脚本。
 ///
-/// # 这条测试自己被复核过一轮
+/// # 这条测试被复核打回过**两次**
 ///
-/// 第一版有三个毛病,而它们正是这条测试要防的那类毛病:
+/// 第一版:写死四个文件、`if !exists { continue }` 会静默空转、只禁 `innerHTML`。
 ///
-///   1. **文件清单是写死的四个**,漏掉了两个 `i18n.js`(里面有 `applyTranslations()`
-///      在遍历 `[data-i18n]` 赋 `textContent` —— 下一个"加点富文本"的人最可能动的
-///      就是那里)、`background.js` 和三个 HTML。
-///   2. **`if !p.exists() { continue; }`** —— 文件一改名,这条检查对它就静默失效了。
-///      `make check-shells` 为同一个失效方式专门放了一个 `n < 3` 的数量下限,
-///      这条测试没有。
-///   3. **只禁 `innerHTML` 这一个词**。`insertAdjacentHTML`、`outerHTML`、
-///      `document.write`、`eval`、`new Function`、`setAttribute('onclick', ...)`、
-///      `srcdoc`、`createContextualFragment` 全都放行。
+/// 第二版(也就是上一版)仍然漏掉 12 种绕法里的 11 种:
+///   - 行里任何位置出现 `//`(比如一个 URL 字面量)就把整行切掉;
+///   - `read_dir` 不递归,而 `frontendDist` 是整个 `src/`,子目录里的文件会**打进应用**;
+///   - 只认 `.js/.html/.mjs`,漏 `.ts/.cjs/.jsx/.tsx`;
+///   - `setAttribute("onclick", …)` —— 这一条被上一版自己的文档注释点名说"已经修好了",
+///     而实际没有:`INLINE_HANDLERS` 里每一项都带尾部 `=`,只匹配 HTML 属性语法,
+///     永远匹配不到这个 JS API。
 ///
-/// 现在改成**扫目录**、有数量下限、禁一整类 sink。
+/// # 它挡不住什么(说清楚,不假装)
+///
+/// 这是一个**文本 lint**,不是 JS 解析器。已知挡不住:
+///
+///   - `el["inner" + "HTML"] = x` —— 拼出来的属性名(下面有一条很窄的规则能抓到
+///     这个具体形态,但换个拼法就绕过了);
+///   - `setTimeout(某个变量, 0)`,而那个变量恰好装着字符串 —— 不做类型推导分不出
+///     它和函数引用。
+///
+/// 也就是说:它挡的是**手滑和顺手的写法**,挡不住有人刻意绕。这不是可以补全的 ——
+/// 补全需要真的解析 + 类型信息。写在这里是为了别让人误以为有了这条测试就不用
+/// review 前端改动了。CSP 是第二道,正是为这类残余存在的。
 #[test]
 #[allow(non_snake_case)]
 fn 前端不出现把字符串当代码的写法() {
-    // 每一条都是一个真的注入 sink。加东西进来要说清它为什么算。
+    // 每一条都是一个真的注入 sink。
     const SINKS: &[(&str, &str)] = &[
         ("innerHTML", "把字符串当 HTML 解析"),
         ("outerHTML", "同上"),
@@ -48,125 +121,269 @@ fn 前端不出现把字符串当代码的写法() {
         ("createContextualFragment", "同上"),
         ("srcdoc", "把字符串当一整个文档"),
         ("eval(", "把字符串当代码"),
-        ("new Function", "同上"),
+        ("Function(", "new Function 和裸 Function 都算"),
         ("dangerouslySetInnerHTML", "同上"),
-        (".cssText", "把字符串当 CSS 解析"),
+        ("cssText", "把字符串当 CSS 解析"),
         ("insertRule", "同上"),
+        ("javascript:", "URL 形式的代码执行"),
     ];
-    // 内联事件处理器属性。单独一类,因为它们是 `on` + 事件名的形状。
-    const INLINE_HANDLERS: &[&str] = &[
+    // `setAttribute` 用来装事件处理器 / URL 属性。整个 API 都不许用在前端 ——
+    // 这些页面没有一处需要它,所以一律禁掉比逐个白名单更可靠。
+    const 危险API: &[(&str, &str)] = &[
+        (
+            "setAttribute",
+            "可以用来装 on* 事件处理器或 javascript: URL;这些页面不需要它",
+        ),
+        (".href =", "可能被赋成 javascript: URL"),
+        (".src =", "同上"),
+    ];
+    // `setTimeout` / `setInterval` 只有**第一个参数是字符串**时才是代码执行 sink。
+    // 一刀切禁掉整个 API 会在 `setTimeout(runScan, 400)` 上误报 —— 而误报的代价是
+    // 有人把检查关掉。所以只认紧跟着引号的那种形态。
+    const 定时器: &[&str] = &["setTimeout(", "setInterval("];
+    // HTML 里的内联事件处理器属性。
+    const 内联属性: &[&str] = &[
         "onclick=",
         "onerror=",
         "onload=",
         "onmouseover=",
         "onfocus=",
+        "onsubmit=",
     ];
 
-    let 前端目录 = [
+    let mut 文件 = Vec::new();
+    for dir in [
         "apps/desktop-macos/src",
         "apps/desktop-windows/src",
         "apps/extension-chromium",
-    ];
-    let mut 扫到的 = 0usize;
-    let mut 违规 = Vec::new();
-    for dir in 前端目录 {
+    ] {
         let d = root().join(dir);
         assert!(
             d.is_dir(),
             "前端目录不见了:{dir} —— 目录一改名,这条检查就静默失效"
         );
-        for entry in std::fs::read_dir(&d).unwrap() {
-            let path = entry.unwrap().path();
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if !matches!(ext, "js" | "html" | "mjs") {
-                continue;
+        前端源文件(&d, &mut 文件);
+    }
+    // **精确相等**,不是下限。下限会让"新增一个文件"买到"静默删掉一个文件"的额度 ——
+    // release-gate 的计数刚因为同一个原因从 `-lt` 改成 `-ne`。
+    // 新增前端文件时要一起改这个数,而那一改会出现在 diff 里,于是有人会看一眼
+    // 那个新文件有没有 sink。
+    const 前端文件数: usize = 10;
+    assert_eq!(
+        文件.len(),
+        前端文件数,
+        "前端文件数变了(现在 {})。新增文件请一起改这个常量 —— 那一改的意义是\
+         「有人看过这个新文件里有没有注入 sink」。少了则说明结构变了,这条检查可能在空转。\n{:?}",
+        文件.len(),
+        文件
+            .iter()
+            .map(|p| p.strip_prefix(root()).unwrap().display().to_string())
+            .collect::<Vec<_>>()
+    );
+
+    let mut 违规 = Vec::new();
+    for path in &文件 {
+        let text = std::fs::read_to_string(path).unwrap();
+        let rel = path.strip_prefix(root()).unwrap().display().to_string();
+        let 是html = path.extension().and_then(|e| e.to_str()) == Some("html");
+        for (i, line) in text.lines().enumerate() {
+            let code = if 是html {
+                line.to_string()
+            } else {
+                去掉行内注释(line)
+            };
+            for (sink, why) in SINKS {
+                if code.contains(sink) {
+                    违规.push(format!("{rel}:{}: {sink}({why}) — {}", i + 1, line.trim()));
+                }
             }
-            扫到的 += 1;
-            let text = std::fs::read_to_string(&path).unwrap();
-            let rel = path.strip_prefix(root()).unwrap().display().to_string();
-            for (i, line) in text.lines().enumerate() {
-                // 去掉注释:注释里提到这些词是允许的(下面这些注释本身就提到了)。
-                let code = line.split("//").next().unwrap_or("");
-                for (sink, why) in SINKS {
-                    if code.contains(sink) {
-                        违规.push(format!("{rel}:{}: {sink}({why}) — {}", i + 1, line.trim()));
+            if !是html {
+                for (api, why) in 危险API {
+                    if code.contains(api) {
+                        违规.push(format!("{rel}:{}: {api}({why}) — {}", i + 1, line.trim()));
                     }
                 }
-                let lower = code.to_lowercase();
-                for h in INLINE_HANDLERS {
-                    if lower.contains(h) {
-                        违规.push(format!("{rel}:{}: 内联事件处理器 {h}", i + 1));
+                // 拼出来的属性名:`el["inner" + "HTML"] = x`。很窄,只抓这个形态。
+                if code.contains("[\"") && code.contains('+') && code.contains("] =") {
+                    违规.push(format!(
+                        "{rel}:{}: 用拼接出来的属性名赋值 —— 请直接写属性名,\
+                         这种写法唯一的用途是绕过检查 — {}",
+                        i + 1,
+                        line.trim()
+                    ));
+                }
+                for t in 定时器 {
+                    if let Some(pos) = code.find(t) {
+                        let 之后 = code[pos + t.len()..].trim_start();
+                        if 之后.starts_with(['"', '\'', '`']) {
+                            违规.push(format!(
+                                "{rel}:{}: {t} 的第一个参数是字符串 —— 那是代码执行 — {}",
+                                i + 1,
+                                line.trim()
+                            ));
+                        }
                     }
+                }
+            }
+            let lower = code.to_lowercase();
+            for h in 内联属性 {
+                if lower.contains(h) {
+                    违规.push(format!("{rel}:{}: 内联事件处理器 {h}", i + 1));
                 }
             }
         }
     }
-    // 数量下限:目录改名 / 文件搬走时这条检查不能静默变成空转。
-    // `make check-shells` 为同一个失效方式放了 `n < 3`;这条测试以前没有。
-    assert!(
-        扫到的 >= 9,
-        "只扫到 {扫到的} 个前端文件,像是目录结构变了 —— 这条检查可能已经在空转"
-    );
     assert!(
         违规.is_empty(),
-        "前端出现了把字符串当标记/代码解释的写法(共扫描 {扫到的} 个文件)。\n\
+        "前端出现了把字符串当标记/代码解释的写法(共扫描 {} 个文件)。\n\
          用 textContent 或建 DOM 节点 —— 这些字符串里有受监控方能影响的文本:\n{}",
+        文件.len(),
         违规.join("\n")
     );
 }
 
 /// 两个 Tauri 外壳都必须配限制性 CSP。/// 两个 Tauri 外壳都必须配限制性 CSP。
 ///
-/// `"csp": null` 是 Tauri 的默认,意思是**不设** CSP。它和 innerHTML 那条是两道
-/// 独立的防线:任何一道都可能被将来某次改动绕过,所以两道都要在。
+/// # 这条测试被复核打回过一次
 ///
-/// 这条测试原来只该有 macOS 一个 —— 上一次评审只报了 macOS。Windows 那份
-/// 是同一个洞,一起在这里钉住。
+/// 上一版用 `csp.contains("script-src 'self'")` 当"脚本来源只有 self"。那是**前缀
+/// 匹配**,于是 `script-src 'self' https://cdn.jsdelivr.net` 一路绿灯 —— 而它的注释
+/// 写的正是"有人往 script-src 里加一个 CDN 域名"。同一版里还有一条
+/// `!csp.contains("http://") || csp.contains("http://ipc.localhost")`,
+/// 两个配置都含 `http://ipc.localhost`(IPC 必需),所以右边恒真,那条断言**永远
+/// 不可能失败**。
+///
+/// 现在把 CSP **解析成指令表**再逐条比对来源集合。
+fn parse_csp(csp: &str) -> std::collections::HashMap<String, Vec<String>> {
+    csp.split(';')
+        .filter_map(|d| {
+            let mut it = d.split_whitespace();
+            let name = it.next()?.to_ascii_lowercase();
+            Some((name, it.map(|s| s.to_string()).collect()))
+        })
+        .collect()
+}
+
 #[test]
 fn 两个外壳都配了限制性csp() {
+    // 每条指令的来源集合必须**恰好**是这些。多一个域名就是多一条攻击面。
+    let 期望: &[(&str, &[&str])] = &[
+        ("default-src", &["'none'"]),
+        ("script-src", &["'self'"]),
+        ("style-src", &["'self'"]),
+        ("font-src", &["'self'"]),
+        ("object-src", &["'none'"]),
+        ("base-uri", &["'none'"]),
+        ("form-action", &["'none'"]),
+        ("frame-ancestors", &["'none'"]),
+        ("img-src", &["'self'", "data:"]),
+        ("connect-src", &["ipc:", "http://ipc.localhost"]),
+    ];
     for app in ["desktop-macos", "desktop-windows"] {
         let conf = read(&format!("apps/{app}/src-tauri/tauri.conf.json"));
         let v: serde_json::Value =
             serde_json::from_str(&conf).expect("tauri.conf.json 不是合法 JSON");
-        let csp = &v["app"]["security"]["csp"];
+        let raw = &v["app"]["security"]["csp"];
         assert!(
-            csp.is_string(),
-            "{app} 的 csp 是 {csp} —— null 意思是不设 CSP"
+            raw.is_string(),
+            "{app} 的 csp 是 {raw} —— null 意思是不设 CSP"
         );
-        let csp = csp.as_str().unwrap();
-        for 必须有 in ["default-src 'none'", "object-src 'none'", "base-uri 'none'"] {
-            assert!(csp.contains(必须有), "{app} 的 CSP 缺 `{必须有}`:{csp}");
+        let csp = raw.as_str().unwrap();
+        let 实际 = parse_csp(csp);
+
+        for (指令, 想要) in 期望 {
+            let got = 实际
+                .get(*指令)
+                .unwrap_or_else(|| panic!("{app} 的 CSP 缺指令 `{指令}`:{csp}"));
+            let mut a: Vec<&str> = got.iter().map(String::as_str).collect();
+            let mut b: Vec<&str> = 想要.to_vec();
+            a.sort_unstable();
+            b.sort_unstable();
+            assert_eq!(
+                a, b,
+                "{app} 的 `{指令}` 来源集合变了(多一个域名就是多一条攻击面):{csp}"
+            );
         }
-        assert!(
-            !csp.contains("unsafe-inline") && !csp.contains("unsafe-eval"),
-            "{app} 的 CSP 带 unsafe-*,等于把这道防线让开:{csp}"
-        );
-        // 几个具体指令要钉住。不钉的话,有人往 script-src 里加一个 CDN 域名,
-        // 上面那些断言全都还是绿的。
-        for 必须 in ["script-src 'self'", "style-src 'self'"] {
-            assert!(csp.contains(必须), "{app} 的 CSP 里 `{必须}` 变了:{csp}");
+        // 不允许出现期望表之外的指令 —— 新指令要么该进表,要么不该存在。
+        for 指令 in 实际.keys() {
+            assert!(
+                期望.iter().any(|(n, _)| n == 指令),
+                "{app} 的 CSP 多了一条没人审过的指令 `{指令}`:{csp}"
+            );
         }
-        assert!(
-            !csp.contains("http://") || csp.contains("http://ipc.localhost"),
-            "{app} 的 CSP 里出现了 ipc.localhost 之外的 http:// 来源:{csp}"
-        );
+        // 任何 unsafe-* 都不行(上面的集合比对已经能拦住,这条是留给人读的)。
+        assert!(!csp.contains("unsafe-"), "{app} 的 CSP 带 unsafe-*:{csp}");
     }
 
-    // 页面里不许再出现内联 <style>。
+    // 页面里不许出现内联 <style>(大小写都算)。
     //
-    // 写在 tauri.conf.json 里的是 `style-src 'self'`(没有 'unsafe-inline'),而内联
-    // <style> 之所以仍能渲染,是因为 Tauri 构建时注入 nonce、运行时把
-    // `'nonce-<随机>'` 追加进 style-src —— 也就是**实际生效的 CSP 和写的那份不一样**。
-    // 后果是审计问题:读配置的人会得出"内联样式被挡住"的错误结论。
-    // 这一条是一次独立复核指出来的。
-    for app in ["desktop-macos", "desktop-windows"] {
-        let html = read(&format!("apps/{app}/src/index.html"));
+    // 写在 tauri.conf.json 里的是 `style-src 'self'`,而内联 <style> 之所以还能渲染,
+    // 是因为 Tauri 构建时注入 nonce、运行时把 `'nonce-<随机>'` 追加进 style-src ——
+    // 也就是**实际生效的 CSP 和写的那份不一样**。读配置的人会得出相反结论。
+    //
+    // 范围包括扩展的 popup.html:上一版只看 `apps/{app}/src/index.html`。
+    let mut 扫到 = 0usize;
+    for f in [
+        "apps/desktop-macos/src/index.html",
+        "apps/desktop-windows/src/index.html",
+        "apps/extension-chromium/popup.html",
+    ] {
+        let p = root().join(f);
+        assert!(p.is_file(), "{f} 不见了 —— 文件一改名这条检查就静默失效");
+        扫到 += 1;
+        let html = read(f).to_lowercase();
         assert!(
             !html.contains("<style"),
-            "{app}/src/index.html 里有内联 <style> —— 搬去 styles.css,\
-             否则写在配置里的 CSP 和实际生效的那份不一致"
+            "{f} 里有内联 <style> —— 搬去外部样式表,否则写的 CSP 和生效的不一致"
         );
     }
+    assert_eq!(扫到, 3, "内联样式检查的文件数变了");
+}
+
+/// 扩展 popup 引用的每个本地文件都必须在打包脚本里。
+///
+/// 打包脚本用的是**显式文件清单**(`cp $ROOT/popup.js ...`),不是通配。所以把内联
+/// `<style>` 搬成 `popup.css` 的那一刻,商店包里就少了一个文件 ——
+/// 装出来的扩展没有样式,而所有测试都是绿的。
+///
+/// 这不是假想:上面那条"不许内联 style"的修复第一次做完时,`popup.css` 确实没进
+/// 打包清单。**一个显式清单必须有东西盯着它和引用保持同步。**
+#[test]
+fn 扩展引用的本地文件都在打包清单里() {
+    let html = read("apps/extension-chromium/popup.html");
+    let script = read("apps/extension-chromium/scripts/package-store.sh");
+    let mut 引用 = Vec::new();
+    for attr in ["href=\"", "src=\""] {
+        let mut rest = html.as_str();
+        while let Some(i) = rest.find(attr) {
+            rest = &rest[i + attr.len()..];
+            let Some(j) = rest.find('"') else { break };
+            let v = &rest[..j];
+            // 只管本地相对路径。
+            if !v.starts_with("http") && !v.starts_with("//") && !v.is_empty() {
+                引用.push(v.to_string());
+            }
+            rest = &rest[j..];
+        }
+    }
+    assert!(
+        !引用.is_empty(),
+        "popup.html 里一个本地引用都没解析出来 —— 这条检查可能已经在空转"
+    );
+    let mut 缺的 = Vec::new();
+    for f in &引用 {
+        let 文件 = f.trim_start_matches("./");
+        if !root().join("apps/extension-chromium").join(文件).exists() {
+            缺的.push(format!("{f}(文件本身不存在)"));
+        } else if !script.contains(文件) {
+            缺的.push(format!("{f}(存在,但打包脚本没 cp 它)"));
+        }
+    }
+    assert!(
+        缺的.is_empty(),
+        "popup.html 引用了这些文件,但它们进不了商店包 —— 装出来的扩展会缺东西:\n  {}",
+        缺的.join("\n  ")
+    );
 }
 
 /// README 的宣传口径不能和自己的边界文档矛盾。
@@ -206,71 +423,168 @@ fn readme不使用被自己文档否掉的词() {
     );
 }
 
+/// CI 的 `run:` 命令(注释已剥离),和每个 step / job 的 `continue-on-error` 值。
+///
+/// 上一版这两条检查是在**原始文本**上做 `contains`。复核用一串变异把它打穿了:
+/// 一个被注释掉的 `# run: make check-shells` 满足了"CI 覆盖了这个 target";
+/// `continue-on-error:  true`(两个空格)躲过了"没有被吞掉的退出码";
+/// `|| :`、`|| exit 0`、`continue-on-error: True` 全都躲过了。
+///
+/// 一个字面子串比对,被一个空格打败 —— 那不是检查,是巧合。所以现在**解析 YAML**。
+struct Ci {
+    /// 每条 `run:` 的内容(多行的已经拼好)。
+    runs: Vec<String>,
+    /// (位置描述, continue-on-error 的原始值)
+    coe: Vec<(String, serde_yaml::Value)>,
+}
+
+fn parse_ci() -> Ci {
+    let raw = read(".github/workflows/ci.yml");
+    let doc: serde_yaml::Value = serde_yaml::from_str(&raw).expect("ci.yml 不是合法 YAML");
+    let mut out = Ci {
+        runs: Vec::new(),
+        coe: Vec::new(),
+    };
+    let jobs = doc
+        .get("jobs")
+        .and_then(|j| j.as_mapping())
+        .expect("ci.yml 里没有 jobs");
+    for (jname, job) in jobs {
+        let jn = jname.as_str().unwrap_or("?").to_string();
+        if let Some(v) = job.get("continue-on-error") {
+            out.coe.push((format!("job {jn}"), v.clone()));
+        }
+        let steps = job.get("steps").and_then(|s| s.as_sequence());
+        for (i, st) in steps.into_iter().flatten().enumerate() {
+            if let Some(v) = st.get("continue-on-error") {
+                out.coe.push((format!("job {jn} step {i}"), v.clone()));
+            }
+            if let Some(r) = st.get("run").and_then(|r| r.as_str()) {
+                out.runs.push(r.to_string());
+            }
+            // `uses:` 也算 —— cargo-deny-action 就是这么跑的。
+            if let Some(u) = st.get("uses").and_then(|u| u.as_str()) {
+                out.runs.push(format!("uses:{u}"));
+            }
+        }
+    }
+    assert!(
+        out.runs.len() >= 15,
+        "只从 ci.yml 解析出 {} 条命令,像是结构变了 —— 这条检查可能已经在空转",
+        out.runs.len()
+    );
+    out
+}
+
 /// `make check` 里的每个 target,CI 里都要有东西在跑它。
 ///
 /// # 为什么需要这条
 ///
-/// 一条只在本地跑的门禁,是靠人记得的门禁。这不是假想:`cargo fmt --check` 和
-/// workspace 级的 `cargo clippy` 两条都**不在** CI 里(clippy 只覆盖
-/// win-adapter),结果是 68 个文件漂出 rustfmt 规范,而其中还藏着一条 clippy 错误 ——
-/// 那一行的旧折行让它一直没被报出来。
+/// 一条只在本地跑的门禁,是靠人记得的门禁。`cargo fmt --check` 和 workspace 级的
+/// `cargo clippy` 两条都曾不在 CI 里,结果 68 个文件漂出规范,其中还藏着一条被旧折行
+/// 遮住的 clippy 错误。
 ///
-/// 一次性把两边接上很容易;**保持**接上才是难的。所以这条测试比对的是两个清单,
-/// 而不是某几条具体的命令。
+/// # 这条测试被复核打回过一次
 ///
-/// # 它查什么、不查什么
+/// 上一版在原始文本上 `contains("make X")`,于是把 `run: make check-shells` 换成
+/// `# 先临时停掉:run: make check-shells` 再加一行 `run: echo skipped`,测试照样绿 ——
+/// 那条前端/脚本解析门禁从 CI 里消失了,而"防止门禁只在本地跑"的测试没看见。
 ///
-/// 查:`make check` 依赖的每个 target 名,在 CI 里能不能找到(直接 `make <target>`,
-/// 或者一条等效的命令)。
-/// 不查:CI 跑得对不对、在哪个平台跑。那些看得见的差别由别的东西负责。
+/// 等效物白名单也是个洞:`("check-newgate", "")` 让 `contains("")` 恒真,
+/// `("check-newgate", "run")` 也一样 —— 随便一个短字符串就能把一个 target 蒙过去。
 #[test]
 fn ci覆盖make_check的每个target() {
     let makefile = read("Makefile");
-    let ci = read(".github/workflows/ci.yml");
+    let ci = parse_ci();
 
-    let check_line = makefile
-        .lines()
-        .find(|l| l.starts_with("check:"))
-        .expect("Makefile 里找不到 `check:` 这条规则");
-    let targets: Vec<&str> = check_line
-        .trim_start_matches("check:")
-        .split_whitespace()
-        .collect();
+    // 先把 `check:` 那一行的续行拼起来。上一版只读一行,遇到 `\` 续行时会把反斜杠
+    // 当成一个 target 名报出来,而续行之后那几个真 target 从来没被检查过。
+    let mut check_line = String::new();
+    let mut 收集 = false;
+    for line in makefile.lines() {
+        if line.starts_with("check:") {
+            收集 = true;
+            check_line.push_str(line.trim_start_matches("check:"));
+        } else if 收集 {
+            check_line.push(' ');
+            check_line.push_str(line);
+        }
+        if 收集 {
+            if check_line.trim_end().ends_with('\\') {
+                check_line = check_line.trim_end().trim_end_matches('\\').to_string();
+                continue;
+            }
+            break;
+        }
+    }
+    assert!(!check_line.is_empty(), "Makefile 里找不到 `check:`");
+    let targets: Vec<&str> = check_line.split_whitespace().collect();
+
+    // target 名必须长得像 target 名。这条挡住"反斜杠被当成 target"那类解析事故。
+    for t in &targets {
+        assert!(
+            t.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c)),
+            "`check:` 里解析出一个不像 target 的词 `{t}` —— 解析坏了,别往白名单里加它"
+        );
+    }
     assert!(
-        targets.len() >= 5,
+        targets.len() >= 10,
         "`check:` 只依赖 {} 个 target,像是被删空了:{check_line}",
         targets.len()
     );
 
-    // 某些 target 在 CI 里是用等效命令跑的,而不是 `make <target>`。
-    // 这张表是**白名单**,每一条都要说清等效物是什么 —— 否则它就变成一个
-    // "忘了接 CI 就往这里加一行"的口子。
+    // **`make check` 自己必须还包含这些门禁。**上一版只验 "CI ⊇ make check",
+    // 于是把 `check:` 删成 `test eval coverage` 之后所有测试照样绿。
+    for 必须 in [
+        "check-fmt",
+        "check-clippy",
+        "check-supply-chain",
+        "test",
+        "eval",
+        "coverage",
+        "check-shells",
+        "check-macos-paths",
+        "preflight",
+    ] {
+        assert!(
+            targets.contains(&必须),
+            "`make check` 里少了 `{必须}` —— 本地门禁被掏空了"
+        );
+    }
+
+    // 某些 target 在 CI 里是用等效命令跑的。等效字符串必须**足够具体**:
+    // 至少 12 个字符且含空格,否则 `("x", "run")` 这种就能蒙过去。
     let 等效物: &[(&str, &str)] = &[
-        // `make test` == `cargo test --workspace`
         ("test", "cargo test --workspace"),
-        // `make check-fmt` == `cargo fmt --all --check`
         ("check-fmt", "cargo fmt --all --check"),
-        // `make check-clippy` == workspace clippy(CI 的 lint job)
         ("check-clippy", "cargo clippy --workspace --all-targets"),
-        // `make check-supply-chain` == CI 里的 cargo-deny-action。
-        // 用 action 而不是 `make`,是因为它自带公告库缓存;本地那条 target 走
-        // 已装好的 cargo-deny。两边读的是同一份 deny.toml,所以配置不会分叉。
-        ("check-supply-chain", "cargo-deny-action"),
-        // `make eval` == 直接跑 eval 子命令
+        ("check-supply-chain", "uses:EmbarkStudios/cargo-deny-action"),
         ("eval", "eval --scenarios eval/scenarios"),
-        // scoreboard / leaderboard / sim-capture 在 CI 里是分步跑的
-        ("scoreboard", "scoreboard"),
-        ("leaderboard", "leaderboard"),
-        ("sim-capture", "sim-capture"),
+        ("scoreboard", "guard-cli -- scoreboard"),
+        ("leaderboard", "guard-cli -- leaderboard"),
+        ("sim-capture", "guard-cli -- sim-capture"),
     ];
+    for (name, cmd) in 等效物 {
+        assert!(
+            cmd.len() >= 12 && (cmd.contains(' ') || cmd.starts_with("uses:")),
+            "等效物 `{name}` 的字符串 `{cmd}` 太笼统 —— 那等于给自己开一个口子"
+        );
+    }
 
     let mut 缺的 = Vec::new();
     for t in &targets {
-        let 直接 = ci.contains(&format!("make {t}"));
+        // 只在**解析出来的命令**里找,不在原始文本里找 —— 注释掉的行不算。
+        let 直接 = ci.runs.iter().any(|r| {
+            r.split_whitespace()
+                .collect::<Vec<_>>()
+                .windows(2)
+                .any(|w| w == ["make", *t])
+        });
         let 等效 = 等效物
             .iter()
             .find(|(name, _)| name == t)
-            .map(|(_, cmd)| ci.contains(cmd))
+            .map(|(_, cmd)| ci.runs.iter().any(|r| r.contains(cmd)))
             .unwrap_or(false);
         if !直接 && !等效 {
             缺的.push(*t);
@@ -279,34 +593,120 @@ fn ci覆盖make_check的每个target() {
     assert!(
         缺的.is_empty(),
         "这些 `make check` 的 target 在 CI 里没有对应的步骤:{:?}\n\
-         只在本地跑的门禁是靠人记得的门禁。要么把它加进 .github/workflows/ci.yml,\n\
-         要么在本测试的「等效物」表里说清它在 CI 里对应哪条命令。",
+         只在本地跑的门禁是靠人记得的门禁。要么加进 ci.yml,要么在「等效物」表里\n\
+         说清它在 CI 里对应哪条**具体**命令(至少 12 字符且含空格)。",
         缺的
     );
 }
 
-/// CI 里不允许再用 `|| true` 之类的方式吞掉门禁的退出码。
+/// CI 里不允许用任何方式吞掉门禁的退出码。
 ///
-/// preflight 那一步以前就是 `cargo run ... preflight || true`,和 Makefile 里那个
-/// 前缀减号同一个毛病:报告照打,但**新出现**的 FAIL 不拦任何人。
+/// # 这条测试被复核打穿过
 ///
-/// 允许的例外要写在 CI 里紧邻那一行的注释里,并且加进下面这张表 —— 目的是让
-/// "吞掉一个失败"这件事必须改测试,于是它会出现在 diff 里被人看见。
+/// 上一版是 `code.contains("|| true") || code.contains("continue-on-error: true")`。
+/// 13 种吞法里它只抓到 3 种。躲过去的包括:`|| :`、`|| exit 0`、
+/// `|| echo "known failure"`、`set +e`、`if cmd; then true; fi`、
+/// `continue-on-error: True`、`continue-on-error: ${{ true }}`,
+/// 以及 **`continue-on-error:  true`(两个空格)** —— 一个字面子串比对,被一个空格打败。
+/// 还有一种更难看的:`echo "gate #1"; make preflight || true` 里那个 `#`
+/// 会让它自己的注释剥离把 `|| true` 切掉。
+///
+/// 所以现在读的是**解析出来的 YAML 值**,而不是文本。
 #[test]
 fn ci里没有被吞掉的退出码() {
-    let ci = read(".github/workflows/ci.yml");
+    let ci = parse_ci();
     let mut 违规 = Vec::new();
-    for (i, line) in ci.lines().enumerate() {
-        let code = line.split('#').next().unwrap_or("");
-        if code.contains("|| true") || code.contains("continue-on-error: true") {
-            违规.push(format!("{}: {}", i + 1, line.trim()));
+
+    // continue-on-error:只要不是字面的 false 就算。这样 True / "true" /
+    // `${{ ... }}` 表达式 / 任意空白都躲不过。
+    for (位置, v) in &ci.coe {
+        let 是false = matches!(v, serde_yaml::Value::Bool(false));
+        if !是false {
+            违规.push(format!(
+                "{位置}: continue-on-error: {v:?} —— 只有字面 false 才算不吞"
+            ));
+        }
+    }
+
+    // run: 里的吞法。在**每一行**上单独看,而且不做 `#` 剥离 ——
+    // YAML 的 `run:` 块里 `#` 是 shell 注释,剥它反而会切掉后面的 `|| true`。
+    let 吞法: &[(&str, &str)] = &[
+        ("|| true", "直接吞"),
+        ("|| :", ": 就是 true"),
+        ("|| exit 0", "显式以 0 退出"),
+        ("|| echo", "用 echo 把失败变成成功"),
+        ("set +e", "关掉 errexit"),
+        ("|| /bin/true", "同 || true"),
+    ];
+    for r in &ci.runs {
+        for line in r.lines() {
+            let l = line.trim();
+            if l.starts_with('#') {
+                continue;
+            }
+            for (pat, why) in 吞法 {
+                if l.contains(pat) {
+                    违规.push(format!("run 里 `{l}` —— {why}"));
+                }
+            }
         }
     }
     assert!(
         违规.is_empty(),
-        "CI 里有步骤在吞掉自己的退出码:\n{}\n\
+        "CI 里有步骤在吞掉自己的退出码:\n  {}\n\
          一个不会让构建变红的检查,和一个不存在的检查没有区别。\n\
-         如果确实需要(比如只是打印一份报告),把它和真正的门禁拆成两步。",
-        违规.join("\n")
+         只是想打印一份报告的话,把它和真正的门禁拆成两步。",
+        违规.join("\n  ")
+    );
+}
+
+/// Makefile 的门禁配方前面不许加 `-`(忽略退出码)。
+///
+/// 这是那个"原始罪"发生的地方:`preflight` 那一行曾经是 `-cargo run ...`,
+/// 一个前缀减号把退出码吞掉,于是**新出现**的 FAIL 也不拦任何人。
+/// 上面那条 CI 检查的文档注释点名了这件事,却只扫 ci.yml —— 一次独立复核指出,
+/// 历史故障发生的那个文件本身没人看着。
+#[test]
+fn makefile的门禁配方不忽略退出码() {
+    let makefile = read("Makefile");
+    // `make check` 依赖的那些,以及 check 自己。
+    let 门禁 = [
+        "check",
+        "check-fmt",
+        "check-clippy",
+        "check-supply-chain",
+        "test",
+        "eval",
+        "coverage",
+        "check-shells",
+        "check-macos-paths",
+        "check-macos-cfg",
+        "check-macos-path-semantics",
+        "preflight",
+        "check-msrv",
+    ];
+    let mut 当前: Option<String> = None;
+    let mut 违规 = Vec::new();
+    for line in makefile.lines() {
+        // 目标行:行首非空白且含 `:`。
+        if !line.starts_with([' ', '\t']) && line.contains(':') && !line.starts_with('#') {
+            当前 = line.split(':').next().map(|s| s.trim().to_string());
+            continue;
+        }
+        // 配方行:以 tab 开头。
+        if let Some(t) = &当前 {
+            if line.starts_with('\t') && 门禁.contains(&t.as_str()) {
+                let body = line.trim_start_matches('\t');
+                if body.starts_with('-') {
+                    违规.push(format!("{t}: {}", body.trim()));
+                }
+            }
+        }
+    }
+    assert!(
+        违规.is_empty(),
+        "这些门禁配方前面带 `-`,make 会忽略它们的退出码:\n  {}\n\
+         `preflight` 那一行曾经就是这样,于是一个新出现的 FAIL 谁都拦不住。",
+        违规.join("\n  ")
     );
 }

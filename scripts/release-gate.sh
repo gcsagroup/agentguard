@@ -26,7 +26,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 STRICT=0
-[ "${1:-}" = "--strict" ] && STRICT=1
+case "${1:-}" in
+  "")        ;;
+  --strict)  STRICT=1 ;;
+  *)
+    # 上一版是 `[ "$1" = "--strict" ] && STRICT=1`,于是 `--stict` 打错一个字母
+    # 就静默退回软模式并退出 0 —— 一个发布门禁不该因为拼写而变成一份报告。
+    echo "不认识的参数:$1(只支持 --strict)" >&2
+    exit 2
+    ;;
+esac
 
 PASS=0
 FAIL=0
@@ -39,6 +48,22 @@ head2() { printf '\n== %s ==\n' "$*"; }
 gate() {
   local name="$1"; shift
   printf '  %-46s' "$name"
+  # `.PHONY` 里列着但**没有规则**的目标,GNU make 认为它已经是最新的,直接退出 0。
+  # 于是把 `coverage:` 改个名,`make coverage` 打印 "Nothing to be done" 并成功 ——
+  # 这个脚本会照样打 PASS。十一道门禁全都压在这个行为上面。
+  # 所以先问 make 这个目标到底有没有配方。
+  if [ "$1" = "make" ] && [ -n "${2:-}" ]; then
+    # 判据是 make 自己那句 "Nothing to be done" —— 它**就是**"这个目标没有配方"的
+    # 意思。不能只看输出是否非空:那句话本身就是输出,于是第一版这个检查
+    # 一样通过了(变异测试当场发现的)。
+    if make -n "$2" 2>&1 | grep -q "Nothing to be done"; then
+      say "FAIL"
+      FAIL=$((FAIL+1))
+      say "    make 目标 '$2' 没有配方 —— 它在 .PHONY 里,所以 make 会静默地成功。"
+      say "    这不是「检查通过」,是「检查不存在」。"
+      return
+    fi
+  fi
   if "$@" >/tmp/release-gate-last.log 2>&1; then
     say "PASS"
     PASS=$((PASS+1))
@@ -63,10 +88,31 @@ gate() {
 # 所以下面还有一条自检:登记数不对就直接报脚本自身的 bug。
 EVIDENCE_SEEN=0
 need_evidence() {
-  local name="$1" why="$2" criterion="$3" var="$4"
+  local name="$1" why="$2" criterion="$3" var="$4" expect="$5"
   EVIDENCE_SEEN=$((EVIDENCE_SEEN+1))
   local path="${!var:-}"
-  if [ -n "$path" ] && [ -e "$path" ]; then
+  if [ -n "$path" ]; then
+    # `-e` 是不够的。上一版用的就是 `-e`,于是
+    #   export AGENTGUARD_EVIDENCE_MACOS_CODESIGN=/tmp
+    # 就能让 `--strict` 打印"自动检查与证据检查全部通过"并退出 0 ——
+    # 这个脚本里**唯一**有权说"可发布"的那条路,被一个目录满足了。
+    # 脚本自己的开头写着"一个把未验证说成通过的门禁,比没有门禁更糟"。
+    #
+    # 现在三条都要过:普通文件、非空、内容里出现该项的判据关键字。
+    # 关键字不是防伪 —— 有心人当然能造一个文件。它防的是**手滑**:
+    # 指错路径、指到空文件、指到上一次别的命令的输出。
+    if [ ! -f "$path" ]; then
+      UNVERIFIED+=("$name|证据路径 $path 不是一个普通文件($why)|$criterion|$var")
+      return
+    fi
+    if [ ! -s "$path" ]; then
+      UNVERIFIED+=("$name|证据文件 $path 是空的($why)|$criterion|$var")
+      return
+    fi
+    if ! grep -qi -- "$expect" "$path"; then
+      UNVERIFIED+=("$name|证据文件 $path 里找不到 '$expect' —— 像是指错了文件($why)|$criterion|$var")
+      return
+    fi
     printf '  %-46s%s\n' "$name" "PASS(证据:$path)"
     PASS=$((PASS+1))
     return
@@ -96,32 +142,38 @@ need_evidence \
   "macOS 代码签名 (Developer ID)" \
   "需要 Apple Developer ID 证书,仓库里没有也不该有" \
   "codesign --verify --deep --strict 对已签名的 .app 通过;把它的输出存成文件" \
-  AGENTGUARD_EVIDENCE_MACOS_CODESIGN
+  AGENTGUARD_EVIDENCE_MACOS_CODESIGN \
+  "satisfies its Designated Requirement"
 need_evidence \
   "macOS 公证 + staple" \
   "需要 App Store Connect API Key 或 app-specific password" \
   "xcrun notarytool submit --wait 返回 Accepted,且 stapler validate 通过;存下 submission log" \
-  AGENTGUARD_EVIDENCE_MACOS_NOTARIZE
+  AGENTGUARD_EVIDENCE_MACOS_NOTARIZE \
+  "Accepted"
 need_evidence \
   "Windows 代码签名 (Authenticode)" \
   "需要 EV 或 OV 代码签名证书" \
   "signtool verify /pa /v 对 .exe/.msi 通过;存下输出" \
-  AGENTGUARD_EVIDENCE_WINDOWS_SIGN
+  AGENTGUARD_EVIDENCE_WINDOWS_SIGN \
+  "Successfully verified"
 need_evidence \
   "Android release 签名 (非 debug keystore)" \
   "需要发布用 keystore;仓库只出 debug APK" \
   "apksigner verify --print-certs 打出的是发布证书,不是 Android debug 证书" \
-  AGENTGUARD_EVIDENCE_ANDROID_SIGN
+  AGENTGUARD_EVIDENCE_ANDROID_SIGN \
+  "Signer #1 certificate"
 need_evidence \
   "真机端到端验收(macOS)" \
   "需要一台开了辅助功能与屏幕录制权限的真 Mac" \
   "docs/acceptance-macos.md 的清单逐条走完并留记录" \
-  AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS
+  AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS \
+  "acceptance"
 need_evidence \
   "真机端到端验收(Android)" \
   "需要一台开了无障碍服务的真机" \
   "伴生应用签名的信封被桌面验过(适配器公钥已进注册表),且判决与预期一致" \
-  AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID
+  AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID \
+  "adapter"
 
 # 自检:上面应该恰好登记 6 项需要证据的东西。
 #
@@ -138,9 +190,13 @@ if [ "$EVIDENCE_SEEN" -ne "$EXPECTED_EVIDENCE" ]; then
   say "在修好之前,这份报告的结论不可信 —— 不要当成发布依据。"
   exit 2
 fi
-if [ $((PASS + ${#UNVERIFIED[@]})) -lt $((11 + EXPECTED_EVIDENCE)) ] && [ "$FAIL" -eq 0 ]; then
+# 精确相等,不是下限。上一版用 `-lt`,于是"新增一道门禁"就买到了"静默删掉一道门禁"
+# 的额度:11+6 仍然 >= 17。检查总数是一个已知的数,就该按已知的数核对。
+EXPECTED_GATES=11
+if [ $((PASS + FAIL + ${#UNVERIFIED[@]})) -ne $((EXPECTED_GATES + EXPECTED_EVIDENCE)) ]; then
   say ""
-  say "脚本自身有 bug:通过 $PASS + 未验证 ${#UNVERIFIED[@]} 少于应有的检查总数。"
+  say "脚本自身有 bug:通过 $PASS + 失败 $FAIL + 未验证 ${#UNVERIFIED[@]} 不等于应有的 $((EXPECTED_GATES + EXPECTED_EVIDENCE)) 项。"
+  say "加了或删了检查?把 EXPECTED_GATES / EXPECTED_EVIDENCE 一起改 —— 那一改会出现在 diff 里。"
   exit 2
 fi
 

@@ -797,8 +797,24 @@ fn env_family(id: &str) -> Option<&'static str> {
 /// 那些会随正常开发变动,把它们写进基线会让基线天天要改,然后就没人认真看了。
 fn baseline_line(f: &Finding) -> String {
     match env_family(f.id) {
-        Some(prefix) => format!("ENV {prefix}*"),
-        None => format!("{} {}", f.level.tag(), f.id),
+        // **`Fail` 永远不折叠。**
+        //
+        // 这一条是一次独立复核找出来的:`api.token.weak` 是一条 `Fail`,而它的 id 落在
+        // `api.token.` 这个"随机器而变"的族里,于是
+        //
+        //     AGENTGUARD_API_TOKEN=dev-secret make preflight
+        //
+        // 会打印 `[FAIL] api.token.weak … 是公开的示例值` **和**
+        // `preflight 基线一致`,退出码 0。一个真实的部署故障 —— 在一个
+        // `/v1/pause` 能停掉守卫、`/v1/confirm` 能代人答确认框的 API 上用示例令牌 ——
+        // 被门禁判成绿的。而且 `--write-baseline` 之后基线文件逐字节不变,
+        // 于是"改基线要有人在评审里问为什么"这道保险也没有东西可看。
+        //
+        // 族折叠的正当理由只有一个:**同一份配置在不同机器上结论不同**
+        // (Linux 有 mount namespace,macOS 没有)。一条 `Fail` 不是那种东西 ——
+        // 它是配置本身坏了,和跑在哪台机器上无关。
+        Some(prefix) if f.level != Level::Fail => format!("ENV {prefix}*"),
+        _ => format!("{} {}", f.level.tag(), f.id),
     }
 }
 
@@ -910,6 +926,30 @@ mod baseline_tests {
         let 没有jail了 = vec![f(Level::Fail, "a.b")];
         let d = diff_baseline(&没有jail了, "FAIL a.b\nENV jail.*\n");
         assert_eq!(d.removed, vec!["ENV jail.*"]);
+    }
+
+    /// **`Fail` 不进族折叠。**
+    ///
+    /// `api.token.weak` 是一条 Fail,id 落在 `api.token.` 族里。折叠掉它意味着
+    /// "设了一个公开示例值当 API 令牌"这种真实故障被判成绿的 ——
+    /// 而且基线文件不会有任何变化,所以连"评审时问一句"的机会都没有。
+    #[test]
+    fn fail不会被族折叠吞掉() {
+        let fs = vec![f(Level::Fail, "api.token.weak")];
+        assert_eq!(baseline_lines(&fs), vec!["FAIL api.token.weak"]);
+        // 对着一份"只认族"的基线,这条 Fail 必须被报成新增。
+        let d = diff_baseline(&fs, "ENV api.token.*\n");
+        assert_eq!(d.added, vec!["FAIL api.token.weak"]);
+        assert!(!d.is_clean(), "Fail 被族折叠吞掉了");
+    }
+
+    /// 非 Fail 的照旧折叠 —— 换平台不假警那条性质要保住。
+    #[test]
+    fn 非fail的仍然按族折叠() {
+        for lvl in [Level::Pass, Level::Info, Level::Warn] {
+            let fs = vec![f(lvl, "jail.backend")];
+            assert_eq!(baseline_lines(&fs), vec!["ENV jail.*"], "{lvl:?}");
+        }
     }
 
     /// 钉住那张"随机器而变"的表。

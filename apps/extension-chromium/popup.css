@@ -1,0 +1,28 @@
+/* 从 popup.html 的内联 <style> 搬过来的。
+ *
+ * MV3 的默认扩展 CSP 本来就禁内联样式和内联脚本,所以这块内联 <style> 依赖的是
+ * 浏览器对 `style-src` 的宽容度,而不是一条写明的策略。搬成外链之后:
+ *   - 它和两个 Tauri 外壳的做法一致(那边刚因为同样的理由搬过);
+ *   - 仓库不变量里那条"不许内联 <style>"能覆盖到这里 —— 上一版只看
+ *     apps/{app}/src/index.html,这个文件在范围之外,是一次独立复核指出来的。
+ */
+body {
+  font-family: system-ui, "PingFang SC", sans-serif;
+  margin: 0;
+  padding: 12px;
+  width: 320px;
+  background: #0f1419;
+  color: #e8eef7;
+}
+h1 { font-size: 14px; margin: 0 0 8px; }
+.row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+select { margin-left: auto; background: #182230; color: #e8eef7; border: 1px solid #33465f; border-radius: 6px; padding: 3px 5px; }
+.muted { color: #8fa3bf; font-size: 12px; }
+ul { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow: auto; }
+li {
+  background: #182230;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
