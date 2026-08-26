@@ -649,6 +649,7 @@ dependencies = [
  "guard-core",
  "guard-schema",
  "guard-shell",
+ "rand",
  "serde",
  "serde_json",
  "serde_yaml",

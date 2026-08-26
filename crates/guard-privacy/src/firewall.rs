@@ -109,16 +109,7 @@ impl ContentScan {
     /// the rendered screen and the read text are *provably* different, rather than merely
     /// unusual.
     pub fn worst_anomaly(&self) -> Option<&TextAnomaly> {
-        use crate::anomaly::AnomalyKind::*;
-        let rank = |k: crate::anomaly::AnomalyKind| match k {
-            InvisibleText => 5,
-            BidiOverride => 4,
-            Homoglyph => 3,
-            GlitchToken => 2,
-            CombiningStack => 1,
-            OversizedToken => 0,
-        };
-        self.anomalies.iter().max_by_key(|a| rank(a.kind))
+        self.anomalies.iter().max_by_key(|a| a.kind.rank())
     }
 
     /// The confidentiality this event's content implies, if any.

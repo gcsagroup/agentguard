@@ -141,7 +141,7 @@ pub fn score_over_permissioning(events: &[AccessEvent]) -> Option<f32> {
 }
 
 /// Whether an observation describes a privacy-trap widget.
-fn is_trap_observation(e: &FormFillEvent) -> bool {
+pub(crate) fn is_trap_observation(e: &FormFillEvent) -> bool {
     e.is_trap || matches!(e.field.probe_type, Some(ProbeType::TrapResistance))
 }
 

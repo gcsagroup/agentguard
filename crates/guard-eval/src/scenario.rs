@@ -155,6 +155,20 @@ pub struct ScenarioEvent {
     pub source_app: Option<String>,
     #[serde(default)]
     pub metadata: std::collections::HashMap<String, String>,
+    /// 这一个事件走**人工确认闸门**,值是人的回答(`approve` / `deny`)。
+    ///
+    /// # 为什么需要逐事件而不是整个场景
+    ///
+    /// 记忆保存的"已批准"以前是从事件 metadata 里的 `user_approved: "true"` 读出来的 ——
+    /// 也就是从被授权的那条通道里读授权。三个场景和 leaderboard 的合成事件都用了这个形状,
+    /// 而这正是那个缺陷:智能体给自己的事件加一个键,就把 `PRIV-MEM-READ` 关掉并把记忆
+    /// 使用打成满分。
+    ///
+    /// 修掉之后,"用户批准过"只能来自一次**已解决的闸门**。场景级的 `confirm_mode` 会把
+    /// 整个场景的每个事件都送去确认,那会改变同一场景里其他事件的判决;所以这里是逐事件的
+    /// —— 一个记忆保存被批准,不代表后面那次读也被批准。
+    #[serde(default)]
+    pub confirm: Option<String>,
     /// 这个事件是**由一个已验证的适配器**送进来的,值是那个适配器的 id。
     ///
     /// # 为什么评测集需要能表达这个

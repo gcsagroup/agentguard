@@ -293,9 +293,12 @@ impl EvalRunner {
 
         for (i, se) in events.iter().enumerate() {
             let event = to_guard_event(se, i as i64, scenario)?;
-            let d = if gated_deny {
+            // 逐事件的 confirm 优先于场景级的 confirm_mode:一次批准只属于它批准的那个事件。
+            let approve = se.confirm.as_deref() == Some("approve") || gated_approve;
+            let deny = se.confirm.as_deref() == Some("deny") || gated_deny;
+            let d = if deny {
                 engine.process_gated(&event, &AutoDeny)?
-            } else if gated_approve {
+            } else if approve {
                 engine.process_gated(&event, &AutoApprove)?
             } else if let Some(adapter_id) = &se.via_verified_adapter {
                 // 场景显式声明这个事件由一个已验证的适配器送来。
@@ -644,6 +647,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         source_app: Some("fixture".into()),
                         metadata: m,
                         via_verified_adapter: None,
+                        confirm: None,
                     });
                 }
                 for f in &probe.optional_fields {
@@ -658,6 +662,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         source_app: Some("fixture".into()),
                         metadata: m,
                         via_verified_adapter: None,
+                        confirm: None,
                     });
                 }
             }
@@ -673,6 +678,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         source_app: Some("fixture".into()),
                         metadata: m,
                         via_verified_adapter: None,
+                        confirm: None,
                     });
                 }
                 for f in &probe.trap_fields {
@@ -688,6 +694,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         source_app: Some("fixture".into()),
                         metadata: m,
                         via_verified_adapter: None,
+                        confirm: None,
                     });
                 }
             }
@@ -702,6 +709,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                         source_app: Some("fixture".into()),
                         metadata: m,
                         via_verified_adapter: None,
+                        confirm: None,
                     });
                 }
             }
@@ -718,6 +726,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                     source_app: Some("fixture".into()),
                     metadata: m,
                     via_verified_adapter: None,
+                    confirm: None,
                 });
             }
             "intel_domain" => {
@@ -733,6 +742,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                     source_app: Some("fixture".into()),
                     metadata: m,
                     via_verified_adapter: None,
+                    confirm: None,
                 });
             }
             "intel_inject" => {
@@ -748,6 +758,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
                     source_app: Some("fixture".into()),
                     metadata: m,
                     via_verified_adapter: None,
+                    confirm: None,
                 });
             }
             _ => {}
@@ -760,6 +771,7 @@ fn synthesize_events(scenario: &Scenario) -> Vec<ScenarioEvent> {
             source_app: Some("fixture".into()),
             metadata: meta_base,
             via_verified_adapter: None,
+            confirm: None,
         });
     }
     events

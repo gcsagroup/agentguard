@@ -69,6 +69,40 @@ const RUN_SEPARATORS: &[char] = &[
     ' ', '-', '.', ',', '\u{a0}', '\u{2007}', '\u{2009}', '\u{202f}',
 ];
 
+/// 零宽与软连字符类:在扫描**之前**剥掉,不当作分隔符。
+///
+/// 把它们加进 `RUN_SEPARATORS` 不够,因为分隔符规则要求"下一个字符是数字",而攻击者可以
+/// 连着放两个。而且这些字符在屏幕上不占位置 —— 人和 grep 看到的是一串连续的号码:
+///
+/// ```text
+/// "card 4242<ZWSP>4242<ZWSP>4242<ZWSP>4242"  -> 原样输出
+///    人看到的:                                  "card 4242424242424242"
+/// "card 4242<SHY>4242<SHY>4242<SHY>4242"     -> 原样输出,而且 scan_anomalies 也是 []
+/// "phone 138<ZWSP>0013<ZWSP>8000"            -> 原样输出
+/// ```
+///
+/// 软连字符那一行最值得注意:它连一条补偿性的文本异常告警都没有,因为
+/// `docs/text-anomalies.md` 刻意不把 U+00AD 算作 `invisible_text`。两处刻意的排除组合成
+/// 一个洞 —— 和 `isolation::normalise_for_markers` 那一处是同一个形状。
+fn strip_invisible(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.chars().any(is_invisible_in_run) {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    std::borrow::Cow::Owned(text.chars().filter(|c| !is_invisible_in_run(*c)).collect())
+}
+
+fn is_invisible_in_run(c: char) -> bool {
+    matches!(c,
+        '\u{00ad}'
+        | '\u{200b}'..='\u{200f}'
+        | '\u{2060}'..='\u{2064}'
+        | '\u{feff}'
+        | '\u{034f}'
+        | '\u{061c}'
+        | '\u{180b}'..='\u{180e}'
+    )
+}
+
 /// Keywords after which a value is a credential, whatever it looks like.
 const CREDENTIAL_KEYWORDS: &[&str] = &[
     "password",
@@ -108,6 +142,10 @@ pub fn log_safe(text: &str) -> String {
     // Not its digit-run half: that one masks every grouped run of 13+ digits with no
     // exemptions, so composing the two put `timestamp_ms=1786508766171` beyond the reach of
     // the exemptions below. The display rule owns digit runs here.
+    // 先剥掉不可见字符。它们不占位置,所以不能被用来把一个号码切成几段 —— 剥掉之后
+    // 输出里也就不会残留那些字符,而那正是"人看到的是连续号码、日志里也是"的要求。
+    let text = strip_invisible(text);
+    let text = text.as_ref();
     let staged = mask_tokens_only(text);
     let staged = mask_credentials(&staged);
     let staged = mask_jwts(&staged);
@@ -151,12 +189,22 @@ pub fn log_safe(text: &str) -> String {
                     break;
                 }
             }
+            // 校验和胜过一切豁免。
+            //
+            // `CURRENCY_PREFIXES` 里有 `"total"`,所以 `Total 4242424242424242` 是一次**合乎
+            // 规则**的豁免 —— 而结账屏上"Total"这个词恰好就印在卡号旁边。这不是边界检查
+            // 能解决的:那里确实是一个完整的词。
+            //
+            // 真正的判据是号码本身:一笔总额是一串数字,一个 PAN 是一串**同时满足 Luhn 和
+            // 发行商前缀**的数字。豁免存在的理由是让记账数字保持可读,而一个校验和通过的
+            // PAN/身份证号从来不是记账数字。所以先问识别器,它说"已核验"就不豁免。
+            let run_text: String = chars[start..j].iter().collect();
+            let checksum_confirmed = crate::entity::has_verified_entity(&run_text);
             if digits > MAX_PLAIN_DIGITS
-                && !run_is_exempt(&chars, start)
-                && !run_has_unit_suffix(&chars, j)
+                && (checksum_confirmed
+                    || (!run_is_exempt(&chars, start) && !run_has_unit_suffix(&chars, j)))
             {
-                let run: String = chars[start..j].iter().collect();
-                out.extend(mask_keep_tail(&run, 4).chars());
+                out.extend(mask_keep_tail(&run_text, 4).chars());
             } else {
                 out.extend(&chars[start..j]);
             }
@@ -252,8 +300,31 @@ fn run_is_exempt(chars: &[char], start: usize) -> bool {
     }) {
         return true;
     }
-    // (3) currency
-    if CURRENCY_PREFIXES.iter().any(|c| trimmed.ends_with(c)) {
+    // (3) currency —— **加词边界**,和上面的 bookkeeping 分支一致。
+    //
+    // 这里以前只有 `trimmed.ends_with(c)`,没有任何边界检查,而 `CURRENCY_PREFIXES` 里有
+    // `rp`(印尼卢比)。于是**任何以 rp 结尾的词**都豁免一个 16 位 PAN:
+    //
+    // ```text
+    // BYPASS "Total 4242424242424242"      -> 原样输出   ("total" 以 rp? 不,以 "l" 结尾
+    //                                        —— 命中的是 CURRENCY 里的 "total"? 见下)
+    // BYPASS "Corp 4242424242424242"       -> 原样输出
+    // BYPASS "Sharp 11010519491231002"     -> 原样输出
+    // BYPASS "ACME Corp 078051120 records" -> 原样输出
+    // ```
+    //
+    // 复核穷举出 24 个能豁免 16 位 PAN 的前缀,包括 `Total`/`Subtotal`/`Grand total`
+    // (结账屏最常见的词)、`Corp`/`Sharp`/`warp`/`Antwerp`(任何以 rp 结尾的词)。
+    // 这既是攻击面(页面文本可控),也是**日常文本** —— 而 bookkeeping 分支从一开始就有
+    // 边界检查,只有这一支没有。
+    if CURRENCY_PREFIXES.iter().any(|c| {
+        trimmed.ends_with(c)
+            && trimmed[..trimmed.len() - c.len()]
+                .chars()
+                .next_back()
+                .map(|ch| !ch.is_alphanumeric() && ch != '_')
+                .unwrap_or(true)
+    }) {
         return true;
     }
     false
@@ -285,10 +356,30 @@ const TRAILING_UNITS: &[&str] = &[
 ];
 
 /// Whether what *follows* the run marks it as a measurement (`1073741824 bytes`).
+///
+/// 单位必须**成词**。`TRAILING_UNITS` 里有 `"b "`、`"ms "`、`" s "` 这种一两个字符的项,
+/// 而判据只是 `after.starts_with(u)`,于是 `card 4242424242424242b x` 整条豁免 ——
+/// 复核列出 11 个这样的后缀,全部命中。一个单位后面必须是词边界,否则 `b` 会匹配任何以 b
+/// 开头的下一个单词。
 fn run_has_unit_suffix(chars: &[char], end: usize) -> bool {
-    let to = (end + 8).min(chars.len());
+    let to = (end + 10).min(chars.len());
     let after: String = chars[end..to].iter().collect::<String>().to_lowercase();
-    TRAILING_UNITS.iter().any(|u| after.starts_with(u))
+    TRAILING_UNITS.iter().any(|u| {
+        let Some(rest) = after.strip_prefix(u) else {
+            return false;
+        };
+        // 单位项本身可能自带空格(`" bytes"`、`"ms "`)。剩下的第一个字符必须不是字母数字,
+        // 否则这个"单位"只是下一个单词的开头。
+        let u_trimmed = u.trim_end();
+        if u_trimmed.len() < u.len() {
+            // 单位以空格结尾 —— 边界已经在单位里了。
+            return true;
+        }
+        rest.chars()
+            .next()
+            .map(|c| !c.is_alphanumeric())
+            .unwrap_or(true)
+    })
 }
 
 /// Decimal digit in any of the scripts a phone or an id is actually written in.
@@ -316,57 +407,95 @@ fn is_digit(c: char) -> bool {
 /// survived. A keyword is weaker evidence than an issuer prefix, which is why this only
 /// ever runs on the *display* path, never on the audit row.
 fn mask_credentials(text: &str) -> String {
-    let mut s = text.to_string();
-    let lower_of = |x: &str| x.to_lowercase();
-    for kw in CREDENTIAL_KEYWORDS {
-        let mut from = 0usize;
-        loop {
-            let hay = lower_of(&s);
-            let Some(rel) = hay[from.min(hay.len())..].find(kw) else {
-                break;
-            };
-            let at = from + rel;
-            let mut v = at + kw.len();
-            let bytes = s.as_bytes();
-            while v < s.len() && matches!(bytes[v], b' ' | b':' | b'=' | b'"') {
-                v += 1;
-            }
-            // `Authorization: Bearer <token>` — the scheme word is not the secret. Without
-            // this, `authorization` masked `Bearer` and left the token in the log, which is
-            // the failure mode of masking the first thing you find rather than the value.
-            const SCHEMES: &[&str] = &["bearer", "basic", "digest", "token"];
-            if s.is_char_boundary(v) {
-                let rest = &s[v..];
-                for scheme in SCHEMES {
-                    if rest.len() > scheme.len()
-                        && rest.is_char_boundary(scheme.len())
-                        && rest[..scheme.len()].eq_ignore_ascii_case(scheme)
-                        && rest[scheme.len()..].starts_with(' ')
-                    {
-                        v += scheme.len() + 1;
-                        break;
-                    }
-                }
-            }
-            let mut end = v;
-            while end < s.len()
-                && !s.as_bytes()[end].is_ascii_whitespace()
-                && !matches!(s.as_bytes()[end], b'"' | b',' | b';')
+    // ## Why this never builds a lowercase copy
+    //
+    // The previous version did `let hay = s.to_lowercase()` and then used the offset it
+    // found *in `hay`* to slice *`s`*. `str::to_lowercase` is not length-preserving —
+    // 27 codepoints change width (`İ Ⱥ Ⱦ` grow, `ẞ Ω(U+2126) K(U+212A) Å(U+212B) …`
+    // shrink) — so the two coordinate systems drifted apart. Both directions were wrong:
+    //
+    //   * drift forward  -> `hay[from..]` sliced inside a multi-byte char and **panicked**.
+    //     `log_safe("Ktoken")` — six characters — was enough. So was `İletişim token=…`,
+    //     `300K api_key=…`, `STRAẞE 12 password=…`. An independent review measured 5.96%
+    //     of a random adversarial corpus panicking here, and this runs on the confirm
+    //     path inside `Engine::process_gated`, where the panic unwinds out of the guard's
+    //     own event loop. A guard that aborts is a guard that is off.
+    //   * drift backward -> `end == v`, the `if end > v` guard failed, and the credential
+    //     was left in the output **byte for byte**. Redaction reported success and leaked.
+    //
+    // It was also O(n²): the lowercase copy was rebuilt *inside* the loop, once per hit,
+    // and `format!` rebuilt the whole string again on every replacement. 100 KiB of
+    // `token=a ` took 8.3 seconds through one `process_gated`.
+    //
+    // The fix is to have only one coordinate system. Every keyword is ASCII, so a
+    // case-insensitive *byte* comparison against the original is exact — and because an
+    // ASCII byte can never occur inside a multi-byte UTF-8 sequence, every offset this
+    // function computes is a char boundary by construction. No `is_char_boundary` guard
+    // can be forgotten because none is needed.
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let Some((at, kw_len)) = next_credential_keyword(bytes, i) else {
+            out.push_str(&text[i..]);
+            return out;
+        };
+        let mut v = at + kw_len;
+        out.push_str(&text[i..v]);
+        // Separator run. Whitespace is included because flattened DOM/AX text joins
+        // sibling nodes with newlines and tabs: `password:\nhunter2` used to walk
+        // straight past the value (the skip set was ` : = "` only, so `v` stopped on the
+        // newline, the value scan terminated immediately on the same whitespace, and
+        // `end == v` skipped the replacement).
+        while v < bytes.len()
+            && (matches!(bytes[v], b':' | b'=' | b'"') || bytes[v].is_ascii_whitespace())
+        {
+            v += 1;
+        }
+        // `Authorization: Bearer <token>` — the scheme word is not the secret.
+        const SCHEMES: &[&str] = &["bearer", "basic", "digest", "token"];
+        for scheme in SCHEMES {
+            let n = scheme.len();
+            if bytes.len() > v + n
+                && bytes[v..v + n].eq_ignore_ascii_case(scheme.as_bytes())
+                && bytes[v + n] == b' '
             {
-                end += 1;
-            }
-            if end > v && s.is_char_boundary(v) && s.is_char_boundary(end) {
-                s = format!("{}•••{}", &s[..v], &s[end..]);
-                from = v + 3;
-            } else {
-                from = at + kw.len();
-            }
-            if from >= s.len() {
+                v += n + 1;
                 break;
             }
         }
+        out.push_str(&text[at + kw_len..v]);
+        let mut end = v;
+        while end < bytes.len()
+            && !bytes[end].is_ascii_whitespace()
+            && !matches!(bytes[end], b'"' | b',' | b';')
+        {
+            end += 1;
+        }
+        if end > v {
+            out.push_str("•••");
+            i = end;
+        } else {
+            i = v;
+        }
     }
-    s
+    out
+}
+
+/// Earliest `CREDENTIAL_KEYWORDS` match at or after `from`, ASCII-case-insensitively.
+///
+/// Returns `(byte offset, keyword length)`. Scanning by byte is what keeps this in one
+/// coordinate system with the caller — see `mask_credentials`.
+fn next_credential_keyword(bytes: &[u8], from: usize) -> Option<(usize, usize)> {
+    for at in from..bytes.len() {
+        for kw in CREDENTIAL_KEYWORDS {
+            let k = kw.as_bytes();
+            if bytes.len() >= at + k.len() && bytes[at..at + k.len()].eq_ignore_ascii_case(k) {
+                return Some((at, k.len()));
+            }
+        }
+    }
+    None
 }
 
 /// Mask JWT-shaped tokens (`eyJ` + base64url), which no issuer prefix covers.
@@ -766,5 +895,100 @@ mod tests {
             "•••••5021",
             "9 digits: an identifier"
         );
+    }
+}
+
+#[cfg(test)]
+mod b5_显示路径豁免复核 {
+    use super::*;
+
+    /// 三类豁免都必须有词边界 —— `Total 4242424242424242` 不能原样进日志。
+    ///
+    /// 复核穷举出 24 个能豁免一个 16 位 PAN 的货币前缀、16 个 bookkeeping 前缀、11 个单位
+    /// 后缀。货币那一支和单位那一支**完全没有**边界检查(bookkeeping 从一开始就有),于是:
+    ///
+    /// ```text
+    /// BYPASS "Total 4242424242424242"       -> 原样输出   结账屏最常见的词
+    /// BYPASS "Corp 4242424242424242"        -> 原样输出   任何以 rp 结尾的词
+    /// BYPASS "Sharp 11010519491231002"      -> 原样输出
+    /// BYPASS "Size 4242424242424242"        -> 原样输出
+    /// BYPASS "card 4242424242424242b x"     -> 原样输出   "b " 这个"单位"
+    /// BYPASS "card-4242424242424242"        -> 原样输出   复合标识符豁免
+    /// ```
+    ///
+    /// 既是攻击面(页面文本可控),也是日常文本 —— `Total`/`Size`/`Count` 就在正常界面里。
+    #[test]
+    fn 豁免必须有词边界() {
+        for s in [
+            "Total 4242424242424242",
+            "Subtotal 4242424242424242",
+            "Grand total 4242424242424242",
+            "Corp 4242424242424242",
+            "Sharp 11010519491231002",
+            "warp 4242424242424242",
+            "Antwerp 4242424242424242",
+            "ACME Corp 078051120 records",
+            "card 4242424242424242b x",
+            "card 4242424242424242ms x",
+        ] {
+            let out = log_safe(s);
+            assert_ne!(out, s, "{s:?} 完全没有被脱敏");
+            let digits: String = out.chars().filter(|c| c.is_ascii_digit()).collect();
+            assert!(
+                digits.len() <= 6,
+                "{s:?} -> {out:?} 仍残留 {} 位数字",
+                digits.len()
+            );
+        }
+    }
+
+    /// 反面:真正的记账键、真正的货币、真正的单位仍然可读。
+    ///
+    /// 没有这一格,上面那条测试可以用"把所有豁免都删掉"来通过 —— 而那会让
+    /// `timestamp_ms=1786508766171` 和 `evidence_ref` 变成一串圆点,也就是把这个模块
+    /// 存在的理由删掉。
+    #[test]
+    fn 真正的记账值仍然可读() {
+        for s in [
+            "timestamp_ms=1786508766171",
+            "size 1073741824 bytes",
+            "count 1234567890123",
+            "Rp 100000000",
+            "USD 1234567890123",
+            "duration_ms 1234567890123",
+            "ag-1786508766171-0007",
+            "42424242-4242-4242-4242-424242424242",
+            "transferred 1073741824 bytes in 4096 ms",
+        ] {
+            let out = log_safe(s);
+            assert_eq!(
+                out, s,
+                "{s:?} 被过度脱敏成 {out:?} —— 豁免存在的理由就是这些"
+            );
+        }
+    }
+
+    /// 零宽/软连字符不能把一个号码藏过显示路径。
+    ///
+    /// 人和 grep 看到的是连续号码;而这些字符不在 `RUN_SEPARATORS` 里,所以扫描器看到的是
+    /// 几段短数字。软连字符那一格连一条文本异常告警都没有,因为 `docs/text-anomalies.md`
+    /// 刻意不把 U+00AD 算作 `invisible_text` —— 两处刻意的排除组合成一个洞。
+    #[test]
+    fn 不可见字符不能藏住号码() {
+        for s in [
+            "card 4242\u{200b}4242\u{200b}4242\u{200b}4242",
+            "card 4242\u{ad}4242\u{ad}4242\u{ad}4242",
+            "phone 138\u{200b}0013\u{200b}8000",
+            "SSN 078\u{200b}05\u{200b}1120",
+            "id 1101\u{ad}0519\u{ad}4912\u{ad}3100\u{ad}2X",
+        ] {
+            let out = log_safe(s);
+            let digits: String = out.chars().filter(|c| c.is_ascii_digit()).collect();
+            assert!(
+                digits.len() <= 6,
+                "{s:?} -> {out:?} 仍残留 {} 位数字 —— 不可见字符把号码藏过了脱敏",
+                digits.len()
+            );
+        }
     }
 }

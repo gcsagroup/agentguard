@@ -2,14 +2,72 @@
 
 `guard-shell` provides a lightweight policy gate for agent tool proposals before they reach the OS or network.
 
-> **This is advice, not enforcement, and it has no path model.**
-> `propose()` returns an enum; the host must choose to ask, and nothing stops an
-> agent that spawns a shell directly. There is no project-root check, no
-> `realpath` canonicalisation and no `..`-traversal check, so
-> `find <project> -delete` and `find / -delete` get the **same** verdict. Do not
-> deploy this expecting protection against destructive filesystem operations —
-> see [scope-and-non-goals.md](./scope-and-non-goals.md) and use an OS sandbox
-> for that.
+> **This is advice, not enforcement.** `propose()` returns an enum; the host must
+> choose to ask, and nothing stops an agent that spawns a shell directly. Use an OS
+> sandbox for actual containment — see
+> [scope-and-non-goals.md](./scope-and-non-goals.md).
+
+### 这段警告以前说的是假话
+
+上面那段警告曾经写着"没有路径模型、没有 realpath 归约、没有 `..` 检查,而且
+`find <project> -delete` 和 `find / -delete` 判决相同"。**四句全部与代码相反** ——
+`lib.rs` 的 `check_paths` 就是路径模型,而 `b0_四种删除必须分开` 这个测试模块存在的
+唯一理由就是断言那两条命令**不同**。
+
+一次独立复核把这一条单列为缺陷,理由是对的:部署方用这份文档决定"能依赖什么"。
+**低报**保证会让人白装一层 OS 沙箱(无害),但当时**完全没写天花板机制**是有害的 ——
+网关的 `ceiling_authorises` 会把 `Ask` 变成免确认执行,而读文档的人不可能知道
+声明 `scope.paths` 会**减少**人工确认。那一轮里三个可达的绕过,最后一步全都靠这个。
+
+下面是现在实际存在的那一层。
+
+## 路径模型
+
+`check_paths` 对每个像路径的操作数产生一条 claim(归约后的路径 + 读/写/删意图),
+然后按顺序问四个问题。**顺序是判据的一部分**:一个无条件危险的目标必须先被拒绝,
+而不是被拿去问人。
+
+| 规则 | 判决 | 什么时候 |
+|---|---|---|
+| `SHELL-PATH-SENSITIVE` | Deny | 归约结果落在系统目录、凭据目录、裸块设备、或者就是家目录本身。与有没有声明天花板无关 |
+| `SHELL-PATH-SENSITIVE`(字面) | Deny | **归约不出来**但字面形状落在凭据目录内 —— `~/.ssh/*`、`~root/.ssh/id_rsa`、`/home/*/.ssh/id_rsa` |
+| `SHELL-PATH-UNPROVABLE` | Ask | 归约不出来(通配符、`~user`、超长、空操作数)。**读也适用** |
+| `SHELL-PATH-UNSCOPED` | Ask | 有写意图但本次会话没有声明 paths 天花板 |
+| `SHELL-PATH-OUTSIDE` | Deny | 有天花板,而归约结果落在授权之外 |
+
+归约(`guard_schema::paths::resolve`)做这些事:展开 `~`、按 cwd 变成绝对路径、
+把**已存在的最长前缀** `canonicalize`(抓符号链接)、逐级解开剩余段里的符号链接
+(含**悬空**链接 —— 只解开已存在的那一半曾经是一个可写穿天花板的洞)、
+对剩下的部分做词法归约(`..` 不越过根)、并在 macOS 上折叠 `/System/Volumes/Data` 卷别名。
+
+它**拒绝**这些:通配符、NUL 字节、空操作数、超过 8192 字节的操作数、以及
+"不可能是一条路径"的东西 —— 含 `(` `)` `'` `"` `;` `|` 反引号 `&` 的操作数,或者在空白
+之后又出现一个绝对路径/独立标志的操作数。最后这一条是为了堵住把整条命令塞进一个操作数:
+`sh -c "rm -rf /"` 曾经被归约成 `<cwd>/rm -rf`,判成"在写授权内"。
+
+## 声明天花板的后果:范围内不再逐次确认
+
+这一条以前完全没写,而它改变判决:
+
+宿主(如 `agentguard-mcp`)用 `--plans` 声明 `scope.paths` 之后,网关的
+`ceiling_authorises` 会把落在天花板内的 `Ask` **事前授权**掉 —— 也就是不再逐次问人。
+换句话说:**声明天花板会减少人工确认**,代价换来的是越界从"问人"升级成"直接拒绝"。
+
+这是一个合理的取舍,但它必须写出来,因为它意味着路径归约的正确性直接决定"要不要问人"。
+上一轮三个绕过(操作数携带整条命令、`--flag=PATH` 隐藏写目标、悬空符号链接)的最后一步
+全都是这一条。
+
+## 规则 id 全表
+
+- `SHELL-ALLOWLIST` / `SHELL-UNKNOWN-TOOL` — 工具在/不在白名单
+- `SHELL-METACHAR` — 操作数含 shell 插值构造(跑在白名单**之前**)
+- `SHELL-DENIED-ACTION` / `SHELL-DENIED-TARGET` — 命中禁用类别
+- `SHELL-CONFIRM` — 工具在 `require_confirm` 里
+- `SHELL-PATH-SENSITIVE` / `-UNPROVABLE` / `-UNSCOPED` / `-OUTSIDE` — 见上表
+
+可注入的两个环境入口:`with_workspace(read, write)` 装天花板(返回被丢弃的授权条目,
+调用方应当报告它们);`with_resolve_context(ctx)` 注入家目录和基准目录,让测试不依赖
+运行它的机器。
 
 ## Policy
 

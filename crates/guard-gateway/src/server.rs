@@ -18,6 +18,10 @@ pub struct Server {
     /// 已执行/已拒绝的计数，`gateway/stats` 用。
     executed: u64,
     refused: u64,
+    /// 会话序号。独立于业务计数器 —— 见 `start_session` 里的注释。
+    session_seq: u64,
+    /// 确认序号。同上,而且确认 id 现在是批准的绑定键,必须唯一。
+    confirm_seq: u64,
 }
 
 /// 一次调用走完之后发生了什么。测试断言的是这个，而不是 JSON 文本。
@@ -35,6 +39,8 @@ impl Server {
             confirm_timeout,
             executed: 0,
             refused: 0,
+            session_seq: 0,
+            confirm_seq: 0,
         }
     }
 
@@ -148,7 +154,15 @@ impl Server {
         match name {
             "start_session" => {
                 let profile = args.get("task_profile").and_then(Value::as_str);
-                let sid = format!("mcp-session-{}", self.executed + self.refused + 1);
+                // 独立的单调计数器,不是 `executed + refused`。
+                //
+                // `start_session` / `end_session` 都不增加那两个计数器,所以三次
+                // start/end 全部拿到 `mcp-session-1`,而 `agent_sessions` 表以 session id
+                // 为键 —— 三个不同会话的审计归属被合并成一条。`confirm-{}` 用的是同一个
+                // 表达式,确认 id 也会重复,而确认 id 现在是批准要绑定的东西(见
+                // `PendingConfirm::answer_id`),重复的 id 会让绑定失去意义。
+                self.session_seq += 1;
+                let sid = format!("mcp-session-{}", self.session_seq);
                 match self.gate.start_session(&sid, profile) {
                     Ok(d) => mcp::result(
                         id,
@@ -229,7 +243,10 @@ impl Server {
             Outcome::NeedsConfirmation { .. } => {
                 let res = self.pending.wait(
                     ConfirmRequest {
-                        id: format!("confirm-{}", self.executed + self.refused + 1),
+                        id: {
+                            self.confirm_seq += 1;
+                            format!("confirm-{}", self.confirm_seq)
+                        },
                         what: call.describe(),
                         findings: findings.clone(),
                     },

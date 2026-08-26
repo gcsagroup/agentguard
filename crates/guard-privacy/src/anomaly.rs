@@ -176,6 +176,27 @@ fn is_invisible(c: char) -> bool {
     )
 }
 
+impl AnomalyKind {
+    /// Precedence for "which anomaly to name". Higher wins.
+    ///
+    /// Was a closure inside `ContentScan::worst_anomaly`. It moved here because the engine
+    /// now needs the *same* ordering to pick the worst of the classes it has not yet
+    /// latched — and two copies of a ranking is how the two would drift.
+    pub fn rank(self) -> u8 {
+        match self {
+            // Invisible text and bidi overrides outrank the rest: they are the two classes
+            // where the rendered screen and the read text are *provably* different, rather
+            // than merely unusual.
+            Self::InvisibleText => 5,
+            Self::BidiOverride => 4,
+            Self::Homoglyph => 3,
+            Self::GlitchToken => 2,
+            Self::CombiningStack => 1,
+            Self::OversizedToken => 0,
+        }
+    }
+}
+
 /// A tag character, so a flag-emoji tag sequence can be excluded.
 fn is_tag_char(c: char) -> bool {
     matches!(c, '\u{e0000}'..='\u{e007f}')
@@ -240,9 +261,40 @@ pub fn scan_anomalies(text: &str) -> Vec<TextAnomaly> {
     let mut word_confusable = 0usize;
     let mut homoglyph_words = 0usize;
 
-    let finish_word = |latin: &mut usize, conf: &mut usize, hits: &mut usize| {
-        if *conf > 0 && *latin >= 2 {
-            *hits += 1;
+    // 整篇的字母计数,用来判"这一行主要是拉丁文还是主要是西里尔文"。
+    let mut doc_latin = 0usize;
+    let mut doc_confusable = 0usize;
+    // 整词都是易混字符的词的个数 —— 要等到全文扫完才能定论,见 finish_word。
+    let mut pure_confusable_words = 0usize;
+
+    // `latin >= 2` 这个闸门相对于"攻击的完整程度"是**反的**:一个词被替换得越彻底,越不
+    // 可能被报告,而一个**完全**被替换的词永远不会。实测:
+    //
+    // ```text
+    //   Pay        (0 西里尔)                -> []
+    //   Pаy        (3 个里 1 个)              -> ["homoglyph"]
+    //   Раy        (3 个里 2 个)              -> []
+    //   Рау        (3 个里 3 个,渲染成 "Pay") -> []
+    //   ОК         (2 个里 2 个,渲染成 "OK")  -> []
+    //   'Tap Рау to finish'                  -> []
+    //   Paypal -> Раураӏ                     -> []
+    // ```
+    //
+    // `docs/text-anomalies.md` 用"纯西里尔文散文是一种**语言**,不是一个 finding"来解释这个
+    // 闸门 —— 那个理由是对的,但代码的规则是**逐词**的,而一个全西里尔的按钮标签夹在英文里
+    // 并不是散文。
+    //
+    // 所以判据改成看**周围那一段的文字体系**:一个全易混字符的词,只有当整篇主要是拉丁文时
+    // 才算 finding。这样纯西里尔文散文仍然安静,而英文界面里一个假的 "Pay" 按钮会被报出来。
+    let finish_word = |latin: &mut usize, conf: &mut usize, hits: &mut usize, pure: &mut usize| {
+        if *conf > 0 {
+            if *latin >= 2 {
+                // 混合书写:一个词里既有拉丁字母又有易混字符 —— 无条件是 finding。
+                *hits += 1;
+            } else if *latin == 0 {
+                // 整词都是易混字符。留到最后按整篇的文字体系决定。
+                *pure += 1;
+            }
         }
         *latin = 0;
         *conf = 0;
@@ -291,19 +343,36 @@ pub fn scan_anomalies(text: &str) -> Vec<TextAnomaly> {
         if c.is_alphabetic() {
             if is_latin(c) {
                 word_latin += 1;
+                doc_latin += 1;
             } else if is_confusable_script(c) {
                 word_confusable += 1;
+                doc_confusable += 1;
             } else {
                 // A CJK or other-script letter ends the *Latin word* being examined, and is
                 // never itself a finding: mixed-script text is normal in the corpus this
                 // guard watches.
-                finish_word(&mut word_latin, &mut word_confusable, &mut homoglyph_words);
+                finish_word(
+                    &mut word_latin,
+                    &mut word_confusable,
+                    &mut homoglyph_words,
+                    &mut pure_confusable_words,
+                );
             }
         } else {
-            finish_word(&mut word_latin, &mut word_confusable, &mut homoglyph_words);
+            finish_word(
+                &mut word_latin,
+                &mut word_confusable,
+                &mut homoglyph_words,
+                &mut pure_confusable_words,
+            );
         }
     }
-    finish_word(&mut word_latin, &mut word_confusable, &mut homoglyph_words);
+    finish_word(
+        &mut word_latin,
+        &mut word_confusable,
+        &mut homoglyph_words,
+        &mut pure_confusable_words,
+    );
 
     let mut out = Vec::new();
     if invisible > 0 {
@@ -318,6 +387,14 @@ pub fn scan_anomalies(text: &str) -> Vec<TextAnomaly> {
             count: bidi,
         });
     }
+    // 整词都是易混字符的词:只有当整篇**主要是拉丁文**时才算 finding。
+    //
+    // 纯西里尔文的一行(doc_latin 不大于 doc_confusable)是一种语言,不是一次攻击;
+    // 而英文界面里一个全西里尔的 "Рау" 按钮不是散文,是一个伪造的标签。
+    if pure_confusable_words > 0 && doc_latin > doc_confusable {
+        homoglyph_words += pure_confusable_words;
+    }
+
     if homoglyph_words > 0 {
         out.push(TextAnomaly {
             kind: AnomalyKind::Homoglyph,
@@ -600,6 +677,74 @@ mod tests {
                 "{} bytes took {:?}",
                 text.len(),
                 start.elapsed()
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod b5_同形异义复核 {
+    use super::*;
+
+    fn kinds(t: &str) -> Vec<&'static str> {
+        scan_anomalies(t).iter().map(|a| a.kind.as_str()).collect()
+    }
+
+    /// 替换得**越彻底**越应该被发现,而不是越不容易。
+    ///
+    /// `latin >= 2` 这个闸门相对于攻击完整程度是反的:一个完全被替换的词永远不报。
+    /// 实测 `Рау`(三个西里尔字母,渲染出来就是 "Pay")和 `ОК` 都是 `[]`。
+    #[test]
+    fn 完全替换的词也要被发现() {
+        for (text, why) in [
+            ("Tap Рау to finish", "全西里尔的 Рау 夹在英文里"),
+            ("Press ОК to continue", "全西里尔的 ОК"),
+            ("Sign in to Раураӏ now", "Paypal 的完整替换"),
+            ("Confirm Раymеnt", "混合替换"),
+        ] {
+            assert!(
+                kinds(text).contains(&"homoglyph"),
+                "{why}:{text:?} 没有被报出来 —— 得到 {:?}",
+                kinds(text)
+            );
+        }
+    }
+
+    /// 反面:纯西里尔文是一种**语言**,不是一次攻击。
+    ///
+    /// 这是原来那个闸门想保护的性质,必须继续成立 —— 否则这次修复把一个漏报换成了对
+    /// 所有俄语界面的误报,而那比漏报更容易让人把守卫关掉。
+    #[test]
+    fn 纯西里尔文散文不报() {
+        for text in [
+            "Подтвердите платёж",
+            "Привет мир",
+            "ОК",
+            "Отмена",
+            "Здравствуйте, как дела?",
+        ] {
+            assert!(
+                !kinds(text).contains(&"homoglyph"),
+                "{text:?} 被误判成同形异义 —— 俄语界面会被持续报警:{:?}",
+                kinds(text)
+            );
+        }
+    }
+
+    /// 反面:普通英文和普通中文都不报。
+    #[test]
+    fn 普通文本不报同形异义() {
+        for text in [
+            "Confirm Payment",
+            "Tap OK to continue",
+            "确认付款",
+            "Sign in to PayPal",
+            "café naïve résumé",
+        ] {
+            assert!(
+                !kinds(text).contains(&"homoglyph"),
+                "{text:?} 误报:{:?}",
+                kinds(text)
             );
         }
     }

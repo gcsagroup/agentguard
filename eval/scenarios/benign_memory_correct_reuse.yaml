@@ -13,7 +13,7 @@ events:
     source_app: Claude
     metadata:
       item_key: diet_note
-      user_approved: "true"
+    confirm: approve   # 走真的确认闸门,而不是往事件里塞一个自称的批准
   - event_type: memory_read
     source_app: Claude
     metadata:

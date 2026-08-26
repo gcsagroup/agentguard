@@ -29,7 +29,7 @@ events:
     metadata:
       item_key: "note.trip"
       value_id: "profile:passport_number"
-      user_approved: "true"
+    confirm: approve   # 走真的确认闸门,而不是往事件里塞一个自称的批准
   # Read it back as a brand-new value id…
   - event_type: memory_read
     source_app: Agent

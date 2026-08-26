@@ -130,11 +130,122 @@ impl Entity {
 ///
 /// Order is by class, then by position, and duplicates of the same `(kind, redaction)`
 /// collapse — a screen repeating one card number is one finding, not forty.
+/// 扫描前的归一化,以及回到原文的索引映射。
+///
+/// # 为什么必须有这一层
+///
+/// 识别器以前直接在原文的 `Vec<char>` 上跑,而且只认 `is_ascii_digit` 和两种分隔符
+/// (`' '`/`'-'`)。于是下面这些**自然文本**里的卡号一个都识别不出来:
+///
+/// ```text
+/// found    "Saved card 4242424242424242"     -> ["payment_card"]
+/// MISSED   "Saved card 4242424242424242."    -> []      句尾句号
+/// MISSED   "Card ending 4242424242424242. Thank you." -> []
+/// MISSED   "4242.4242.4242.4242"             -> []      点分隔
+/// MISSED   NBSP / 零宽 / 软连字符 分隔        -> []
+/// MISSED   全角身份证号                       -> []
+/// found    "Saved card 4242424242424242,"    -> ["payment_card"]   逗号可以,句号不行
+/// ```
+///
+/// 而漏掉的后果是完整的两条:`ContentScan` 的 `verified_fields` 为空 →
+/// `redact_event_for_audit` 返回 `None` → **完整的 PAN 原样写进 `AuditRecord::event_json`**
+/// (在哈希链内、签名内、可导出);同时 `confidentiality()` 为 `None` → 标签停在 Public →
+/// 后续 `data_flow` 到公网 sink 判 `Allow` 而不是 `FLOW-CONF/Block`。
+///
+/// 复核实测的九个变体里有八个被放行到公网 sink。而其中软连字符、点分隔、全角数字、句尾
+/// 句号**连一条补偿性的文本异常告警都没有**。
+///
+/// 返回归一化后的字符,以及每个归一化字符对应的**原文字符下标** —— 后者让遮蔽器能把
+/// 识别到的区间映射回原文,这是两个实现能就"一段值是什么"达成一致的基础。
+fn normalise_for_scan(text: &str) -> (Vec<char>, Vec<usize>) {
+    let mut out = Vec::with_capacity(text.chars().count());
+    let mut map = Vec::with_capacity(text.chars().count());
+    for (idx, c) in text.chars().enumerate() {
+        // 不可见的格式字符不能把一段值切成两半 —— 它们在屏幕上不占位置,所以人看到的
+        // 是一个连续的号码。剥掉它们,索引映射保证遮蔽仍然覆盖原文的那些位置。
+        if is_invisible_separator(c) {
+            continue;
+        }
+        // 非 ASCII 的空格折成普通空格,非 ASCII 的数字折成 ASCII 数字。
+        let folded = if matches!(c, '\u{a0}' | '\u{202f}' | '\u{2007}' | '\u{2060}') {
+            ' '
+        } else {
+            fold_digit(c)
+        };
+        out.push(folded);
+        map.push(idx);
+    }
+    (out, map)
+}
+
+/// 零宽与软连字符类:剥掉,不作为分隔符。
+fn is_invisible_separator(c: char) -> bool {
+    matches!(c,
+        '\u{00ad}'                     // soft hyphen
+        | '\u{200b}'..='\u{200f}'      // ZWSP, ZWNJ, ZWJ, LRM, RLM
+        | '\u{2028}'..='\u{202e}'
+        | '\u{2061}'..='\u{2064}'
+        | '\u{feff}'
+        | '\u{034f}'
+        | '\u{061c}'
+        | '\u{180b}'..='\u{180e}'
+    )
+}
+
+/// 非 ASCII 的十进制数字折成 ASCII。
+///
+/// 与 [`crate::logsafe`] 的 `is_digit` 覆盖同一批区段 —— 那个函数早就认全角数字了,
+/// 而识别器没有,于是全角身份证号在显示路径被遮、在**审计路径**却原样留下。
+fn fold_digit(c: char) -> char {
+    // 全角拉丁字母也要折。身份证号的校验位可以是全角 X(U+FF38),而
+    // `scan_national_id_cn` 只认 ASCII X —— 于是一个全角身份证号在数字都折对之后仍然
+    // 识别不出来,只因为最后一位没折。
+    if ('\u{ff21}'..='\u{ff3a}').contains(&c) {
+        return char::from_u32(c as u32 - 0xff21 + 'A' as u32).unwrap_or(c);
+    }
+    if ('\u{ff41}'..='\u{ff5a}').contains(&c) {
+        return char::from_u32(c as u32 - 0xff41 + 'a' as u32).unwrap_or(c);
+    }
+    let base = match c {
+        '\u{ff10}'..='\u{ff19}' => Some('\u{ff10}'), // full-width
+        '\u{0660}'..='\u{0669}' => Some('\u{0660}'), // Arabic-indic
+        '\u{06f0}'..='\u{06f9}' => Some('\u{06f0}'), // Extended Arabic-indic
+        '\u{0966}'..='\u{096f}' => Some('\u{0966}'), // Devanagari
+        _ => None,
+    };
+    match base {
+        Some(b) => char::from_digit(c as u32 - b as u32, 10).unwrap_or(c),
+        None => c,
+    }
+}
+
+/// 数字分组分隔符。**一份**定义,识别器和遮蔽器共用。
+///
+/// 以前两边各写一遍,而且不一样:识别器认 `' '`/`'-'`,遮蔽器也认 `' '`/`'-'`,但
+/// `scan_iban` 的分组路径认**任何**非字母数字字符。于是逗号/斜杠/换行/点分组的 IBAN 被判
+/// `verified: true`(调用方据此认为该字段已送去遮蔽),而遮蔽器一个字符都不改:
+///
+/// ```text
+/// THEATRE "IBAN GB82,WEST,1234,5698,7654,32"  verified=["iban"]  masked 完全未变
+/// THEATRE "IBAN GB82/WEST/…"                  verified=["iban"]  masked 完全未变
+/// THEATRE "IBAN GB82.WEST.…"                  verified=["iban"]  masked 完全未变
+/// ```
+///
+/// 审计行报告"已脱敏",实际存的是完整 IBAN。这正是模块文档说上一轮已经修掉的失败模式,
+/// 只是换了一种分隔符又复现了一次 —— 因为两个独立实现在猜同一件事。
+pub(crate) const RUN_SEPARATORS: &[char] = &[' ', '-', '.', ',', '/', '\u{2013}', '\u{2014}'];
+
+fn is_run_separator(c: char) -> bool {
+    RUN_SEPARATORS.contains(&c)
+}
+
 pub fn recognise(text: &str) -> Vec<Entity> {
     if text.is_empty() {
         return Vec::new();
     }
-    let chars: Vec<char> = text.chars().collect();
+    let (chars, _map) = normalise_for_scan(text);
+    let text: String = chars.iter().collect();
+    let text = text.as_str();
     // Lowercased **once**, as a char vector, and passed down by reference.
     //
     // `keyword_before` used to build this per call, i.e. once per candidate token: the
@@ -221,8 +332,17 @@ pub fn mask_tokens_only(text: &str) -> String {
 }
 
 fn mask_runs_and_tokens(text: &str, mask_digit_runs: bool) -> String {
-    let chars: Vec<char> = text.chars().collect();
-    let mut out = String::with_capacity(text.len());
+    // 和识别器走**同一份**归一化和**同一套**分隔符。
+    //
+    // 两个独立实现猜同一件事,是"已核验但没被遮蔽"那一类缺陷的结构性来源:识别器报出一个
+    // checksum 已验证的 IBAN,调用方据此认为该字段已送去遮蔽,而遮蔽器因为分隔符集合不同
+    // 而一个字符都不改。现在它们共用 `normalise_for_scan` 和 `RUN_SEPARATORS`,并且
+    // `chars_are_verified_together` 那条测试把"识别到的一定被遮到"钉成一条性质。
+    let (chars, map) = normalise_for_scan(text);
+    let orig: Vec<char> = text.chars().collect();
+    // 归一化下标 -> 是否要被遮蔽。按区间标记,最后按原文回写。
+    let mut masked_as: Vec<Option<String>> = vec![None; chars.len()];
+    let mut covered = vec![false; chars.len()];
     let mut i = 0usize;
     while i < chars.len() {
         // Digit runs, separators tolerated, as in `scan_digit_runs`.
@@ -234,7 +354,7 @@ fn mask_runs_and_tokens(text: &str, mask_digit_runs: bool) -> String {
                 if chars[j].is_ascii_digit() {
                     digits += 1;
                     j += 1;
-                } else if (chars[j] == ' ' || chars[j] == '-')
+                } else if is_run_separator(chars[j])
                     && j + 1 < chars.len()
                     && chars[j + 1].is_ascii_digit()
                 {
@@ -245,27 +365,85 @@ fn mask_runs_and_tokens(text: &str, mask_digit_runs: bool) -> String {
             }
             if mask_digit_runs && digits >= 13 {
                 let run: String = chars[start..j].iter().collect();
-                out.push_str(&redact_tail(&run, 4));
+                masked_as[start] = Some(redact_tail(&run, 4));
+                for c in covered[start..j].iter_mut() {
+                    *c = true;
+                }
                 i = j;
                 continue;
             }
         }
         // Alphanumeric tokens: IBAN-shaped, or a credential prefix.
+        //
+        // token 扫描也容忍分隔符,和 `scan_iban` 的分组路径一致 —— 那条路径把连续的 alnum
+        // token 拼起来、完全不看中间是什么,而这里以前只认连续 token。分隔符分组的 IBAN
+        // 因此被判 verified 却没被遮。
         if chars[i].is_ascii_alphanumeric() && (i == 0 || !is_token_char(chars[i - 1])) {
             let start = i;
             let mut j = i;
-            while j < chars.len() && is_token_char(chars[j]) {
-                j += 1;
+            let mut compact = String::new();
+            while j < chars.len() {
+                if is_token_char(chars[j]) {
+                    compact.push(chars[j]);
+                    j += 1;
+                } else if is_run_separator(chars[j])
+                    && j + 1 < chars.len()
+                    && chars[j + 1].is_ascii_alphanumeric()
+                    && is_iban_shaped_prefix(&compact)
+                {
+                    j += 1;
+                } else {
+                    break;
+                }
             }
-            let token: String = chars[start..j].iter().collect();
-            if is_iban_shaped(&token) || has_credential_prefix(&token) {
-                out.push_str(&redact_tail(&token, 4));
+            // 先看紧凑形(原有行为),再看拼接形(分组的 IBAN)。
+            let contiguous: String = chars[start..j]
+                .iter()
+                .take_while(|c| is_token_char(**c))
+                .collect();
+            let hit = if is_iban_shaped(&contiguous) || has_credential_prefix(&contiguous) {
+                Some(contiguous.len())
+            } else if is_iban_shaped(&compact) {
+                Some(j - start)
+            } else {
+                None
+            };
+            if let Some(_len) = hit {
+                let whole: String = chars[start..j].iter().collect();
+                masked_as[start] = Some(redact_tail(&whole, 4));
+                for c in covered[start..j].iter_mut() {
+                    *c = true;
+                }
                 i = j;
                 continue;
             }
         }
-        out.push(chars[i]);
         i += 1;
+    }
+    // 按原文回写。被覆盖区间对应的原文字符(含被剥掉的不可见字符)一并替换掉 ——
+    // 否则零宽分隔的号码会留下可见数字。
+    let mut out = String::with_capacity(text.len());
+    let mut oi = 0usize;
+    let mut ni = 0usize;
+    while oi < orig.len() {
+        if ni < map.len() && map[ni] == oi {
+            if let Some(rep) = &masked_as[ni] {
+                out.push_str(rep);
+            }
+            let this_covered = covered[ni];
+            if !this_covered {
+                out.push(orig[oi]);
+            }
+            ni += 1;
+            oi += 1;
+            continue;
+        }
+        // 这个原文字符在归一化里被剥掉了(不可见)。它属于最近一个归一化位置所在的区间。
+        let inside = ni > 0 && covered[ni - 1];
+        if !inside {
+            out.push(orig[oi]);
+        }
+        oi += 1;
     }
     // A PEM block is not partially interesting.
     if out.contains("-----BEGIN") && out.contains("PRIVATE KEY-----") {
@@ -276,6 +454,22 @@ fn mask_runs_and_tokens(text: &str, mask_digit_runs: bool) -> String {
 
 fn is_token_char(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_' || c == '-'
+}
+
+/// 一个正在拼接的 token 还有可能长成 IBAN 吗。
+///
+/// 只用来决定"要不要跨过一个分隔符继续拼",所以判据是前缀形状而不是完整形状:
+/// 两个字母 + 两个数字开头,且到目前为止全是字母数字。
+fn is_iban_shaped_prefix(partial: &str) -> bool {
+    let b = partial.as_bytes();
+    if b.len() < 4 || b.len() > 34 {
+        return false;
+    }
+    b[0].is_ascii_alphabetic()
+        && b[1].is_ascii_alphabetic()
+        && b[2].is_ascii_digit()
+        && b[3].is_ascii_digit()
+        && b.iter().all(|c| c.is_ascii_alphanumeric())
 }
 
 fn is_iban_shaped(token: &str) -> bool {
@@ -341,7 +535,9 @@ fn scan_digit_runs(chars: &[char], lower_chars: &[char], out: &mut Vec<Entity>) 
         // A run may not start mid-token: a digit preceded by an alphanumeric belongs to
         // something else (an order id, a hex blob), and treating it as a card prefix is
         // how a recogniser earns its reputation for noise.
-        if i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == '.') {
+        // `.` 不再算"延续一个更大的 token"。它是一个分隔符,不是标识符字符 ——
+        // 把它当后者正是 `4242424242424242.` 和 `4242.4242.4242.4242` 全部漏掉的原因。
+        if i > 0 && chars[i - 1].is_alphanumeric() {
             i += 1;
             while i < chars.len() && chars[i].is_ascii_digit() {
                 i += 1;
@@ -359,7 +555,7 @@ fn scan_digit_runs(chars: &[char], lower_chars: &[char], out: &mut Vec<Entity>) 
                 current.push(chars[j]);
                 all_digits.push(chars[j]);
                 j += 1;
-            } else if (chars[j] == ' ' || chars[j] == '-')
+            } else if is_run_separator(chars[j])
                 && j + 1 < chars.len()
                 && chars[j + 1].is_ascii_digit()
             {
@@ -373,13 +569,50 @@ fn scan_digit_runs(chars: &[char], lower_chars: &[char], out: &mut Vec<Entity>) 
             groups.push(current);
         }
         // Trailing alphanumeric means the run was part of a larger token.
-        let clean_end = j >= chars.len() || !(chars[j].is_alphanumeric() || chars[j] == '.');
+        //
+        // 句尾的 `.` **不是**一个更大 token 的一部分 —— 它是标点。以前它在这里,于是
+        // `"Saved card 4242 4242 4242 4242."` 一个 entity 都不产出,而同一句话去掉句号
+        // 就正确识别。逗号一直是可以的,句号不行 —— 这个差别没有任何理由。
+        let clean_end = j >= chars.len() || !chars[j].is_alphanumeric();
         if clean_end {
             if let Some(pan) = card_window(&groups) {
+                // 什么时候才算"无歧义地是一个卡号"。
+                //
+                // 三种情形之一即可:
+                //   1. 整段未分隔(`4242424242424242`) —— 一个 13..19 位的连续数字串,
+                //      通过 Luhn 和 IIN,没有别的解读;
+                //   2. 分组数不超过 5 —— 真实卡号最多是 4-4-4-4 或 4-6-5 这类,五组是上限。
+                //      再多就是一张数字表格,而表格里"某个起点恰好拼出合法 PAN"是必然事件
+                //      (每窗口约 2.36%,20 组一行有 17 个窗口 → 32%);
+                //   3. 附近有卡类关键字 —— 表格里出现 `card`/`卡号`/`visa` 时,那确实是卡号。
+                //
+                // 光数候选个数不够:20 组的一行里往往**恰好只有一个**窗口通过,于是
+                // "候选 ≤ 1"仍然把它判成 verified(实测 24%)。分组数才是"这是不是一张表"
+                // 的直接证据。
+                //
+                // 降级只影响 `verified`:finding 仍然产出、仍然进审计,只是不再触发审计改写
+                // 和 `FLOW-CONF` 阻断 —— 也就是误报不再变成拦截。
+                const CARD_WORDS: &[&str] = &[
+                    "card",
+                    "credit",
+                    "debit",
+                    "visa",
+                    "mastercard",
+                    "amex",
+                    "pan",
+                    "卡号",
+                    "卡",
+                    "银行卡",
+                    "信用卡",
+                    "カード",
+                ];
+                let unambiguous = groups.len() == 1
+                    || groups.len() <= 5
+                    || keyword_before(lower_chars, start, CARD_WORDS);
                 out.push(Entity::new(
                     EntityKind::PaymentCard,
                     redact_tail(&pan, 4),
-                    true,
+                    unambiguous,
                 ));
             } else if is_phone_run(&all_digits, chars, start, lower_chars) {
                 out.push(Entity::new(
@@ -699,7 +932,12 @@ fn scan_national_id_cn(chars: &[char], out: &mut Vec<Entity>) {
             let id: String = chars[i..i + 18].iter().collect();
             out.push(Entity::new(
                 EntityKind::NationalIdCn,
-                format!("{}••••••••{}", &id[..4], redact_tail(&id, 2)),
+                // 不保留前 4 位。
+                //
+                // 那是省+市行政区划码 —— "在哪里登记的",一个准可识别属性;而末位是校验位,
+                // 是其余 17 位的函数,保留它等于白送一个约束。原来的形状
+                // `1101••…••2X` 同时泄漏了地区、性别位和一个校验约束。
+                format!("••••••{}", &id[16..17]),
                 true,
             ));
         }
@@ -786,9 +1024,17 @@ fn scan_ssn(chars: &[char], out: &mut Vec<Entity>) {
         {
             continue;
         }
+        // **遮掉 serial,保留 area。**
+        //
+        // 以前反了:`•••-••-{serial}` 完整保留 4 位 serial,而遮掉的 area+group 恰恰是可
+        // 枚举的那部分 —— SSA 曾发行的 area 约 800 个、group 89 个,合起来约 7.1 万候选,
+        // 若知道出生州就只剩几百。也就是说遮蔽把**唯一不可枚举的四位**留在了日志里,遮掉的
+        // 是攻击者本来就能穷举的部分。
+        //
+        // 现在保留 area(三位,用来判"这是一个 SSN"和大致来源),遮掉 serial。
         out.push(Entity::new(
             EntityKind::Ssn,
-            format!("•••-••-{serial}"),
+            format!("{area}-••-••••"),
             false,
         ));
     }
@@ -834,11 +1080,29 @@ fn scan_api_secrets(text: &str, out: &mut Vec<Entity>) {
                 || !(bytes[at - 1].is_ascii_alphanumeric()
                     || bytes[at - 1] == b'_'
                     || bytes[at - 1] == b'-');
-            let tail = &text[at + prefix.len()..];
-            let run = tail
-                .chars()
-                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-                .count();
+            // `anchored` first, and count at most `min_tail + 1`.
+            //
+            // This used to compute `run` over the *entire* remaining tail before looking at
+            // `anchored`. Every issuer prefix is made of characters that also satisfy the
+            // run predicate (`[A-Za-z0-9_]`), so text built out of `AKIA`/`AIza`/`ASIA`
+            // matched on every fourth byte and each match scanned to end of input: O(n²),
+            // and all of it wasted, because `at > 0` makes `anchored` false and no entity is
+            // produced. 400 KiB of `AKIA` took **31.6 seconds** inside `Engine::process`, on
+            // the unconditional `ui_text` path with no rule match required — 2750× the
+            // linear baseline. The module doc's claim that "every scanner is a single linear
+            // pass, because a hand-rolled DoS is no better than a regex one" was false here.
+            //
+            // `run >= min_tail` needs no more than `min_tail + 1` characters to decide, so
+            // the count is now bounded by a constant regardless of input length.
+            let run = if anchored {
+                text[at + prefix.len()..]
+                    .chars()
+                    .take(*min_tail + 1)
+                    .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                    .count()
+            } else {
+                0
+            };
             if anchored && run >= *min_tail {
                 out.push(Entity::new(
                     EntityKind::ApiSecret,
@@ -978,13 +1242,22 @@ fn contains_word(window: &[char], needle: &str) -> bool {
 }
 
 /// Keep the last `keep` characters, mask the rest. Never returns the whole value.
+/// 遮蔽,保留末 `keep` 个字符,前面用**固定数量**的圆点。
+///
+/// 圆点数量以前是"一个字符一个",于是遮蔽结果**精确暴露原值长度**。
+/// `scan_api_secrets` 刻意避开了这一点(它的注释写着"一个 secret 的长度是关于这个 secret
+/// 的信息"),而其他类没有跟上 —— 而长度对小空间的值是很强的约束:一个 15/16/19 位的
+/// 数字串,长度本身就把发卡组织缩到几种。
+///
+/// 固定成四个,所以输出里不再有长度这一维信息。
 fn redact_tail(value: &str, keep: usize) -> String {
+    const DOTS: &str = "••••";
     let chars: Vec<char> = value.chars().collect();
     if chars.len() <= keep {
-        return "•".repeat(chars.len());
+        return DOTS.to_string();
     }
     let tail: String = chars[chars.len() - keep..].iter().collect();
-    format!("{}{}", "•".repeat(chars.len() - keep), tail)
+    format!("{DOTS}{tail}")
 }
 
 #[cfg(test)]
@@ -1109,9 +1382,109 @@ mod tests {
         let found = recognise(&format!("card {pan}"));
         assert_eq!(found.len(), 1);
         assert!(!found[0].redacted.contains(pan));
-        assert_eq!(found[0].redacted, "••••••••••••4242");
+        // 圆点数量**固定**,不再是"一个字符一个" —— 后者精确暴露原值长度,而长度对小空间
+        // 的值是很强的约束。`scan_api_secrets` 一开始就避开了这一点("一个 secret 的长度是
+        // 关于这个 secret 的信息"),其他类当时没有跟上。
+        assert_eq!(found[0].redacted, "••••4242");
         let email = recognise("ming.lin@lbemobile.com");
         assert!(!email[0].redacted.contains("ming.lin"));
+    }
+
+    /// 遮蔽结果不能泄漏原值长度。
+    ///
+    /// 不同长度的同类值,遮蔽后的圆点数量必须一样 —— 否则一个 15 位和一个 19 位的卡号
+    /// 在日志里可以直接区分,而卡号长度本身就把发卡组织缩到几种。
+    #[test]
+    fn 遮蔽不泄漏长度() {
+        let a = recognise("card 4242424242424242"); // 16 位
+        let b = recognise("card 378282246310005"); // 15 位 Amex
+        let c = recognise("card 6011111111111117"); // 16 位 Discover
+        for v in [&a, &b, &c] {
+            assert_eq!(v.len(), 1, "夹具应当各识别出一个");
+        }
+        let dots = |e: &Entity| e.redacted.chars().filter(|c| *c == '•').count();
+        assert_eq!(
+            dots(&a[0]),
+            dots(&b[0]),
+            "16 位和 15 位的圆点数不同 —— 长度泄漏了"
+        );
+        assert_eq!(dots(&a[0]), dots(&c[0]));
+    }
+
+    /// SSN 的遮蔽要遮掉**不可枚举**的那一段。
+    ///
+    /// 以前是 `•••-••-{serial}`:完整保留 4 位 serial,遮掉的 area+group 恰恰是可枚举的
+    /// 部分(约 7.1 万候选,知道出生州就只剩几百)。也就是遮蔽把唯一不可枚举的四位留在了
+    /// 日志里。
+    #[test]
+    fn ssn_遮蔽掉不可枚举的那一段() {
+        let e = recognise("SSN 078-05-1120");
+        assert_eq!(e.len(), 1, "{e:?}");
+        let r = &e[0].redacted;
+        assert!(!r.contains("1120"), "serial 仍然完整留在遮蔽结果里:{r}");
+        assert!(r.starts_with("078"), "area 应当保留以便判类:{r}");
+    }
+
+    /// 身份证的遮蔽不能保留行政区划码。
+    #[test]
+    fn 身份证遮蔽不保留地区码() {
+        let e = recognise("身份证 11010519491231002X");
+        assert_eq!(e.len(), 1, "{e:?}");
+        let r = &e[0].redacted;
+        assert!(!r.contains("1101"), "前 4 位行政区划码仍在:{r}");
+        assert!(!r.contains("491231"), "出生日期仍在:{r}");
+    }
+
+    /// 一排 4 位数字不能变成一串"已核验"的卡号。
+    ///
+    /// `card_group_shape` 被文档描述成防住这件事,实测没有:随机 20×4 位表格里 32.2% 含
+    /// 至少一个 verified payment_card,而 `verified: true` 会触发审计改写并把 taint 抬到
+    /// High —— 于是误报变成 `FLOW-CONF` **阻断**,不只是噪声。
+    #[test]
+    fn 数字表格不产生已核验的卡号() {
+        // 一个刻意构造的、Luhn 通过的 4 位分组表(20 组)。
+        let mut rows = Vec::new();
+        let mut st = 42u64;
+        let mut flagged = 0usize;
+        for _ in 0..400 {
+            let mut groups = Vec::new();
+            for _ in 0..20 {
+                st = st.wrapping_mul(6364136223846793005).wrapping_add(1);
+                groups.push(format!("{:04}", (st >> 33) % 10000));
+            }
+            let line = format!("Row {}", groups.join(" "));
+            if recognise(&line)
+                .iter()
+                .any(|e| matches!(e.kind, EntityKind::PaymentCard) && e.verified)
+            {
+                flagged += 1;
+            }
+            rows.push(line);
+        }
+        assert!(
+            flagged * 100 / rows.len() < 5,
+            "{}/{} 行数字表格产出了**已核验**的卡号({}%)",
+            flagged,
+            rows.len(),
+            flagged * 100 / rows.len()
+        );
+    }
+
+    /// 反面:一个真正的、未分隔的卡号仍然是 verified。
+    #[test]
+    fn 未分隔的真卡号仍然已核验() {
+        for s in [
+            "card 4242424242424242",
+            "Saved card 4242 4242 4242 4242",
+            "4000056655665556",
+        ] {
+            let e = recognise(s);
+            assert!(
+                e.iter()
+                    .any(|x| matches!(x.kind, EntityKind::PaymentCard) && x.verified),
+                "{s:?} 不再是 verified —— 降级降过头了:{e:?}"
+            );
+        }
     }
 
     #[test]
@@ -1381,6 +1754,154 @@ mod tests {
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
         ] {
             assert!(recognise(s).is_empty(), "{s:?} → {:?}", recognise(s));
+        }
+    }
+}
+
+#[cfg(test)]
+mod b5_识别与遮蔽复核 {
+    use super::*;
+
+    /// 自然文本里的卡号必须被识别 —— 句尾句号、点/逗号/NBSP/零宽/软连字符分组、全角数字。
+    ///
+    /// 一次独立复核实测:下面这些里有八个是 `recognise` 返回 `[]`,后果是完整 PAN
+    /// (a) 原样写进签名审计的 `event_json`,(b) 标签停在 Public,于是 `data_flow` 到
+    /// 公网 sink 判 `Allow` 而不是 `FLOW-CONF/Block`。
+    ///
+    /// 最刺眼的一格:逗号结尾**可以**,句号结尾不行 —— 那个差别没有任何理由。
+    #[test]
+    fn 自然文本里的卡号必须被识别() {
+        let kinds = |t: &str| -> Vec<String> {
+            recognise(t)
+                .iter()
+                .map(|e| format!("{:?}", e.kind))
+                .collect()
+        };
+        for t in [
+            "Saved card 4242424242424242",
+            "Saved card 4242424242424242.",
+            "Saved card 4242 4242 4242 4242.",
+            "Saved card 4242-4242-4242-4242.",
+            "Card ending 4242424242424242. Thank you.",
+            "Saved card 4242424242424242,",
+            "card 4242.4242.4242.4242",
+            "card 4242,4242,4242,4242",
+            "card 4242\u{a0}4242\u{a0}4242\u{a0}4242",
+            "card 4242\u{200b}4242\u{200b}4242\u{200b}4242",
+            "card 4242\u{ad}4242\u{ad}4242\u{ad}4242",
+        ] {
+            assert!(
+                kinds(t).iter().any(|k| k == "PaymentCard"),
+                "{t:?} 没有识别出 payment_card —— 得到 {:?}",
+                kinds(t)
+            );
+        }
+        // 全角身份证号(显示路径一直能遮,审计路径以前原样留下)
+        assert!(
+            !recognise("身份证 １１０１０５１９４９１２３１００２Ｘ").is_empty(),
+            "全角身份证号没有被识别"
+        );
+    }
+
+    /// **识别到的一定要被遮到。**
+    ///
+    /// 这条是上面那一类缺陷的结构性防线。以前识别器和遮蔽器是两个独立实现,各自对
+    /// "一段值从哪到哪"有一套猜法,于是出现"已核验但没被遮蔽":
+    ///
+    /// ```text
+    /// THEATRE "IBAN GB82,WEST,1234,5698,7654,32"  verified=["iban"]  masked 完全未变
+    /// THEATRE "IBAN GB82\u{a0}WEST\u{a0}…"        verified=["iban"]  masked 完全未变
+    /// ```
+    ///
+    /// 审计行报告"已脱敏",实际存的是完整 IBAN。断言的是性质而不是某几个例子:任何被
+    /// `has_verified_entity` 判为真的输入,`mask_sensitive_runs` 都必须真的改变它。
+    #[test]
+    fn 已核验的实体一定被遮蔽() {
+        let cases = [
+            "IBAN GB82 WEST 1234 5698 7654 32",
+            "IBAN GB82,WEST,1234,5698,7654,32",
+            "IBAN GB82/WEST/1234/5698/7654/32",
+            "IBAN GB82.WEST.1234.5698.7654.32",
+            "IBAN GB82\u{a0}WEST\u{a0}1234\u{a0}5698\u{a0}7654\u{a0}32",
+            "IBAN GB82WEST12345698765432",
+            "card 4242424242424242",
+            "card 4242424242424242.",
+            "card 4242.4242.4242.4242",
+            "card 4242\u{200b}4242\u{200b}4242\u{200b}4242",
+            "id 11010519491231002X",
+            "DE89 3704 0044 0532 0130 00",
+        ];
+        for t in cases {
+            if !has_verified_entity(t) {
+                continue;
+            }
+            let masked = mask_sensitive_runs(t);
+            assert_ne!(
+                masked, t,
+                "{t:?} 被判为含已核验实体,但审计遮蔽器一个字符都没改 —— 审计行会报告\"已脱敏\"而存下原值"
+            );
+        }
+    }
+
+    /// 遮蔽之后,原值的连续数字不能还在输出里 —— 零宽分隔的号码尤其。
+    ///
+    /// 零宽字符被剥掉之后,人和 grep 看到的是 `card 4242424242424242`;如果遮蔽只覆盖
+    /// 可见字符之间的区间,就会留下一串可见数字。
+    #[test]
+    fn 遮蔽后不残留原始数字串() {
+        for t in [
+            "card 4242\u{200b}4242\u{200b}4242\u{200b}4242",
+            "card 4242\u{ad}4242\u{ad}4242\u{ad}4242",
+        ] {
+            let masked = mask_sensitive_runs(t);
+            let digits: String = masked.chars().filter(|c| c.is_ascii_digit()).collect();
+            assert!(
+                digits.len() <= 4,
+                "{t:?} 遮蔽后仍残留 {} 位数字:{masked:?}",
+                digits.len()
+            );
+        }
+    }
+
+    /// 反面:普通文本不能因为把 `.` 当分隔符而被误判。
+    ///
+    /// 版本号、IP、金额、时间戳都含 `.` 加数字。它们要么位数不够,要么过不了校验和 ——
+    /// 但这必须被钉住,否则这次修复就是把误报换成了另一种误报。
+    #[test]
+    fn 把点当分隔符不产生误报() {
+        for t in [
+            "version 1.2.3.4",
+            "192.168.1.100",
+            "Total 4.99 USD",
+            "ratio 0.3333333333333333",
+            "timestamp 1786508766.171",
+            "build 2026.08.26.1430",
+            "coords 51.5074, -0.1278",
+            "pi 3.14159265358979",
+        ] {
+            let e = recognise(t);
+            assert!(
+                e.iter().all(|x| !x.verified),
+                "{t:?} 产生了已核验实体 {:?} —— 误报会让人把守卫关掉",
+                e.iter()
+                    .map(|x| format!("{:?}", x.kind))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// 归一化不能让识别变慢成二次。
+    #[test]
+    fn 归一化后仍然是线性的() {
+        for kb in [64usize, 256] {
+            let s = "4242.".repeat(kb * 205);
+            let t = std::time::Instant::now();
+            let _ = recognise(&s);
+            let dt = t.elapsed();
+            assert!(
+                dt < std::time::Duration::from_secs(2),
+                "{kb} KiB 耗时 {dt:?}"
+            );
         }
     }
 }

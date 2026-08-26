@@ -13,7 +13,7 @@ path = "src/bin/agentguard_mcp.rs"
 
 [dependencies]
 guard-schema = { workspace = true }
-guard-shell = { workspace = true }
+guard-shell = { workspace = true, features = ["test-helpers"] }
 guard-core = { workspace = true }
 # `default-features = false` 删掉了。
 #
@@ -24,6 +24,7 @@ guard-core = { workspace = true }
 # 时是带默认特性的,所以 sqlite-bundled 无论如何都是开的。要真的关掉,得改
 # [workspace.dependencies] —— 那会影响每一个成员,是另一件事(见 make test-sqlcipher)。
 guard-audit = { workspace = true }
+rand = "0.8"
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

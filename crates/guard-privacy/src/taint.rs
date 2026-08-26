@@ -395,10 +395,23 @@ impl TaintLattice {
         match self.values.get_mut(&id) {
             Some(existing) => {
                 existing.label = existing.label.join(label);
+                // Set membership, not `Vec::contains`.
+                //
+                // Re-deriving an id with N parents cost O(N²) here, and two identical
+                // `data_derive` events are enough to reach it: `decide_data_derive` splits
+                // `metadata["parents"]` on `,` with no cap, and the local API reads the body
+                // with `read_to_end` and no size limit. 256k parents (a 1.9 MB body) held
+                // the engine's single mutex for **61 seconds** on the second event — and the
+                // verdict is `FLOW-DERIVE`/`LogOnly`, so the event is not even suspicious.
+                // Every real event queues behind it; a guard that is not judging is off.
+                let seen: std::collections::HashSet<&str> =
+                    existing.parents.iter().map(|s| s.as_str()).collect();
                 let fresh: Vec<String> = parent_ids
-                    .into_iter()
-                    .filter(|p| !existing.parents.contains(p))
+                    .iter()
+                    .filter(|p| !seen.contains(p.as_str()))
+                    .cloned()
                     .collect();
+                drop(seen);
                 existing.parents.extend(fresh);
                 existing.label
             }

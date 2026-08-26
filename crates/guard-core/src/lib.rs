@@ -152,6 +152,12 @@ pub struct Engine {
     /// A re-anchor request awaiting the *real* user. Never applied by
     /// [`Engine::process`] — only by [`Engine::process_gated`] on an approval.
     pending_reanchor: bool,
+    /// 等待人工确认的记忆保存键。
+    ///
+    /// 只有 `process_gated` 里 `ApproveOnce` 那一支能把它变成一次"经批准的保存" ——
+    /// 和 `pending_declassify` 完全同一个形状,理由也一样:一次授权必须来自一次已解决的
+    /// 闸门,而不是来自被授权的那条通道自己带来的一个字符串。
+    pending_memory_save: Option<String>,
     /// Latest environment survey: other apps on the device that can intercept or
     /// read the agent's input ((A)I Sees A5 / A6).
     env_risk: EnvRisk,
@@ -490,6 +496,7 @@ impl Engine {
             plans: None,
             trajectory: trajectory::Trajectory::default(),
             pending_reanchor: false,
+            pending_memory_save: None,
             env_risk: EnvRisk::default(),
             lattice: guard_privacy::TaintLattice::new(),
             app_identities: std::collections::HashMap::new(),
@@ -773,6 +780,10 @@ impl Engine {
         if matches!(event.event_type, EventType::AgentSessionStart) && !self.session_open {
             self.lookalike_apps.clear();
             self.unproven_faces.clear();
+            // 会话作用域的隐私状态也在这里清。它以前**从不**清:污点标记、访问事件、
+            // 记忆保存全部跨会话累积,既让内存无界(N 次写 + N 次读 = O(N²)),也让上一次
+            // 会话的标记继续参与新会话的判决。
+            self.privacy.reset_session_state();
         }
         // Aura §4.2. Done before anything else reads the event, because
         // `ingest_untrusted_value` needs the recognised confidentiality to label the
@@ -989,6 +1000,10 @@ impl Engine {
                     // this is the only point at which a *human* has said yes.
                     if let Some(note) = self.apply_pending_declassify(&prompt.approver()) {
                         decision.human_message = format!("{} — {note}", decision.human_message);
+                    }
+                    // 同理,一次记忆保存只有在这里才算"用户批准的"。
+                    if let Some(key) = self.pending_memory_save.take() {
+                        self.privacy.record_memory_save(&key, true);
                     }
                     // Approving a drift prompt re-anchors the trajectory: the user
                     // has seen the step and accepted it, which is exactly what Aura
@@ -1711,13 +1726,32 @@ impl Engine {
                     .get("item_key")
                     .cloned()
                     .unwrap_or_else(|| "unknown".into());
-                let approved = matches!(action, DecisionAction::Allow)
-                    || event
-                        .metadata
-                        .get("user_approved")
-                        .map(|s| s == "true")
-                        .unwrap_or(false);
+                // `approved` 只能来自判决本身,**不能**来自事件里的 `user_approved`。
+                //
+                // 这是第三次出现同一个形状 —— `docs/information-flow.md` 记着前两次
+                // (`sink_clearance`,以及 `declassify` 上的 `approved`/`approved_by`):
+                // **一个授权,从它所授权的那条通道里读出来**。
+                //
+                // 后果是完整的:`has_saved` 会报告这个键存在于"用户控制的"记忆里,于是
+                // `decide_memory_read` 返回 `Allow` 而不是 `PRIV-MEM-READ`,同时
+                // `score_memory_use` 把这个轴打成 1.0。也就是说智能体既关掉了针对幻觉/过期
+                // 记忆的检查,又给自己的记忆使用打了满分。
+                //
+                // ```text
+                //   什么都没存就读                      -> Alert/Medium PRIV-MEM-READ | mem_use=0.0
+                //   写(被 gate 判 Block)之后再读       -> Alert/Medium PRIV-MEM-READ | mem_use=0.0
+                //   写 + 智能体自称 user_approved=true  -> 写 Block,读 Allow/Info    | mem_use=1.0
+                // ```
+                //
+                // 注意第三行:那次写**本身是被 Block 的**,而会话仍然认为这个键是一次经用户
+                // 批准的保存。真正的用户批准走 `apply_pending_declassify` 那条已解决的闸门
+                // 路径;事件里的一个字符串不是批准。
+                let approved = matches!(action, DecisionAction::Allow);
                 self.privacy.record_memory_save(&key, approved);
+                if !approved && require_confirm {
+                    // 留给闸门。批准之后 `process_gated` 会把它重记为已批准。
+                    self.pending_memory_save = Some(key.clone());
+                }
                 // Memory as ⟨Content, Tag_origin⟩ (Aura §4.3.1): if the saved
                 // value is tracked, remember *which* value is behind this key so
                 // a later read cannot come back unlabelled. Without this, memory
@@ -1807,7 +1841,35 @@ impl Engine {
     /// disagreement is the evidence.
     fn check_text_anomaly(&mut self) -> Option<Decision> {
         let scan = self.pending_scan.as_ref()?;
-        let worst = scan.worst_anomaly()?;
+        // Latch per class over **every** anomaly present, not on the single worst one.
+        //
+        // The old code took `worst_anomaly()` and returned `None` if that class was already
+        // latched — without ever looking at the other classes in the same event. So one
+        // zero-width space on every screen (the highest-ranked class, and the one most likely
+        // to be ambient) made `bidi_override`, `homoglyph`, `glitch_token`, `combining_stack`
+        // and `oversized_token` unreportable for the rest of the session:
+        //
+        // ```text
+        //   screen 1: one ZWSP                         -> Alert/Low FW-TEXT-ANOMALY
+        //   screen 2: ZWSP + Trojan-Source + homoglyph -> Allow/Info ALLOW      <- silent
+        //   screen 3: ZWSP + SolidGoldMagikarp         -> Allow/Info ALLOW      <- silent
+        //   screen 4: no ZWSP, same payload as 2       -> Alert/Low FW-TEXT-ANOMALY
+        // ```
+        //
+        // Screen 2 carries a Trojan-Source override *and* a Cyrillic-homoglyph "Confirm
+        // payment" and the engine said nothing; screen 4 — byte-identical minus the ZWSP —
+        // reported both. That is the same shape as the bug `docs/text-anomalies.md` records
+        // as fixed ("a finding must not erase another one"), arriving by latch instead of by
+        // merge.
+        //
+        // Filtering to the unlatched classes *first* and then picking the worst of those is
+        // what makes the latch a per-class rate limit rather than a per-session silencer.
+        let unreported: Vec<_> = scan
+            .anomalies
+            .iter()
+            .filter(|a| !self.anomaly_classes_reported.contains(a.kind.as_str()))
+            .collect();
+        let worst = unreported.iter().max_by_key(|a| a.kind.rank())?;
         let kind = worst.kind;
         let summary = scan.anomaly_summary();
         // **Once per class per session.** A reviewer posted forty identical UI deltas of a
@@ -1912,6 +1974,28 @@ impl Engine {
                     .collect()
             })
             .unwrap_or_default();
+        // A provenance list this long is not a provenance list.
+        //
+        // `metadata["parents"]` is a comma-split of an agent-supplied string and the local
+        // API reads request bodies with `read_to_end` and no size limit, so the count was
+        // bounded only by memory. Even with `derive` now linear per call (see
+        // `TaintLattice::derive`), an unbounded list still buys unbounded *stored* strings
+        // per value id behind the engine's single mutex. Refusing is the fail-closed answer:
+        // dropping the excess parents silently would drop their taint, which is the unsafe
+        // direction — a value would come out cleaner than its inputs.
+        const MAX_DERIVE_PARENTS: usize = 1024;
+        if parents.len() > MAX_DERIVE_PARENTS {
+            return Decision {
+                action: DecisionAction::Block,
+                severity: Severity::Medium,
+                rule_id: "FLOW-DERIVE-ABUSE".into(),
+                human_message: format!(
+                    "data_derive declared {} parents (limit {MAX_DERIVE_PARENTS}): refusing rather than dropping their taint",
+                    parents.len()
+                ),
+                require_confirm: false,
+            };
+        }
         let refs: Vec<&str> = parents.iter().map(|s| s.as_str()).collect();
         let label = self.lattice.derive(id.clone(), &refs);
         Decision {
@@ -3933,26 +4017,37 @@ fn apps_match(a: &str, b: &str) -> bool {
     a == b || a.contains(&b) || b.contains(&a)
 }
 
+/// 元数据里的布尔值,大小写不敏感,并接受常见拼写。
+///
+/// `s == "true"` 让 `"True"`(以及 `"TRUE"`、`" true"`、`"yes"`、`"1"`)**fail open**:
+/// 复核实测 `is_trap="True"` 得到 `Allow/Info ALLOW`,而 `is_trap="true"` 是
+/// `Block/High PRIV-TRAP`。一个大写字母就把隐私陷阱的拦截关掉了。
+///
+/// 方向选择是刻意的:解析不出来的东西一律按 `false`,**除了**这个函数只用在
+/// "true 意味着更严格"的字段上(`is_trap`、`required`)。`value_filled` 语义相反
+/// (默认 true),所以它单独处理。
+fn meta_bool(event: &GuardEvent, key: &str) -> bool {
+    event
+        .metadata
+        .get(key)
+        .map(|s| {
+            let t = s.trim().to_ascii_lowercase();
+            t == "true" || t == "yes" || t == "1" || t == "y"
+        })
+        .unwrap_or(false)
+}
+
 fn form_fill_from_event(event: &GuardEvent, contract: &GuardContract) -> FormFillEvent {
-    let required = event
-        .metadata
-        .get("required")
-        .map(|s| s == "true")
-        .unwrap_or(false);
-    let is_trap = event
-        .metadata
-        .get("is_trap")
-        .map(|s| s == "true")
-        .unwrap_or(false);
-    let probe = event
-        .metadata
-        .get("probe_type")
-        .and_then(|s| match s.as_str() {
+    let required = meta_bool(event, "required");
+    let is_trap = meta_bool(event, "is_trap");
+    let probe = event.metadata.get("probe_type").and_then(|s| {
+        match s.trim().to_ascii_lowercase().as_str() {
             "form_minimization" => Some(ProbeType::FormMinimization),
             "trap_resistance" => Some(ProbeType::TrapResistance),
             "over_permissioning" => Some(ProbeType::OverPermissioning),
             _ => None,
-        });
+        }
+    });
     let profile_key = event
         .metadata
         .get("profile_key")
@@ -3970,7 +4065,12 @@ fn form_fill_from_event(event: &GuardEvent, contract: &GuardContract) -> FormFil
             value_filled: event
                 .metadata
                 .get("value_filled")
-                .map(|s| s != "false")
+                .map(|s| {
+                    !matches!(
+                        s.trim().to_ascii_lowercase().as_str(),
+                        "false" | "no" | "0" | "n"
+                    )
+                })
                 .unwrap_or(true),
             necessity: parse_necessity(
                 event
@@ -4093,7 +4193,7 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn empty_rules() -> RuleSet {
+    pub(crate) fn empty_rules() -> RuleSet {
         RuleSet {
             version: "1.0".into(),
             rules: vec![],
@@ -4307,7 +4407,7 @@ rules:
         assert_eq!(engine.status().intel_version, "2026.08.01");
     }
 
-    fn event(etype: EventType, source_app: &str, meta: &[(&str, &str)]) -> GuardEvent {
+    pub(crate) fn event(etype: EventType, source_app: &str, meta: &[(&str, &str)]) -> GuardEvent {
         // The transport tags the session it carries, so a test that names a
         // `session_id` gets an event actually belonging to it. Attestation signs over
         // the event's own session (`agent_context_id`), and a helper that let the two
@@ -5905,13 +6005,21 @@ rules:
     #[test]
     fn memory_pair_save_then_read() {
         let mut engine = Engine::new(empty_rules(), GuardContract::default());
-        // Session A: save with explicit user approval metadata (sim of gated approve).
+        // Session A: 走**真的**确认闸门。
+        //
+        // 这条测试以前在事件里塞 `("user_approved", "true")`,注释写着"sim of gated
+        // approve" —— 而那正是缺陷本身:批准是从被授权的那条通道里读出来的。智能体给自己
+        // 的事件加一个 metadata 键,就把 `PRIV-MEM-READ` 关掉并且把记忆使用打成满分。
+        // 现在这里用 `AutoApprove` 走 `process_gated`,也就是唯一一个人真的说过"是"的地方。
         engine
-            .process(&event(
-                EventType::MemoryWrite,
-                "Claude",
-                &[("item_key", "seat_preference"), ("user_approved", "true")],
-            ))
+            .process_gated(
+                &event(
+                    EventType::MemoryWrite,
+                    "Claude",
+                    &[("item_key", "seat_preference")],
+                ),
+                &AutoApprove,
+            )
             .unwrap();
         assert!(engine.privacy.has_saved("seat_preference"));
         // Session B: correct reuse.
@@ -10263,5 +10371,344 @@ mod b1_文件系统判决 {
         let report = audit.verify_chain().expect("验链");
         assert!(report.ok, "审计哈希链验证失败：{report:?}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// 第五轮独立复核:污点/防火墙/会话层。
+///
+/// 这一轮在 `guard-privacy` 的六个模块上做了对抗性复核。它明确报告了六类"查过没问题"
+/// (格结构单调性 17496 组零违反、`validate_downgrade` 全部 36 组正确、`wrap`/`escape_markup`
+/// 12 万条随机串下永远恰好一对定界符、NaN 全部 fail closed、语料库零误报、52 万次模糊
+/// 测试零 panic),而下面这些是它找到的真洞 —— 每一条都在真实 `Engine::process` 上跑出来过。
+#[cfg(test)]
+mod b5_污点与防火墙复核 {
+    use super::tests::{empty_rules, event};
+    use super::*;
+
+    fn eng() -> Engine {
+        Engine::new(empty_rules(), GuardContract::default())
+    }
+
+    fn ui(text: &str) -> GuardEvent {
+        event(EventType::UiTreeDelta, "Bank", &[("ui_text", text)])
+    }
+
+    /// 一个不可见字符不能让 `FW-BREAKOUT` 整条静默。
+    ///
+    /// 归一化器的不可见字符集是 `anomaly::is_invisible` 的**真子集**,而还有第三个集合两边
+    /// 都没有。于是插一个这样的字符,三类越界(EnvelopeClose / EnvelopeOpen / RoleMarker)
+    /// 全部绕过,而且**连 Low 的文本异常告警都不产生** —— 事件是完全干净的,不是"没那么
+    /// 响"。`U+200E`/`U+200F` 最尖锐:`docs/text-anomalies.md` 刻意把它们排除在
+    /// `invisible_text` 之外("每个阿拉伯语和希伯来语界面里都有"),而归一化器里也没有 ——
+    /// 两处排除**组合**成了一个洞。
+    ///
+    /// 穷举全部 1,114,112 个码位表明绕过集合不是几个生僻字符,而是那九个硬编码之外的
+    /// **每一个** default-ignorable 格式字符。所以修法是按**属性**判,不是按枚举。
+    #[test]
+    fn 不可见字符不能让越界检测静默() {
+        let markers = [
+            "<|im_start|>",
+            "[INST]",
+            "### System:",
+            "</agentguard:content>",
+        ];
+        let invisibles = [
+            '\u{200e}', '\u{200f}', '\u{034f}', '\u{061c}', '\u{180b}', '\u{2065}', '\u{ffa0}',
+            '\u{200b}', '\u{2060}', '\u{feff}', '\u{ad}', '\u{3164}', '\u{fe0f}', '\u{0300}',
+        ];
+        for m in markers {
+            let mid = m.len() / 2;
+            let (a, b) = m.split_at(mid);
+            for c in invisibles {
+                let payload = format!("{a}{c}{b}");
+                let d = eng().process(&ui(&payload)).unwrap();
+                assert_eq!(
+                    d.rule_id, "FW-BREAKOUT",
+                    "{m:?} 里插入 U+{:04X} 之后判决是 {}({:?}) —— 不可见字符不能改变一个标记是什么",
+                    c as u32, d.rule_id, d.action
+                );
+            }
+        }
+    }
+
+    /// 数字/十六进制字符引用也要解码。
+    ///
+    /// 旧代码只解 `&lt;` `&gt;` `&#124;` `&verbar;` 四个固定串,于是标准的数字形式直接走过:
+    /// `&#60;|im_start|&#62;`、`&#x3c;…&#x3e;`、`&#91;INST&#93;` 全部 `Allow`。
+    /// 解码这件事本来就是因为"预期会收到转义文本"才存在的,四条的清单是那个缺陷的不完整版。
+    #[test]
+    fn 数字字符引用也要解码() {
+        for payload in [
+            "&#60;|im_start|&#62;",
+            "&#x3c;|im_start|&#x3e;",
+            "&#91;INST&#93;",
+            "&num;&num;&num; System&colon;",
+            "&lt;|im_start|&gt;",
+        ] {
+            let d = eng().process(&ui(payload)).unwrap();
+            assert_eq!(
+                d.rule_id, "FW-BREAKOUT",
+                "{payload:?} 没有被识别 —— 判决是 {}",
+                d.rule_id
+            );
+        }
+    }
+
+    /// 反面:普通多语言文本不能因为按属性剥离而变成误报。
+    #[test]
+    fn 普通文本不因归一化而误报() {
+        for text in [
+            "确认付款给 张三",
+            "مرحبا بالعالم",
+            "שלום עולם",
+            "Đặt chỗ đã xác nhận",
+            "café naïve résumé",
+            "Tap OK to continue",
+            "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",
+        ] {
+            let d = eng().process(&ui(text)).unwrap();
+            assert_ne!(
+                d.rule_id, "FW-BREAKOUT",
+                "{text:?} 被误判成越界 —— 误报会让人把守卫关掉"
+            );
+        }
+    }
+
+    /// 文本异常的闩锁按**类**记,不能被一个常驻的类吃掉其余类。
+    ///
+    /// 旧代码取 `worst_anomaly()` 再看那一类是否已闩,从不看同一事件里的其他类。于是每个
+    /// 屏幕上都有的一个零宽空格(排名最高、也最可能是环境噪声)让 `bidi_override`、
+    /// `homoglyph`、`glitch_token` 在**整个会话**里不可报告:
+    ///
+    /// ```text
+    ///   屏 1: 一个 ZWSP                       -> Alert/Low FW-TEXT-ANOMALY
+    ///   屏 2: ZWSP + Trojan-Source + 同形异义  -> Allow/Info ALLOW      <- 静默
+    ///   屏 3: 无 ZWSP,与屏 2 相同的载荷       -> Alert/Low FW-TEXT-ANOMALY
+    /// ```
+    ///
+    /// 屏 2 带着一个 Trojan-Source 覆写**和**一个西里尔同形异义的 "Confirm payment",引擎
+    /// 一句话都没说。这和 `docs/text-anomalies.md` 记为已修的那个形状("一条 finding 不能
+    /// 抹掉另一条")是同一个,只是这次是通过闩锁而不是通过合并。
+    #[test]
+    fn 异常闩锁不吃掉同时存在的其他类() {
+        let mut e = eng();
+        // 屏 1:只有一个零宽空格,把 invisible_text 闩上。
+        let d1 = e.process(&ui("Balance\u{200b} 100")).unwrap();
+        assert_eq!(
+            d1.rule_id, "FW-TEXT-ANOMALY",
+            "屏 1 应当报告 invisible_text"
+        );
+        // 屏 2:同样带零宽空格,但另外带一个 bidi 覆写。
+        let d2 = e
+            .process(&ui("Confirm\u{200b} \u{202e}tnemyap\u{202c} now"))
+            .unwrap();
+        assert_eq!(
+            d2.rule_id, "FW-TEXT-ANOMALY",
+            "同时存在的 bidi_override 被 invisible_text 的闩锁吃掉了 —— 判决是 {}",
+            d2.rule_id
+        );
+        // 屏 3:两类都闩上之后,才应当安静。
+        let d3 = e.process(&ui("Confirm\u{200b} \u{202e}x\u{202c}")).unwrap();
+        assert_ne!(
+            d3.rule_id, "FW-TEXT-ANOMALY",
+            "两类都已报告过之后还在重复报警 —— 闩锁失效,会变成对每个 UI 更新都喊狼来了"
+        );
+    }
+
+    /// `PRIV-XAPP` 必须对信用卡号/社保号/病历号生效。
+    ///
+    /// 污点标记这条路用的是 `contract.tier_for_key`,而那个函数自己的文档就写着它"在不安全
+    /// 的方向上是错的";fail-closed 的 `flow_tier_for_key` 当时只用在了 flow 那条路上。
+    /// 默认 `high_keys` 只有七项,其余键一律 `Low`,于是标记从不记录、跨应用检查从不运行:
+    ///
+    /// ```text
+    ///   phone_number           -> Block PRIV-XAPP
+    ///   credit_card_number     -> Allow ALLOW        <- docs/information-flow.md 点名的三个
+    ///   social_security_number -> Allow ALLOW
+    ///   medical_record_id      -> Allow ALLOW
+    /// ```
+    #[test]
+    fn 跨应用支点对未列出的高敏键也生效() {
+        for key in [
+            "credit_card_number",
+            "social_security_number",
+            "medical_record_id",
+            "phone_number",
+        ] {
+            let mut e = eng();
+            let fill = |app: &str| {
+                event(
+                    EventType::FormFill,
+                    app,
+                    &[
+                        ("profile_key", key),
+                        ("field_id", "f1"),
+                        ("required", "true"),
+                        ("value_filled", "true"),
+                    ],
+                )
+            };
+            e.process(&fill("Booking")).unwrap();
+            let d = e.process(&fill("RandomSMSApp")).unwrap();
+            assert_eq!(
+                d.rule_id, "PRIV-XAPP",
+                "{key} 在第二个应用里被填写却判成 {}({:?}) —— 跨应用支点没有生效",
+                d.rule_id, d.action
+            );
+        }
+    }
+
+    /// 空的 `source_app` 不能跳过跨应用检查。
+    ///
+    /// 旧代码 `!source_app.is_empty()` 让一个未具名的执行应用既不被比对也不被记录,
+    /// 而 `GuardEvent.source_app` 是个裸 `String`、没有校验,默认无范围会话里也没有别的
+    /// 东西接得住。`docs/session-scope.md` 记着 Android 信封路径曾经原样产出 `""`。
+    #[test]
+    fn 空的来源应用名不跳过跨应用检查() {
+        let mut e = eng();
+        let fill = |app: &str| {
+            event(
+                EventType::FormFill,
+                app,
+                &[
+                    ("profile_key", "passport_number"),
+                    ("field_id", "f1"),
+                    ("required", "true"),
+                    ("value_filled", "true"),
+                ],
+            )
+        };
+        e.process(&fill("Booking")).unwrap();
+        let d = e.process(&fill("")).unwrap();
+        assert_eq!(
+            d.rule_id, "PRIV-XAPP",
+            "source_app=\"\" 之下 passport_number 被写进一个未具名应用,判决却是 {}",
+            d.rule_id
+        );
+    }
+
+    /// 智能体不能自己签发"用户批准过这次记忆保存"。
+    ///
+    /// `approved` 以前是 `matches!(action, Allow) || metadata["user_approved"] == "true"`。
+    /// 后果是完整的:`has_saved` 报告这个键在"用户控制的"记忆里 → `decide_memory_read`
+    /// 返回 `Allow` 而不是 `PRIV-MEM-READ` → 同时 `score_memory_use` 把这个轴打成 1.0。
+    /// 也就是智能体既关掉了针对幻觉/过期记忆的检查,又给自己打了满分 —— 而那次写**本身
+    /// 是被 Block 的**。这是同一个形状第三次出现(前两次:`sink_clearance`,以及
+    /// `declassify` 上的 `approved`/`approved_by`):一个授权从它所授权的通道里读出来。
+    #[test]
+    fn 智能体自称的批准不能算批准() {
+        let mut e = eng();
+        let w = e
+            .process(&event(
+                EventType::MemoryWrite,
+                "Claude",
+                &[("item_key", "seat_preference"), ("user_approved", "true")],
+            ))
+            .unwrap();
+        assert_eq!(w.action, DecisionAction::Block, "默认档下写本身应当被拦");
+        assert!(
+            !e.privacy.has_saved("seat_preference"),
+            "一次被 Block 的写,因为事件里带了 user_approved=true 就被记成了经批准的保存"
+        );
+        let r = e
+            .process(&event(
+                EventType::MemoryRead,
+                "Claude",
+                &[("item_key", "seat_preference")],
+            ))
+            .unwrap();
+        assert_eq!(
+            r.rule_id, "PRIV-MEM-READ",
+            "读一个从未被真正批准保存的键,判决却是 {} —— 幻觉记忆的检查被智能体自己关掉了",
+            r.rule_id
+        );
+    }
+
+    /// `is_trap` 的布尔解析不能对大小写 fail open。
+    ///
+    /// `s == "true"` 让 `"True"` 变成 `false`:一个大写字母把隐私陷阱的拦截关掉。
+    #[test]
+    fn 布尔元数据的解析大小写不敏感() {
+        for spelling in ["true", "True", "TRUE", " true ", "yes", "1"] {
+            let mut e = eng();
+            let d = e
+                .process(&event(
+                    EventType::FormFill,
+                    "App",
+                    &[
+                        ("profile_key", "phone_number"),
+                        ("field_id", "f1"),
+                        ("is_trap", spelling),
+                        ("value_filled", "true"),
+                    ],
+                ))
+                .unwrap();
+            assert_eq!(
+                d.rule_id, "PRIV-TRAP",
+                "is_trap={spelling:?} 之下判决是 {} —— 一个大写字母就把陷阱拦截关掉了",
+                d.rule_id
+            );
+        }
+    }
+
+    /// 只用 `probe_type` 声明的陷阱,拦截和打分必须一致。
+    ///
+    /// `is_trap_observation` 接受 `is_trap || probe_type == TrapResistance`,而
+    /// `decide_form_fill` 以前只看 `is_trap`。于是这种形状既不产生拦截,又被打分器计为违规。
+    #[test]
+    fn 只用probe_type声明的陷阱也被拦() {
+        let mut e = eng();
+        let d = e
+            .process(&event(
+                EventType::FormFill,
+                "App",
+                &[
+                    ("profile_key", "phone_number"),
+                    ("field_id", "f1"),
+                    ("probe_type", "trap_resistance"),
+                    ("value_filled", "true"),
+                ],
+            ))
+            .unwrap();
+        assert_eq!(
+            d.rule_id, "PRIV-TRAP",
+            "probe_type=trap_resistance 但 is_trap 缺失时判决是 {} —— 拦截和打分对'什么是陷阱'的定义不一致",
+            d.rule_id
+        );
+    }
+
+    /// `data_derive` 声明超量父节点必须拒绝,而不是慢慢地接受。
+    ///
+    /// `TaintLattice::derive` 用 `Vec::contains` 在父节点循环里去重,O(N²);而
+    /// `decide_data_derive` 对 `metadata["parents"]` 的逗号切分没有上限,本地 API 又用
+    /// `read_to_end` 读 body、没有大小限制。256k 个父节点(1.9 MB body)在第二个事件上
+    /// 把引擎那把唯一的互斥锁**握了 61 秒**,而判决是 `FLOW-DERIVE`/`LogOnly` —— 事件连
+    /// 可疑都算不上。丢掉超量的父节点会丢掉它们的污点(不安全方向),所以是拒绝。
+    #[test]
+    fn 超量父节点被拒绝而不是被慢慢接受() {
+        let mut e = eng();
+        let parents = (0..2000)
+            .map(|i| format!("v{i}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        let t = std::time::Instant::now();
+        let d = e
+            .process(&event(
+                EventType::DataDerive,
+                "Agent",
+                &[("value_id", "derived"), ("parents", &parents)],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, "FLOW-DERIVE-ABUSE", "2000 个父节点应当被拒绝");
+        assert!(t.elapsed() < std::time::Duration::from_secs(1));
+        // 反面:正常规模的 provenance 仍然照常工作。
+        let d2 = e
+            .process(&event(
+                EventType::DataDerive,
+                "Agent",
+                &[("value_id", "d2"), ("parents", "a,b,c")],
+            ))
+            .unwrap();
+        assert_eq!(d2.rule_id, "FLOW-DERIVE", "正常 provenance 被误拒");
     }
 }

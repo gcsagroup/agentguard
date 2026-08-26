@@ -43,6 +43,76 @@ fn arg(name: &str) -> Option<String> {
         .cloned()
 }
 
+/// 启动时生成的确认令牌。128 位 OS 随机,十六进制。
+///
+/// 只打到 stderr。操作员看得到(Chrome/终端日志),浏览器里的页面看不到 —— 这正是
+/// `Origin` 检查之外还需要它的原因:页面能发出请求,但发不出这个头的正确值。
+fn new_confirm_token() -> String {
+    use rand::RngCore;
+    let mut b = [0u8; 16];
+    rand::rngs::OsRng.fill_bytes(&mut b);
+    b.iter().map(|x| format!("{x:02x}")).collect()
+}
+
+fn header_value<'a>(req: &'a tiny_http::Request, name: &'static str) -> Option<&'a str> {
+    req.headers()
+        .iter()
+        .find(|h| h.field.equiv(name))
+        .map(|h| h.value.as_str())
+}
+
+/// `None` = 放行;`Some(reason)` = 拒绝。
+///
+/// 常数时间比较不是这里的重点(令牌是 128 位随机、进程生命周期内有效、且每次失败都不
+/// 透露任何状态),但顺带做了,免得以后有人把它当成可以计时的东西。
+fn reject_confirm_request(req: &tiny_http::Request, token: &str) -> Option<&'static str> {
+    // 跨站标记:一个由页面发起的请求会带上其中之一。本地 UI 和 curl 不会。
+    if let Some(site) = header_value(req, "Sec-Fetch-Site") {
+        if site != "same-origin" && site != "none" {
+            return Some("cross-site request refused");
+        }
+    }
+    if header_value(req, "Origin").is_some() {
+        return Some("requests carrying Origin are refused");
+    }
+    let Some(auth) = header_value(req, "Authorization") else {
+        return Some("missing Authorization: Bearer <token>");
+    };
+    let Some(got) = auth.strip_prefix("Bearer ") else {
+        return Some("Authorization must be a Bearer token");
+    };
+    let (got, want) = (got.trim().as_bytes(), token.as_bytes());
+    let equal =
+        got.len() == want.len() && got.iter().zip(want).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0;
+    if !equal {
+        return Some("bad confirm token");
+    }
+    None
+}
+
+/// 从 `{"id":"confirm-3"}` 里取出 id。取不到就是取不到 —— 不回落到"当前那个"。
+fn confirm_id_from_body(body: &str) -> Option<String> {
+    serde_json::from_str::<serde_json::Value>(body)
+        .ok()?
+        .get("id")?
+        .as_str()
+        .map(str::to_string)
+}
+
+fn json_str(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into())
+}
+
+fn respond_json(req: tiny_http::Request, status: u16, body: &str) {
+    let header = tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..])
+        .expect("静态 header");
+    let _ = req.respond(
+        tiny_http::Response::from_string(body)
+            .with_status_code(status)
+            .with_header(header),
+    );
+}
+
 fn main() -> anyhow::Result<()> {
     let rules = arg("--rules").unwrap_or_else(|| "crates/guard-schema/rules/p0_rules.yaml".into());
     let shell_policy =
@@ -100,7 +170,20 @@ fn main() -> anyhow::Result<()> {
     let pending = PendingConfirm::new();
     let mut server = Server::new(Gate::new(shell, engine), pending.clone(), confirm_timeout);
 
-    // 确认用的环回接口。只绑 127.0.0.1 —— 一个能远程批准动作的端口，就是把闸门送给网络。
+    // 确认用的环回接口。
+    //
+    // 只绑 127.0.0.1 挡的是**网络**,挡不住**浏览器里的页面** —— 而页面正是本产品的威胁
+    // 模型主体。旧版本只匹配 method + url:一个隐藏的自动提交 HTML form 就能发出逐字节
+    // 合法的 `POST /approve`(简单请求,不触发预检),复核实测批准掉了一次 delete_file,
+    // 文件真的被删了;`GET /pending` 也无凭据可读,泄漏待确认命令的全文和判据。
+    //
+    // 三道门,一起加:
+    //   1. 启动时生成的 bearer 令牌,只打到 stderr(操作员看得到,页面看不到);
+    //   2. 拒绝任何带跨站标记的请求(`Origin` / `Sec-Fetch-Site: cross-site`);
+    //   3. 批准必须带上 `/pending` 给出的 `id`(见 `PendingConfirm::answer_id`)。
+    // 令牌是主防线;2 和 3 是纵深 —— 就算令牌泄漏,跨站请求仍然被拒,而拿不到当前 id 的
+    // 批准也落不到任何请求上。
+    let confirm_token = new_confirm_token();
     let addr = format!("127.0.0.1:{confirm_port}");
     match tiny_http::Server::http(&addr) {
         Err(e) => {
@@ -108,34 +191,54 @@ fn main() -> anyhow::Result<()> {
         }
         Ok(http) => {
             eprintln!("  确认接口 http://{addr}  (GET /pending, POST /approve, POST /deny)");
+            eprintln!("  确认令牌 {confirm_token}");
+            eprintln!("    每个请求都要带 Authorization: Bearer <令牌>；");
+            eprintln!(
+                "    批准/拒绝的 body 要带 /pending 给出的 id，例如 {{\"id\":\"confirm-1\"}}"
+            );
             let p = pending.clone();
+            let token = confirm_token.clone();
             std::thread::spawn(move || {
-                for req in http.incoming_requests() {
+                for mut req in http.incoming_requests() {
+                    // 先鉴权,再看路由。任何一条没通过的,连"现在有没有待确认"都不透露。
+                    if let Some(why) = reject_confirm_request(&req, &token) {
+                        respond_json(req, 403, &format!("{{\"error\":{}}}", json_str(why)));
+                        continue;
+                    }
+                    let mut body = String::new();
+                    if req.method().as_str() == "POST" {
+                        use std::io::Read;
+                        let _ = req.as_reader().take(4096).read_to_string(&mut body);
+                    }
                     let (status, body) = match (req.method().as_str(), req.url()) {
                         ("GET", "/pending") => match p.peek() {
                             Some(c) => (200, serde_json::to_string(&c).unwrap_or_default()),
                             None => (200, "null".to_string()),
                         },
-                        ("POST", "/approve") => {
-                            let ok = p.answer(guard_gateway::Answer::Approved);
-                            (if ok { 200 } else { 409 }, format!("{{\"answered\":{ok}}}"))
-                        }
-                        ("POST", "/deny") => {
-                            let ok = p.answer(guard_gateway::Answer::Denied);
-                            (if ok { 200 } else { 409 }, format!("{{\"answered\":{ok}}}"))
+                        ("POST", "/approve") | ("POST", "/deny") => {
+                            let ans = if req.url() == "/approve" {
+                                guard_gateway::Answer::Approved
+                            } else {
+                                guard_gateway::Answer::Denied
+                            };
+                            match confirm_id_from_body(&body) {
+                                None => (
+                                    400,
+                                    "{\"error\":\"body must be {\\\"id\\\":\\\"<confirm id from /pending>\\\"}\"}"
+                                        .to_string(),
+                                ),
+                                Some(id) => {
+                                    let ok = p.answer_id(&id, ans);
+                                    (
+                                        if ok { 200 } else { 409 },
+                                        format!("{{\"answered\":{ok}}}"),
+                                    )
+                                }
+                            }
                         }
                         _ => (404, "{\"error\":\"not found\"}".to_string()),
                     };
-                    let header = tiny_http::Header::from_bytes(
-                        &b"Content-Type"[..],
-                        &b"application/json"[..],
-                    )
-                    .expect("静态 header");
-                    let _ = req.respond(
-                        tiny_http::Response::from_string(body)
-                            .with_status_code(status)
-                            .with_header(header),
-                    );
+                    respond_json(req, status, &body);
                 }
             });
         }

@@ -229,11 +229,7 @@ const ROLE_MARKERS: &[&str] = &[
 ///
 /// Linear, one pass, no allocation per candidate.
 fn normalise_for_markers(content: &str) -> String {
-    let decoded = content
-        .replace("&lt;", "<")
-        .replace("&gt;", ">")
-        .replace("&#124;", "|")
-        .replace("&verbar;", "|");
+    let decoded = decode_char_refs(content);
     let mut out = String::with_capacity(decoded.len());
     for c in decoded.chars() {
         let c = match c {
@@ -246,19 +242,140 @@ fn normalise_for_markers(content: &str) -> String {
             '：' => ':',
             other => other,
         };
-        // Whitespace and the zero-width / formatting characters an attacker can sprinkle
-        // through a marker without changing how a model tokenises it.
-        if c.is_whitespace()
-            || matches!(
-                c,
-                '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{2060}' | '\u{feff}' | '\u{ad}'
-                    | '\u{202a}'..='\u{202e}'
-                    | '\u{2066}'..='\u{2069}'
-            )
-        {
+        // Strip by **property**, not by enumeration.
+        //
+        // The old version listed nine codepoints, and that list was a strict subset of the
+        // anomaly module's own `is_invisible` — with a third set in neither. So one invisible
+        // character defeated all three breakout classes *and* produced no anomaly finding
+        // either: the event came out completely clean, not merely less alarming.
+        //
+        // ```text
+        //   plain <|im_start|>       -> Alert/High FW-BREAKOUT   anomalies=["-"]
+        //   U+200B inside the marker -> Alert/High FW-BREAKOUT   anomalies=["invisible_text"]
+        //   U+200E inside the marker -> Allow/Info ALLOW         anomalies=[]   <- silent
+        //   U+034F inside the marker -> Allow/Info ALLOW         anomalies=[]   <- silent
+        //   U+061C inside the marker -> Allow/Info ALLOW         anomalies=[]   <- silent
+        //   [IN<U+200E>ST]           -> Allow/Info ALLOW
+        //   ### Sys<U+034F>tem:      -> Allow/Info ALLOW
+        // ```
+        //
+        // `U+200E`/`U+200F` were the sharpest: `docs/text-anomalies.md` **deliberately**
+        // excludes them from `invisible_text` ("they appear in every Arabic and Hebrew
+        // interface") and they were absent from this list — the two exclusions composed into
+        // a hole. A brute force over all 1,114,112 codepoints showed the bypass set is not a
+        // handful of exotics: it is every default-ignorable format character outside the nine
+        // that were hardcoded.
+        //
+        // Combining marks are stripped for the same reason (`U+034F` COMBINING GRAPHEME
+        // JOINER carries no width), and `Cf` covers the format class as a category rather
+        // than as a list that can drift again.
+        if c.is_whitespace() || is_ignorable_for_markers(c) {
             continue;
         }
         out.extend(c.to_lowercase());
+    }
+    out
+}
+
+/// Characters that carry no glyph and so cannot change what a marker *is*.
+///
+/// Category-based on purpose. Enumerating codepoints is what let `U+200E` through: any list
+/// is a snapshot, and Unicode keeps adding default-ignorables.
+fn is_ignorable_for_markers(c: char) -> bool {
+    matches!(c,
+        // Cf — format characters. The whole class, not a sample of it.
+        '\u{00ad}'
+        | '\u{0600}'..='\u{0605}' | '\u{061c}' | '\u{06dd}' | '\u{070f}'
+        | '\u{08e2}' | '\u{180e}' | '\u{200b}'..='\u{200f}'
+        | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{2064}'
+        | '\u{2065}'..='\u{206f}'
+        | '\u{feff}' | '\u{fff9}'..='\u{fffb}'
+        | '\u{110bd}' | '\u{110cd}'
+        | '\u{13430}'..='\u{1343f}'
+        | '\u{1bca0}'..='\u{1bca3}'
+        | '\u{1d173}'..='\u{1d17a}'
+        | '\u{e0000}'..='\u{e007f}'
+        // Default-ignorable fillers and variation selectors.
+        | '\u{115f}'..='\u{1160}' | '\u{3164}' | '\u{ffa0}'
+        | '\u{fe00}'..='\u{fe0f}' | '\u{e0100}'..='\u{e01ef}'
+        | '\u{180b}'..='\u{180d}'
+        // Combining marks that add no width of their own.
+        | '\u{0300}'..='\u{036f}' // 含 U+034F COMBINING GRAPHEME JOINER
+        | '\u{1ab0}'..='\u{1aff}' | '\u{1dc0}'..='\u{1dff}'
+        | '\u{20d0}'..='\u{20f0}' | '\u{fe20}'..='\u{fe2f}'
+    )
+}
+
+/// Decode numeric and named character references generically.
+///
+/// The old code decoded exactly four fixed strings — `&lt;` `&gt;` `&#124;` `&verbar;` —
+/// so the standard numeric forms walked straight through:
+///
+/// ```text
+///   &#60;|im_start|&#62;    -> Allow/Info ALLOW
+///   &#x3c;|im_start|&#x3e; -> Allow/Info ALLOW
+///   &#91;INST&#93;          -> Allow/Info ALLOW
+/// ```
+///
+/// Decoding exists here precisely because escaped text is expected to arrive; a four-entry
+/// list is an incomplete version of the thing whose absence was the bug.
+fn decode_char_refs(s: &str) -> String {
+    const NAMED: &[(&str, char)] = &[
+        ("lt", '<'),
+        ("gt", '>'),
+        ("verbar", '|'),
+        ("vert", '|'),
+        ("num", '#'),
+        ("colon", ':'),
+        ("lbrack", '['),
+        ("rbrack", ']'),
+        ("sol", '/'),
+        ("amp", '&'),
+    ];
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        if bytes[i] != b'&' {
+            // Multi-byte characters: copy the whole char, not the byte.
+            let ch = s[i..].chars().next().unwrap_or('&');
+            out.push(ch);
+            i += ch.len_utf8();
+            continue;
+        }
+        // `&...;` with a bounded body — a reference is never long.
+        let end = s[i..]
+            .char_indices()
+            .take(12)
+            .find(|(_, c)| *c == ';')
+            .map(|(o, _)| i + o);
+        let Some(end) = end else {
+            out.push('&');
+            i += 1;
+            continue;
+        };
+        let body = &s[i + 1..end];
+        let decoded = if let Some(hex) = body.strip_prefix("#x").or_else(|| body.strip_prefix("#X"))
+        {
+            u32::from_str_radix(hex, 16).ok().and_then(char::from_u32)
+        } else if let Some(dec) = body.strip_prefix('#') {
+            dec.parse::<u32>().ok().and_then(char::from_u32)
+        } else {
+            NAMED
+                .iter()
+                .find(|(n, _)| n.eq_ignore_ascii_case(body))
+                .map(|(_, c)| *c)
+        };
+        match decoded {
+            Some(c) => {
+                out.push(c);
+                i = end + 1;
+            }
+            None => {
+                out.push('&');
+                i += 1;
+            }
+        }
     }
     out
 }

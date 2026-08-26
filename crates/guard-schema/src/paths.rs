@@ -95,6 +95,8 @@ impl PathIntent {
 pub struct Workspace {
     read: Vec<PathBuf>,
     write: Vec<PathBuf>,
+    /// `paths:` 这一节出现过吗。**不是**从列表是否为空反推 —— 见 `is_declared`。
+    declared: bool,
 }
 
 impl Workspace {
@@ -138,13 +140,33 @@ impl Workspace {
         };
         let read = norm(read);
         let write = norm(write);
-        (Self { read, write }, rejected)
+        (
+            Self {
+                read,
+                write,
+                declared: true,
+            },
+            rejected,
+        )
+    }
+
+    /// 明确表示"这次会话没有声明 paths 天花板"。
+    ///
+    /// 这是 `Default` 的语义,写成一个有名字的构造器,免得下一个人再从"列表空不空"里
+    /// 猜它。
+    pub fn undeclared() -> Self {
+        Self::default()
     }
 
     /// 有没有声明过任何东西。没声明和"声明为空"是两回事：没声明意味着证明不了，
     /// 声明为空意味着明确不给。
+    ///
+    /// 这条注释以前是对的而代码是错的:实现从"两个列表都空"反推出"没声明",于是
+    /// `paths: {read: [], write: []}`(仓库自己的 `task-plans.yaml` 里 `navigation_jump`
+    /// 就是这个形状)被当成没声明,写得到 `Ask SHELL-PATH-UNSCOPED` 而不是 `Deny`。
+    /// 现在记的是"`paths:` 这一节出现过吗",而不是列表是否为空。
     pub fn is_declared(&self) -> bool {
-        !self.read.is_empty() || !self.write.is_empty()
+        self.declared
     }
 
     pub fn read_grants(&self) -> &[PathBuf] {
@@ -219,6 +241,19 @@ pub fn resolve_with_aliases(
     aliases: VolumeAliases,
 ) -> Result<PathBuf, String> {
     let raw = operand.trim();
+    // 长度上限,放在任何逐分量的工作**之前**。
+    //
+    // `MAX_COMPONENTS` 那道闸虽然砍掉了 O(n²),但 `components().count()`、通配符扫描、
+    // `PathBuf` 构造本身仍然要把 1 MB 走几遍,实测还剩 2.16 秒 —— 对一个单线程的判决
+    // 循环来说仍然是可用的拒绝服务。而主流系统的 `PATH_MAX` 是 4096 字节,所以超过这个
+    // 量级本身就是"这不是一条路径"的证据,不需要再往下算。
+    const MAX_OPERAND_BYTES: usize = 8192;
+    if raw.len() > MAX_OPERAND_BYTES {
+        return Err(format!(
+            "操作数长度 {} 字节超过上限 {MAX_OPERAND_BYTES}；无法判定,不放行",
+            raw.len()
+        ));
+    }
     if raw.is_empty() {
         // 空操作数不是无害的。`find "" -delete` 会变成 `find -delete`，从当前目录开始递归删。
         // 这正是 scope-and-non-goals 表里第四行那个 `$id` 为空的场景。
@@ -231,6 +266,28 @@ pub fn resolve_with_aliases(
     }
     if raw.contains('\0') {
         return Err("操作数含 NUL 字节".into());
+    }
+    // 一个操作数携带了整条命令,不是路径 —— 而把它当路径归约出来的"包含性证明"是虚构的。
+    //
+    // 这是本模块最严重的一个绕过。`looks_like_path` 把任何含 `/` 的字符串当路径,`resolve`
+    // 再把它当相对路径拼到 cwd 上,于是 `sh -c "rm -rf /"` 里那条命令被归约成
+    // `<cwd>/rm -rf`,判成"在写授权内",判决从 `Deny` 降成 `Ask`,再被网关的天花板预授权
+    // 升级成**直接执行、不问人**。复核实测:
+    //
+    // ```text
+    // ① 直写 rm -rf <天花板外的目录>          -> Refuse(拒绝)
+    // ② sh -c "rm -rf <同一个目录>"           -> Execute(执行),文件真的被删,一次都没问人
+    //    审计记下来的路径是 "<cwd>/rm -rf <目录>" —— 一个不存在、也永远不会被碰的路径
+    // ```
+    //
+    // 而且不是 `sh` 特有的,所以给 argv[0] 加黑名单修不了:
+    // `python3 -c "open('<天花板外>','w').write('PWNED')"` 走同一条路,同样落盘。
+    //
+    // 元字符筛子放过这些 payload 是**正确**的 —— `rm -rf /` 里没有 `;|&$`。问题全在于
+    // 路径层把它当成了一条路径。所以判据放在这里:一个真实的单路径操作数不会同时含有
+    // 空白**和**多个路径分量,也不会含有 shell/解释器语法字符。
+    if let Some(why) = not_a_single_path(raw) {
+        return Err(why);
     }
 
     // 一、展开 `~`
@@ -416,13 +473,74 @@ fn dealias_with(path: &Path, mode: VolumeAliases) -> PathBuf {
 fn canonicalize_existing_prefix(absolute: &Path) -> (PathBuf, PathBuf) {
     let mut prefix = absolute.to_path_buf();
     let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    // 分量数上限。
+    //
+    // 这个循环每轮弹掉一个分量、再对一条 O(n) 长的路径重做一次 `canonicalize`,总代价
+    // O(n²) —— 而 MCP 的 argv 元素长度无上限,主循环又是 `for line in stdin.lock().lines()`
+    // 单线程。实测(debug 与 release 一致,瓶颈是 syscall 和路径拷贝):
+    //
+    // ```text
+    //  256000 字节 / 128000 分量 ->  1.645s
+    //  512000 字节 / 256000 分量 ->  6.448s
+    // 1024000 字节 / 512000 分量 -> 26.370s
+    // ```
+    //
+    // 干净的四倍增长,4 MB 操作数约 7 分钟,一次调用把所有工具调用一起卡住。真实路径不会
+    // 有几千个分量(多数系统的 PATH_MAX 是 4096 字节),所以超限本身就是"这不是一条路径"。
+    const MAX_COMPONENTS: usize = 512;
+    if absolute.components().count() > MAX_COMPONENTS {
+        return (root_of(absolute), strip_root(absolute));
+    }
     loop {
         if let Ok(c) = std::fs::canonicalize(&prefix) {
             let mut remainder = PathBuf::new();
             for part in tail.iter().rev() {
                 remainder.push(part);
             }
-            return (c, remainder);
+            // 悬空符号链接:最后一段不存在时,它的**父目录链**里可能有一个链接指向天花板
+            // 外,而 `canonicalize` 对整条路径失败,于是退回词法处理、判在天花板内 —— 可
+            // 写它会顺着链接把天花板外那个文件**创建出来**。实测:
+            //
+            // ```text
+            // ws/link_existing -> outside/existing.txt   resolve 解开了 -> Refuse  ✓
+            // ws/link_dangling -> outside/planted.txt     resolve 没解开 -> Execute ✗
+            //     写入 5 字节到 ws/link_dangling,而 outside/planted.txt 出现了
+            // ```
+            //
+            // 也就是说符号链接不是"没处理",是**只处理了一半**,而漏掉的那一半正好是可种
+            // 植的那一半 —— 悬空链接正是攻击者(或上一步合法的智能体动作)会留下的东西。
+            //
+            // 这里对 remainder 的每一段逐级检查:遇到符号链接就解开它,然后从解开的结果
+            // 继续。`symlink_metadata` 不跟随,所以看得到链接本身。
+            let mut base = c;
+            let mut parts = remainder.components();
+            let mut leftover = PathBuf::new();
+            for part in parts.by_ref() {
+                let cand = base.join(part.as_os_str());
+                match std::fs::symlink_metadata(&cand) {
+                    Ok(m) if m.file_type().is_symlink() => {
+                        // 这一段是链接。解开它,把它的目标当作新的 base。
+                        match std::fs::read_link(&cand) {
+                            Ok(t) => {
+                                let target = if t.is_absolute() { t } else { base.join(t) };
+                                base = lexical_normalise(&target);
+                            }
+                            Err(_) => {
+                                leftover.push(part.as_os_str());
+                                break;
+                            }
+                        }
+                    }
+                    _ => {
+                        leftover.push(part.as_os_str());
+                        break;
+                    }
+                }
+            }
+            for part in parts {
+                leftover.push(part.as_os_str());
+            }
+            return (base, leftover);
         }
         match prefix.file_name() {
             Some(name) => {
@@ -437,6 +555,24 @@ fn canonicalize_existing_prefix(absolute: &Path) -> (PathBuf, PathBuf) {
     }
     // 一路都不存在（测试里的假路径，或者盘没挂）。退回纯词法处理，并保持绝对性。
     (root_of(absolute), strip_root(absolute))
+}
+
+/// 纯词法归约 `.` 和 `..`,不碰文件系统。
+///
+/// 给 `canonicalize_existing_prefix` 解开符号链接目标用:目标里可能有 `..`,而它此刻还
+/// 不存在,`canonicalize` 用不上。
+fn lexical_normalise(p: &Path) -> PathBuf {
+    let mut out = root_of(p);
+    for comp in p.components() {
+        match comp {
+            Component::CurDir | Component::RootDir | Component::Prefix(_) => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::Normal(c) => out.push(c),
+        }
+    }
+    out
 }
 
 fn root_of(p: &Path) -> PathBuf {
@@ -697,6 +833,42 @@ const SYSTEM_DIRS: &[&str] = &[
 ];
 
 /// 连读都算敏感的凭据位置。
+/// 未归约的操作数,按**字面**形状判凭据目录。
+///
+/// 存在的理由:`sensitive_target` 需要一个已归约的 `Path`,而归约会因为通配符或 `~user`
+/// 而失败 —— 于是"归约失败 + Read 意图"在 `check_paths` 里三步全跳过、直接放行。而让归约
+/// 失败恰恰是最省事的绕过:`~/.ssh/*`、`~root/.ssh/id_rsa`、`/home/*/.ssh/id_rsa` 全部
+/// 曾经是干净的 `Allow`,而这三个构造在真实 shell 里确实读得到私钥。
+///
+/// 判据只看组件序列,和 `sensitive_target` 用的是同一张表和同一种窗口匹配 —— 把 `~`、
+/// `~user`、通配符分量都当作"某个目录",因为它们**展开成什么**不影响"路径里有没有
+/// `.ssh` 这一段"这个事实。
+pub fn sensitive_literal(operand: &str, intent: PathIntent) -> Option<String> {
+    let _ = intent; // 读和写一样:凭据目录是无条件敏感的。
+    let s = operand.trim();
+    if s.is_empty() {
+        return None;
+    }
+    let components: Vec<String> = s
+        .split(['/', '\\'])
+        .filter(|c| !c.is_empty() && *c != "." && *c != "..")
+        .map(|c| c.to_lowercase())
+        .collect();
+    for entry in CREDENTIAL_DIRS {
+        let want: Vec<String> = entry
+            .trim_start_matches('/')
+            .split('/')
+            .map(|x| x.to_lowercase())
+            .collect();
+        if components.windows(want.len()).any(|w| w == want.as_slice()) {
+            return Some(format!(
+                "{s:?} 的字面形状落在凭据目录 {entry} 内（归约不出来也不放行）"
+            ));
+        }
+    }
+    None
+}
+
 const CREDENTIAL_DIRS: &[&str] = &[
     "/.ssh",
     "/.aws",
@@ -823,9 +995,41 @@ pub fn looks_like_path(operand: &str) -> bool {
         // 空串要交给 resolve 去报"退化成当前目录"，所以算路径。
         return true;
     }
+    // 带 scheme 的 URL 不是文件系统路径。
+    //
+    // 以前它们**是**被当成路径的(因为含 `/`),归约必然失败(`?` 是通配符),而"归约失败
+    // 的读"当时是静默放行的,所以没人看见。把"归约不出来的读"改成明确的 `Ask` 之后,
+    // `https://ok.example/search?a=1&b=2` 立刻变成一次误报 —— 于是暴露出这个更根本的
+    // 分类错误:这一层对 URL 无话可说,而假装它能说,正是 C1 那种虚构包含性证明的来源。
+    //
+    // URL 的判定归元字符筛子和 `url_arg_tools` 管;路径模型对它保持沉默,而且是**有据可查
+    // 的**沉默(压根不产生 claim),不是"产生了 claim 然后三步都跳过"。
+    if let Some(i) = s.find("://") {
+        let scheme = &s[..i];
+        if !scheme.is_empty()
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+        {
+            return false;
+        }
+    }
     // 纯标志不是路径。`-delete`、`--recursive`、`/s`（Windows 风格标志）。
+    //
+    // 但 `--flag=PATH` **是**一个路径操作数,以前它整个被这一行吞掉了:
+    // `cp --target-directory=/etc/cron.d SRC` 的写目标从判决里整个消失,只剩来源被判,
+    // 而来源在天花板内,于是天花板"证明"通过、免确认、执行。复核实测:
+    //
+    // ```text
+    // cp SRC /etc/cron.d/evil               -> Deny [SHELL-PATH-SENSITIVE]
+    // cp --target-directory=/etc/cron.d SRC -> Ask  [SHELL-CONFIRM]   然后被天花板免掉
+    // ```
+    //
+    // 顺带还错了一处审计:只剩一个可见路径操作数时,`assign_intents` 的"最后一个是目标"
+    // 分支不成立,于是整条命令的 Write 意图落在**来源**上 —— 审计会说"写了 ws/evil.conf",
+    // 而真正被写的 `/etc/cron.d/evil.conf` 在任何地方都没出现过。
     if s.starts_with('-') {
-        return false;
+        return flag_value(s).is_some_and(looks_like_path);
     }
     if s.starts_with('~') || s.starts_with('/') || s.starts_with('\\') {
         return true;
@@ -845,6 +1049,61 @@ pub fn looks_like_path(operand: &str) -> bool {
         }
     }
     false
+}
+
+/// `--flag=VALUE` / `-o=VALUE` 里的 VALUE。不是这个形状就返回 `None`。
+///
+/// 只取 `=` 之后的部分。`-o VALUE` 那种分开写的形式不需要这里处理 —— VALUE 本来就是
+/// 一个独立操作数,会被单独看到。
+pub fn flag_value(operand: &str) -> Option<&str> {
+    let s = operand.trim();
+    if !s.starts_with('-') {
+        return None;
+    }
+    let (_, v) = s.split_once('=')?;
+    (!v.is_empty()).then_some(v)
+}
+
+/// 这个操作数不可能是**一条**路径吗?`Some(理由)` = 不可能。
+///
+/// 只在 `resolve` 里用,而且只用来拒绝 —— 不是用来放行。判据故意保守:文件名里带空格是
+/// 正常的(`My Documents/report final.pdf`),所以"带空格"本身不构成拒绝;拒绝的是
+/// "带空格**并且**看起来含有第二个路径分量",以及解释器语法里那几个在真实文件名中极
+/// 罕见、而在代码里必然出现的字符。
+pub fn not_a_single_path(raw: &str) -> Option<String> {
+    // 解释器语法。`(` `)` 出现在 `open(...)`、`$(...)`、函数调用里;引号出现在任何
+    // 内联脚本里。这些在文件名里合法但极少,而它们出现时几乎总意味着"这不是路径"。
+    for c in ['(', ')', '\'', '"', '\n', '\r', '\t', ';', '|', '`', '&'] {
+        if raw.contains(c) {
+            return Some(format!(
+                "操作数含 {c:?},这不是一条路径而是一段命令;无法据此证明包含关系"
+            ));
+        }
+    }
+    // 空白之后出现第二个**绝对**路径,或者任何一个标志 —— 那是一条命令,不是一条路径。
+    //
+    // 判据要挑得很小心。文件名里带空格是完全正常的(`My Documents/report final.pdf`),
+    // 所以"含空白"本身不能构成拒绝,"含两个带斜杠的词"也不能 ——
+    // `/tmp/ws/My Documents/x.pdf` 就是两个带斜杠的词。
+    //
+    // 真正的区别是:在**一条**路径里,只有开头那一段可以是绝对的。第二个词又以 `/` 或
+    // `~` 开头,只能意味着这里有第二个路径,也就是有一个动词在前面。标志同理:一条路径
+    // 里不会有独立的 `-rf` 这种词。
+    let mut words = raw.split_whitespace();
+    let _first = words.next();
+    for w in words {
+        if w.starts_with('/') || w.starts_with('~') {
+            return Some(format!(
+                "操作数 {raw:?} 在空白之后又出现一个绝对路径 {w:?},这是一条命令而不是一条路径"
+            ));
+        }
+        if w.starts_with('-') && w.len() > 1 {
+            return Some(format!(
+                "操作数 {raw:?} 含独立的标志 {w:?},这是一条命令而不是一条路径"
+            ));
+        }
+    }
+    None
 }
 
 /// 最后一个路径操作数是目标、前面的是来源的命令。
@@ -876,6 +1135,26 @@ pub fn last_operand_is_destination(verb: &str, args: &[String]) -> bool {
 /// 对于 `cp`/`mv`/`ln` 这一类形状明确的命令，最后一个路径是目标（写），前面的是来源（读）。
 /// 其余命令（`rm`、`find -delete`、`write_file`）所有路径操作数同意图，因为它们本来就只有一种。
 pub fn assign_intents(verb: &str, args: &[String], path_operand_count: usize) -> Vec<PathIntent> {
+    // 意图推断只在找动词和标志,而动词和标志都很短。超长的 haystack 条目直接跳过。
+    //
+    // 这一条是我自己在这一轮里引进的:把 `target` 加进 haystack(为了让 `sudo rm` 的
+    // `rm` 可见)以后,一个 1 MB 的操作数就要被所有关键词各扫一遍 —— `path_claims` 从
+    // 微秒变成 1.77 秒。而这个形状**原本**也能通过 `args` 达到,只是没人测过。
+    //
+    // 上限取 4096(主流系统的 PATH_MAX):比它长的东西不可能是动词,也不可能是标志,
+    // 而作为路径它也已经在 `resolve` 那道 8192 字节的闸门之外了。
+    const MAX_HAYSTACK_ENTRY: usize = 4096;
+    let filtered: Vec<String> = args
+        .iter()
+        .filter(|a| a.len() <= MAX_HAYSTACK_ENTRY)
+        .cloned()
+        .collect();
+    let args = &filtered[..];
+    let verb = if verb.len() <= MAX_HAYSTACK_ENTRY {
+        verb
+    } else {
+        ""
+    };
     let overall = infer_intent(verb, args);
     if path_operand_count == 0 {
         return Vec::new();

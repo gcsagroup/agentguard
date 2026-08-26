@@ -145,6 +145,15 @@ impl Default for GuardContract {
                 "payment_info".into(),
                 "date_of_birth".into(),
                 "passport_number".into(),
+                // 这三个是 `docs/information-flow.md` 点名的那三个,而它们一直不在这张表里。
+                //
+                // 后果比"少一条告警"更具体:`decide_high_access` 和跨应用支点检查都按这张表
+                // 判 tier,于是在 `Booking` 里填一张信用卡号、再在 `RandomSMSApp` 里填同一个
+                // 键,判决是 `Allow` —— 没有告警,审计里没有 finding。`payment_info` 在表里
+                // 而 `credit_card_number` 不在,只是命名的偶然。
+                "credit_card_number".into(),
+                "social_security_number".into(),
+                "medical_record_id".into(),
             ],
             on_high_access: EnforcementMode::RequireConfirm,
             on_optional_pii_fill: EnforcementMode::Alert,

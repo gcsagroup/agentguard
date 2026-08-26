@@ -13,3 +13,6 @@ serde = { workspace = true }
 serde_yaml = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+
+[features]
+test-helpers = []

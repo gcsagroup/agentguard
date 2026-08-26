@@ -241,7 +241,19 @@ impl Gate {
             message: decision.human_message.clone(),
         });
 
-        // require_confirm 优先于 action：一个带 require_confirm 的 Alert 也必须挂住。
+        // Block 优先于 require_confirm；require_confirm 再优先于其余 action。
+        //
+        // 顺序反过来是一次真实的降级。p0_rules 里的 CRIT-001..005 全部是
+        // `action: block` + `require_confirm: true`,而旧代码在 `match decision.action`
+        // **之前**就为 require_confirm 早退,于是每一条 Critical 的 block 规则都变成了
+        // "可批准" —— 复核用 CRIT-003 实测:它挂成 pending 而不是 refused,再用一个跨站
+        // POST 批准掉,副作用真的发生了。
+        //
+        // `block` 的意思就是 block。要人确认的是那些"可能可以"的动作,不是那些已经判定
+        // 不可以的动作 —— 把不可以的东西拿去问人,只会把判决权交还给最想要它的那一方。
+        if matches!(decision.action, DecisionAction::Block) {
+            return Outcome::Refuse { findings };
+        }
         if decision.require_confirm {
             return Outcome::NeedsConfirmation { findings };
         }
@@ -389,5 +401,80 @@ pub fn worst_severity(findings: &[Finding]) -> Severity {
         2 => Severity::Medium,
         1 => Severity::Low,
         _ => Severity::Info,
+    }
+}
+
+#[cfg(test)]
+mod judge_tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn gate() -> Gate {
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let engine = Engine::from_paths(&rules, None::<PathBuf>).expect("规则文件");
+        // 宽松的 shell 策略:这几条测试要考的是**引擎判决怎么被翻译成 Outcome**,
+        // 不是 shell 那道门。让 shell 层放行,才能看到引擎侧的那一步。
+        Gate::new(SafeShell::permissive_for_tests(), engine)
+    }
+
+    /// `action: block` 必须是 `Refuse`,即使同一条规则还写了 `require_confirm: true`。
+    ///
+    /// 旧代码在 `match decision.action` **之前**就为 `require_confirm` 早退,而 p0_rules 里
+    /// 的 CRIT-001..005 **全部**是 `block` + `require_confirm`。于是每一条 Critical 的
+    /// block 规则都变成了"可批准":复核让 CRIT-003 挂成 pending,再用一个跨站
+    /// `POST /approve` 批准掉,副作用真的发生了。
+    ///
+    /// block 的意思就是 block。把已经判定不可以的动作拿去问人,只是把判决权交还给最想要
+    /// 它的那一方 —— 而确认接口当时对任何网页都是开着的。
+    #[test]
+    fn critical_block_规则不是可批准的() {
+        for text in [
+            "永久删除",
+            "Empty Recycle Bin",
+            "Delete permanently",
+            "清空回收站",
+        ] {
+            let mut g = gate();
+            let action = ShellAction {
+                tool: "run_terminal".into(),
+                action: Some("mkdir".into()),
+                target: Some(text.into()),
+                args: vec![],
+            };
+            match g.judge(&action) {
+                Outcome::Refuse { findings } => {
+                    assert!(
+                        findings.iter().any(|f| f.rule_id.starts_with("CRIT-")),
+                        "拒绝了,但理由里没有那条 Critical 规则:{findings:?}"
+                    );
+                }
+                Outcome::NeedsConfirmation { findings } => {
+                    panic!("{text:?}: 一条 Critical 的 block 规则被挂成了可批准 —— {findings:?}")
+                }
+                Outcome::Execute { .. } => panic!("{text:?}: 竟然直接执行"),
+            }
+        }
+    }
+
+    /// 反面:`require_confirm` 而**不是** block 的判决仍然要挂住,不能被这次修复顺手改成拒绝。
+    ///
+    /// 没有这一格,上面那条测试可以用"把所有 require_confirm 都改成 Refuse"来通过 ——
+    /// 那会把确认闸门整个变成拒绝闸门,也就是把功能关掉当成修好。
+    #[test]
+    fn 非block的require_confirm仍然挂住() {
+        let mut g = gate();
+        let action = ShellAction {
+            tool: "write_file".into(),
+            action: Some("write".into()),
+            target: Some("/tmp/agentguard-judge-test/notes.txt".into()),
+            args: vec![],
+        };
+        match g.judge(&action) {
+            Outcome::NeedsConfirmation { .. } | Outcome::Execute { .. } => {}
+            Outcome::Refuse { findings } => {
+                panic!("普通的写被改成了拒绝 —— 这是把功能关掉,不是修好:{findings:?}")
+            }
+        }
     }
 }

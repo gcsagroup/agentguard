@@ -39,6 +39,9 @@ pub struct BrowserEvent {
     pub url: Option<String>,
 }
 
+/// 转换结果:成功的事件,以及每个失败事件的 `(下标, 原因)`。
+pub type LenientEvents = (Vec<GuardEvent>, Vec<(usize, String)>);
+
 #[derive(Debug, Default)]
 pub struct BrowserAdapter {
     session_id: Option<String>,
@@ -65,6 +68,38 @@ impl BrowserAdapter {
             out.push(self.convert_event(ev)?);
         }
         Ok(out)
+    }
+
+    /// Convert what can be converted; report the rest instead of discarding the batch.
+    ///
+    /// `convert_envelope` fails the *whole* envelope on the first event it does not
+    /// recognise, and `guard-nm-host` turned that error into `unwrap_or_default()` — an
+    /// empty event list, judged as a ping, answered `ok:true, processed:0`. So a single
+    /// `{"type":"click"}` appended to a batch made every Critical event in that batch
+    /// disappear with no stderr, no audit row and a success-shaped response. Two separate
+    /// things reach that: an attacker who wants selective silence, and an honest extension
+    /// that shipped a new event kind before the host learned it — a fail-open forward
+    /// compatibility trap that needs no attacker at all.
+    ///
+    /// Returns the events that converted, paired with `(index, reason)` for each that did
+    /// not, so the caller can judge the good ones and still report the gap.
+    pub fn convert_envelope_lenient(&mut self, env: &BrowserEnvelope) -> LenientEvents {
+        let mut out = Vec::new();
+        let mut skipped = Vec::new();
+        for (i, ev) in env.events.iter().enumerate() {
+            match self.convert_event(ev) {
+                Ok(e) => out.push(e),
+                Err(e) => skipped.push((i, e.to_string())),
+            }
+        }
+        (out, skipped)
+    }
+
+    /// Same, from raw JSON. An envelope that does not parse at all is still an error:
+    /// that is a framing failure, not one unrecognised member of a list.
+    pub fn parse_envelope_lenient(&mut self, json: &str) -> Result<LenientEvents> {
+        let env: BrowserEnvelope = serde_json::from_str(json)?;
+        Ok(self.convert_envelope_lenient(&env))
     }
 
     fn convert_event(&mut self, ev: &BrowserEvent) -> Result<GuardEvent> {

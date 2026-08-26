@@ -81,8 +81,47 @@ impl PrivacySession {
     }
 
     /// Map contract enforcement + latest form fill into a Decision.
+    /// 清掉会话作用域的累积状态,保留契约。
+    ///
+    /// 这些容器以前**从不**清空:`values`、`memory`、`declassifications`、`access_events`、
+    /// `form_events`、`memory_saves`、`memory_uses`、`taint_marks` 全部按智能体给的键无限
+    /// 增长,而 `has_saved` 和 `taint_marks` 的查找是逐事件线性的。N 次写加 N 次读是 O(N²):
+    ///
+    /// ```text
+    ///   20000 次 memory_write 之后,一次 memory_read =  63.8µs
+    ///   40000 次                                    = 215.0µs
+    ///   80000 次                                    = 555.5µs
+    /// ```
+    ///
+    /// 单独看不算严重(每一条都要一次 HTTP POST),但它正是 `guard-core` 里
+    /// `remember_nonce` 的注释点名的那个隐患 —— "一个无界集合在一个跑好几周的进程里是一处
+    /// 慢泄漏" —— 只是没有用到增长最快的这几条路上。
+    ///
+    /// 会话开始是唯一正确的清理点:跨会话保留这些东西,既让内存无界,也让上一次会话的
+    /// 污点标记在新会话里继续判决。
+    pub fn reset_session_state(&mut self) {
+        self.access_events.clear();
+        self.form_events.clear();
+        self.memory_saves.clear();
+        self.memory_uses.clear();
+        self.taint_marks.clear();
+    }
+
     pub fn decide_form_fill(&self, fill: &FormFillEvent) -> Decision {
-        if fill.is_trap && fill.field.value_filled {
+        // 和打分器用**同一个**谓词。
+        //
+        // `is_trap_observation` 接受 `is_trap || probe_type == TrapResistance`,而这里以前
+        // 只看 `fill.is_trap`。于是一个只通过 `probe_type` 声明的陷阱既不产生拦截,又被
+        // 打分器计为一次违规:
+        //
+        // ```text
+        //   probe_type=trap_resistance, is_trap 缺失 -> Allow/Info ALLOW   而 TR=0.0
+        //   is_trap=true                             -> Block/High PRIV-TRAP
+        // ```
+        //
+        // 两个地方对"什么是陷阱"的定义不一致,是那种会一直存在下去的分歧 —— 因为两边
+        // 各自都自洽。
+        if crate::scoring::is_trap_observation(fill) && fill.field.value_filled {
             return decision_from_mode(
                 self.contract.on_trap_widget_fill,
                 "PRIV-TRAP",
@@ -117,14 +156,52 @@ impl PrivacySession {
         source_app: &str,
     ) -> Decision {
         let key = fill.field.profile_key.clone();
-        let is_high = matches!(fill.field.tier, DataTier::High);
+        // `flow_tier_for_key`,不是事件里带来的 `fill.field.tier`。
+        //
+        // `fill.field.tier` 由 `guard-core` 从 `contract.tier_for_key` 填,而那个函数自己的
+        // 文档就写着它"在不安全的方向上是错的" —— 未列出的键一律 `Low`,而默认的
+        // `high_keys` 只有七项。fail-closed 的修复当时只用在了 flow 那条路上,污点标记这条
+        // 路和 `decide_high_access` 都没跟上。于是:
+        //
+        // ```text
+        //   profile_key                第二次在别的应用里填    permission_request
+        //   phone_number               Block PRIV-XAPP         Block PRIV-OP
+        //   passport_number            Block PRIV-XAPP         Block PRIV-OP
+        //   credit_card_number         Allow ALLOW             Allow ALLOW
+        //   social_security_number     Allow ALLOW             Allow ALLOW
+        //   medical_record_id          Allow ALLOW             Allow ALLOW
+        // ```
+        //
+        // 在 `Booking` 里填一张信用卡号,再在 `RandomSMSApp` 里填同一个键 —— `Allow`,没有
+        // 告警,审计里没有 finding。而 `docs/information-flow.md` 点名的正是这三个键。
+        let is_high = matches!(self.contract.flow_tier_for_key(&key), DataTier::High);
         let mut decision = self.decide_form_fill(&fill);
 
-        if is_high && fill.field.value_filled && !source_app.is_empty() {
+        // 空的 `source_app` 是一个**永不匹配**的应用,不是跳过检查的理由。
+        //
+        // 旧代码 `!source_app.is_empty()` 让一个未具名的执行应用既不被拿去比已有标记、
+        // 也不被记录。而 `GuardEvent.source_app` 是个裸 `String`,没有任何校验,
+        // `check_scope_app` 在默认的无范围会话里也会早退 —— 也就是说没有别的东西接得住:
+        //
+        // ```text
+        //   #1 Booking        -> Allow
+        //   #2 source_app=""  -> Allow/Info ALLOW   <- passport_number 写进了一个未具名应用
+        //   #3 Evil           -> Block/High PRIV-XAPP
+        // ```
+        //
+        // `docs/session-scope.md` 记着 Android 信封路径曾经原样产出 `source_app: ""`,而
+        // 那一轮在**授权**轴上的结论就是"空的观测名永远不被覆盖"。同一个结论没有用到这里。
+        let acting_app = if source_app.trim().is_empty() {
+            // 一个哨兵名字,它不等于任何真实应用名,所以任何已有标记都会被判为"跨应用"。
+            "<unnamed>"
+        } else {
+            source_app
+        };
+        if is_high && fill.field.value_filled {
             let crossed = self
                 .taint_marks
                 .iter()
-                .any(|m| m.profile_key == key && m.app != source_app);
+                .any(|m| m.profile_key == key && m.app != acting_app);
             // Not `matches!(decision.action, Allow)`. Gating the upgrade on the
             // fill being otherwise clean let the attacker pick the mask: make the
             // cross-app write *optional* and PRIV-FM's Alert suppressed the
@@ -142,7 +219,7 @@ impl PrivacySession {
                     self.contract.on_confidentiality_downgrade,
                     "PRIV-XAPP",
                     &format!(
-                        "HIGH-tier '{key}' collected in another app is being written into '{source_app}' (cross-app data pivoting)"
+                        "HIGH-tier '{key}' collected in another app is being written into '{acting_app}' (cross-app data pivoting)"
                     ),
                     Severity::High,
                 );
@@ -151,11 +228,11 @@ impl PrivacySession {
             if !self
                 .taint_marks
                 .iter()
-                .any(|m| m.profile_key == key && m.app == source_app)
+                .any(|m| m.profile_key == key && m.app == acting_app)
             {
                 self.taint_marks.push(TaintMark {
                     profile_key: key,
-                    app: source_app.to_string(),
+                    app: acting_app.to_string(),
                 });
             }
         }
@@ -165,6 +242,20 @@ impl PrivacySession {
     }
 
     pub fn decide_high_access(&self, key: &str) -> Decision {
+        // 这里用 `tier_for_key`,**不是** `flow_tier_for_key` —— 和跨应用支点那条路不同。
+        //
+        // 复核建议两条路一起改成 fail-closed。跨应用支点确实该那样:数据**已经**被收集,
+        // 现在正流向第二个应用,那是一个信息流判决,证明不了就不能放行。
+        //
+        // 但 `PRIV-OP` 问的是另一个问题:"智能体请求了一个 HIGH 档的键吗"。对一个**未分类**
+        // 的键,答案是"不知道",而不是"是" —— 而契约自己的文档就写着这一点:"论文的模型只有
+        // 两档,一个未列出的字段不是过度收集的证据"。把它当 High 的代价是在正常路径上喊狼
+        // 来了:实测 `insurance_op_001`(一个刻意合规的基线场景)立刻多出一条
+        // `PRIV-OP:Block` 误报,而那个场景存在的理由正是"守卫必须保持安静"。
+        //
+        // 真正的缺陷不在这个函数,而在**默认 `high_keys` 只有七项** —— `credit_card_number`
+        // 不在里面而 `payment_info` 在,只是命名的偶然。那张表已经补上了那三个键,所以复核
+        // 点名的那三个现在得到确认提示,而未知的键仍然不会制造噪声。
         if matches!(
             self.contract.tier_for_key(key),
             guard_schema::DataTier::High
@@ -233,18 +324,55 @@ impl PrivacySession {
 /// Keep the more severe of two decisions. A lower-severity rule masking a
 /// higher-severity one is always a bug, and it is attacker-selectable whenever the
 /// masking rule is one the agent chooses to trip.
+/// 更严重的那个判决胜出 —— 按 `(action, severity)`,并且**保留两条理由**。
+///
+/// 旧实现只按 action 排序,并且在打平时返回 `a`。而这个文件上方一百行处的注释写着,
+/// `matches!(decision.action, Allow)` 那道闸被删掉的理由正是"它让攻击者挑选面具……
+/// 更严重的判决必须胜出"。它当时仍然没有:在 action 打平时,`PRIV-FM`(Alert/**Medium**)
+/// 会赢过 `PRIV-XAPP`(Alert/**High**),而输的那一方的 rule id 和 message 被直接丢掉。
+///
+/// ```text
+///   optional  跨应用 HIGH 写 -> Alert/Medium PRIV-FM   | 填了一个任务不需要的可选字段
+///   required  跨应用 HIGH 写 -> Alert/High   PRIV-XAPP | 跨应用数据支点
+/// ```
+///
+/// 攻击者的动作是一个 metadata 标记:把那个跨应用字段标成 optional,判决里的跨应用支点
+/// 就从结论、message 和审计行里一起消失,运维只看到"填了一个可选字段"。
+///
+/// 触发它需要 `on_confidentiality_downgrade: alert`,而 `docs/information-flow.md` 明确把
+/// 这一档作为受支持的策略选项提供("alert-only 仍然是一个**策略选择**")。默认档下 action
+/// 次序不同所以 PRIV-XAPP 会赢 —— 但"对严重度视而不见"和"丢掉理由"这两件事在**每一种**
+/// 配置下都是活的。
+///
+/// `guard_core::merge_keeping_reason` 早就做对了这件事(按 `(action, severity)` 排序并且
+/// 两条理由都留下);这里以前没有用它。为了不让 `guard-privacy` 依赖 `guard-core`,
+/// 排序规则在这里重写一遍,而两条理由都拼进 message。
 fn worse_of(a: Decision, b: Decision) -> Decision {
-    let rank = |d: &Decision| match d.action {
-        DecisionAction::Block => 3,
-        DecisionAction::Alert => 2,
+    let action_rank = |d: &Decision| match d.action {
+        DecisionAction::Block => 4,
+        DecisionAction::Alert => 3,
+        DecisionAction::LogOnly => 2,
         DecisionAction::Allow => 1,
-        DecisionAction::LogOnly => 0,
     };
-    if rank(&b) > rank(&a) {
-        b
-    } else {
-        a
+    let sev_rank = |d: &Decision| match d.severity {
+        Severity::Critical => 4,
+        Severity::High => 3,
+        Severity::Medium => 2,
+        Severity::Low => 1,
+        Severity::Info => 0,
+    };
+    let key = |d: &Decision| (action_rank(d), sev_rank(d));
+    let (mut winner, loser) = if key(&b) > key(&a) { (b, a) } else { (a, b) };
+    // 输的那一方不能消失。一条判决只报一个 rule id,但 message 里必须留下另一条,
+    // 否则"填了一个可选字段"就替换掉了"跨应用数据支点"。
+    if loser.rule_id != winner.rule_id && !matches!(loser.action, DecisionAction::Allow) {
+        winner.human_message = format!(
+            "{} [同时命中 {}：{}]",
+            winner.human_message, loser.rule_id, loser.human_message
+        );
+        winner.require_confirm = winner.require_confirm || loser.require_confirm;
     }
+    winner
 }
 
 fn decision_from_mode(

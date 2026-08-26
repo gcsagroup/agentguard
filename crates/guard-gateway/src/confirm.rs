@@ -108,8 +108,33 @@ impl PendingConfirm {
         self.inner.0.lock().ok().and_then(|s| s.pending.clone())
     }
 
-    /// 回答当前待确认的请求。返回 `false` 表示当时没有待确认的东西——一个回答不能凭空
-    /// 预先批准下一次调用，否则"先答一个 yes"就成了绕过闸门的办法。
+    /// 回答**指定 id** 的待确认请求。
+    ///
+    /// `id` 不是装饰。旧签名是 `answer(&self, answer)`,批准落在"当下恰好挂着的那一个"
+    /// 上,而 `ConfirmRequest` 一直带着 `id`、`/pending` 也一直把它返回了 —— 只是没人核
+    /// 对。配合"超时按拒绝",一个读得慢一点的操作员就够了:复核实测,屏幕上显示的是
+    /// `confirm-1`(`run ["echo","harmless"]`),它超时消失,`confirm-2`
+    /// (`delete important.txt`)挂上来,操作员在显示着第一条的界面上点了批准,被删掉的
+    /// 是第二条的目标。人以为自己在批准 A,系统执行的是 B。
+    ///
+    /// 返回 `false` 表示当时没有待确认的东西,或者 id 对不上 —— 一个回答不能凭空预先
+    /// 批准下一次调用,也不能替另一次调用作答。
+    pub fn answer_id(&self, id: &str, answer: Answer) -> bool {
+        let (lock, cv) = &*self.inner;
+        let mut slot = lock.lock().expect("确认槽位互斥锁");
+        match &slot.pending {
+            Some(p) if p.id == id => {}
+            _ => return false,
+        }
+        slot.answer = Some(answer);
+        cv.notify_all();
+        true
+    }
+
+    /// 不带 id 的回答,只给测试和确实无法读到 id 的本地 UI 用。
+    ///
+    /// 生产的环回接口走 `answer_id`。保留这个入口是因为 `StdinConfirm` 这类交互式确认
+    /// 器就在同一个线程里看着同一个请求,不存在"批准落到别的请求上"的窗口。
     pub fn answer(&self, answer: Answer) -> bool {
         let (lock, cv) = &*self.inner;
         let mut slot = lock.lock().expect("确认槽位互斥锁");

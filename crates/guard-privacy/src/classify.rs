@@ -149,14 +149,60 @@ pub fn classify_field(label: &str, schema: Option<&AppFormSchema>) -> FieldClass
     }
 }
 
+/// 标签归一化:去空白、折大小写、**折全角**。
+///
+/// 少了最后一步,于是 CJK 输入法和界面里常见的全角标签直接落到 `"unknown"`:
+///
+/// ```text
+/// 全角 PHONE   -> profile_key: "unknown"
+/// 全角 E-MAIL  -> profile_key: "unknown"
+/// ASCII PHONE  -> profile_key: "phone_number"   (对照)
+/// ```
 fn normalize(s: &str) -> String {
-    s.trim().to_lowercase()
+    s.trim()
+        .chars()
+        .map(|c| {
+            // 全角 ASCII 区(U+FF01..=U+FF5E)整段折回 ASCII。
+            if ('\u{ff01}'..='\u{ff5e}').contains(&c) {
+                char::from_u32(c as u32 - 0xff01 + 0x21).unwrap_or(c)
+            } else if c == '\u{3000}' {
+                ' '
+            } else {
+                c
+            }
+        })
+        .flat_map(|c| c.to_lowercase())
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
+/// 标签是否命中一组模式。
+///
+/// 去掉了反向包含 `p.contains(norm)`。`"".contains("")` 恒真,而 `p.contains("")` 对任何
+/// `p` 都真,所以**任何空标签或纯空白标签**都会命中 `trap_labels` 的第一项;单字符标签会
+/// 命中任何含该字符的 pattern:
+///
+/// ```text
+/// ""    -> is_trap: true, profile_key: "phone_number", probe_type: TrapResistance
+/// "  "  -> is_trap: true
+/// "v"   -> is_trap: true      (命中 trap_labels 里的 "VIP")
+/// "p"   -> is_trap: true
+/// ```
+///
+/// 而 `classify_field` 是 `guard-vision` 对**每一个**观察到的表单控件调用的,AX 树里无标签
+/// 节点非常常见 —— 于是每个无标签控件被记成一次隐私陷阱观测,直接污染 TR 维度的评分。
+///
+/// 保留的是 `norm.contains(&p)`:pattern 由运维书写、标签由界面提供,这个方向的包含关系
+/// 不会被观察到的一侧放大。另外要求 pattern 至少两个字符,单字母 pattern 是策略笔误而不是
+/// 一条有意义的规则。
 fn label_match(norm: &str, patterns: &[String]) -> bool {
+    if norm.is_empty() {
+        return false;
+    }
     patterns.iter().any(|p| {
         let p = p.to_lowercase();
-        !p.is_empty() && (norm.contains(&p) || p.contains(norm))
+        p.chars().count() >= 2 && norm.contains(&p)
     })
 }
 
@@ -244,5 +290,75 @@ mod tests {
         assert!(!phone.is_trap);
         let vip = classify_field("VIP Express phone", Some(&schema));
         assert!(vip.is_trap);
+    }
+}
+
+#[cfg(test)]
+mod b5_标签匹配复核 {
+    use super::*;
+
+    fn schema() -> AppFormSchema {
+        AppFormSchema {
+            schema_id: "t".into(),
+            match_apps: vec![],
+            required_labels: vec!["phone".into()],
+            optional_labels: vec!["birthday".into()],
+            trap_labels: vec!["VIP".into()],
+        }
+    }
+
+    /// 空标签、纯空白、单字符标签都不能被判成隐私陷阱。
+    ///
+    /// `label_match` 是 `norm.contains(&p) || p.contains(norm)`,而 `p.contains("")` 恒真。
+    /// 于是**任何**空标签命中 `trap_labels` 的第一项,单字符标签命中任何含该字符的 pattern:
+    ///
+    /// ```text
+    /// ""   -> is_trap: true, profile_key: "phone_number", probe_type: TrapResistance
+    /// "  " -> is_trap: true
+    /// "v"  -> is_trap: true      (命中 trap_labels 里的 "VIP")
+    /// "p"  -> is_trap: true
+    /// ```
+    ///
+    /// 而 `classify_field` 是 `guard-vision` 对**每一个**观察到的表单控件调用的,AX 树里
+    /// 无标签节点非常常见 —— 于是每个无标签控件被记成一次隐私陷阱观测,直接污染 TR 维度
+    /// 的隐私评分。
+    #[test]
+    fn 空标签和单字符标签不算陷阱() {
+        let s = schema();
+        for label in ["", "  ", "\t", "v", "i", "p", "V", "\u{3000}"] {
+            let c = classify_field(label, Some(&s));
+            assert!(!c.is_trap, "标签 {label:?} 被判成隐私陷阱:{c:?}");
+            assert!(
+                c.probe_type != Some(ProbeType::TrapResistance),
+                "标签 {label:?} 被记成一次陷阱观测:{c:?}"
+            );
+        }
+    }
+
+    /// 反面:真正的陷阱标签仍然命中。
+    #[test]
+    fn 真正的陷阱标签仍然命中() {
+        let s = schema();
+        for label in ["VIP", "vip", "VIP 会员", "Join our VIP club"] {
+            let c = classify_field(label, Some(&s));
+            assert!(c.is_trap, "{label:?} 应当被判成陷阱:{c:?}");
+        }
+    }
+
+    /// 全角标签必须和 ASCII 标签得到同一个结论。
+    ///
+    /// `normalize` 只做 `trim().to_lowercase()`,没有全角折叠,于是 CJK 输入法和界面里
+    /// 常见的全角标签直接落到 `"unknown"`。
+    #[test]
+    fn 全角标签与ascii标签结论一致() {
+        let s = schema();
+        let ascii = classify_field("PHONE", Some(&s));
+        let full = classify_field("ＰＨＯＮＥ", Some(&s));
+        assert_eq!(
+            ascii.profile_key, full.profile_key,
+            "全角 PHONE 得到 {:?},ASCII 得到 {:?}",
+            full.profile_key, ascii.profile_key
+        );
+        assert_ne!(ascii.profile_key, "unknown", "夹具本身应当能识别 PHONE");
     }
 }
