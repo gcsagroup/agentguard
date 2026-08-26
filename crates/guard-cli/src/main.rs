@@ -16,8 +16,8 @@ use guard_audit::{
     SessionReport,
 };
 use guard_billing::{
-    activate_license_token, apply_webhook_json, issue_license_token, load_or_free, resolve_secret,
-    serve_billing_webhook, Entitlement, PlanTier,
+    activate_license_token, apply_webhook_json, issue_license_token, load_entitlement,
+    load_or_free, resolve_secret, serve_billing_webhook, Entitlement, PlanTier,
 };
 use guard_core::{AutoApprove, AutoDeny, Engine};
 use guard_eval::{
@@ -128,12 +128,16 @@ enum Commands {
         #[arg(long, default_value = "deny")]
         confirm: String,
     },
-    /// Export recent audit rows as JSONL.
+    /// Export recent audit rows as JSONL. **Enterprise 功能**(受授权门控)。
     AuditExport {
         #[arg(long)]
         audit_db: PathBuf,
         #[arg(long, default_value_t = 100)]
         limit: usize,
+        /// 授权文件路径(默认:AGENTGUARD_ENTITLEMENT,或 ~/.config/agentguard/entitlement.json)。
+        /// 没有有效的 enterprise_export 授权时导出被拒 —— 这是授权真正门控行为的那一处。
+        #[arg(long)]
+        entitlement: Option<PathBuf>,
     },
     /// Build a session summary report (JSON + Markdown) from an audit DB.
     AuditReport {
@@ -654,6 +658,13 @@ enum Commands {
         #[arg(long, default_value = "policies/entitlement.json")]
         store: PathBuf,
     },
+    /// 算出一个 webhook body 的签名头值(`sha256=<hex>`),给 billing-webhook-serve 用。
+    BillingWebhookSign {
+        #[arg(long)]
+        secret: String,
+        #[arg(long)]
+        body: String,
+    },
     /// Verify the published-attack-surface coverage matrix against the repo and
     /// render it.
     ///
@@ -991,7 +1002,25 @@ fn main() -> Result<()> {
                 caps.simulation, caps.accessibility, caps.screen_capture
             );
         }
-        Commands::AuditExport { audit_db, limit } => {
+        Commands::AuditExport {
+            audit_db,
+            limit,
+            entitlement,
+        } => {
+            // 授权门控:enterprise_export 是第一处真正被授权门控的行为(在此之前 features
+            // 只被打印、不门控任何东西 —— 授权是纯装饰的,第七轮复核发现)。Free / 过期 /
+            // 未授予该功能 → 拒绝导出。
+            let ent = load_entitlement(entitlement.as_deref());
+            if !ent.allows_enterprise_export() {
+                anyhow::bail!(
+                    "audit-export 是 Enterprise 功能:当前授权 plan={:?} active={} \
+                     enterprise_export={}。用 --entitlement 指向一份有效的 Enterprise 授权,\
+                     或见 docs/billing.md。",
+                    ent.plan,
+                    ent.is_active(),
+                    ent.features.enterprise_export
+                );
+            }
             // Read-only: exporting must not mutate the log either.
             let store = AuditStore::open_read_only(audit_db)?;
             print!("{}", store.export_jsonl(limit)?);
@@ -2249,6 +2278,9 @@ fn main() -> Result<()> {
                 let _ = std::fs::create_dir_all(parent);
             }
             serve_billing_webhook(addr, store, None)?;
+        }
+        Commands::BillingWebhookSign { secret, body } => {
+            println!("{}", guard_billing::sign_webhook_body(&secret, &body));
         }
         Commands::Coverage {
             matrix,

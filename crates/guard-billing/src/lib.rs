@@ -128,6 +128,110 @@ pub fn load_or_free(path: impl AsRef<Path>) -> Entitlement {
     Entitlement::from_path(path).unwrap_or_else(|_| Entitlement::free())
 }
 
+/// 授权门控:功能已授予**且**授权仍有效。
+///
+/// 在此之前没有任何地方读 features —— 授权是纯装饰的(计算了 plan 却不门控任何行为,
+/// 第七轮复核发现)。这个方法是「真的门」的判据:Free / 过期 / 未授予该功能都返回 false。
+impl Entitlement {
+    pub fn allows_enterprise_export(&self) -> bool {
+        self.is_active() && self.features.enterprise_export
+    }
+}
+
+/// 加载授权:显式路径 > `AGENTGUARD_ENTITLEMENT` 环境变量 > 默认路径;都没有 → Free。
+///
+/// Free 不是错误,是「没买」。门控在调用点做(见 `allows_*`),这里只负责取到当前授权。
+pub fn load_entitlement(explicit: Option<&Path>) -> Entitlement {
+    if let Some(p) = explicit {
+        return load_or_free(p);
+    }
+    if let Some(p) = std::env::var_os("AGENTGUARD_ENTITLEMENT") {
+        return load_or_free(std::path::PathBuf::from(p));
+    }
+    if let Some(p) = default_entitlement_path() {
+        if p.exists() {
+            return load_or_free(p);
+        }
+    }
+    Entitlement::free()
+}
+
+/// `~/.config/agentguard/entitlement.json`(存在才用)。
+pub fn default_entitlement_path() -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(
+        std::path::PathBuf::from(home)
+            .join(".config")
+            .join("agentguard")
+            .join("entitlement.json"),
+    )
+}
+
+// ---- Webhook 认证:HMAC-SHA256(不引新依赖,用已有的 sha2 手写标准构造) ----
+
+/// HMAC-SHA256(RFC 2104)。block size 64,key 超长先哈希。
+fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
+    const BLOCK: usize = 64;
+    let mut k = [0u8; BLOCK];
+    if key.len() > BLOCK {
+        k[..32].copy_from_slice(&Sha256::digest(key));
+    } else {
+        k[..key.len()].copy_from_slice(key);
+    }
+    let mut ipad = [0x36u8; BLOCK];
+    let mut opad = [0x5cu8; BLOCK];
+    for i in 0..BLOCK {
+        ipad[i] ^= k[i];
+        opad[i] ^= k[i];
+    }
+    let mut inner = Sha256::new();
+    inner.update(ipad);
+    inner.update(msg);
+    let inner = inner.finalize();
+    let mut outer = Sha256::new();
+    outer.update(opad);
+    outer.update(inner);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&outer.finalize());
+    out
+}
+
+/// 常数时间比较,避免定时侧信道。
+fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut d = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        d |= x ^ y;
+    }
+    d == 0
+}
+
+/// 给一个 body 算出 webhook 签名头值:`sha256=<hex>`。测试和签发方用它。
+pub fn sign_webhook_body(secret: &str, body: &str) -> String {
+    format!(
+        "sha256={}",
+        hex::encode(hmac_sha256(secret.as_bytes(), body.as_bytes()))
+    )
+}
+
+/// 验证 webhook 签名头(`sha256=<hex>`,大小写不敏感的前缀)对 body 成立。
+///
+/// 缺头、格式错、对不上都返回 false。**没有签名就不是合法 webhook** —— 这条守卫存在的
+/// 全部意义就是:一个匿名 POST 不能自铸 Enterprise 授权。
+pub fn verify_webhook_signature(secret: &str, body: &str, header: Option<&str>) -> bool {
+    let Some(h) = header else {
+        return false;
+    };
+    let hex_sig = h.trim().strip_prefix("sha256=").unwrap_or_else(|| h.trim());
+    let Ok(provided) = hex::decode(hex_sig.trim()) else {
+        return false;
+    };
+    let expected = hmac_sha256(secret.as_bytes(), body.as_bytes());
+    ct_eq(&expected, &provided)
+}
+
 pub fn default_dev_secret() -> &'static str {
     // Dev-only; production should inject via env AGENTGUARD_LICENSE_SECRET.
     "agentguard-dev-secret-change-me"
@@ -224,6 +328,40 @@ mod tests {
         e.write_path(&path).unwrap();
         let loaded = Entitlement::from_path(&path).unwrap();
         assert_eq!(loaded.plan, PlanTier::Enterprise);
+    }
+
+    /// 授权门控的判据:只有**有效**的 Enterprise 授权才放行 enterprise_export。
+    /// 这是「授权不再是装饰」的那条测试 —— Free / Pro / 过期都被拒。
+    #[test]
+    fn enterprise_export门控() {
+        assert!(
+            !Entitlement::free().allows_enterprise_export(),
+            "Free 不该有 enterprise_export"
+        );
+        let pro =
+            activate_license_token("s", &issue_license_token("s", "x", PlanTier::Pro)).unwrap();
+        assert!(
+            !pro.allows_enterprise_export(),
+            "Pro 不含 enterprise_export"
+        );
+        let ent = activate_license_token("s", &issue_license_token("s", "x", PlanTier::Enterprise))
+            .unwrap();
+        assert!(ent.allows_enterprise_export(), "Enterprise 应当放行");
+        // 过期的 Enterprise 也拒。
+        let mut expired = ent.clone();
+        expired.expires_at_ms = Some(0);
+        assert!(!expired.allows_enterprise_export(), "过期授权不该放行");
+    }
+
+    /// load_entitlement 显式路径读得到已写入的 Enterprise 授权。
+    #[test]
+    fn load_entitlement_显式路径() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("ent.json");
+        let ent = activate_license_token("s", &issue_license_token("s", "x", PlanTier::Enterprise))
+            .unwrap();
+        ent.write_path(&p).unwrap();
+        assert!(load_entitlement(Some(&p)).allows_enterprise_export());
     }
 
     #[test]
