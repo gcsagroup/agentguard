@@ -57,6 +57,14 @@ pub struct ApiConfig {
     pub rules: PathBuf,
     pub audit_db: PathBuf,
     pub intel: Option<PathBuf>,
+    /// 情报库签发方的 Ed25519 公钥。**给了才认证情报。**
+    ///
+    /// 这条守卫是生产 HTTP 面:以前它走 `load_or_default`,而那个函数对 ed25519 包是静默
+    /// 空操作(接受任何未验证甚至伪造签名的情报),等于「从不验签」。现在:
+    /// * `Some(pubkey)` → 走 `load_release` 严格验签,验不过 fail-closed 到内置基线;
+    /// * `None` → **不加载磁盘上的情报**,只用编译期内置基线(`ThreatBundle::default`)并告警。
+    ///   服务器绝不加载未经验证的磁盘情报。
+    pub intel_pubkey: Option<PathBuf>,
     /// Bearer token required for `/v1/*`. Generated if empty at serve time.
     pub token: String,
     /// Permit non-loopback bind (Android↔desktop over Wi-Fi). Still requires
@@ -205,7 +213,23 @@ impl ApiState {
         let mut engine =
             Engine::new(rules, guard_schema::GuardContract::default()).with_audit(store);
         if let Some(p) = &cfg.intel {
-            let intel = guard_intel::load_or_default(p).unwrap_or_default();
+            // 生产面:只加载**验过签**的情报。给了公钥 → load_release(严格);没给 →
+            // 不碰磁盘上的包,退回内置基线并告警。绝不像旧代码那样把未验证的 ed25519 情报
+            // 静默当真。
+            let intel = match &cfg.intel_pubkey {
+                Some(pk) => guard_intel::load_release(p, pk).unwrap_or_else(|e| {
+                    eprintln!("agentguard: 情报验签失败({e});改用内置基线(fail-closed,不是全放行)");
+                    guard_intel::ThreatBundle::default()
+                }),
+                None => {
+                    eprintln!(
+                        "agentguard: 警告:未提供情报公钥(intel_pubkey);**不加载磁盘上的 {} **,\
+                         只用内置基线情报。要用磁盘上的签名情报,配置公钥。",
+                        p.display()
+                    );
+                    guard_intel::ThreatBundle::default()
+                }
+            };
             engine = engine.with_intel(intel);
         }
         if let Some(p) = &cfg.known_apps {
@@ -612,6 +636,7 @@ mod tests {
                     rules,
                     audit_db: audit,
                     intel: None,
+                    intel_pubkey: None,
                     token: token.clone(),
                     allow_lan: false,
                     audit_signing_key: None,
@@ -661,6 +686,7 @@ mod tests {
                     rules,
                     audit_db: audit,
                     intel: None,
+                    intel_pubkey: None,
                     token: "tok-0123456789abcdef0123456789".into(),
                     allow_lan: false,
                     audit_signing_key: None,
@@ -722,6 +748,7 @@ mod tests {
                 rules: PathBuf::from("x"),
                 audit_db: PathBuf::from("y"),
                 intel: None,
+                intel_pubkey: None,
                 // 故意留一个弱令牌:loopback 检查在强度检查**之前**,
                 // 所以这条测试同时钉住了两者的顺序。
                 token: "x".into(),
@@ -755,6 +782,7 @@ mod tests {
                 rules,
                 audit_db: dir.path().join("a.db"),
                 intel: None,
+                intel_pubkey: None,
                 token: "tok-0123456789abcdef0123456789".into(),
                 allow_lan: true,
                 audit_signing_key: None,
@@ -852,6 +880,7 @@ mod tests {
                     rules,
                     audit_db: audit,
                     intel: None,
+                    intel_pubkey: None,
                     token: t2,
                     allow_lan: false,
                     audit_signing_key: None,
@@ -1028,6 +1057,7 @@ mod tests {
                 rules: rules.clone(),
                 audit_db: dir.path().join("a.db"),
                 intel: None,
+                intel_pubkey: None,
                 token: "dev-secret".into(),
                 allow_lan: false,
                 audit_signing_key: None,
@@ -1066,6 +1096,7 @@ mod tests {
                 rules,
                 audit_db: dir.path().join("a.db"),
                 intel: None,
+                intel_pubkey: None,
                 token: "dev-secret".into(),
                 allow_lan: false,
                 audit_signing_key: None,
@@ -1078,5 +1109,80 @@ mod tests {
             Some(Arc::new(AtomicBool::new(true))),
         );
         assert!(res.is_ok(), "{res:?}");
+    }
+
+    fn intel_probe_cfg(
+        rules: PathBuf,
+        audit: PathBuf,
+        intel: PathBuf,
+        pubkey: Option<PathBuf>,
+    ) -> ApiConfig {
+        ApiConfig {
+            bind: "127.0.0.1:0".parse().unwrap(),
+            rules,
+            audit_db: audit,
+            intel: Some(intel),
+            intel_pubkey: pubkey,
+            token: "test-token-rc1-0123456789abcdef".into(),
+            allow_lan: false,
+            audit_signing_key: None,
+            known_apps: None,
+            task_plans: None,
+            agent_registry: None,
+            adapter_registry: None,
+            insecure_token: false,
+        }
+    }
+
+    /// **生产 HTTP 守卫不加载未经验证的磁盘情报。** 没给公钥时,磁盘上那个 ed25519 包(版本
+    /// 2099.12.31)必须被忽略,引擎用内置基线(版本 0.0.0)。没有这条,api-serve 会像旧代码那样
+    /// 把未验证的情报静默当真。
+    #[test]
+    fn 无公钥时不加载磁盘上的ed25519情报() {
+        let dir = tempfile::tempdir().unwrap();
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let kp = guard_intel::generate_keypair();
+        let mut bundle = guard_intel::ThreatBundle {
+            version: "2099.12.31".into(),
+            ..Default::default()
+        };
+        bundle
+            .malicious_domains
+            .push("attacker-added-only.example".into());
+        bundle.sign_ed25519(&kp).unwrap();
+        let bpath = dir.path().join("bundle.json");
+        bundle.write_path(&bpath).unwrap();
+
+        let cfg = intel_probe_cfg(rules, dir.path().join("a.db"), bpath, None);
+        let state = ApiState::from_config(&cfg).unwrap();
+        let st = state.engine.lock().unwrap().status();
+        assert_eq!(
+            st.intel_version, "0.0.0",
+            "服务器加载了未经验证的磁盘情报(应当只用内置基线)"
+        );
+    }
+
+    /// 给了对得上的公钥时,磁盘上的签名情报正常加载(修复没有误伤 happy path)。
+    #[test]
+    fn 有公钥时加载并验签磁盘情报() {
+        let dir = tempfile::tempdir().unwrap();
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let kp = guard_intel::generate_keypair();
+        let mut bundle = guard_intel::ThreatBundle {
+            version: "2099.12.31".into(),
+            ..Default::default()
+        };
+        bundle.sign_ed25519(&kp).unwrap();
+        let bpath = dir.path().join("bundle.json");
+        bundle.write_path(&bpath).unwrap();
+        let pkpath = dir.path().join("pk.hex");
+        std::fs::write(&pkpath, kp.public.to_hex()).unwrap();
+
+        let cfg = intel_probe_cfg(rules, dir.path().join("a.db"), bpath, Some(pkpath));
+        let state = ApiState::from_config(&cfg).unwrap();
+        let st = state.engine.lock().unwrap().status();
+        assert_eq!(st.intel_version, "2099.12.31", "验过签的情报应当被加载");
     }
 }

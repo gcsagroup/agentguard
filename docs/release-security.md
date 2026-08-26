@@ -36,8 +36,28 @@ Key file: `~/Library/Application Support/agentguard/audit.key` (created on first
 ```bash
 make acceptance          # offline release gate (11 scenarios)
 make test-sqlcipher      # encryption unit tests
-cargo run -p guard-cli -- api-serve --token "$AGENTGUARD_API_TOKEN"
+# 生产 HTTP 守卫:给公钥才认证磁盘上的情报
+cargo run -p guard-cli -- api-serve --token "$AGENTGUARD_API_TOKEN" \
+  --intel intel/bundle.json --intel-pubkey intel/keys/public.hex
 ```
+
+### 情报签名:只认真实性,不认「自算摘要」
+
+情报库的签名分两种:`ed25519:`(真实性 —— 由签发方私钥签,别人伪造不了)和 legacy
+`sha256:`(只有完整性 —— 谁能提供字节谁就能重算)。这两者曾被混为一谈:`verify` 的
+`sha256:` 分支**不看公钥**,`load_release` 又有一条 sha256 回落,于是把一个 ed25519 包的
+签名换成 `sha256:<自算>` 就能绕过公钥钉扎(一次复核发现的降级绕过)。现在:
+
+* **给了公钥 = 要认证** → `sha256:` 和未签名一律被拒;只有 `ed25519:` 且验签通过才放行。
+* `load_release`(桌面 / 发布路径)**不接受** `sha256:`。legacy 完整性自检只留在软加载
+  路径(`load_or_default`,无公钥,仅开发 / 本地评测)。
+* **`api-serve` 现在也认证情报**:`--intel-pubkey`(或 `AGENTGUARD_INTEL_PUBKEY`)给了就走
+  `load_release`;没给则**不加载磁盘上的情报**,只用编译期内置基线并告警 —— 服务器绝不像
+  旧代码那样把未验证的 ed25519 情报静默当真。
+
+> 注:发布注册表里的情报私钥目前也是仓库夹具(`intel/keys/secret.hex`),和
+> `agent.keys.publicly_known` 同一类问题 —— 真发布前要换成保密的签发密钥。上面修的是**验证
+> 逻辑**的绕过,和密钥是否保密是两件独立的事。
 
 ## Docs
 

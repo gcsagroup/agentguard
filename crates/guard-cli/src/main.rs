@@ -567,6 +567,11 @@ enum Commands {
         audit_db: PathBuf,
         #[arg(long, default_value = "intel/bundle.json")]
         intel: PathBuf,
+        /// 情报库签发方的 Ed25519 公钥。**给了才认证情报。** 没给时服务器不加载磁盘上的
+        /// 情报包(只用内置基线并告警),绝不加载未经验证的 ed25519 情报——那曾是这条 HTTP
+        /// 守卫「从不验签」的洞。文件存在时才用;可用 AGENTGUARD_INTEL_PUBKEY 指定。
+        #[arg(long)]
+        intel_pubkey: Option<PathBuf>,
         /// Known-app registry for verified app identity (AgentScan §3.5). Loaded
         /// when the file exists; without it, a registered app's privileges rest on
         /// its name, which is the field the forgery attack targets.
@@ -2079,6 +2084,7 @@ fn main() -> Result<()> {
             rules,
             audit_db,
             intel,
+            intel_pubkey,
             known_apps,
             task_plans,
             agent_registry,
@@ -2093,6 +2099,16 @@ fn main() -> Result<()> {
                 let _ = std::fs::create_dir_all(parent);
             }
             let intel_path = if intel.exists() { Some(intel) } else { None };
+            // 公钥来源:显式 --intel-pubkey > AGENTGUARD_INTEL_PUBKEY;文件存在才用。
+            let intel_pubkey = intel_pubkey
+                .or_else(|| std::env::var_os("AGENTGUARD_INTEL_PUBKEY").map(PathBuf::from))
+                .filter(|p| p.exists());
+            if intel_path.is_some() && intel_pubkey.is_none() {
+                eprintln!(
+                    "warning: --intel-pubkey not set; the server will NOT load on-disk intel \
+                     unverified — using the built-in baseline only. See docs/release-security.md"
+                );
+            }
             let token = resolve_api_token(token);
             let signing = audit_signing_key
                 .or_else(|| std::env::var_os("AGENTGUARD_AUDIT_SIGNING_KEY").map(PathBuf::from));
@@ -2108,6 +2124,7 @@ fn main() -> Result<()> {
                     rules,
                     audit_db,
                     intel: intel_path,
+                    intel_pubkey,
                     known_apps: if known_apps.exists() {
                         Some(known_apps)
                     } else {
