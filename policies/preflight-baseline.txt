@@ -3,9 +3,9 @@
 # 改这个文件等于声明"这个变化是有意的" —— 评审时应该问为什么。
 ENV api.token.*
 ENV jail.*
-FAIL agent.keys.publicly_known
+FAIL agent.keys.publicly_known [claude-desktop(仓库夹具密钥，种子为 0xa1 重复 32 次),shopping-helper(仓库夹具密钥，种子为 0xb2 重复 32 次)]
 INFO adapters.asymmetric_trust
-INFO agent.keys.absent
+INFO agent.keys.absent [legacy-macro-bot]
 INFO gateway.cooperative
 INFO intel.secret.present
 PASS intel.verified
@@ -14,5 +14,5 @@ PASS plans.paths.declared
 PASS rules.loaded
 WARN adapter.keys.absent
 WARN agent.attestation.optional
-WARN apps.signers.absent
+WARN apps.signers.absent [LegacyPOS]
 WARN audit.unsigned

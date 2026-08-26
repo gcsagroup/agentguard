@@ -1198,7 +1198,29 @@ fn main() -> Result<()> {
             println!("sample_match({}) = {}", sample, b.matches_injection(sample));
         }
         Commands::IntelKeygen { out_dir } => {
+            // 目录也要收到 0700。一把 0600 的密钥放在 0755 的目录里仍然能被**替换**:
+            // 攻击者删掉它、放一个自己的 0600 密钥进去,权限位一样漂亮,而
+            // `from_secret_path` 只看文件的模式位,看不出这件事。
+            // 一次独立对抗性复核把它跑出来过:换掉密钥之后加载到的指纹变了,而没有任何抱怨。
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                if !out_dir.exists() {
+                    std::fs::DirBuilder::new()
+                        .recursive(true)
+                        .mode(0o700)
+                        .create(&out_dir)?;
+                }
+            }
+            #[cfg(not(unix))]
             std::fs::create_dir_all(&out_dir)?;
+            std::fs::create_dir_all(&out_dir)?;
+            #[cfg(not(unix))]
+            eprintln!(
+                "注意:Windows 上没有 mode 位可设,这个目录和私钥继承父目录的 ACL。\n\
+                 如果 out-dir 在一个宽松的位置(比如 C:\\),BUILTIN\\Users 默认可读 ——\n\
+                 也就是本机每个用户都能读走这个发布信任根,而这条检查在 Windows 上不会拦。"
+            );
             let kp = generate_keypair();
             let secret = out_dir.join("secret.hex");
             let public = out_dir.join("public.hex");

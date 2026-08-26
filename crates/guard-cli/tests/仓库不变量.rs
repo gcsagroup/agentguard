@@ -710,3 +710,150 @@ fn makefile的门禁配方不忽略退出码() {
         违规.join("\n  ")
     );
 }
+
+/// preflight 源码里**能发出**的每个结论 id 都要被钉住。
+///
+/// # 为什么基线本身不够
+///
+/// 基线只能钉**当前会触发**的结论。一次独立复核证明了后果:把
+/// `check_adapter_registry` 里整个 `adapter.keys.publicly_known` 分支删掉 ——
+/// 那是"注册表钉了一把私钥公开的适配器密钥"的检查,也就是"任何本机进程都能伪造
+/// 一份干净的环境调查" ——
+///
+/// ```text
+/// make preflight            → preflight 基线一致(15 条结论)   exit 0
+/// cargo test -p guard-cli   → all green
+/// ```
+///
+/// 全绿。因为那个分支现在不触发,基线里没有它,删掉它基线也不变。
+/// **也就是说:恰恰是"将来会抓住回归"的那些代码,可以随便删。**
+///
+/// 所以这条测试钉的是**源码里的 id 集合**,不是运行时的结论集合。删一个分支,
+/// 集合就变,测试就红。
+#[test]
+fn preflight能发出的结论id集合被钉住() {
+    let src = read("crates/guard-cli/src/preflight.rs");
+    // 只扫产品代码:测试模块里也有 `Finding::` 调用。
+    let 产品段 = src
+        .split("#[cfg(test)]")
+        .next()
+        .expect("preflight.rs 结构变了");
+
+    let mut ids: Vec<String> = Vec::new();
+    for ctor in [
+        "Finding::pass(",
+        "Finding::info(",
+        "Finding::warn(",
+        "Finding::fail(",
+    ] {
+        let mut rest = 产品段;
+        while let Some(i) = rest.find(ctor) {
+            rest = &rest[i + ctor.len()..];
+            // 第一个参数是 id 字面量,可能带换行和缩进。
+            let head = rest.trim_start();
+            if let Some(stripped) = head.strip_prefix('"') {
+                if let Some(j) = stripped.find('"') {
+                    ids.push(stripped[..j].to_string());
+                }
+            }
+        }
+    }
+    ids.sort();
+    ids.dedup();
+
+    // 这份清单是**手写的**,改它必须是一次有意的动作,而那一改会出现在 diff 里。
+    // 删一个检查分支 → 这里少一个 id → 测试红,而且报的是"少了哪一个"。
+    let 期望: &[&str] = &[
+        "adapter.keys.absent",
+        "adapter.keys.present",
+        "adapter.keys.publicly_known",
+        "adapter.platforms.unpinned",
+        "adapter.registry.absent",
+        "adapter.registry.invalid",
+        "adapters.asymmetric_trust",
+        "agent.attestation.optional",
+        "agent.attestation.required",
+        "agent.keys.absent",
+        "agent.keys.private",
+        "agent.keys.publicly_known",
+        "agent.registry.absent",
+        "agent.registry.invalid",
+        "api.token.empty",
+        "api.token.generated",
+        "api.token.strong",
+        "api.token.weak",
+        "apps.registry.absent",
+        "apps.registry.invalid",
+        "apps.signers.absent",
+        "apps.signers.present",
+        "audit.key.missing",
+        "audit.signed",
+        "audit.unsigned",
+        "gateway.cooperative",
+        "intel.absent",
+        "intel.secret.absent",
+        "intel.secret.present",
+        "intel.secret.unignored",
+        "intel.unverified",
+        "intel.verified",
+        "jail.backend",
+        "jail.unavailable",
+        "plans.absent",
+        "plans.invalid",
+        "plans.loaded",
+        "plans.paths.absent",
+        "plans.paths.declared",
+        "rules.invalid",
+        "rules.loaded",
+        "rules.missing",
+    ];
+    let 期望集: std::collections::BTreeSet<&str> = 期望.iter().copied().collect();
+    let 实际集: std::collections::BTreeSet<&str> = ids.iter().map(String::as_str).collect();
+
+    let 少的: Vec<&&str> = 期望集.difference(&实际集).collect();
+    let 多的: Vec<&&str> = 实际集.difference(&期望集).collect();
+    assert!(
+        少的.is_empty(),
+        "preflight 源码里少了这些结论 id:{:?}\n\
+         删掉一个检查分支就是这个形状 —— 而基线看不见它,因为它本来就不触发。\n\
+         如果确实是有意删的,把它从这份清单里去掉,那一改会在评审里被看到。",
+        少的
+    );
+    assert!(
+        多的.is_empty(),
+        "preflight 源码里多了这些结论 id:{:?}\n\
+         新增检查是好事 —— 把它们加进这份清单,并且跑 `make preflight-baseline`。",
+        多的
+    );
+}
+
+/// 提交进仓库的那份基线里,**恰好一条 FAIL**,而且是已知的那一条。
+///
+/// 一次独立复核指出:`--write-baseline` 的更新流程唯一的把关是"有人读 diff",
+/// 而 `ENV_DEPENDENT_PREFIXES` 那张表**有**一条单元测试盯着(所以放宽它必须改测试)。
+/// 基线里"有几条 FAIL、是哪几条"这个更重要的不变量,反倒没有任何东西盯着。
+///
+/// 现在盯上了:多一条 FAIL 就是新出现的部署故障被顺手接受了。
+#[test]
+fn 提交的基线里只有一条已知的fail() {
+    let base = read("policies/preflight-baseline.txt");
+    let fails: Vec<&str> = base
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with("FAIL "))
+        .collect();
+    assert_eq!(
+        fails.len(),
+        1,
+        "提交的基线里有 {} 条 FAIL,期望恰好 1 条:\n  {}\n\
+         多出来的那条意味着有人跑了 `make preflight-baseline` 把一个新故障接受掉了。",
+        fails.len(),
+        fails.join("\n  ")
+    );
+    assert!(
+        fails[0].starts_with("FAIL agent.keys.publicly_known"),
+        "基线里那条 FAIL 变了:{}\n\
+         唯一**刻意保留**的 FAIL 是 agent.keys.publicly_known(仓库钉的是夹具密钥)。",
+        fails[0]
+    );
+}

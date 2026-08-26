@@ -598,13 +598,45 @@ pub fn sensitive_target_full(
     }
 
     // 裸设备：写它等于绕过文件系统覆写磁盘。
+    //
+    // 按**组件**判,不按字符串前缀。上一版是 `lower.starts_with(pat)`,于是
+    // `/dev/sdcard-backups/notes.txt`、`/dev/nvme-notes/readme.md` 都被判成裸块设备
+    // —— 一次误拒,而误拒的代价是让人把守卫关掉。
+    //
+    // 这个文件里 `CREDENTIAL_DIRS` 早就为同一个理由从子串匹配换成了组件窗口,
+    // 这张表被落下了。一次独立复核指出来的。
     for pat in RAW_DEVICE_PREFIXES {
-        if lower.starts_with(pat) {
-            return Some(format!("{s:?} 是裸块设备"));
+        // Windows 那几个是整条路径形态,仍然按前缀比。
+        if pat.starts_with('\\') {
+            if lower.starts_with(pat) {
+                return Some(format!("{s:?} 是裸块设备"));
+            }
+            continue;
+        }
+        // `/dev/sd` → 必须是设备节点(`/dev` 加恰好一段),而且那一段以 `sd` 开头、
+        // 后面只跟盘号/分区号。`sdcard-backups` 里那个 `-` 就把它排除了。
+        if let Some(设备名) = 裸设备名(&lower) {
+            let 前缀 = pat.trim_start_matches("/dev/");
+            if let Some(尾) = 设备名.strip_prefix(前缀) {
+                if 尾.chars().all(|c| c.is_ascii_alphanumeric()) {
+                    return Some(format!("{s:?} 是裸块设备"));
+                }
+            }
         }
     }
 
     None
+}
+
+/// `/dev/<名字>` 里那个名字 —— 只有恰好两段(`/dev` + 一段)才算设备节点。
+///
+/// `/dev/sdcard-backups/notes.txt` 有三段,它是一个目录里的文件,不是设备节点。
+fn 裸设备名(lower: &str) -> Option<&str> {
+    let rest = lower.strip_prefix("/dev/")?;
+    if rest.is_empty() || rest.contains('/') {
+        return None;
+    }
+    Some(rest)
 }
 
 /// 名字落在系统目录下、但实际是**每用户可写**的暂存区。
@@ -1121,6 +1153,43 @@ mod tests {
                 sensitive_target_full(Path::new(p), PathIntent::Write, None, VolumeAliases::Fold)
                     .is_some(),
                 "{p} 被例外放掉了 —— 那是在系统目录上开口子"
+            );
+        }
+    }
+
+    /// 裸设备判定按**组件**,不按字符串前缀。
+    ///
+    /// 上一版是 `lower.starts_with("/dev/sd")`,于是
+    /// `/dev/sdcard-backups/notes.txt` 被判成裸块设备 —— 一次误拒。
+    /// 这个文件里 `CREDENTIAL_DIRS` 早就为同一个理由换成了组件窗口,这张表被落下了。
+    /// 一次独立复核指出来的。
+    #[test]
+    fn 裸设备判定不误伤同名目录() {
+        // 真的设备节点:必须判到。
+        for p in [
+            "/dev/sda",
+            "/dev/sda1",
+            "/dev/nvme0n1",
+            "/dev/disk0",
+            "/dev/vda",
+            "/dev/hdb2",
+        ] {
+            let got = sensitive_target_with_home(Path::new(p), PathIntent::Read, None)
+                .unwrap_or_else(|| panic!("{p} 漏判了 —— 写它等于绕过文件系统覆写磁盘"));
+            assert!(got.contains("裸块设备"), "{p}: {got}");
+        }
+        // 名字里带这些前缀的**目录**:不能误伤。
+        for p in [
+            "/dev/sdcard-backups/notes.txt",
+            "/dev/nvme-notes/readme.md",
+            "/dev/diskette-archive/x",
+            "/dev/hdmi-config/settings",
+            "/dev/video0",
+        ] {
+            let got = sensitive_target_with_home(Path::new(p), PathIntent::Read, None);
+            assert!(
+                !got.as_deref().unwrap_or("").contains("裸块设备"),
+                "{p} 被误判成裸块设备:{got:?} —— 误拒的代价是让人把守卫关掉"
             );
         }
     }

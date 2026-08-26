@@ -61,6 +61,25 @@ pub struct Finding {
     /// 该怎么办。`Pass` / `Info` 可以为空;`Warn` / `Fail` **不允许**为空 ——
     /// 一个没有下一步的告警,运维只能忽略它。有一条测试守这个不变量。
     pub remedy: String,
+    /// 这条结论**点名了哪些东西**(卡名、应用名、计划名……)。
+    ///
+    /// # 为什么这个字段必须存在
+    ///
+    /// 基线只记 `LEVEL id`,而一条集合型结论的**成员**变了、等级和 id 不变时,
+    /// 门禁看不见。一次独立复核跑出来的:把 `known-apps.yaml` 里 **Stripe**
+    /// (一个支付应用)的 `signers:` 删掉之后 ——
+    ///
+    /// ```text
+    /// [WARN] apps.signers.absent  这些应用没钉签名者:Stripe、LegacyPOS
+    /// preflight 基线一致(15 条结论)   exit 0
+    /// ```
+    ///
+    /// 整套本地门禁全绿。集合从 `{LegacyPOS}` 长成 `{Stripe, LegacyPOS}` 是一次
+    /// 语义变化,而 `LEVEL id` 一个字都没动。
+    ///
+    /// 所以集合型结论把成员放进这里,基线里带一个成员集的摘要。`detail` 仍然不进
+    /// 基线 —— 那里面有数量和路径,会随正常开发变动。
+    pub items: Vec<String>,
 }
 
 impl Finding {
@@ -70,6 +89,7 @@ impl Finding {
             id,
             detail: detail.into(),
             remedy: String::new(),
+            items: Vec::new(),
         }
     }
     fn info(id: &'static str, detail: impl Into<String>) -> Self {
@@ -78,6 +98,7 @@ impl Finding {
             id,
             detail: detail.into(),
             remedy: String::new(),
+            items: Vec::new(),
         }
     }
     fn warn(id: &'static str, detail: impl Into<String>, remedy: impl Into<String>) -> Self {
@@ -86,6 +107,7 @@ impl Finding {
             id,
             detail: detail.into(),
             remedy: remedy.into(),
+            items: Vec::new(),
         }
     }
     fn fail(id: &'static str, detail: impl Into<String>, remedy: impl Into<String>) -> Self {
@@ -94,7 +116,16 @@ impl Finding {
             id,
             detail: detail.into(),
             remedy: remedy.into(),
+            items: Vec::new(),
         }
+    }
+
+    /// 点名一组东西。集合变了基线就会变 —— 见 [`Finding::items`]。
+    fn with_items(mut self, items: impl IntoIterator<Item = String>) -> Self {
+        self.items = items.into_iter().collect();
+        self.items.sort();
+        self.items.dedup();
+        self
     }
 }
 
@@ -227,7 +258,7 @@ fn check_agent_registry(path: &Path) -> Vec<Finding> {
             "agent.keys.publicly_known",
             format!("这些卡钉的公钥,私钥半边是公开的:{}", names.join("、")),
             "`agentguard agent-keygen --agent-id <id>` 换一对新密钥,公钥填回注册表。判决层现在会把这些会话判成 AGENT-KEY-PUBLICLY-KNOWN(不是 Verified),所以它们眼下没被授予任何东西;但打开 require_attestation 之后,这些 agent 会一个都开不了会话。",
-        ));
+        ).with_items(names.iter().map(|x| x.to_string())));
     }
 
     if reg.require_attestation {
@@ -250,14 +281,17 @@ fn check_agent_registry(path: &Path) -> Vec<Finding> {
         .map(|a| a.agent_id.as_str())
         .collect();
     if !keyless.is_empty() {
-        out.push(Finding::info(
-            "agent.keys.absent",
-            format!(
-                "{} 张卡没有密钥,永远无法验证(报 NoKeyOnRecord,不是 Verified):{}",
-                keyless.len(),
-                keyless.join("、")
-            ),
-        ));
+        out.push(
+            Finding::info(
+                "agent.keys.absent",
+                format!(
+                    "{} 张卡没有密钥,永远无法验证(报 NoKeyOnRecord,不是 Verified):{}",
+                    keyless.len(),
+                    keyless.join("、")
+                ),
+            )
+            .with_items(keyless.iter().map(|x| x.to_string())),
+        );
     }
     out
 }
@@ -291,7 +325,7 @@ fn check_adapter_registry(path: &Path) -> Vec<Finding> {
             "adapter.keys.publicly_known",
             format!("这些适配器卡钉的公钥,私钥半边是公开的:{}", names.join("、")),
             "`agentguard adapter-keygen --adapter-id <id>` 换一对新密钥。用一把私钥公开的密钥验签,等于任何本机进程都能伪造一份「干净」的环境调查去清掉已锁存的风险 —— 也就是这个机制本来要拦的那件事。",
-        ));
+        ).with_items(names.iter().map(|x| x.to_string())));
     }
     let keyed = reg
         .adapters
@@ -321,7 +355,7 @@ fn check_adapter_registry(path: &Path) -> Vec<Finding> {
             "adapter.platforms.unpinned",
             format!("这些适配器没有钉平台:{}", unpinned.join("、")),
             "一把泄露的密钥就能用来伪造任何平台的断言。给每张卡写上 platforms —— Android 伴生应用没有理由发一个 platform: macos 的事件。",
-        ));
+        ).with_items(unpinned.iter().map(|x| x.to_string())));
     }
     out
 }
@@ -361,7 +395,7 @@ fn check_known_apps(path: &Path) -> Vec<Finding> {
             "apps.signers.absent",
             format!("这些应用没钉签名者:{}", unsigned.join("、")),
             "没有签名者的条目会报「无法验证」而不是「已验证」—— 这是对的,但它给不出任何身份保证。把真实的签名摘要填进去。",
-        ));
+        ).with_items(unsigned.iter().map(|x| x.to_string())));
     }
     out
 }
@@ -407,7 +441,7 @@ fn check_task_plans(path: &Path) -> Vec<Finding> {
             "plans.paths.absent",
             format!("这些计划没有 scope.paths:{}", no_paths.join("、")),
             "这些任务下的文件读写会判成 FS-UNSCOPED —— 进审计,但不是边界。guard-jail 也没有天花板可用来生成约束(没有天花板 = 请求被忽略,不是被授予)。给它们加上 read / write 两张清单。",
-        ));
+        ).with_items(no_paths.iter().map(|x| x.to_string())));
     }
     out
 }
@@ -814,7 +848,11 @@ fn baseline_line(f: &Finding) -> String {
         // (Linux 有 mount namespace,macOS 没有)。一条 `Fail` 不是那种东西 ——
         // 它是配置本身坏了,和跑在哪台机器上无关。
         Some(prefix) if f.level != Level::Fail => format!("ENV {prefix}*"),
-        _ => format!("{} {}", f.level.tag(), f.id),
+        _ if f.items.is_empty() => format!("{} {}", f.level.tag(), f.id),
+        // 集合型结论:把成员集一起记进去。成员**排序后原样列出**,不做哈希 ——
+        // 基线是给人看的,`{Stripe, LegacyPOS}` 比一串十六进制有用得多:
+        // 评审时一眼能看出多了谁。
+        _ => format!("{} {} [{}]", f.level.tag(), f.id, f.items.join(",")),
     }
 }
 
@@ -860,7 +898,13 @@ mod baseline_tests {
             id,
             detail: "细节会变,不进基线".into(),
             remedy: "r".into(),
+            items: Vec::new(),
         }
+    }
+
+    /// 带点名成员的结论。
+    fn f_items(level: Level, id: &'static str, items: &[&str]) -> Finding {
+        f(level, id).with_items(items.iter().map(|x| x.to_string()))
     }
 
     #[test]
@@ -926,6 +970,38 @@ mod baseline_tests {
         let 没有jail了 = vec![f(Level::Fail, "a.b")];
         let d = diff_baseline(&没有jail了, "FAIL a.b\nENV jail.*\n");
         assert_eq!(d.removed, vec!["ENV jail.*"]);
+    }
+
+    /// **集合型结论的成员变了,基线要变。**
+    ///
+    /// 一次独立复核跑出来的:把 `known-apps.yaml` 里 Stripe(一个支付应用)的
+    /// `signers:` 删掉之后,`apps.signers.absent` 的成员集从 `{LegacyPOS}` 长成
+    /// `{Stripe, LegacyPOS}`,而 `LEVEL id` 一个字没动 —— 整套本地门禁全绿。
+    #[test]
+    fn 集合型结论的成员进基线() {
+        let 少 = vec![f_items(Level::Warn, "apps.signers.absent", &["LegacyPOS"])];
+        let 多 = vec![f_items(
+            Level::Warn,
+            "apps.signers.absent",
+            &["LegacyPOS", "Stripe"],
+        )];
+        assert_ne!(
+            baseline_lines(&少),
+            baseline_lines(&多),
+            "成员集变了而基线行没变 —— 那正是那个洞"
+        );
+        // 对着"只有 LegacyPOS"的基线,多出 Stripe 必须被拦。
+        let d = diff_baseline(&多, "WARN apps.signers.absent [LegacyPOS]\n");
+        assert!(!d.is_clean(), "{d:?}");
+    }
+
+    /// 成员集**排序无关** —— 否则 YAML 里换个顺序就要更新基线,而那种噪音会让人
+    /// 学会无脑重跑 `--write-baseline`。
+    #[test]
+    fn 成员集顺序不影响基线() {
+        let a = vec![f_items(Level::Warn, "x.y", &["b", "a"])];
+        let b = vec![f_items(Level::Warn, "x.y", &["a", "b"])];
+        assert_eq!(baseline_lines(&a), baseline_lines(&b));
     }
 
     /// **`Fail` 不进族折叠。**
