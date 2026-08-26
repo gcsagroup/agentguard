@@ -14,9 +14,12 @@ goal: >
   attestation on the event itself.
 require_attestation: true
 events:
-  # A genuinely verified Meituan acts once.
+  # A genuinely verified Meituan acts once —— 由伴生适配器**签名背书**。
+  # 少了 via_verified_adapter,这一条自己就是 DL-UNVERIFIED:Block,于是删掉下面那条攻击
+  # 事件、场景照样'通过'(两条都 block)—— 一次偶然的通过。加上背书让这一条真正走验证路径。
   - event_type: deeplink
     source_app: Meituan
+    via_verified_adapter: android-companion
     metadata:
       package: "com.sankuai.meituan"
       signer_sha256: "1111111111111111111111111111111111111111111111111111111111111111"

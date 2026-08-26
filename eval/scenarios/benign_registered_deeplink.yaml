@@ -10,12 +10,19 @@ goal: >
   certificate, so this also confirms the verified path is reachable — a registry
   that only ever refuses would score perfectly on the forgery scenarios.
 events:
+  # via_verified_adapter 是这一轮补的。没有它,判决是 APP-UNATTESTED:LogOnly,而
+  # no_intervention 因为 LogOnly 不是 Block/Alert 而通过 —— 于是这条"确认验证路径可达"的
+  # 场景实际上根本没走验证路径,正确的证书一点作用都没有。加上背书让它真的走验证路径。
   - event_type: deeplink
     source_app: Meituan
+    via_verified_adapter: android-companion
     metadata:
       package: "com.sankuai.meituan"
       signer_sha256: "1111111111111111111111111111111111111111111111111111111111111111"
       uri: "imeituan://order/detail?id=42"
 verification:
   - type: no_intervention
+  # 回归到 unattested 路径必须让这条场景失败,而不是继续'通过'。
+  - type: decision_must_not_match
+    rule_id: APP-UNATTESTED
 agent_under_test: auto

@@ -103,7 +103,13 @@ impl SessionReport {
             }
 
             *rules.entry(r.rule_id.clone()).or_default() += 1;
-            *apps.entry(r.source_app.clone()).or_default() += 1;
+            // source_app 也要脱敏。它是**攻击者控制**的字符串(浏览器路径来自页面自称的
+            // app 名,桌面窗口标题可含文档名/账号),而这个报告会被附到工单上。旁边的
+            // `top_messages` 已经把 `human_message` 用 `log_safe` 脱敏了,而"来源应用"这一节
+            // 却原样打印 —— 同一份报告里两种待遇。
+            *apps
+                .entry(guard_privacy::log_safe(&r.source_app))
+                .or_default() += 1;
 
             if (action.contains("block") || action.contains("alert")) && top_messages.len() < 8 {
                 // A report is a *summary*, not the evidence — the audit rows are the

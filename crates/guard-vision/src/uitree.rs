@@ -60,6 +60,35 @@ impl UiSnapshot {
 }
 
 /// Concatenate visible text from an accessibility snapshot (depth-first).
+/// 单个节点文本(title / value / label)的字符数上限。
+///
+/// # 为什么上限要放在 uitree,而不是各个适配器
+///
+/// `GuardEvent` 的 metadata 里那些节点文本会进签名审计。Windows 的 UIA 遍历器有上限
+/// (`MAX_TEXT_LEN = 512`),而 **macOS 的 ObjC 遍历器对字符串属性完全不设上限**
+/// —— 一个应用把 `AXTitle` 设成 4 MB,那 4 MB 就原样进了签名审计行。
+///
+/// 应用自己决定这些字符串(`NSAccessibilityTitle` 是任意 NSString,网页通过 ARIA 决定),
+/// 所以这是攻击者控制的输入。把上限放进各个遍历器就会**漂**(Windows 有、macOS 没有,
+/// 而这个 crate 存在的理由本来就是消除这种跨平台漂移)。放在 uitree 的消费点,两个平台
+/// 走的是同一段代码,上限只有一个来源。
+///
+/// 4096 个字符对任何真实的标签/标题/字段名都绰绰有余,同时把最坏情况从"无界"钉到
+/// 每个节点约 16 KB。
+pub const MAX_NODE_TEXT_CHARS: usize = 4096;
+
+/// 把一段节点文本截到 `MAX_NODE_TEXT_CHARS` 个字符,按字符边界。
+///
+/// 截断时留一个可见的标记,这样审计里"这条被截过"是明确的,而不是看起来像一段正常的
+/// 短文本。
+fn cap_node_text(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.chars().count() <= MAX_NODE_TEXT_CHARS {
+        return std::borrow::Cow::Borrowed(s);
+    }
+    let truncated: String = s.chars().take(MAX_NODE_TEXT_CHARS).collect();
+    std::borrow::Cow::Owned(format!("{truncated}…[truncated]"))
+}
+
 pub fn flatten_text(snapshot: &UiSnapshot) -> String {
     let mut parts = Vec::new();
     flatten_node(&snapshot.root, &mut parts);
@@ -68,10 +97,10 @@ pub fn flatten_text(snapshot: &UiSnapshot) -> String {
 
 fn flatten_node(node: &UiNode, parts: &mut Vec<String>) {
     if !node.title.is_empty() {
-        parts.push(node.title.clone());
+        parts.push(cap_node_text(&node.title).into_owned());
     }
     if !node.value.is_empty() {
-        parts.push(node.value.clone());
+        parts.push(cap_node_text(&node.value).into_owned());
     }
     for child in &node.children {
         flatten_node(child, parts);
@@ -108,10 +137,12 @@ fn collect_regions(node: &UiNode, out: &mut Vec<UiRegion>) {
 }
 
 fn node_text(node: &UiNode) -> String {
-    match (&node.title, &node.value) {
-        (t, v) if !t.is_empty() && !v.is_empty() => format!("{t} {v}"),
-        (t, _) if !t.is_empty() => t.clone(),
-        (_, v) if !v.is_empty() => v.clone(),
+    let t = cap_node_text(&node.title);
+    let v = cap_node_text(&node.value);
+    match (t.is_empty(), v.is_empty()) {
+        (false, false) => format!("{t} {v}"),
+        (false, true) => t.into_owned(),
+        (true, false) => v.into_owned(),
         _ => String::new(),
     }
 }
@@ -234,7 +265,7 @@ fn collect_form_fills(
     out: &mut Vec<GuardEvent>,
 ) {
     let label = if !node.title.is_empty() {
-        node.title.clone()
+        cap_node_text(&node.title).into_owned()
     } else {
         parent_title.to_string()
     };
@@ -398,5 +429,80 @@ trap_labels: [coupon, VIP]
             fills[1].metadata.get("is_trap").map(String::as_str),
             Some("true")
         );
+    }
+}
+
+#[cfg(test)]
+mod b6_节点文本上限 {
+    use super::*;
+
+    /// 一个 4 MB 的 AX 标题不能原样进签名审计。
+    ///
+    /// 复核实测:macOS 的 ObjC 遍历器对字符串属性不设上限,4,194,304 字节的 label 进了
+    /// 签名事件的 metadata。上限放在 uitree 的消费点,两个平台走同一段代码。
+    #[test]
+    fn 超长标题被截断() {
+        let huge = "A".repeat(4 * 1024 * 1024);
+        let snap = UiSnapshot {
+            source_app: "App".into(),
+            root: UiNode {
+                role: "AXTextField".into(),
+                title: huge.clone(),
+                value: "x".into(),
+                ..Default::default()
+            },
+        };
+        // flatten_text
+        let flat = flatten_text(&snap);
+        assert!(
+            flat.chars().count() < MAX_NODE_TEXT_CHARS + 100,
+            "flatten_text 没有截断,长度 {}",
+            flat.chars().count()
+        );
+        assert!(flat.contains("truncated"), "截断应当有可见标记");
+
+        // form_fill 的 label
+        let events = form_fills_from_snapshot(&snap, "macos", "e", 0, None::<String>, &[]);
+        for e in &events {
+            if let Some(label) = e.metadata.get("label") {
+                assert!(
+                    label.chars().count() < MAX_NODE_TEXT_CHARS + 100,
+                    "form_fill 的 label 没有截断,长度 {}",
+                    label.chars().count()
+                );
+            }
+        }
+    }
+
+    /// 反面:正常长度的标题不被动。
+    #[test]
+    fn 正常标题不被截断() {
+        let snap = UiSnapshot {
+            source_app: "App".into(),
+            root: UiNode {
+                role: "AXStaticText".into(),
+                title: "Confirm payment of $99.00 to Acme Corp".into(),
+                ..Default::default()
+            },
+        };
+        let flat = flatten_text(&snap);
+        assert_eq!(flat, "Confirm payment of $99.00 to Acme Corp");
+        assert!(!flat.contains("truncated"));
+    }
+
+    /// 截断落在字符边界上,不产生非法 UTF-8(标题可能是中文)。
+    #[test]
+    fn 截断在字符边界上() {
+        let huge = "确认".repeat(3 * 1024 * 1024); // 每个字 3 字节
+        let snap = UiSnapshot {
+            source_app: "App".into(),
+            root: UiNode {
+                role: "AXStaticText".into(),
+                title: huge,
+                ..Default::default()
+            },
+        };
+        let flat = flatten_text(&snap); // 不 panic 就说明是字符边界
+        assert!(flat.chars().count() < MAX_NODE_TEXT_CHARS + 100);
     }
 }

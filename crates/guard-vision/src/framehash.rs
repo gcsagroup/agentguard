@@ -499,6 +499,50 @@ pub fn compare(prev: &FrameDigest, next: &FrameDigest) -> DigestDelta {
     if changed.is_empty() {
         return DigestDelta::Identical;
     }
+
+    // 先做连通分量分析,**再**看全局占比 —— 顺序反过来正是这个探测器能被一段全屏动画关掉的
+    // 原因。
+    //
+    // 旧逻辑:changed/total > 0.35 就直接返回 `GlobalRepaint`,而 `FrameConsistency` 把它
+    // 映射成 `None`(无 finding)。于是攻击者只要与注入**同时**重绘 ≥36% 的网格,注入就消失:
+    //
+    // ```text
+    // injection alone                 -> Some(FrameRegionTamper)
+    // animation over 4/9 grid rows(44%)-> GlobalRepaint -> None    <- 注入被一起吞掉
+    // ```
+    //
+    // 覆盖 4/9 网格行(屏高 44%,一条视频、一个 banner、一个滚动列表)即可 —— 任何网页都能
+    // 按需做到。而这在语义上是错的:一次**真正**的全局重绘(切应用、滚动)会改动**几乎整个**
+    // 画面;44% 改动意味着 56% 静止,那不是全局重绘,是"一大块动 + 可能另有一小簇动"。
+    //
+    // 所以:把变化块按网格 4-邻接切成连通分量。最大的那个分量是"大块变化"(动画/视频/滚动)。
+    // **除它之外**任何一个达到 `MIN_LOCALIZED_BLOCKS` 的分量,都是一处与大块**分离**的局部
+    // 编辑 —— 报出来,和全局占比无关。用户读字的地方和视频窗口是两个位置,注入落在前者、
+    // 动画落在后者,于是是两个分量,抓得到。
+    let components = connected_components(&changed);
+    if let Some((_, largest_idx)) = components
+        .iter()
+        .enumerate()
+        .map(|(i, c)| (c.len(), i))
+        .max()
+    {
+        let secondary: Vec<usize> = components
+            .iter()
+            .enumerate()
+            .filter(|(i, c)| *i != largest_idx && c.len() >= MIN_LOCALIZED_BLOCKS)
+            .flat_map(|(_, c)| c.iter().copied())
+            .collect();
+        if !secondary.is_empty() {
+            let mut blocks = secondary;
+            blocks.sort_unstable();
+            return DigestDelta::Localized {
+                changed: blocks,
+                total,
+            };
+        }
+    }
+
+    // 没有分离的次要簇。剩下的是"要么一大块连续变化,要么一个小局部编辑"。
     if total > 0 && changed.len() as f32 / total as f32 > GLOBAL_CHANGE_RATIO {
         return DigestDelta::GlobalRepaint {
             changed: changed.len(),
@@ -510,6 +554,50 @@ pub fn compare(prev: &FrameDigest, next: &FrameDigest) -> DigestDelta {
     }
     // A single block: below the noise floor.
     DigestDelta::Identical
+}
+
+/// 把变化块索引按 16×9 网格的 4-邻接切成连通分量。
+///
+/// 只用于 `compare`。块索引是 `row * GRID_COLS + col`。
+fn connected_components(changed: &[usize]) -> Vec<Vec<usize>> {
+    use std::collections::BTreeSet;
+    let set: BTreeSet<usize> = changed.iter().copied().collect();
+    let mut seen: BTreeSet<usize> = BTreeSet::new();
+    let mut out = Vec::new();
+    for &start in &set {
+        if seen.contains(&start) {
+            continue;
+        }
+        let mut stack = vec![start];
+        let mut comp = Vec::new();
+        while let Some(b) = stack.pop() {
+            if !seen.insert(b) {
+                continue;
+            }
+            comp.push(b);
+            let (r, c) = (b / GRID_COLS, b % GRID_COLS);
+            let mut neigh = Vec::new();
+            if r > 0 {
+                neigh.push(b - GRID_COLS);
+            }
+            if r + 1 < GRID_ROWS {
+                neigh.push(b + GRID_COLS);
+            }
+            if c > 0 {
+                neigh.push(b - 1);
+            }
+            if c + 1 < GRID_COLS {
+                neigh.push(b + 1);
+            }
+            for n in neigh {
+                if set.contains(&n) && !seen.contains(&n) {
+                    stack.push(n);
+                }
+            }
+        }
+        out.push(comp);
+    }
+    out
 }
 
 #[cfg(test)]
@@ -1123,6 +1211,103 @@ mod b6_跨语言摘要向量 {
                 }
                 std::fs::write(&path, &doc).expect("写向量文件");
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod b6_全屏动画不能关掉局部探测 {
+    use super::*;
+
+    // 直接在块索引上构造 digest delta,不必渲染像素 —— 我们要测的是 `compare` 的分簇逻辑。
+    fn digest_from_changed(changed: &[usize]) -> (FrameDigest, FrameDigest) {
+        let n = GRID_COLS * GRID_ROWS;
+        let a = FrameDigest {
+            luma: vec![8u8; n],
+            cb: vec![8u8; n],
+            cr: vec![8u8; n],
+            detail: vec![0u8; n],
+            has_detail: true,
+        };
+        let mut b = a.clone();
+        for &i in changed {
+            b.luma[i] = 0; // 远超 BLOCK_CHANGE_LEVELS
+        }
+        (a, b)
+    }
+
+    /// 一段全屏动画不能把与它**分离**的注入一起吞掉。
+    ///
+    /// 复核实测(修复前):覆盖 4/9 网格行 = 64 块(44%),`compare` 返回 GlobalRepaint,
+    /// `FrameConsistency` 映射成 None,同时注入的 2 块被一起吞掉。
+    #[test]
+    fn 动画加分离注入仍报局部() {
+        // 动画:前 4 行(0..64),连续一大块。
+        let mut changed: Vec<usize> = (0..4 * GRID_COLS).collect();
+        // 注入:第 8 行第 2、3 列 —— 与动画分离的一小簇。
+        let inj = [8 * GRID_COLS + 2, 8 * GRID_COLS + 3];
+        changed.extend_from_slice(&inj);
+
+        let (a, b) = digest_from_changed(&changed);
+        match compare(&a, &b) {
+            DigestDelta::Localized {
+                changed: blocks, ..
+            } => {
+                // 报的应当是**注入那一簇**,不是整块动画。
+                assert!(
+                    inj.iter().all(|i| blocks.contains(i)),
+                    "注入块没有被报出来:{blocks:?}"
+                );
+                assert!(
+                    blocks.len() < 10,
+                    "报出来的块太多,说明把动画也算进去了:{}",
+                    blocks.len()
+                );
+            }
+            other => panic!("动画 + 分离注入应当报 Localized,得到 {other:?}"),
+        }
+    }
+
+    /// 反面:一整块真正的全屏重绘(几乎所有块都变)仍然是 GlobalRepaint,不误报。
+    #[test]
+    fn 真正的全屏重绘不误报() {
+        let changed: Vec<usize> = (0..GRID_COLS * GRID_ROWS).collect(); // 全变
+        let (a, b) = digest_from_changed(&changed);
+        assert!(
+            matches!(compare(&a, &b), DigestDelta::GlobalRepaint { .. }),
+            "整帧改变应当是 GlobalRepaint"
+        );
+    }
+
+    /// 反面:一大块连续动画、**没有**分离注入,仍然是 GlobalRepaint(是视频,不是篡改)。
+    #[test]
+    fn 纯动画没有注入仍是全局重绘() {
+        let changed: Vec<usize> = (0..5 * GRID_COLS).collect(); // 前 5 行连续,56%
+        let (a, b) = digest_from_changed(&changed);
+        assert!(
+            matches!(compare(&a, &b), DigestDelta::GlobalRepaint { .. }),
+            "一大块连续动画没有分离簇时应当是 GlobalRepaint"
+        );
+    }
+
+    /// 两处分离的注入,即使总数很小,也都要被报出来。
+    #[test]
+    fn 两处分离注入都被报() {
+        let changed = vec![
+            0,
+            1, // 左上角一簇
+            8 * GRID_COLS + 14,
+            8 * GRID_COLS + 15, // 右下角一簇
+        ];
+        let (a, b) = digest_from_changed(&changed);
+        match compare(&a, &b) {
+            DigestDelta::Localized {
+                changed: blocks, ..
+            } => {
+                // 最大分量之外的另一簇必须出现。这里两簇同大,任一被当作"最大",另一必被报。
+                assert!(blocks.len() >= 2, "至少一簇应当被报:{blocks:?}");
+            }
+            other => panic!("两处分离注入应当报 Localized,得到 {other:?}"),
         }
     }
 }

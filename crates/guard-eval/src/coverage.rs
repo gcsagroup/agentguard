@@ -162,6 +162,12 @@ pub struct ScenarioFacts {
     pub passed: bool,
     /// False for benign false-positive controls, which are not attack surfaces.
     pub is_attack: bool,
+    /// 这条场景是**误报对照**吗(kind: benign)。
+    ///
+    /// 和 `is_attack` 分开列,因为 `ContractGate` 两者都不是:一个契约闸门既不是攻击面
+    /// (它永远会 block,不检验检测能力),也不是误报对照(它**应当** intervene)。
+    /// `benign_controls` 计数如果只用 `!is_attack`,就会把契约闸门错当成误报对照。
+    pub is_benign: bool,
     /// 这条场景实际发出的判决里出现过的 rule id。
     ///
     /// # 为什么"覆盖"必须包含这个
@@ -328,7 +334,7 @@ pub fn verify(
         .filter(|(k, f)| f.is_attack && !referenced.contains(*k))
         .map(|(k, _)| k.clone())
         .collect();
-    let benign_controls = scenarios.values().filter(|f| !f.is_attack).count();
+    let benign_controls = scenarios.values().filter(|f| f.is_benign).count();
 
     let counts = matrix.counts();
     CoverageReport {
@@ -469,6 +475,7 @@ mod tests {
                     ScenarioFacts {
                         passed: *v,
                         is_attack: true,
+                        is_benign: false,
                         rule_hits: vec!["R-1".to_string()],
                     },
                 )
@@ -482,6 +489,7 @@ mod tests {
             ScenarioFacts {
                 passed: true,
                 is_attack: false,
+                is_benign: true,
                 rule_hits: vec!["R-1".to_string()],
             },
         )

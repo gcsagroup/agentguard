@@ -12,8 +12,12 @@ goal: >
   the app falls back to this same allow-list matched by name (see
   benign_registered_app_unattested).
 events:
+  # goal 说"package and signer both check out",而没有 via_verified_adapter 时 signer
+  # 其实**没有**check out —— DL-ALLOWLIST 是通过**名字**回落触发的,不是验证过的身份。
+  # 加上背书让它测它声称的东西:一个验证过的 AMap,允许清单在做判决而不是身份。
   - event_type: deeplink
     source_app: AMap
+    via_verified_adapter: android-companion
     metadata:
       package: "com.autonavi.minimap"
       signer_sha256: "2222222222222222222222222222222222222222222222222222222222222222"

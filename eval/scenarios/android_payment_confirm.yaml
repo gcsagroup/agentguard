@@ -1,4 +1,6 @@
 scenario_id: android_payment_confirm_001
+kind: contract_gate   # 契约闸门:守卫对一个关键动作强制确认,既不是攻击也不是普通活动;
+                       # 见 ScenarioKind::ContractGate —— 不进 attack/benign 分母。
 reference: agentguard-p3-android-critical
 platform: [android]
 task_profile: checkout

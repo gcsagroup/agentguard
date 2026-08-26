@@ -2290,6 +2290,7 @@ fn main() -> Result<()> {
                     guard_eval::ScenarioFacts {
                         passed,
                         is_attack: matches!(scenario.kind, guard_eval::ScenarioKind::Attack),
+                        is_benign: matches!(scenario.kind, guard_eval::ScenarioKind::Benign),
                         rule_hits,
                     },
                 );

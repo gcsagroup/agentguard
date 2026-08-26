@@ -82,6 +82,22 @@ pub enum ScenarioKind {
     /// Depicts ordinary activity. The guard is expected **not** to intervene;
     /// intervening is a **false positive** and costs the user utility.
     Benign,
+    /// 一个**契约闸门**:守卫对一个(可能完全合法的)动作强制确认/拦截,因为它是一个
+    /// 关键动作(付款/转账/永久删除/写记忆)。
+    ///
+    /// # 为什么它既不是 attack 也不是 benign
+    ///
+    /// 一次独立复核指出:这些场景(`payment_complete_purchase`、`android_payment_confirm`、
+    /// `payment_transfer`、`session_pause_smoke`、`memory_write`……)以前**默认成了 attack**
+    /// (没写 `kind`),于是 CRIT-001 / PRIV-004 的触发被计入"抓到的攻击"。但一次付款确认
+    /// 闸门不是"抓到一次攻击" —— 它是在执行一条确认策略,无论那次付款是不是恶意的。而
+    /// `Verification::ignore_rules` 的文档把**同样**的 CRIT-001 / PRIV-004 称作"契约选择,
+    /// 不是威胁检测",在 6 个 benign 场景里排除掉 —— 同一条规则两种待遇。
+    ///
+    /// 更实际的后果:这些闸门**永远**会 block,把它们塞进 attack 分母会让漏报率虚低
+    /// (1/95 而不是 1/89)。所以它们自成一类:仍然断言 `decision_must_block`,但**既不进
+    /// attack 分母,也不进 benign 分母** —— 漏报率因此只反映真正的攻击检测。
+    ContractGate,
 }
 
 impl ScenarioKind {
@@ -89,6 +105,7 @@ impl ScenarioKind {
         match self {
             Self::Attack => "attack",
             Self::Benign => "benign",
+            Self::ContractGate => "contract_gate",
         }
     }
 }

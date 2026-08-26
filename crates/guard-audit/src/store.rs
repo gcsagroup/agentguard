@@ -91,20 +91,34 @@ pub struct AuditStore {
 }
 
 fn map_record_row_at(row: &rusqlite::Row<'_>, base: usize) -> rusqlite::Result<AuditRecord> {
+    // 一个 NULL 单元格**不能**让整个读取路径失败。
+    //
+    // 这些列是 `TEXT` 且映射到非 `Option<String>`。旧代码用 `row.get::<_, String>()`,遇到
+    // NULL 会返回 `InvalidColumnType`,而这个错误一路冒泡,让 `verify_chain` / `export_jsonl`
+    // / `list_recent` —— **整条读取路径** —— 全部失败。也就是攻击者只要把一个单元格改成
+    // NULL,就让整个审计库无法被验证。这是对审计本身的拒绝服务。
+    //
+    // NULL 只可能来自篡改(`append` 写的都是非空值),而篡改已经会破坏那一行的链哈希。
+    // 所以正确的方向是把 NULL 当成空串**继续读**,让验证跑到那一行、正确地把它报成链
+    // 不匹配 —— 而不是拒绝去看整个库。fail-closed 应当落在那**一行**,不是落在能不能
+    // 打开库上。
+    let text = |i: usize| -> rusqlite::Result<String> {
+        Ok(row.get::<_, Option<String>>(i)?.unwrap_or_default())
+    };
     Ok(AuditRecord {
-        id: row.get(base)?,
-        timestamp_ms: row.get(base + 1)?,
-        platform: row.get(base + 2)?,
-        event_type: row.get(base + 3)?,
-        source_app: row.get(base + 4)?,
+        id: text(base)?,
+        timestamp_ms: row.get::<_, Option<i64>>(base + 1)?.unwrap_or(0),
+        platform: text(base + 2)?,
+        event_type: text(base + 3)?,
+        source_app: text(base + 4)?,
         agent_session_id: row.get(base + 5)?,
-        rule_id: row.get(base + 6)?,
-        severity: row.get(base + 7)?,
-        action: row.get(base + 8)?,
-        human_message: row.get(base + 9)?,
+        rule_id: text(base + 6)?,
+        severity: text(base + 7)?,
+        action: text(base + 8)?,
+        human_message: text(base + 9)?,
         evidence_ref: row.get(base + 10)?,
         user_decision: row.get(base + 11)?,
-        event_json: row.get(base + 12)?,
+        event_json: text(base + 12)?,
         attributed_agent: row.get(base + 13)?,
     })
 }
@@ -1091,7 +1105,11 @@ impl AuditStore {
 
     pub fn list_recent(&self, limit: usize) -> Result<Vec<AuditRecord>> {
         let cols = self.record_cols()?;
-        let sql = format!("SELECT {cols} FROM audit_events ORDER BY timestamp_ms DESC LIMIT ?1");
+        // `ORDER BY rowid`,不是 `timestamp_ms` —— `timestamp_ms` 来自事件,是**智能体
+        // 提供**的值。按它排序,一个攻击者给恶意事件填一个很旧的时间戳,就能把它挤出
+        // "最近 N 条"的窗口,或者让审计看起来乱序。`rowid`(追加顺序)是单调的、不受
+        // 攻击者控制的,也是哈希链走的那个顺序。
+        let sql = format!("SELECT {cols} FROM audit_events ORDER BY rowid DESC LIMIT ?1");
         let mut stmt = self.conn.prepare(&sql)?;
         let rows = stmt.query_map(params![limit as i64], map_record_row)?;
         let mut out = Vec::new();
@@ -1128,9 +1146,12 @@ impl AuditStore {
     /// alone would strip exactly the fields that make it attributable.
     pub fn export_jsonl(&self, limit: usize) -> Result<String> {
         let has_sig = self.has_column("audit_events", "record_sig")?;
+        // 同 `list_recent`:按追加顺序(`rowid`)导出,不按智能体提供的 `timestamp_ms`。
+        // 导出物要交给审计员**验证哈希链**,而链是按追加顺序走的 —— 用攻击者能控制的
+        // 时间戳排序,既能挤掉证据,又让导出物的顺序和链的顺序对不上。
         let sql = format!(
             "SELECT {cols}, prev_hash, record_hash{extra} FROM audit_events
-             ORDER BY timestamp_ms DESC LIMIT ?1",
+             ORDER BY rowid DESC LIMIT ?1",
             cols = self.record_cols()?,
             extra = if has_sig {
                 ", record_sig, signer_key_id, seq"
@@ -2176,5 +2197,93 @@ mod b6_并发与见证复核 {
         let _ = std::fs::remove_dir_all(&dir);
         let e = verdict.expect_err("包含性证明必须抓到");
         assert!(e.to_string().contains("no longer appears"), "{e}");
+    }
+}
+
+#[cfg(test)]
+mod b6_审计次要洞 {
+    use super::*;
+
+    fn rec(i: usize, ts: i64) -> AuditRecord {
+        AuditRecord {
+            id: format!("id-{i}"),
+            timestamp_ms: ts,
+            platform: "test".into(),
+            event_type: "ui_tree_delta".into(),
+            source_app: "App".into(),
+            agent_session_id: None,
+            rule_id: format!("R{i}"),
+            severity: "info".into(),
+            action: "Allow".into(),
+            human_message: format!("event {i}"),
+            evidence_ref: None,
+            user_decision: None,
+            event_json: "{}".into(),
+            attributed_agent: None,
+        }
+    }
+
+    /// 导出与"最近"按**追加顺序**排,不按智能体提供的时间戳。
+    ///
+    /// 攻击者给一条晚追加的恶意事件填一个很旧的时间戳,不能把它挤出"最近 N 条"。
+    #[test]
+    fn 排序不被攻击者时间戳左右() {
+        let dir = std::env::temp_dir().join(format!("ag-order-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = AuditStore::open(dir.join("a.db")).unwrap();
+        // 先追加两条正常事件(新时间戳),再追加一条恶意事件但填一个**很旧**的时间戳。
+        store.append(&rec(1, 2_000_000)).unwrap();
+        store.append(&rec(2, 2_000_001)).unwrap();
+        store.append(&rec(99, 1)).unwrap(); // 恶意:时间戳 = 1
+
+        let recent = store.list_recent(1).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(recent.len(), 1, "list_recent(1) 应当返回一条");
+        assert_eq!(
+            recent[0].id, "id-99",
+            "最新追加的事件(即使时间戳很旧)应当是'最近'的第一条,得到 {}",
+            recent[0].id
+        );
+    }
+
+    /// 一个 NULL 单元格不能让整个审计库无法读取/验证。
+    #[test]
+    fn 一个null不让整库不可读() {
+        let dir = std::env::temp_dir().join(format!("ag-null-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = AuditStore::open(dir.join("a.db")).unwrap();
+        for i in 0..3 {
+            store.append(&rec(i, 1_000 + i as i64)).unwrap();
+        }
+        // 篡改:把中间一条的 platform 置 NULL。
+        store
+            .conn
+            .execute(
+                "UPDATE audit_events SET platform = NULL WHERE id = 'id-1'",
+                [],
+            )
+            .unwrap();
+
+        // 读取路径必须**能跑完**,并把那一行报成链不匹配 —— 而不是整个 verify 报错。
+        let v = store.verify_chain();
+        let recent = store.list_recent(10);
+        let export = store.export_jsonl(10);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(v.is_ok(), "verify_chain 因为一个 NULL 而彻底失败:{v:?}");
+        assert!(
+            recent.is_ok(),
+            "list_recent 因为一个 NULL 而失败:{recent:?}"
+        );
+        assert!(
+            export.is_ok(),
+            "export_jsonl 因为一个 NULL 而失败:{export:?}"
+        );
+        let report = v.unwrap();
+        assert!(
+            !report.ok,
+            "被 NULL 篡改的行应当被报成链不匹配,而不是被跳过"
+        );
     }
 }

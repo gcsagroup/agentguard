@@ -109,6 +109,23 @@ pub struct FrameConsistency {
 /// benign repaints to be mistaken for edits.
 pub const CONSISTENCY_WINDOW_MS: i64 = 550;
 
+/// 跨轮询窗口的上界(ms)。
+///
+/// # 为什么需要第二个更宽的窗口
+///
+/// 550ms 覆盖 macOS 的 2 FPS(帧距 500ms)。但 Windows 壳每 **2500ms** 轮询一次
+/// (`POLL_INTERVAL`),而 `NativeWinAdapter::poll_once` 每轮只调一次 `check`,于是
+/// `dt = 2500` 永远落在 550 之外 —— OVL-013(`FrameRegionTamper`)在 Windows 上**结构性
+/// 不可达**,尽管它声明 `platforms: [macos, windows, android]`。
+///
+/// 2500ms 采样确实盖不住 50-500ms 的 TOCTOU 窗口:一次出现即消失的篡改会落在两次轮询之间。
+/// 但一次**持续存在**的注入(一行留在屏幕上的伪造指令)在 2.5s 后仍然在那里,跨轮询比较
+/// 抓得到它。所以第二个窗口做的是:让 Windows 至少能抓到持续型注入,而证据里说明这是
+/// 一次跨轮询比较、盖不住瞬时篡改。
+///
+/// 上界取 3000ms = 2500ms 轮询 + 抖动余量。
+pub const CONSISTENCY_WINDOW_WIDE_MS: i64 = 3000;
+
 /// Mean-luma jump that no benign repaint explains in-window. **Fallback only**,
 /// for frames with no digest; see the note on [`FrameConsistency`] for why this
 /// threshold cannot catch the published attack.
@@ -118,12 +135,20 @@ impl FrameConsistency {
     pub fn check(&mut self, stats: &FrameStats) -> Option<OverlayFinding> {
         let finding = self.last.as_ref().and_then(|prev| {
             let dt = stats.timestamp_ms - prev.timestamp_ms;
-            if !(0..=CONSISTENCY_WINDOW_MS).contains(&dt)
+            if !(0..=CONSISTENCY_WINDOW_WIDE_MS).contains(&dt)
                 || prev.width != stats.width
                 || prev.height != stats.height
             {
                 return None;
             }
+            // 是紧窗口(同一采集节奏、TOCTOU 窗口内)还是跨轮询的宽窗口?后者只有 Windows
+            // 的 2500ms 轮询会走到,证据里要说清它盖不住瞬时篡改。
+            let cross_poll = dt > CONSISTENCY_WINDOW_MS;
+            let window_note = if cross_poll {
+                " [跨轮询比较(dt>550ms):只能抓到**持续存在**的注入,盖不住 50-500ms TOCTOU                  窗口内出现即消失的篡改;这是 Windows 2500ms 轮询下唯一可得的信号]"
+            } else {
+                ""
+            };
             // Primary: structural comparison.
             if let (Some(a), Some(b)) = (
                 prev.frame_digest
@@ -159,7 +184,8 @@ impl FrameConsistency {
                                  still (blocks {:?}); localized edit inside the A4 TOCTOU window",
                                 changed.len(),
                                 &changed[..changed.len().min(6)]
-                            ) + legacy_note,
+                            ) + legacy_note
+                                + window_note,
                         })
                     }
                     // A global repaint is an app switch or a video, not a tamper.
@@ -176,8 +202,8 @@ impl FrameConsistency {
                     severity: guard_overlay::OverlayKind::ScreenshotTamperHint.default_severity(),
                     evidence: format!(
                         "mean_luma {0:.2}->{1:.2} within {dt}ms, no frame digest available \
-                         (coarse A4 fallback)",
-                        prev.mean_luma, stats.mean_luma
+                         (coarse A4 fallback){2}",
+                        prev.mean_luma, stats.mean_luma, window_note
                     ),
                 })
             } else {
@@ -486,9 +512,46 @@ mod tests {
         });
         let hit = fc.check(&FrameStats {
             frame_digest: Some(digest_of(&tampered, W, H)),
-            ..frame(1000 + CONSISTENCY_WINDOW_MS + 50, 0.78)
+            ..frame(1000 + CONSISTENCY_WINDOW_WIDE_MS + 50, 0.78)
         });
+        // 超过**宽**窗口(>3000ms):不再比较。
         assert!(hit.is_none(), "{hit:?}");
+    }
+
+    /// 跨轮询窗口(550 < dt ≤ 3000)现在**会**报,但带明确的"盖不住瞬时篡改"标注。
+    ///
+    /// 这一条把 OVL-013 在 Windows(2500ms 轮询)上从结构性不可达变成可达:一次持续存在的
+    /// 注入在 2.5s 后仍然在屏幕上,跨轮询比较抓得到。
+    #[test]
+    fn 跨轮询窗口内的持续注入会被报出并标注() {
+        const W: usize = 320;
+        const H: usize = 180;
+        let base = flat(W, H, 200);
+        let mut tampered = base.clone();
+        for y in 20..30 {
+            for x in 20..120 {
+                let o = (y * W + x) * 4;
+                tampered[o] = 10;
+                tampered[o + 1] = 10;
+                tampered[o + 2] = 10;
+            }
+        }
+        let mut fc = FrameConsistency::default();
+        fc.check(&FrameStats {
+            frame_digest: Some(digest_of(&base, W, H)),
+            ..frame(1000, 0.78)
+        });
+        // Windows 的 2500ms 轮询距离。
+        let hit = fc.check(&FrameStats {
+            frame_digest: Some(digest_of(&tampered, W, H)),
+            ..frame(1000 + 2500, 0.78)
+        });
+        let f = hit.expect("跨轮询的持续注入应当被报出来(Windows 可达性)");
+        assert!(
+            f.evidence.contains("跨轮询"),
+            "跨轮询 finding 必须带盖不住瞬时篡改的标注:{}",
+            f.evidence
+        );
     }
 
     #[test]
