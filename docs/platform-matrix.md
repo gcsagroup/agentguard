@@ -21,7 +21,7 @@ it drifts optimistic. So this file now says which job or test backs each claim.
 | **Display identity / lookalike (§3.6)** | ❌ | ❌ | ✅ label + icon dHash | ❌ | ❌ |
 | **Overlay detection** | ✅ pixels + AX regions | 🟡 window's own rendering only — see note 1 | 🟡 window list, draw-over-other-apps only — see note 2 | ✅ DOM opacity/geometry | ❌ |
 | **Environment survey (A5/A6)** | ❌ | ❌ | ✅ a11y services, broadcast sinks, log readers | ❌ | ❌ |
-| **Critical-node confirmation** | ✅ blocking modal in the shell | ✅ blocking modal in the shell | 🟡 notification **after** the event — see note 3 | via the desktop shell | ❌ |
+| **Critical-node confirmation** | ✅ blocking modal in the shell | ✅ blocking modal in the shell | 🟡 notification **after** the event — see note 3 | 🟡 extension notification **after** the event — see note 4 | ❌ |
 | **Auto-poller** | 1.5 s frames / 2.5 s tree | 2.5 s, tied to the session | event-driven | event-driven | — |
 | **Runtime capability probe** | ✅ TCC preflight | ✅ real probe with a reason string | ✅ a11y-enabled + notification permission | — | — |
 | **Compiled in CI** | ✅ `macos-shell` job | ✅ `windows` job | ✅ `android` job | 🟡 syntax only (`frontend` job) | ❌ nothing to compile |
@@ -71,6 +71,23 @@ It is still not the desktop's gate. The companion observes an accessibility even
 **already happened**; there is no point at which it holds the action and waits. On the desktop the
 modal blocks before the action proceeds. Calling both "Critical Confirm ✅" is what the previous
 version of this table did.
+
+### Note 4 — Chromium confirmation is an extension notification, not a gate (was: nothing)
+
+This cell used to read "via the desktop shell", which was false twice over: the extension talks to
+the standalone `guard-nm-host` binary, **not** the Tauri desktop shell (the two processes never
+communicate), and `background.js` received the host's verdict and only `console.debug`'d it — the
+`paused` / `require_confirm` / `decisions` were discarded, so the "Critical Confirm" the store
+listing advertised never fired.
+
+Now `guard-nm-host` returns a structured `notify` list (Critical / Block / confirm-worthy decisions,
+each with rule id, action, severity, and a `log_safe`'d message), and `background.js` raises a
+`chrome.notifications` entry per item plus a paused badge. This is the same shape as Android
+(note 3): the host observes a DOM event that has **already happened** over async native messaging,
+so there is nothing to hold and wait on — it is observe-and-notify, not the desktop's blocking gate.
+A true interactive approve-then-proceed would need the content script to intercept the action
+*before* it happens, which is a different capability (interception, not observation) and is not
+built. Pinned by `guard-nm-host`'s `critical判决产生notify供扩展弹通知` test.
 
 ## iOS
 

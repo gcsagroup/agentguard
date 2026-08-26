@@ -719,6 +719,7 @@ dependencies = [
  "browser-adapter",
  "guard-audit",
  "guard-core",
+ "guard-privacy",
  "guard-schema",
  "serde",
  "serde_json",

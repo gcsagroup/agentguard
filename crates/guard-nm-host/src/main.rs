@@ -34,6 +34,27 @@ use serde_json::Value;
 
 const MAX_FRAME_BYTES: usize = 10_000_000;
 
+/// 一条要让**用户看见**的判决 —— 扩展据此弹通知(Critical Confirm 的浏览器形态)。
+///
+/// 为什么是「弹通知」而不是「拦下动作等用户点批准」:native messaging 是异步的,而 nm-host
+/// 是在事件**已经发生之后**观察到它(扩展转发 DOM delta 过来)。要做成拦截-等待式的交互
+/// 确认,得让 content script 在动作发生**之前**截住并同步等一个跨进程往返 —— 那是另一层
+/// 能力(拦截,不是观察),不在这条路的架构里。所以这条路提供的是「观察到 Critical 就当场
+/// 告诉用户」,这是它架构下诚实、可达的 Critical Confirm 形态。desktop 那条路才有真正的
+/// 交互式 approve-then-proceed。
+#[derive(Serialize)]
+struct NotifyItem {
+    rule_id: String,
+    /// `block` / `alert` / `allow` / `log_only`(判决落定后的动作)。
+    action: String,
+    /// `critical` / `high` / … 让扩展决定通知的醒目程度。
+    severity: String,
+    /// 给用户看的一句话。已经过 `log_safe`,不含未脱敏的观测文本。
+    message: String,
+    /// 这条判决本来是要人来确认的(被 AutoDeny 挡下并暂停了)。扩展可据此措辞。
+    require_confirm: bool,
+}
+
 #[derive(Serialize)]
 struct HostResponse {
     ok: bool,
@@ -48,6 +69,10 @@ struct HostResponse {
     skipped: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     skipped_reasons: Option<Vec<String>>,
+    /// 要让用户看见的判决(Critical / Block / 本应人工确认的)。扩展弹通知就靠它 ——
+    /// 以前扩展把整个判决 `console.debug` 掉了,商店文案宣传的 "Critical Confirm" 从不触发。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    notify: Option<Vec<NotifyItem>>,
     /// 引擎是否已经因为一次 Critical 判决而暂停。没有这个字段,扩展无法把
     /// `SESSION-PAUSED:Block`(此后一律整体拒绝)和一次真实的逐事件判决区分开。
     #[serde(skip_serializing_if = "std::ops::Not::not")]
@@ -66,6 +91,7 @@ impl HostResponse {
             error: None,
             skipped: None,
             skipped_reasons: None,
+            notify: None,
             paused: false,
             audit_degraded: false,
         }
@@ -79,6 +105,7 @@ impl HostResponse {
             error: Some(error),
             skipped: None,
             skipped_reasons: None,
+            notify: None,
             paused: false,
             audit_degraded: false,
         }
@@ -399,10 +426,32 @@ fn process_payload(
         return Ok(HostResponse::ok(0, None));
     }
     let mut decisions = Vec::new();
+    let mut notify: Vec<NotifyItem> = Vec::new();
     let mut audit_degraded = false;
     for event in &events {
         match engine.process_gated(event, &AutoDeny) {
-            Ok(d) => decisions.push(format!("{}:{:?}", d.rule_id, d.action)),
+            Ok(d) => {
+                decisions.push(format!("{}:{:?}", d.rule_id, d.action));
+                // 要让**用户看见**的:被拦下的、Critical/High 的、或本应人工确认的判决。
+                // 这些就是商店文案说的 "Critical Confirm" 该触发的地方 —— 以前扩展把它们
+                // 连同整个判决一起丢进 console.debug,用户什么都收不到。
+                if matches!(d.action, guard_schema::DecisionAction::Block)
+                    || d.require_confirm
+                    || matches!(
+                        d.severity,
+                        guard_schema::Severity::Critical | guard_schema::Severity::High
+                    )
+                {
+                    notify.push(NotifyItem {
+                        rule_id: d.rule_id.clone(),
+                        action: format!("{:?}", d.action).to_lowercase(),
+                        severity: format!("{:?}", d.severity).to_lowercase(),
+                        // 过 log_safe:human_message 里可能插值了观测文本(如 ui_text)。
+                        message: guard_privacy::log_safe(&d.human_message),
+                        require_confirm: d.require_confirm,
+                    });
+                }
+            }
             Err(e) => {
                 // 判决是扩展需要的东西,审计行是运维需要的东西。丢掉后者不能连前者一起
                 // 丢 —— 以前一次审计写失败会把整条响应换成一个 error,那个 `Block`
@@ -416,6 +465,9 @@ fn process_payload(
     let mut resp = HostResponse::ok(events.len(), Some(decisions));
     resp.paused = engine.status().paused;
     resp.audit_degraded = audit_degraded;
+    if !notify.is_empty() {
+        resp.notify = Some(notify);
+    }
     if !skipped.is_empty() {
         eprintln!(
             "agentguard: {} of {} events in this batch could not be converted and were NOT judged",
@@ -841,6 +893,40 @@ mod tests {
         assert!(
             r.unwrap().signer_key_id().is_none(),
             "未设密钥时不应当有 signer"
+        );
+    }
+
+    /// **Critical 判决必须产生 `notify`,扩展才能弹 Critical Confirm 通知。**
+    ///
+    /// 以前 process_payload 只回 decisions 字符串,而扩展把整个响应 console.debug 掉了 ——
+    /// 商店文案宣传的 "Critical Confirm" 从不触发。这条测试钉住:一个支付确认事件
+    /// (CRIT-001,require_confirm)必须在响应里带一条 block/critical 的 notify。
+    #[test]
+    fn critical判决产生notify供扩展弹通知() {
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let mut engine = Engine::from_paths(&rules, None::<PathBuf>).expect("加载 p0 规则");
+        let mut adapter = BrowserAdapter::new();
+        let msg: Value = serde_json::from_str(
+            r#"{"type":"browser_events","events":[
+                {"type":"ui_text","text":"确认支付 $299","app":"Bank"}
+            ]}"#,
+        )
+        .unwrap();
+        let resp = process_payload(&mut engine, &mut adapter, &msg).unwrap();
+        let j = serde_json::to_value(&resp).unwrap();
+        let notify = j
+            .get("notify")
+            .and_then(|n| n.as_array())
+            .expect("Critical 判决必须产生 notify 供扩展弹通知");
+        assert!(!notify.is_empty(), "notify 不该为空");
+        assert!(
+            notify.iter().any(|n| {
+                n.get("action").and_then(|a| a.as_str()) == Some("block")
+                    || n.get("severity").and_then(|s| s.as_str()) == Some("critical")
+                    || n.get("require_confirm").and_then(|r| r.as_bool()) == Some(true)
+            }),
+            "notify 里应有一条 block/critical/require_confirm:{notify:?}"
         );
     }
 }

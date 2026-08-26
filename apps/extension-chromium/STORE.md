@@ -14,7 +14,7 @@ AgentGuard Web Shield is a companion to the AgentGuard desktop guardian. It scan
 - Privacy-trap widgets (TR)
 - Payment and transfer confirmation CTAs
 
-By default, findings stay on-device. When the desktop app is installed, you may forward events via Native Messaging for unified audit and Critical Confirm.
+By default, findings stay on-device. When the AgentGuard native host is installed, you may forward events to it via Native Messaging. The host judges each event against the engine's rules, records a **signed, tamper-evident audit trail** (its own database — shareable with the desktop app by pointing both at the same `AGENTGUARD_AUDIT_DB`), and returns its verdict. On a **Critical** decision (payment/transfer/permanent-delete and the like) the extension raises a browser notification naming the rule — a notify-after-the-event alert, not a blocking approve-then-proceed gate (the host observes each event after it has already happened; only the desktop app has the blocking modal).
 
 ## Privacy
 - No browsing history is uploaded to AgentGuard servers by default.

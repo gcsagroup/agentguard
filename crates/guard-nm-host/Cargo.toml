@@ -15,6 +15,7 @@ path = "src/main.rs"
 guard-schema = { workspace = true }
 guard-core = { workspace = true }
 guard-audit = { workspace = true }
+guard-privacy = { workspace = true }
 browser-adapter = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

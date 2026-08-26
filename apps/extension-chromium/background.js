@@ -43,6 +43,74 @@ function findingsToEvents(payload) {
   return events;
 }
 
+function setBadge(text, color) {
+  // action.setBadge* needs no extra permission (the action is declared). Wrapped
+  // because the service worker may be torn down between calls.
+  try {
+    chrome.action.setBadgeText({ text });
+    if (color) chrome.action.setBadgeBackgroundColor({ color });
+  } catch (e) {
+    console.debug("AgentGuard badge failed", e);
+  }
+}
+
+function notifyUser(item) {
+  // This is the browser form of "Critical Confirm": the host judged (and, under
+  // AutoDeny, blocked + paused) a Critical action, and the user is told. It is a
+  // notification, not an interactive approve-then-proceed — native messaging is
+  // async and the host observes the event after it happened, so there is nothing
+  // to hold. See NotifyItem in guard-nm-host for why.
+  try {
+    chrome.notifications.create("", {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+      title: item.require_confirm
+        ? "AgentGuard — 关键操作(本应由你确认)"
+        : "AgentGuard — 拦下一个关键操作",
+      message: `[${item.rule_id || "?"}] ${item.message || item.action || ""}`.slice(0, 300),
+      priority: 2,
+    });
+  } catch (e) {
+    console.debug("AgentGuard notify failed", e);
+  }
+}
+
+/**
+ * Act on the host's verdict. Before this, background.js console.debug'd the
+ * response and discarded it, so the "Critical Confirm" the store listing
+ * advertised never fired. Now: raise a notification per Critical/Block/
+ * confirm-worthy decision, reflect pause state in the badge, and record it for
+ * the popup.
+ */
+function handleVerdict(response) {
+  if (!response || typeof response !== "object") return;
+  const items = Array.isArray(response.notify) ? response.notify : [];
+  for (const item of items) notifyUser(item);
+
+  if (response.paused) {
+    // Engine paused by a Critical decision: everything after is refused wholesale.
+    setBadge("‖", "#b00020");
+  } else if (items.length) {
+    setBadge(String(items.length), "#c26a00");
+  }
+  if (response.audit_degraded) {
+    console.debug("AgentGuard: verdict returned but audit row did not persist");
+  }
+  if (items.length || response.paused) {
+    pushRecent({
+      ts: Date.now(),
+      kind: "verdict",
+      paused: !!response.paused,
+      notify: items.map((i) => ({
+        rule_id: i.rule_id,
+        action: i.action,
+        severity: i.severity,
+        require_confirm: !!i.require_confirm,
+      })),
+    });
+  }
+}
+
 function sendNative(message) {
   if (!nativeEnabled) return;
   try {
@@ -52,7 +120,7 @@ function sendNative(message) {
         console.debug("AgentGuard native:", chrome.runtime.lastError.message);
         return;
       }
-      console.debug("AgentGuard native response", response);
+      handleVerdict(response);
     });
   } catch (err) {
     console.debug("AgentGuard native failed", err);
