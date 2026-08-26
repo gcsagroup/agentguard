@@ -267,3 +267,27 @@ append errors: 0                  <- 一次错误都没有
 `"position N where M was expected (row deleted or reordered)"` —— 一句谎话,它同时给想抵赖
 的人递上"工具自己就会把日志搞坏"这句台词。现在 `append` 整个包进事务,并设了
 `busy_timeout` 与 WAL。
+
+### 浏览器这条审计路径:以前既不签名也不加密,而且一声不响
+
+上面这套签名机制,`with_signer`,在整个 workspace 里**只被 CLI 和 localapi 调用**。而
+`guard-nm-host` —— 浏览器事件进审计的那条路 —— 从来不调它。加密走 `AGENTGUARD_AUDIT_KEY`
+环境变量(`AuditStore::open` 已经读它),但没有任何东西提醒运维"你没设,所以这条审计是
+明文的"。结果:浏览器这条路的审计**既不签名也不加密,且没有一句话说出来** —— 而
+`guard-nm-host` 这个文件的全部规矩就是"判不了 / 保护不了的东西必须说出来"。
+
+现在 `guard-nm-host` 启动时调用 `apply_audit_signing`:
+
+* `AGENTGUARD_AUDIT_SIGNING_KEY` 指向一个**已存在**的密钥文件(`agentguard audit-keygen`
+  生成)→ 用 `load_existing` 装上签名者。**不用 `load_or_create`**:当场生成一把密钥,它的
+  公钥哪儿都没有,却会"验证"通过 DB 里内嵌的那份副本、证明不了任何东西(localapi 早记过
+  这个教训)。
+* env 设了但文件加载不了 → **拒绝启动**,因为那是一条我们没能执行的运维指令,不能静默
+  降级成"不签名"。
+* env 没设 → 不签名(可接受的开发默认),但对 stderr **打警告**;若同时没设加密密钥,再
+  打第二条警告,点明事件的 JSON 载荷以明文落盘、含观测到的 URL。
+
+签名与加密是否启用这两个判断被抽成纯函数 `apply_audit_signing_with(store, signing_key,
+encrypted)` —— 它不读环境变量,因此两条测试(无效密钥路径拒绝、未设密钥不报错)能并行跑
+而不互相打架。env 变量是进程全局的,先前一版测试各自 `set_var` / `remove_var` 同一个 key,
+并行时偶发读到对方的值、误判 —— 参数注入把这个竞态从根上去掉。

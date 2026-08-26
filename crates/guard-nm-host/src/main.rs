@@ -434,6 +434,64 @@ fn process_payload(
     Ok(resp)
 }
 
+/// 给浏览器路径的审计接上签名,并且在既不签名也不加密时**大声说出来**。
+///
+/// # 为什么这条路以前既不签名也不加密,还不打警告
+///
+/// 一次独立复核指出:`with_signer` 在整个 workspace 里只被 CLI 和 localapi 调用,而
+/// `guard-nm-host` —— 浏览器事件进审计的那条路 —— 从来不调。加密走 `AGENTGUARD_AUDIT_KEY`
+/// 环境变量(`AuditStore::open` 已经读它),但没有任何东西提醒运维"你没设,所以这条审计
+/// 是明文的"。于是浏览器这条路的审计**既不签名也不加密,且一声不响** —— 而这个文件的
+/// 全部规矩就是"判不了/保护不了的东西必须说出来"。
+///
+/// 密钥来源和 localapi 保持一致:`AGENTGUARD_AUDIT_SIGNING_KEY` 指向一个**已存在**的密钥
+/// 文件(`agentguard audit-keygen` 生成)。用 `load_existing` 而不是 `load_or_create` ——
+/// 当场生成一把密钥,它的公钥哪儿都没有,却会"验证"通过 DB 里内嵌的那份副本、证明不了
+/// 任何东西(localapi 的注释已经记过这个教训)。env 设了但文件加载不了 → **拒绝启动**,
+/// 因为那是一条我们没能执行的运维指令。
+fn apply_audit_signing(store: AuditStore) -> Result<AuditStore> {
+    let encrypted = std::env::var("AGENTGUARD_AUDIT_KEY")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false);
+    let signing_key = std::env::var("AGENTGUARD_AUDIT_SIGNING_KEY")
+        .ok()
+        .filter(|p| !p.is_empty());
+    apply_audit_signing_with(store, signing_key.as_deref(), encrypted)
+}
+
+/// 纯逻辑:签名密钥路径与是否加密都由调用方给定,**不读环境变量**。
+///
+/// 抽出来是为了能在并行测试里无全局状态地验证 —— env 变量是进程全局的,两个测试若各自
+/// `set_var` / `remove_var` 同一个 key,并行跑时会互相看到对方的值(实测:一个测试把
+/// `AGENTGUARD_AUDIT_SIGNING_KEY` 设成无效路径,另一个"未设密钥"的测试就偶发读到它、
+/// 误判成拒绝启动)。参数注入把这个竞态从根上去掉。
+fn apply_audit_signing_with(
+    store: AuditStore,
+    signing_key: Option<&str>,
+    encrypted: bool,
+) -> Result<AuditStore> {
+    match signing_key {
+        Some(path) => {
+            let key = guard_audit::FileDeviceKey::load_existing(path)
+                .with_context(|| format!("load audit signing key {path}"))?;
+            eprintln!("agentguard: 审计签名已启用(密钥 {path})");
+            store.with_signer(Box::new(key))
+        }
+        None => {
+            // 不签名是一个可以接受的选择(开发默认),但不能是一个**沉默**的选择。
+            eprintln!(
+                "agentguard: 警告:浏览器审计**未签名**(未设 AGENTGUARD_AUDIT_SIGNING_KEY)。\n                 \t这条路的审计行没有非否认保证;设一个由 `agentguard audit-keygen` 生成的\n                 \t密钥文件来启用签名。"
+            );
+            if !encrypted {
+                eprintln!(
+                    "agentguard: 警告:浏览器审计**也未加密**(未设 AGENTGUARD_AUDIT_KEY)。\n                     \t审计库里每条事件的 JSON 载荷以明文落盘,含观测到的 URL 等。"
+                );
+            }
+            Ok(store)
+        }
+    }
+}
+
 fn build_engine() -> Result<Engine> {
     let rules = rules_source()?;
     if rules.from_env {
@@ -443,6 +501,7 @@ fn build_engine() -> Result<Engine> {
         );
     }
     let store = AuditStore::open(audit_path()?).context("open audit db")?;
+    let store = apply_audit_signing(store)?;
     let engine = Engine::from_paths(&rules.path, None::<PathBuf>)?.with_audit(store);
 
     // 一个语法合法的 `rules: []` 就是把整个守卫关掉:复核把 `AGENTGUARD_RULES` 指向这样
@@ -754,5 +813,34 @@ mod tests {
         let e = refuse_symlink(&link).expect_err("符号链接必须被拒");
         assert!(e.to_string().contains("symlink"), "{e}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// 签名密钥路径指向不存在的文件 → 拒绝启动。
+    ///
+    /// 那是一条我们没能执行的运维指令,不能静默降级成"不签名"。用参数注入的
+    /// `apply_audit_signing_with`,不碰进程全局的环境变量(否则和下面那条测试并行时会打架)。
+    #[test]
+    fn 签名密钥路径无效时拒绝() {
+        let db = std::env::temp_dir().join(format!("ag-nm-sign-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&db);
+        let store = AuditStore::open(&db).unwrap();
+        let r = apply_audit_signing_with(store, Some("/nonexistent/dev.key"), false);
+        let _ = std::fs::remove_file(&db);
+        assert!(r.is_err(), "无效的签名密钥路径必须拒绝启动");
+    }
+
+    /// 未设签名密钥 → 不签名,但**不报错**(是可接受的开发默认,只是要打警告)。
+    #[test]
+    fn 未设签名密钥时不签名但不报错() {
+        let db = std::env::temp_dir().join(format!("ag-nm-nosign-{}.db", std::process::id()));
+        let _ = std::fs::remove_file(&db);
+        let store = AuditStore::open(&db).unwrap();
+        let r = apply_audit_signing_with(store, None, true);
+        let _ = std::fs::remove_file(&db);
+        assert!(r.is_ok(), "未设签名密钥不应当报错:{r:?}");
+        assert!(
+            r.unwrap().signer_key_id().is_none(),
+            "未设密钥时不应当有 signer"
+        );
     }
 }

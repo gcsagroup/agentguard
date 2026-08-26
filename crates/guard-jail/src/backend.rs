@@ -182,6 +182,29 @@ pub(crate) mod libc_syscall {
         );
         ret
     }
+
+    /// 四参数 syscall(`landlock_add_rule` 需要)。返回值 < 0 时是 `-errno`。
+    #[inline]
+    pub unsafe fn syscall4(nr: Nr, a: isize, b: isize, c: isize, d: isize) -> isize {
+        let ret: isize;
+        #[cfg(target_arch = "x86_64")]
+        std::arch::asm!(
+            "syscall",
+            inlateout("rax") nr as isize => ret,
+            in("rdi") a, in("rsi") b, in("rdx") c, in("r10") d,
+            out("rcx") _, out("r11") _,
+            options(nostack, preserves_flags)
+        );
+        #[cfg(target_arch = "aarch64")]
+        std::arch::asm!(
+            "svc 0",
+            in("x8") nr as isize,
+            inlateout("x0") a => ret,
+            in("x1") b, in("x2") c, in("x3") d,
+            options(nostack, preserves_flags)
+        );
+        ret
+    }
 }
 
 #[cfg(test)]

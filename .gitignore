@@ -17,6 +17,8 @@ apps/**/src-tauri/target/
 # Android
 apps/android-companion/.gradle/
 apps/android-companion/**/build/
+# 机器专属的 SDK 路径,绝不入库(每台机器不同;CI 用 ANDROID_HOME)。
+apps/android-companion/local.properties
 *.jks
 *.keystore
 

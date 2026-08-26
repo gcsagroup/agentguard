@@ -23,6 +23,7 @@ pub mod backend;
 pub mod profile;
 
 #[cfg(target_os = "linux")]
+pub mod landlock;
 pub mod mountns;
 
 pub use backend::{best_available, probe, Availability, Backend};
@@ -90,13 +91,16 @@ pub fn launch(profile: &Profile, argv: &[String]) -> Result<Launched, JailError>
                 }
             }
             Backend::Landlock => {
-                // Landlock 后端还没实现落地规则集（只实现了探测）。这里**不能**静默退化成
-                // 不约束地跑：那正是本模块开头那条规则要防的事。
-                return Err(JailError::Backend(
-                    "Landlock 探测可用，但规则集下发还没实现；拒绝在不约束的情况下启动。\
-                     用 --backend mount-namespace，或者等 Landlock 后端完成。"
-                        .into(),
-                ));
+                // Landlock 后端:装上一个规则集,其中**包含读天花板**(mount-ns 后端给不了
+                // 的那一层)。fail-closed —— `landlock::enter` 返回 Err 时 `pre_exec` 失败、
+                // 子进程绝不 exec,不会退化成不约束地跑。见 `landlock.rs` 顶部:这段代码的
+                // 系统调用路径在当前容器里跑不到(seccomp 挡了 landlock_*),所以安全逻辑抽进
+                // 了可在本环境完整测试的纯函数 `build_rule_plan`。
+                let prog = std::path::PathBuf::from(&argv[0]);
+                // SAFETY: 同 mount-ns 分支 —— `pre_exec` 在 fork 之后、单线程,只做 syscall。
+                unsafe {
+                    cmd.pre_exec(move || landlock::enter(&p, &prog).map_err(std::io::Error::other));
+                }
             }
         }
     }
