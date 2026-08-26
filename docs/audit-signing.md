@@ -242,6 +242,16 @@ Migrations add the columns to existing databases in place.
 approve 收据时,删掉后面那条 deny 收据、把列改成 approve,一条"拦截了转账,用户拒绝了"
 就变成"用户批准了"。
 
+> **第七轮复核补丁(第三行那一格):`check_inclusion` 以前是死代码。** 上表把"删尾 K 条 +
+> 补 K+1 条"列为由 `check_inclusion` 抓,但生产的 `audit-verify` **从不调它** —— 它唯一的
+> 调用者都在 `#[cfg(test)]` 里,验证命令只调 `check_against`,而 `check_against` 在 seq/count
+> 都**增大**时每条分支都过。也就是说这一格当时其实**没被抓**。现在 `audit-verify` 的见证分支
+> 接上了 `check_inclusion(|h| store.chain_contains_hash(h))`,并新增 `demo.sh` 的 **case F**
+> (无签名日志上的增长-重写)把这条钉死:见证显示 `head witness: OK`(check_against 被瞒过,
+> seq/count 都变大了),紧接着 `head witness: BROKEN — the witnessed head hash … no longer
+> appears`(包含性证明抓到)。顺带给 `audit_events(record_hash)` / `(prev_hash)` 建了索引,
+> 因为 `chain_contains_hash` 现在每次验证都跑一次。
+
 ### 一条如实的残余限制
 
 `GENESIS` 是一个裸常量,没有任何东西把它锚到设备、安装实例或时间。攻击者另建一条自洽的

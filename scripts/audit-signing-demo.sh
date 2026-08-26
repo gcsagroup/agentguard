@@ -148,4 +148,37 @@ grep -q "record signatures: OK" "$WORK/out.txt" \
 echo "  (signatures were still OK — the witness is what noticed)"
 
 echo
-echo "DEMO OK: all five tamper paths behave as documented."
+echo "== F. grow-then-rewrite: delete tail, append MORE, rechain =="
+# 删尾 K 条 + 补 K+1 条,seq 和 count 都**增大**,于是 check_against 每条分支都过。
+# 唯一能抓到它的是「见证过的头哈希是否还在链上」—— check_inclusion。它以前只有测试
+# 调用它,生产的 audit-verify 从不调,所以这条攻击在 rc 前其实验得过(第七轮复核发现 2)。
+# 用**无签名**日志跑:这条路上没有签名去抓伪造行,把 check_inclusion 单独逼出来。
+rm -f "$WORK/audit.db" "$WITNESS"
+"${CLI[@]}" replay --events "$WORK/events.jsonl" --audit-db "$WORK/audit.db" >/dev/null
+expect_pass "unsigned baseline + witness" "${CLI[@]}" audit-verify --audit-db "$WORK/audit.db" \
+  --allow-unsigned --head-witness "$WITNESS"
+# 攻击者:删掉尾行(seq>=3),补三条伪造行(seq 3,4,5),然后重算整条链。
+python3 - "$WORK/audit.db" <<'PY'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute("DELETE FROM audit_events WHERE seq >= 3")
+for s in (3, 4, 5):
+    c.execute(
+        """INSERT INTO audit_events
+           (id, timestamp_ms, platform, event_type, source_app, agent_session_id,
+            rule_id, severity, action, human_message, evidence_ref, event_json, seq)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (f"forged{s}", 1000 * s, "macos", "ui_tree_delta", "Safari", "s1",
+         "", "", "", "", "", '{"ui_text":"forged"}', s),
+    )
+c.commit()
+PY
+rechain
+expect_fail "grow-then-rewrite" "${CLI[@]}" audit-verify --audit-db "$WORK/audit.db" \
+  --allow-unsigned --head-witness "$WITNESS"
+grep -q "no longer appears anywhere on the chain" "$WORK/out.txt" \
+  || { echo "  FAIL: expected the inclusion proof (witnessed head hash gone) to catch it" >&2; exit 1; }
+echo "  (check_against was blind — seq/count grew; the witness inclusion proof caught it)"
+
+echo
+echo "DEMO OK: all six tamper paths behave as documented."

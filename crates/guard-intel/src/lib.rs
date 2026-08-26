@@ -170,7 +170,8 @@ impl ThreatBundle {
 ///
 /// * 未签名 / `sha256:` —— 做完整性自检(`verify(None)`),这是开发期的合理便利;
 /// * `ed25519:` —— **无法在没有公钥的路径上认证**,所以照旧加载(否则本地评测拿不到磁盘上的
-///   包),但**打一条显式告警**说明它未经验证。不再是静默的。
+///   包),但**打一条显式告警**说明它未经验证。不再是静默的——但每个进程只打一次,免得
+///   每条 CLI 命令都刷屏。
 pub fn load_or_default(path: impl AsRef<std::path::Path>) -> Result<ThreatBundle> {
     let path = path.as_ref();
     if path.exists() {
@@ -180,11 +181,14 @@ pub fn load_or_default(path: impl AsRef<std::path::Path>) -> Result<ThreatBundle
             None => {}
             Some(sig) if sig.starts_with("sha256:") => b.verify(None)?,
             Some(sig) if sig.starts_with("ed25519:") => {
-                eprintln!(
-                    "agentguard: 警告:{} 是 ed25519 签名,但 load_or_default 没有公钥可验 —— \
-                     以**未经验证**的方式加载(仅开发/评测用)。生产请走 load_release + 公钥。",
-                    path.display()
-                );
+                static WARNED: std::sync::Once = std::sync::Once::new();
+                WARNED.call_once(|| {
+                    eprintln!(
+                        "agentguard: 警告:{} 是 ed25519 签名,但 load_or_default 没有公钥可验 —— \
+                         以**未经验证**的方式加载(仅开发/评测用)。生产请走 load_release + 公钥。",
+                        path.display()
+                    );
+                });
             }
             Some(_) => return Err(anyhow::anyhow!("unsupported intel signature scheme")),
         }

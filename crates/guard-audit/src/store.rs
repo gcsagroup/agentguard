@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS audit_meta (
 
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_events(timestamp_ms);
 CREATE INDEX IF NOT EXISTS idx_audit_session ON audit_events(agent_session_id);
+-- 见证包含性检查(chain_contains_hash)按 record_hash / prev_hash 查存在性。
+-- 没有这两个索引它是全表扫;audit-verify 现在每次都跑一次,所以给它们建索引。
+CREATE INDEX IF NOT EXISTS idx_audit_record_hash ON audit_events(record_hash);
+CREATE INDEX IF NOT EXISTS idx_audit_prev_hash ON audit_events(prev_hash);
 "#;
 
 const SELECT_COLS: &str = "id, timestamp_ms, platform, event_type, source_app, agent_session_id,

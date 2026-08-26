@@ -2050,16 +2050,27 @@ fn main() -> Result<()> {
             }
             if let Some(witness_path) = &head_witness {
                 match HeadWitness::read(witness_path)? {
-                    Some(prev) => match prev.check_against(head.as_ref()) {
-                        Ok(()) => println!(
-                            "head witness: OK (was seq={} count={})",
-                            prev.seq, prev.count
-                        ),
-                        Err(e) => {
+                    Some(prev) => {
+                        match prev.check_against(head.as_ref()) {
+                            Ok(()) => println!(
+                                "head witness: OK (was seq={} count={})",
+                                prev.seq, prev.count
+                            ),
+                            Err(e) => {
+                                println!("head witness: BROKEN — {e}");
+                                failed = true;
+                            }
+                        }
+                        // 增长-重写:删尾 K 条 + 补 K+1 条伪造行,seq 和 count 都**增大**,
+                        // check_against 每条分支都过。唯一能抓到它的是「见证过的头哈希是否
+                        // 还在链上」——check_inclusion。它以前只有单元测试在调,生产的
+                        // audit-verify 从不调,于是 docs/audit-signing.md 威胁表里说这条
+                        // 由 check_inclusion 抓的攻击其实没被抓(第七轮复核发现 2)。现在接上。
+                        if let Err(e) = prev.check_inclusion(|h| store.chain_contains_hash(h)) {
                             println!("head witness: BROKEN — {e}");
                             failed = true;
                         }
-                    },
+                    }
                     None => println!(
                         "head witness: none yet at {} (creating)",
                         witness_path.display()
