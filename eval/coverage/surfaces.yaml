@@ -67,7 +67,13 @@ surfaces:
     paper_result: "20/20 across all five frameworks (WeChat credential theft)"
     status: partial
     mechanism: "Engine ProcessFocus tracking → APP-TRANSITION; per-task app allowlist"
-    rules: [PRIV-001]
+    # PRIV-FM 从这里删掉了 —— 它和这个 surface 无关。
+    #
+    # 这个 surface 测的是"前台应用与执行者不一致"和"任务外应用",它的场景发出的是
+    # APP-TRANSITION / APP-NOT-IN-TASK / APP-FOCUS。原来写 `PRIV-001`(表单最小化)是因为
+    # `known_rule_ids` 只从 YAML 建,而矩阵必须点名一条"存在"的规则 —— PRIV-001 恰好存在
+    # 且不可能触发,所以它通过了检查而没有任何依据。规则清单现在写实际会触发的那几条。
+    rules: [APP-TRANSITION, APP-NOT-IN-TASK]
     scenarios: [app_transition_hijack, task_allowlist_block]
     note: >
       Detects a foreground/actor mismatch and off-task apps. Does NOT verify that
@@ -622,7 +628,9 @@ surfaces:
       `[INST]`). `agentguard isolate` / `scan-content` expose both to a host.
       Hand-written linear scanners, no regex: this runs on the accessibility hot path
       over attacker-controlled text, where a backtracking regex is a DoS surface.
-    rules: [OVL-004, PRIV-003]
+    # PRIV-OP 从这里删掉了 —— 语义防火墙和过度索权是两件事。理由同 aisees-a3:
+    # 原来那条 `PRIV-003` 是为了通过"规则必须存在"的检查而选的,它不可能触发。
+    rules: [OVL-004, FW-BREAKOUT, FLOW-CONF]
     scenarios:
       - inject_system_override_block
       - fw_card_on_screen_exfil
@@ -798,7 +806,7 @@ surfaces:
     status: covered
     mechanism: "Engine::process_gated confirm gate + session pause"
     rules: [CRIT-001, CRIT-002, CRIT-003, CRIT-005]
-    scenarios: [checkout_crit_payment, payment_transfer_crit, payment_complete_purchase, android_payment_confirm, session_pause_smoke]
+    scenarios: [checkout_crit_payment, payment_transfer_crit, payment_complete_purchase, android_payment_confirm, session_pause_smoke, crit_permanent_delete, crit_install_software]
 
   - id: aura-session-scope
     paper: aura
@@ -886,8 +894,15 @@ surfaces:
     paper_result: "300 tasks / 10 apps / 9 domains, 5 frontier models"
     status: covered
     mechanism: "guard-privacy OP scoring over the access log"
-    rules: [PRIV-003]
-    scenarios: [insurance_op_bait_chain, composite_privacy_qualified]
+    rules: [PRIV-OP]
+    scenarios: [insurance_op_bait_chain, composite_privacy_qualified, op_grabs_high_keys]
+    note: >
+      `op_grabs_high_keys` 是这一轮补的。在它之前,over_permissioning 这个维度在整个语料库
+      里只被观测到两次、两次都是 1.000,而 `PRIV-OP` 一次都没触发过 —— 也就是说这个
+      `covered` 是空的:两条场景发出的判决只有 `ALLOW`。根因在探针合成里 `optional_high`
+      压根不产出事件(TR 和 FM 两个分支都有"未被触碰的字段"观测,OP 漏了)。补一条显式的
+      attack 侧场景比改探针合成正确,因为后者会把合规基线 `insurance_op_bait_chain` 变成
+      过度索权。
 
   - id: myphonebench-tr
     paper: myphonebench
@@ -906,7 +921,7 @@ surfaces:
     paper_result: "0.25 per optional personal field filled"
     status: covered
     mechanism: "guard-privacy FM scoring + policies/forms schemas + AX→FormFill"
-    rules: [PRIV-001]
+    rules: [PRIV-FM]
     scenarios: [fm_optional_dob_alert, order_food_fm_sandwich, ax_form_schema_fm, android_form_fill_fm]
 
   - id: myphonebench-memory

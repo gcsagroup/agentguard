@@ -407,6 +407,29 @@ pub struct HeadWitness {
     pub seq: i64,
     pub count: usize,
     pub last_record_hash: String,
+    /// 收据表的行数。
+    ///
+    /// # 为什么 witness 必须覆盖收据
+    ///
+    /// `head()` 以前只看 `audit_events`,收据表**完全没有外部锚**。而收据链和收据 `seq`
+    /// 在尾部删除之后仍然是一个合法前缀,`user_decision` 的交叉校验又只对非空列触发 ——
+    /// 于是"删掉一条收据行 + 把列置 NULL",五项检查全绿:
+    ///
+    /// ```text
+    /// 删除前: verified confirms { approve: 1, deny: 0, timeout: 0, pending: 0 }
+    /// 删除后: chain.ok=true  receipt chain.ok=true  record sigs ok=true 1/1
+    ///         receipt sigs ok=true total=0 checked=0 note=None  head witness=Ok("OK")
+    ///         verified confirms { approve: 0, deny: 0, timeout: 0, pending: 1 }
+    /// ```
+    ///
+    /// 更糟的一格:先前存在一条 approve 收据时,删掉后面那条 deny 收据、把列改成 approve
+    /// —— 一条"拦截了转账,用户拒绝了"的记录就变成"用户批准了"。**不需要签名私钥。**
+    /// 这直接推翻"非否认的用户决策"。
+    #[serde(default)]
+    pub receipt_count: usize,
+    /// 收据链的头。空日志为空串。
+    #[serde(default)]
+    pub last_receipt_hash: String,
 }
 
 impl HeadWitness {
@@ -459,7 +482,77 @@ impl HeadWitness {
                 cur.count
             );
         }
+        // 同一个位置上哈希不同 = 历史被重写,不是增长。
+        //
+        // 这一行以前不存在,而 `last_record_hash` 明明被写进了 witness 文件、文档也把它列为
+        // witness 的组成部分。于是"删尾 N 条 + 补 N 条伪造记录把 count/seq 恢复到原值"通过
+        // **全部**检查:
+        //
+        // ```text
+        // P1 witness seq/count identical, last_record_hash TOTALLY different
+        //      -> check_against = Ok(())
+        // P2 (无签名日志,纯 SQL 删 3 补 3):
+        //      chain.ok=true verified=5/5 head seq=5 count=5  witness verdict = Ok("OK")
+        //      日志内容变成 ["Allow/nothing happened" ×3, "Block/real 2", "Block/real 1"]
+        // ```
+        //
+        // 而 `scripts/audit-signing-demo.sh` 的 case E 只测了**纯截断**,没有回填这一步,
+        // 所以 CI 看不到。
+        if cur.seq == self.seq
+            && cur.count == self.count
+            && cur.last_record_hash != self.last_record_hash
+        {
+            bail!(
+                "log head hash changed at the same position (seq {}, count {}): {} → {}. \
+                 The history was rewritten, not extended — records were deleted and refilled.",
+                self.seq,
+                self.count,
+                self.last_record_hash,
+                cur.last_record_hash
+            );
+        }
+        // 收据同样不能倒退。见 `receipt_count` 的注释:删掉一条收据能把 deny 变成 approve。
+        if cur.receipt_count < self.receipt_count {
+            bail!(
+                "decision receipts went backwards ({} → {}): a signed user decision was deleted",
+                self.receipt_count,
+                cur.receipt_count
+            );
+        }
+        if cur.receipt_count == self.receipt_count
+            && !self.last_receipt_hash.is_empty()
+            && cur.last_receipt_hash != self.last_receipt_hash
+        {
+            bail!(
+                "receipt head hash changed at the same count ({}): {} → {}. A signed user \
+                 decision was replaced.",
+                self.receipt_count,
+                self.last_receipt_hash,
+                cur.last_receipt_hash
+            );
+        }
         Ok(())
+    }
+
+    /// 见证的那个哈希**还在**当前链上吗 —— 一个包含性证明,不只是水位线。
+    ///
+    /// `check_against` 只能比两个 witness,所以它抓不到"日志增长了,但见证的那一段被换掉了"
+    /// (删尾 K 条、补 K+1 条:seq 和 count 都变大,同位置比较也不触发)。要抓这个必须去看
+    /// 链本身:见证时的头哈希应当作为某一行的 `prev_hash` 出现在今天的链上。
+    ///
+    /// 返回 `Ok(())` = 包含;`Err` = 见证的那一段不在链上,也就是历史被重写。
+    pub fn check_inclusion(&self, chain_has_prev: impl Fn(&str) -> Result<bool>) -> Result<()> {
+        if self.last_record_hash.is_empty() {
+            return Ok(());
+        }
+        if chain_has_prev(&self.last_record_hash)? {
+            return Ok(());
+        }
+        bail!(
+            "the witnessed head hash {} no longer appears anywhere on the chain: the log did \
+             not grow past that point, it was rewritten from at or before it",
+            self.last_record_hash
+        )
     }
 }
 
@@ -633,6 +726,8 @@ mod tests {
             seq: 10,
             count: 10,
             last_record_hash: "h".into(),
+            receipt_count: 0,
+            last_receipt_hash: String::new(),
         };
         // Growing log: fine.
         let grown = HeadWitness {
@@ -668,6 +763,8 @@ mod tests {
             seq: 3,
             count: 3,
             last_record_hash: "abc".into(),
+            receipt_count: 0,
+            last_receipt_hash: String::new(),
         };
         w.write(&path).unwrap();
         assert_eq!(HeadWitness::read(&path).unwrap(), Some(w));

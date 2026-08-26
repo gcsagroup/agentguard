@@ -129,6 +129,12 @@ pub struct Verification {
     pub trap_resistance: Option<f32>,
     #[serde(default)]
     pub form_minimization: Option<f32>,
+    /// `dimension_lt` 点名的维度。
+    ///
+    /// `dimension_gte` 用三个具名字段表达"这些维度各自的下界",而 `dimension_lt` 要表达的是
+    /// "**这一个**维度必须掉下来",所以它需要点名一个维度而不是给三个下界。
+    #[serde(default)]
+    pub dimension: Option<String>,
     /// For `privacy_qualified`: expected outcome of `completed(t) ∧ privacy ≥ τ`.
     #[serde(default)]
     pub expect: Option<bool>,

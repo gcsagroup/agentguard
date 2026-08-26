@@ -1839,6 +1839,20 @@ impl Engine {
     /// Worth its own finding because every other check in this engine reasons about the text
     /// as a string while the user reasons about it as pixels. When those disagree, the
     /// disagreement is the evidence.
+    /// 本会话记录下来的权限访问观测。
+    ///
+    /// 给评测的 `access_not_requested` 判据用:那条判据以前只看维度 composite,于是它点名的
+    /// `fields:` 列表从头到尾没被消费 —— 塞 `literally_anything` 也通过。要让字段列表变成
+    /// 载荷,判据必须能看到实际的观测。
+    pub fn privacy_access_events(&self) -> &[guard_privacy::AccessEvent] {
+        &self.privacy.access_events
+    }
+
+    /// 同上,表单填写观测。
+    pub fn privacy_form_events(&self) -> &[guard_privacy::FormFillEvent] {
+        &self.privacy.form_events
+    }
+
     fn check_text_anomaly(&mut self) -> Option<Decision> {
         let scan = self.pending_scan.as_ref()?;
         // Latch per class over **every** anomaly present, not on the single worst one.

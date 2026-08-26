@@ -13,7 +13,7 @@ pub use acceptance::{
 };
 pub use coverage::{
     to_markdown as coverage_markdown, verify as verify_coverage, CoverageMatrix, CoverageProblem,
-    CoverageReport, CoverageStatus, ScenarioFacts, Surface,
+    CoverageReport, CoverageStatus, ScenarioFacts, Surface, ENGINE_EMITTED_RULE_IDS,
 };
 pub use leaderboard::{
     build_leaderboard, comparability_errors, load_agent_dir, score_agent, synthesize_suite_events,

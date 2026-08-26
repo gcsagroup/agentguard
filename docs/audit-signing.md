@@ -219,3 +219,51 @@ and `signer_key_id` per line, so the artifact handed to an auditor is verifiable
 rather than a bare row dump.
 
 Migrations add the columns to existing databases in place.
+
+---
+
+## 第六轮复核之后:witness 到底防住了什么
+
+原来的威胁表把 head witness 列为截断的答案,而 `check_against` **从不读** `last_record_hash`
+—— 那个字段一直被写进 witness 文件、也一直被文档列为组成部分。
+
+### 补上的三层
+
+| 手法 | 谁抓 |
+|---|---|
+| 纯截断(删尾,count/seq 变小) | `check_against` 的"日志倒退"判断(原有) |
+| **删尾 N 条 + 补 N 条**(count/seq 恢复原值) | `check_against` 新增的"同位置哈希不同 = 历史被重写" |
+| **删尾 K 条 + 补 K+1 条**(count/seq 都变大) | `check_inclusion` —— 见证时的头哈希必须还在链上 |
+| **删掉一条签名收据**(把 deny 变成 approve) | witness 新增 `receipt_count` / `last_receipt_hash` |
+
+第二行那一格通过了原来**全部**检查,而 `scripts/audit-signing-demo.sh` 的 case E 只测了纯
+截断,所以 CI 看不到。第四行**不需要签名私钥**:`head()` 原来只覆盖 `audit_events`,收据表
+完全没有外部锚 —— 删掉一条收据行 + 把 `user_decision` 置 NULL,五项检查全绿;而先前存在一条
+approve 收据时,删掉后面那条 deny 收据、把列改成 approve,一条"拦截了转账,用户拒绝了"
+就变成"用户批准了"。
+
+### 一条如实的残余限制
+
+`GENESIS` 是一个裸常量,没有任何东西把它锚到设备、安装实例或时间。攻击者另建一条自洽的
+新链、把受害者的 `log_id` 抄进 `audit_meta`、整文件覆盖 —— 链和签名都验得过。**唯一能抓到
+它的是 witness 的 `last_record_hash`**,而那正是上面补的那一层。
+
+也就是说:witness 文件不是可选的加固,它是这条主张唯一的锚。没有它,"防篡改"只对
+"不会重建整条链的攻击者"成立。
+
+### 并发:一条不在威胁模型里的断链
+
+`append` 原来先读 `last_hash()` 和 `next_seq()` 再 INSERT,而 `store.rs` 里一处 `BEGIN` 都
+没有。两个进程同时写就拿到同一个 `prev_hash` 和同一个 `seq`:
+
+```text
+两个并发写者各 25 次 append:rows=50 chain.ok=false verified=48/50
+duplicate seq values: 2 / 2 / 1   (三次运行)
+append errors: 0                  <- 一次错误都没有
+```
+
+这在**正常使用**里会发生:`guard-nm-host` 每个原生消息连接一个进程,各自打开同一个
+`~/.local/share/agentguard/nm-audit.db`。而验证器给出的提示是
+`"position N where M was expected (row deleted or reordered)"` —— 一句谎话,它同时给想抵赖
+的人递上"工具自己就会把日志搞坏"这句台词。现在 `append` 整个包进事务,并设了
+`busy_timeout` 与 WAL。

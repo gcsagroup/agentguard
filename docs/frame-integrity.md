@@ -42,15 +42,35 @@ Comparison is block-by-block, and the verdict distinguishes three cases:
 
 Three properties make it usable rather than merely sensitive:
 
-- **Resolution independent.** A fixed grid, not a pixel hash, so the guard's
-  640×360 capture and a full-resolution agent screenshot of the same screen produce
-  comparable digests. Tested at a 4× scale difference.
+- **分辨率无关 —— 只对均值平面,而且只对平坦内容。** 这一条原来写的是"守卫的 640×360
+  采集和一张全分辨率截图产生可比的摘要,已在 4 倍尺度差下验证"。**那是假的。** 那条验证
+  用的是网格对齐的平坦色带 —— 点采样唯一能存活的形状。一次独立复核用一页小号深色文字
+  实测原生 1920×1080 与它自己降采样到 640×360:**27/144 块不同**,于是
+  `guard-cli frame-digest --expect` 会在一张**诚实的**帧上打印
+  `TAMPERED (localized): 27/144 blocks differ` 并 exit 1。
+
+  现在跨分辨率比较必须显式走 `changed_blocks_cross_scale`(只用亮度/Cb/Cr 三个**均值**
+  平面),而且这条性质只对平坦内容成立。`detail` 平面按定义不是尺度无关的 —— 同一条 1 像素
+  笔画在 4 倍放大后是一段 4 像素渐变,相邻像素差降到四分之一、跨不过边缘阈值。
+  **实时路径不受影响**:`FrameConsistency::check` 本来就有 `prev.width != stats.width`
+  的守卫,所以这一条只打中那条文档化的事后核验流程。
 - **Quantised.** 4 bits per channel per block, so re-encoding noise and sub-quantum
   drift do not flip a block. A cryptographic hash of raw pixels would be perfectly
   sensitive and perfectly useless — a blinking cursor would change it.
-- **Chroma included.** The published A4 variant embeds in Cb/Cr *while preserving
-  luminance*; a luma-only digest is blind to it by construction, the same mistake
-  the original stego detector made.
+- **含色度,但摘要这一路对细微色度改动迟钝。** 已发表的 A4 变体在保持亮度的前提下嵌入
+  Cb/Cr,所以只看亮度的摘要按构造是瞎的 —— 这一句仍然成立。但 4 bit 量化加 2 级容差之后,
+  这个摘要对**细微**的色度改动同样迟钝:一次保亮度的 B+80 / R−31(肉眼明显偏蓝的区域)
+  都不算块变化,而复核用本 crate 自己的 A4 fixture 实测摘要判决为 `Identical`。
+
+  真正抓这类载荷的是 `stego::chroma_lsb_flip_rate`(判据是"色度有边缘而亮度没有"),
+  摘要这一路是纵深而不是主防线。原来那句"a luma-only digest is blind to it by
+  construction"读起来像"所以这个摘要不瞎",而它在这个量级上也是瞎的。
+- **采样:块内全部像素,不是 9 个点。** 上一版每块取 3×3 = 9 个精确像素点 —— 1920×1080 上
+  整帧只读 1296 个像素(0.0625%)。复核在浅色帧上涂满 303,264 个纯黑像素(全帧 14.6%),
+  摘要**逐字节相同**;而 `scripts/frame-digest-demo.sh` 那个被本文档当作"证明新探测器有效"
+  的注入,在 1920×1080 和 3840×2160 上**完全静音**(采样行的相位与字形笔画节距对齐)。
+  详见 `framehash.rs` 顶部的长注释,包括为什么单靠块均值也不够、以及 `detail` 平面为什么
+  记的是跨阈边缘**个数**而不是边缘**能量**。
 
 The window is now **550 ms**, covering the paper's measured 50–500 ms with a small
 margin instead of 700 ms. Mean luma survives only as a fallback for frames that

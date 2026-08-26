@@ -2231,8 +2231,20 @@ fn main() -> Result<()> {
             out,
         } => {
             let ruleset = RuleSet::from_path(&rules)?;
-            let rule_ids: std::collections::BTreeSet<String> =
+            let mut rule_ids: std::collections::BTreeSet<String> =
                 ruleset.rules.iter().map(|r| r.id.clone()).collect();
+            // 引擎在代码里发出的 rule id 也算"规则集里的规则"。
+            //
+            // 这张表以前只从 YAML 建,于是覆盖矩阵**不能**点名 `PRIV-OP` / `PRIV-FM` /
+            // `PRIV-TRAP` 这些真正会触发的 id(会被判成"不在规则集里"),只能去点名 YAML 里
+            // 那两条同义但**不可能触发**的 `PRIV-001` / `PRIV-003`。也就是说矩阵被格式逼着
+            // 说了假话:它必须声称一条死规则,才能通过"这条规则存在"的检查。
+            //
+            // 这些 id 是 `guard-privacy` / `guard-core` 里的字面量,和 YAML 规则一样是策略
+            // 表面的一部分,只是实现在代码里(因为它们的判据是打分而不是文本匹配)。
+            for id in guard_eval::ENGINE_EMITTED_RULE_IDS {
+                rule_ids.insert((*id).to_string());
+            }
             let runner = with_repo_policies(
                 EvalRunner::from_paths(&rules, None::<PathBuf>)?.with_intel(load_intel_default()),
                 &known_apps,
@@ -2256,17 +2268,29 @@ fn main() -> Result<()> {
                     .unwrap_or_default()
                     .to_string();
                 let scenario = guard_eval::Scenario::from_path(&p)?;
-                let passed = report
+                let found = report
                     .results
                     .iter()
-                    .find(|r| r.scenario_id == scenario.scenario_id)
-                    .map(|r| r.passed)
-                    .unwrap_or(false);
+                    .find(|r| r.scenario_id == scenario.scenario_id);
+                let passed = found.map(|r| r.passed).unwrap_or(false);
+                // 实际命中的 rule id。`decisions` 的形状是 `"RULE:Action"`。
+                //
+                // 这是让"覆盖"这个词有含义的那一半:`verify_coverage` 以前只能检查规则**存在
+                // 于规则集**,现在能检查它**被这条场景触发过**。
+                let rule_hits: Vec<String> = found
+                    .map(|r| {
+                        r.decisions
+                            .iter()
+                            .filter_map(|d| d.split(':').next().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
                 results.insert(
                     stem,
                     guard_eval::ScenarioFacts {
                         passed,
                         is_attack: matches!(scenario.kind, guard_eval::ScenarioKind::Attack),
+                        rule_hits,
                     },
                 );
             }

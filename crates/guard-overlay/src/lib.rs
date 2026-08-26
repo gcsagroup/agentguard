@@ -68,6 +68,27 @@ pub enum OverlayKind {
 
 impl OverlayKind {
     /// Canonical marker string placed in `ui_text` for rule / intel matching.
+    /// 全部标记的字面量列表。
+    ///
+    /// `guard-vision::viewtree` 需要在比较之前**精确**剥掉守卫自己插入的标记,而以前它用的
+    /// 是 `find("[AG_")` 到下一个 `]` 之间**整段删除** —— 于是 AX 树文本(攻击者控制)里
+    /// 只要写 `[AG_ 任意长度的注入 ]`,那段注入就把自己从交叉校验里删掉了。
+    /// 这里给出可枚举的列表,让那一侧能只匹配字面量。
+    pub const ALL: &'static [OverlayKind] = &[
+        OverlayKind::InvisibleText,
+        OverlayKind::TransparentOverlay,
+        OverlayKind::ScreenshotTamperHint,
+        OverlayKind::PromptInjection,
+        OverlayKind::InvisibleZone,
+        OverlayKind::SubliminalText,
+        OverlayKind::StegoHint,
+        OverlayKind::ChromaStegoHint,
+        OverlayKind::ScreenTextNotInTree,
+        OverlayKind::TreeTextNotOnScreen,
+        OverlayKind::MaskedZoneText,
+        OverlayKind::FrameRegionTamper,
+    ];
+
     pub fn marker(&self) -> &'static str {
         match self {
             OverlayKind::InvisibleText => "[AG_INVISIBLE_TEXT]",

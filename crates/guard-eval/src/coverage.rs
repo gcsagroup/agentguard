@@ -114,12 +114,77 @@ pub struct CoverageProblem {
     pub detail: String,
 }
 
+/// 引擎在代码里发出、而不在 YAML 规则集里的 rule id。
+///
+/// 覆盖矩阵必须能点名它们。这不是"规则集之外的东西",而是策略表面的另一半 —— 它们的判据
+/// 是打分或状态机而不是文本匹配,所以实现在代码里。
+///
+/// 而 `known_rule_ids` 以前只从 YAML 建,于是矩阵为了通过"这条规则存在"的检查,只能去声称
+/// YAML 里那两条同义但**不可能触发**的 `PRIV-001` / `PRIV-003`(它们唯一的匹配谓词是
+/// `match_field_categories`,而那个字段在整个仓库里没有任何读者)。也就是矩阵被格式逼着
+/// 说了假话。
+pub const ENGINE_EMITTED_RULE_IDS: &[&str] = &[
+    "PRIV-OP",
+    "PRIV-FM",
+    "PRIV-TRAP",
+    "PRIV-MEM-READ",
+    "PRIV-MEM-USE",
+    "PRIV-XAPP",
+    "FLOW-CONF",
+    "FLOW-DERIVE",
+    "FLOW-DERIVE-ABUSE",
+    "FLOW-DECLASSIFY-REQUEST",
+    "FLOW-UNLABELLED",
+    "FW-BREAKOUT",
+    "FW-TEXT-ANOMALY",
+    "SESSION-START",
+    "SESSION-END",
+    "SESSION-PAUSED",
+    "PLAN-MISSING",
+    "PLAN-OUT-OF-ORDER",
+    "PLAN-OVER-BUDGET",
+    "TASK-DRIFT",
+    "ADAPTER-REPLAY",
+    "APP-UNATTESTED",
+    "APP-TRANSITION",
+    "APP-NOT-IN-TASK",
+    "APP-FOCUS",
+    "APP-LOOKALIKE",
+    "APP-IDENTITY-CHANGED",
+    "APP-SIGNER-MISMATCH",
+    "AGENT-KEY-PUBLICLY-KNOWN",
+    "ALLOW",
+];
+
 /// What the verifier knows about one scenario in the corpus.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ScenarioFacts {
     pub passed: bool,
     /// False for benign false-positive controls, which are not attack surfaces.
     pub is_attack: bool,
+    /// 这条场景实际发出的判决里出现过的 rule id。
+    ///
+    /// # 为什么"覆盖"必须包含这个
+    ///
+    /// `verify` 以前只检查两件事:声称的 rule id **存在于规则集里**,以及声称的场景
+    /// **通过**。它从不检查那条场景是否**命中**那条规则 —— 而"覆盖一条规则"的意思正是后者。
+    ///
+    /// 复核实测:27 条规则里 4 条从未被语料库命中,而**四条都被 surface 声称**,其中两条
+    /// 还标着 `covered`:
+    ///
+    /// ```text
+    /// ruleset rules: 27; hit by corpus: 23; NEVER hit: 4
+    ///   CRIT-003  claimed by [('aura-critical-node', 'covered')]
+    ///   CRIT-005  claimed by [('aura-critical-node', 'covered')]
+    ///   PRIV-001  claimed by [('aisees-a3','partial'), ('myphonebench-fm','covered')]
+    ///   PRIV-003  claimed by [('aura-ii-semantic-firewall','partial'), ('myphonebench-op','covered')]
+    ///
+    /// 5 / 30 surfaces 声称了自己场景从未命中的规则。
+    /// ```
+    ///
+    /// 而 PRIV-001 / PRIV-003 比"未被演练"更糟:它们唯一的匹配谓词是
+    /// `match_field_categories`,而那个字段在整个仓库里**没有任何读者** —— 它们不可能触发。
+    pub rule_hits: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,6 +247,39 @@ pub fn verify(
                     detail: format!("claims scenario '{scenario}' which is currently FAILING"),
                 }),
                 Some(_) => {}
+            }
+        }
+        // 声称的规则里,至少要有一条被自己的某条场景**真的命中**。
+        //
+        // 这是"覆盖"这个词的实际含义。没有这一条,一个 surface 可以声称一条从不触发(甚至
+        // **不可能**触发)的规则,而门禁全绿 —— 复核在 30 个 surface 里找到 5 个这样的。
+        if !s.rules.is_empty() && !s.scenarios.is_empty() {
+            let hits: std::collections::BTreeSet<&str> = s
+                .scenarios
+                .iter()
+                .filter_map(|sc| scenarios.get(sc))
+                .flat_map(|f| f.rule_hits.iter().map(String::as_str))
+                .collect();
+            // **逐条**规则检查,不是"至少命中一条"。
+            //
+            // 用 `any` 的话,一个声称 CRIT-001..005 的 surface 只要 CRIT-001 触发就通过 ——
+            // 而复核实测 CRIT-003 和 CRIT-005 在 127 条场景里**一次都没触发过**,却被同一个
+            // surface 标成 `covered`。矩阵把规则列成"这个 surface 覆盖了什么",所以每一条都
+            // 得有依据。
+            let unhit: Vec<&String> = s
+                .rules
+                .iter()
+                .filter(|r| !hits.contains(r.as_str()))
+                .collect();
+            if !unhit.is_empty() {
+                problems.push(CoverageProblem {
+                    surface: s.id.clone(),
+                    detail: format!(
+                        "claims rule(s) {unhit:?} that none of its scenarios ever emits \
+                         (they emit {hits:?}) — a coverage claim means the rule fired, not that \
+                         it exists in the ruleset"
+                    ),
+                });
             }
         }
         match s.status {
@@ -371,6 +469,7 @@ mod tests {
                     ScenarioFacts {
                         passed: *v,
                         is_attack: true,
+                        rule_hits: vec!["R-1".to_string()],
                     },
                 )
             })
@@ -383,6 +482,7 @@ mod tests {
             ScenarioFacts {
                 passed: true,
                 is_attack: false,
+                rule_hits: vec!["R-1".to_string()],
             },
         )
     }

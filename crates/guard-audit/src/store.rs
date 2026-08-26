@@ -135,6 +135,19 @@ impl AuditStore {
         let conn = Connection::open(path.as_ref())
             .with_context(|| format!("open audit db {}", path.as_ref().display()))?;
         apply_key(&conn, passphrase)?;
+        // 跨进程写这同一个文件是**正常使用**(nm-host 每个连接一个进程),所以两件事都要设:
+        //
+        // * `busy_timeout` —— 后到的写者等而不是立刻 `SQLITE_BUSY`。没有它,`append` 里新加
+        //   的事务只是把一个静默的链断裂换成一个随机失败。
+        // * WAL —— 读者不阻塞写者,而验证走的是只读连接。
+        //
+        // 这两条以前都没有,`PRAGMA` 在这个文件里一次都没出现过。
+        conn.busy_timeout(std::time::Duration::from_secs(10))
+            .context("set audit db busy_timeout")?;
+        // WAL 设不上不是致命的(某些文件系统不支持),但要说出来而不是静默。
+        if let Err(e) = conn.pragma_update(None, "journal_mode", "WAL") {
+            eprintln!("agentguard: audit db WAL unavailable ({e}); concurrent readers may block");
+        }
         let store = Self { conn, signer: None };
         store.migrate()?;
         Ok(store)
@@ -500,6 +513,39 @@ impl AuditStore {
     }
 
     pub fn append(&self, record: &AuditRecord) -> Result<()> {
+        // 整个"读头 → 算哈希 → 取 seq → 插入"必须在**一个事务**里。
+        //
+        // 这个文件里以前一处 `BEGIN` 都没有(`grep transaction|BEGIN|savepoint` 无匹配),
+        // 而 `append` 先读 `last_hash()` 和 `next_seq()` 再 INSERT。两个进程同时写就会拿到
+        // 同一个 `prev_hash` 和同一个 `seq`,链**永久**断掉 —— 而且一声不响:
+        //
+        // ```text
+        // 两个并发写者各 25 次 append:rows=50 chain.ok=false verified=48/50
+        // duplicate seq values: 2 / 2 / 1   (三次运行)
+        // append errors: 0                  <- 一次错误都没有,调用方无从知晓
+        // ```
+        //
+        // 这不在威胁模型里,在**正常使用**里:`guard-nm-host` 每个原生消息连接一个进程,
+        // 各自打开同一个 `~/.local/share/agentguard/nm-audit.db`,跨进程无锁;或者
+        // `api-serve` 加任意一条指向同一个 `--audit-db` 的 CLI 命令。进程**内**有
+        // `Mutex<Engine>`,所以单进程是安全的 —— 问题只在跨进程。
+        //
+        // 后果是双向的:日志永久不可验证,同时给想抵赖的人递上现成台词("工具自己就会把
+        // 日志搞坏")。而验证器给出的提示是 `"position N where M was expected (row deleted
+        // or reordered)"` —— 一句谎话。
+        //
+        // `BEGIN IMMEDIATE` 在语句开始时就取写锁,所以两个写者里后到的那个会等(见
+        // `busy_timeout`),而不是读到一个即将过期的头。
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .context("begin audit append transaction")?;
+        self.append_in_tx(record)?;
+        tx.commit().context("commit audit append")?;
+        Ok(())
+    }
+
+    fn append_in_tx(&self, record: &AuditRecord) -> Result<()> {
         let prev_hash = self.last_hash()?;
         let record_hash = crate::chain::chain_hash(&prev_hash, record);
         let seq = self.next_seq("audit_events")?;
@@ -945,6 +991,19 @@ impl AuditStore {
         Ok(stats)
     }
 
+    /// 这个哈希出现在链上吗 —— 作为某行自己的哈希,或作为某行的 `prev_hash`。
+    ///
+    /// 给 `HeadWitness::check_inclusion` 用:见证时的头哈希必须还在链上,否则日志不是
+    /// "增长了",而是从那个点或更早被重写了。
+    pub fn chain_contains_hash(&self, hash: &str) -> Result<bool> {
+        let n: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM audit_events WHERE record_hash = ?1 OR prev_hash = ?1",
+            [hash],
+            |r| r.get(0),
+        )?;
+        Ok(n > 0)
+    }
+
     /// Head of the log, for an out-of-band witness file. `None` on an empty log.
     pub fn head(&self) -> Result<Option<crate::HeadWitness>> {
         let log_id = self.meta("log_id")?.unwrap_or_default();
@@ -966,11 +1025,27 @@ impl AuditStore {
         let count: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM audit_events", [], |r| r.get(0))?;
+        // 收据也要进 witness。见 `HeadWitness::receipt_count` —— 少了它,删掉一条签名收据
+        // 就能把一条 deny 变成 approve,而五项检查全绿。
+        let receipt_count: i64 =
+            self.conn
+                .query_row("SELECT COUNT(*) FROM decision_receipts", [], |r| r.get(0))?;
+        let last_receipt_hash: String = self
+            .conn
+            .query_row(
+                "SELECT receipt_hash FROM decision_receipts ORDER BY rowid DESC LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .optional()?
+            .unwrap_or_default();
         Ok(row.map(|(seq, hash, _)| crate::HeadWitness {
             log_id,
             seq,
             count: count as usize,
             last_record_hash: hash,
+            receipt_count: receipt_count as usize,
+            last_receipt_hash,
         }))
     }
 
@@ -1902,5 +1977,204 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("no audit record"), "{err}");
+    }
+}
+
+#[cfg(test)]
+mod b6_并发与见证复核 {
+    use super::*;
+
+    fn rec(i: usize) -> AuditRecord {
+        AuditRecord {
+            id: format!("id-{i}"),
+            timestamp_ms: 1_700_000_000_000 + i as i64,
+            platform: "test".into(),
+            event_type: "ui_tree_delta".into(),
+            source_app: "App".into(),
+            agent_session_id: None,
+            rule_id: format!("R{i}"),
+            severity: "info".into(),
+            action: "Allow".into(),
+            human_message: format!("event {i}"),
+            evidence_ref: None,
+            user_decision: None,
+            event_json: "{}".into(),
+            attributed_agent: None,
+        }
+    }
+
+    /// 两个**并发写者**不能把哈希链弄断,而且绝不能静默地弄断。
+    ///
+    /// 复核实测(修复前,连跑三次全部复现):
+    ///
+    /// ```text
+    /// two concurrent writers, 50 appends: rows=50 chain.ok=false verified=48/50
+    /// duplicate seq values: 2 / 2 / 1
+    /// append errors (0) e.g. None          <- 一次错误都没有
+    /// ```
+    ///
+    /// 这不在威胁模型里,在正常使用里:`guard-nm-host` 每个原生消息连接一个进程,各自打开
+    /// 同一个 `~/.local/share/agentguard/nm-audit.db`。后果是双向的 —— 日志永久不可验证,
+    /// 同时给想抵赖的人递上"工具自己就会把日志搞坏"这句台词。
+    ///
+    /// 这里用两个线程各自**独立打开**同一个文件(不是共享 `Connection`),因为跨进程才是
+    /// 真实形状;`unchecked_transaction` + `busy_timeout` 要在这个形状下成立。
+    #[test]
+    fn 并发写不弄断哈希链() {
+        let dir = std::env::temp_dir().join(format!("ag-audit-concurrent-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("a.db");
+        // 先建库,免得两个写者同时跑 migrate。
+        drop(AuditStore::open(&db).unwrap());
+
+        let mut handles = Vec::new();
+        for w in 0..2 {
+            let db = db.clone();
+            handles.push(std::thread::spawn(move || {
+                let store = AuditStore::open(&db).expect("open");
+                let mut errs = 0usize;
+                for i in 0..25 {
+                    if store.append(&rec(w * 100 + i)).is_err() {
+                        errs += 1;
+                    }
+                }
+                errs
+            }));
+        }
+        let errs: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
+
+        let store = AuditStore::open_read_only(&db).unwrap();
+        let v = store.verify_chain().unwrap();
+        let dup: i64 = store
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM (SELECT seq FROM audit_events GROUP BY seq HAVING COUNT(*) > 1)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(dup, 0, "有 {dup} 个重复的 seq —— 两个写者拿到了同一个位置");
+        assert!(
+            v.ok,
+            "并发写之后链断了:verified={}/{} first_mismatch={:?}(本轮 append 报错 {} 次)",
+            v.verified, v.total, v.first_mismatch_id, errs
+        );
+    }
+
+    /// 删尾再回填必须被 witness 抓到。
+    ///
+    /// `last_record_hash` 一直被写进 witness 文件、文档也把它列为组成部分,而
+    /// `check_against` **从不读它**。于是"删掉末尾 N 条 + 补 N 条伪造记录把 count/seq
+    /// 恢复到原值"通过全部检查,日志内容变成攻击者写的那几条。
+    #[test]
+    fn 删尾回填被见证抓到() {
+        let dir = std::env::temp_dir().join(format!("ag-audit-refill-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("a.db");
+        let store = AuditStore::open(&db).unwrap();
+        for i in 0..5 {
+            store.append(&rec(i)).unwrap();
+        }
+        let witness = store.head().unwrap().unwrap();
+
+        // 删掉末尾 3 条,再补 3 条 —— seq 和 count 回到原值。
+        store
+            .conn
+            .execute("DELETE FROM audit_events WHERE seq > 2", [])
+            .unwrap();
+        for i in 100..103 {
+            store.append(&rec(i)).unwrap();
+        }
+        let after = store.head().unwrap().unwrap();
+        assert_eq!(after.seq, witness.seq, "夹具必须把 seq 恢复到原值");
+        assert_eq!(after.count, witness.count, "夹具必须把 count 恢复到原值");
+        assert_ne!(
+            after.last_record_hash, witness.last_record_hash,
+            "回填之后头哈希必然不同,否则这条测试证明不了什么"
+        );
+
+        let verdict = witness.check_against(Some(&after));
+        let _ = std::fs::remove_dir_all(&dir);
+        let e = verdict.expect_err("删尾回填必须被抓到");
+        assert!(
+            e.to_string().contains("rewritten"),
+            "错误信息应当说清是历史被重写:{e}"
+        );
+    }
+
+    /// 删掉一条签名收据必须被 witness 抓到 —— 那是"用户决策"的唯一证据。
+    #[test]
+    fn 删除收据被见证抓到() {
+        let dir = std::env::temp_dir().join(format!("ag-audit-receipt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("a.db");
+        let store = AuditStore::open(&db).unwrap();
+        store.append(&rec(1)).unwrap();
+        store
+            .set_user_decision("id-1", crate::UserDecision::Deny)
+            .unwrap();
+        let witness = store.head().unwrap().unwrap();
+        assert_eq!(witness.receipt_count, 1, "夹具应当产生一条收据");
+
+        store
+            .conn
+            .execute("DELETE FROM decision_receipts", [])
+            .unwrap();
+        store
+            .conn
+            .execute("UPDATE audit_events SET user_decision = NULL", [])
+            .unwrap();
+        let after = store.head().unwrap().unwrap();
+        let verdict = witness.check_against(Some(&after));
+        let _ = std::fs::remove_dir_all(&dir);
+        let e = verdict.expect_err("删掉一条签名收据必须被抓到");
+        assert!(
+            e.to_string().contains("receipts went backwards"),
+            "错误信息应当点名收据:{e}"
+        );
+    }
+
+    /// 见证的那一段被换掉、但日志继续增长 —— 靠包含性证明抓。
+    ///
+    /// 这一格 `check_against` 抓不到:删尾 K 条、补 K+1 条,seq 和 count 都变大,同位置
+    /// 比较也不触发。必须去看链本身。
+    #[test]
+    fn 增长中被重写靠包含性抓到() {
+        let dir = std::env::temp_dir().join(format!("ag-audit-incl-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("a.db");
+        let store = AuditStore::open(&db).unwrap();
+        for i in 0..5 {
+            store.append(&rec(i)).unwrap();
+        }
+        let witness = store.head().unwrap().unwrap();
+        // 见证时的头哈希此刻当然在链上。
+        witness
+            .check_inclusion(|h| store.chain_contains_hash(h))
+            .expect("刚见证完必须包含");
+
+        // 删尾 2 条、补 3 条:seq 和 count 都变大。
+        store
+            .conn
+            .execute("DELETE FROM audit_events WHERE seq > 3", [])
+            .unwrap();
+        for i in 200..203 {
+            store.append(&rec(i)).unwrap();
+        }
+        let after = store.head().unwrap().unwrap();
+        assert!(after.seq > witness.seq, "夹具必须让 seq 变大");
+        assert!(
+            witness.check_against(Some(&after)).is_ok(),
+            "这一格本来就不该被 check_against 抓到 —— 否则这条测试测的是别的东西"
+        );
+        let verdict = witness.check_inclusion(|h| store.chain_contains_hash(h));
+        let _ = std::fs::remove_dir_all(&dir);
+        let e = verdict.expect_err("包含性证明必须抓到");
+        assert!(e.to_string().contains("no longer appears"), "{e}");
     }
 }

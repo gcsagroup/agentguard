@@ -9,42 +9,113 @@
 //! in place and never retained. This is a heuristic *hint* (alert, not block)
 //! — high-entropy screenshots (video, noise) can trip it.
 
-/// Fraction of sampled horizontal neighbor pairs whose LSB differs above which
-/// the frame is suspicious (chance = 0.5; smooth natural UI ≈ 0).
+/// 判据阈值。两条路的指标见下方长注释。
 pub const STEGO_FLIP_THRESHOLD: f32 = 0.35;
 
-/// Horizontal sampling stride in pixels (keeps cost flat for large frames).
-const STRIDE_X: usize = 7;
-/// Vertical stride between sampled rows.
+/// 采样行间距(让代价对大帧保持平坦)。行**内**每个相邻像素对都看 —— 固定跨步比较是
+/// 上一版被精确归零的原因。
 const STRIDE_Y: usize = 11;
+
+// # 为什么两条路的指标都换掉了
+//
+// 上一版都是"比较 `(x, x+7)` 这一对固定跨步像素的最低位"。一次独立复核给出两个方向都错的
+// 结论。
+//
+// ## 一、可以被精确归零
+//
+// `STRIDE_X = 7` 是公开常量。把每第 7 列的 LSB 钉住,所有被采样的对就永远相同:
+//
+// ```text
+// naive   LSB payload: flip_rate=0.5004 flagged=true
+// aligned LSB payload: flip_rate=0.0000 flagged=false
+// payload capacity kept: 85.7% (1233900 of 1440000 pixels)
+// naive   chroma payload: rate=0.5065 flagged=true
+// aligned chroma payload: rate=0.0000 flagged=false
+// ```
+//
+// **精确归零**,载荷容量保留 85.7%,嵌入端只需改三行。OVL-008 与 OVL-011 同时失效。
+//
+// ## 二、在普通内容上误报
+//
+// 平滑斜坡的 LSB 就是斜坡的奇偶性;固定 7 像素跨步正好采到它(1600×900,阈值 0.35):
+//
+// ```text
+// horizontal 8-bit gradient  luma=0.8860 FLAGGED
+// dithered gradient          luma=0.5788 FLAGGED
+// photo with film grain      luma=0.4932 FLAGGED
+// ```
+//
+// 一张渐变壁纸或一个视频窗口 → 每帧一条 Medium alert(OVL-008),而本 crate 自己在
+// `AlphaChannel` 的注释里就写着"a guard that alerts on every frame is a guard that gets
+// switched off"。两条合起来:这个探测器的信噪比是**反的**。
+//
+// ## 亮度那一路换成什么
+//
+// 关键不是"最低位会不会变",而是"最低位是不是**独立于**高位"。平滑渐变的最低位是一个缓慢
+// 变化量的奇偶性,和次低位有固定关系;真正的 LSB 隐写把最低位换成密文,与次低位无关。
+// 指标改成 `max(0, bit0翻转率 − bit1翻转率)`,行内**相邻**像素对:
+//
+// ```text
+//                        bit0    bit1    差值   判据(>0.35)
+// 纯色                   0.000   0.000   0.000   干净
+// 8bit 平滑渐变          0.159   0.079   0.079   干净   <- 旧指标 0.886 误报
+// LSB 隐写(渐变底)      0.495   0.079   0.416   隐写
+// 照片颗粒噪声           0.507   0.500   0.008   干净   <- 旧指标 0.493 误报
+// 抖动渐变               0.455   0.455   0.000   干净   <- 旧指标 0.579 误报
+// ```
+//
+// 要绕过它,攻击者必须把次低位的翻转率也拉到和最低位一样 —— 那是 ±2 级的可见噪声。
+//
+// **一条如实的局限**:载体本身就是高熵内容(照片、视频)时 bit0 与 bit1 都接近 0.5,
+// 差值接近 0,这种情形下的 LSB 隐写检测不出来。上一版也检测不出来 —— 它只是把所有高熵内容
+// 一律标记,于是"检测到隐写"和"对噪声误报"在输出上不可区分。现在这条局限是显式的。
+//
+// ## 色度那一路换成什么
+//
+// 已发表的 A4 色度变体是"保持亮度不变地在 Cb/Cr 里嵌入",实测形状是 B 抬 ±6、R 压 ∓2
+// 抵消亮度 —— 那改动的是好几个比特,所以 LSB 统计漏得掉。而"色度有边缘、亮度没有"是这类
+// 载荷的**结构性**签名:自然图像和界面里色度边缘总是和亮度边缘同处一地。
+//
+// ```text
+//                        判据    (>0.35 = 隐写)
+//   纯色灰                0.000   干净
+//   保亮度色度载荷(±6)     0.507   隐写      <- 已发表的那个形状
+//   色度 LSB 载荷(±1)     0.495   隐写
+//   彩色渐变(色相变化)     0.159   干净
+//   照片噪声              0.081   干净
+//   红字反锯齿边缘         0.000   干净      <- 边缘稀疏,占比上不来
+//   彩色抖动              0.347   干净      <- 贴着线,见 MIN_CHROMA_DELTA
+// ```
 
 /// LSB flip rate over sampled horizontal neighbor pairs (0..1).
 /// Uses the green channel (stego tools typically embed across all channels
 /// identically; one channel is representative and cheapest).
 /// `px` is tightly packed 4-byte pixels.
 pub fn lsb_flip_rate(px: &[u8], width: usize, height: usize) -> f32 {
-    if width < STRIDE_X * 2 || height < STRIDE_Y * 2 || px.len() < width * height * 4 {
+    if width < 4 || height < STRIDE_Y * 2 || px.len() < width * height * 4 {
         return 0.0;
     }
-    let mut flips = 0usize;
+    let mut b0 = 0usize;
+    let mut b1 = 0usize;
     let mut pairs = 0usize;
     let mut y = 0;
     while y < height {
         let row = y * width * 4;
-        let mut x = 0;
-        while x + STRIDE_X < width {
-            let a = px[row + x * 4 + 1] & 1;
-            let b = px[row + (x + STRIDE_X) * 4 + 1] & 1;
-            flips += (a ^ b) as usize;
+        for x in 0..width - 1 {
+            let a = px[row + x * 4 + 1];
+            let b = px[row + (x + 1) * 4 + 1];
+            b0 += ((a ^ b) & 1) as usize;
+            b1 += (((a >> 1) ^ (b >> 1)) & 1) as usize;
             pairs += 1;
-            x += STRIDE_X;
         }
         y += STRIDE_Y;
     }
     if pairs == 0 {
         return 0.0;
     }
-    flips as f32 / pairs as f32
+    let r0 = b0 as f32 / pairs as f32;
+    let r1 = b1 as f32 / pairs as f32;
+    (r0 - r1).max(0.0)
 }
 
 /// Chrominance LSB flip rate (max over Cb and Cr).
@@ -57,48 +128,51 @@ pub fn lsb_flip_rate(px: &[u8], width: usize, height: usize) -> f32 {
 ///
 /// `bgra` selects channel order; pixels are analyzed in place, never retained.
 pub fn chroma_lsb_flip_rate(px: &[u8], width: usize, height: usize, bgra: bool) -> f32 {
-    if width < STRIDE_X * 2 || height < STRIDE_Y * 2 || px.len() < width * height * 4 {
+    if width < 4 || height < STRIDE_Y * 2 || px.len() < width * height * 4 {
         return 0.0;
     }
-    let mut cb_flips = 0usize;
-    let mut cr_flips = 0usize;
+    // 判据:**色度变了而亮度没变**的相邻对占比。理由见文件上方长注释的"色度那一路"。
+    //
+    // `MIN_CHROMA_DELTA` 取 0.45 是为了连 ±1 的色度 LSB 也算上(一个 ±1 的蓝通道变化给出
+    // ΔCb = 0.5);`MAX_LUMA_DELTA` 取 0.5 排除掉逐通道独立的抖动 —— 绿通道 ±1 就让亮度动
+    // 0.587,而保亮度载荷按定义不会。彩色抖动落在 0.347,紧贴阈值:它和色度 LSB 隐写在这个
+    // 统计量上本来就几乎不可分,区别只有"抖动也会让亮度动"这么多。这是这两种内容的物理
+    // 差别,不是调参没调好。
+    const MIN_CHROMA_DELTA: f32 = 0.45;
+    const MAX_LUMA_DELTA: f32 = 0.5;
+    let mut hits = 0usize;
     let mut pairs = 0usize;
     let mut y = 0;
     while y < height {
         let row = y * width * 4;
-        let mut x = 0;
-        while x + STRIDE_X < width {
-            let a = chroma_at(px, row + x * 4, bgra);
-            let b = chroma_at(px, row + (x + STRIDE_X) * 4, bgra);
-            cb_flips += ((a.0 ^ b.0) & 1) as usize;
-            cr_flips += ((a.1 ^ b.1) & 1) as usize;
+        for x in 0..width - 1 {
+            let rgb = |o: usize| -> (f32, f32, f32) {
+                if bgra {
+                    (px[o + 2] as f32, px[o + 1] as f32, px[o] as f32)
+                } else {
+                    (px[o] as f32, px[o + 1] as f32, px[o + 2] as f32)
+                }
+            };
+            let (r1, g1, b1) = rgb(row + x * 4);
+            let (r2, g2, b2) = rgb(row + (x + 1) * 4);
+            let y1 = 0.299 * r1 + 0.587 * g1 + 0.114 * b1;
+            let y2 = 0.299 * r2 + 0.587 * g2 + 0.114 * b2;
+            let cb1 = -0.168_736 * r1 - 0.331_264 * g1 + 0.5 * b1;
+            let cb2 = -0.168_736 * r2 - 0.331_264 * g2 + 0.5 * b2;
+            let cr1 = 0.5 * r1 - 0.418_688 * g1 - 0.081_312 * b1;
+            let cr2 = 0.5 * r2 - 0.418_688 * g2 - 0.081_312 * b2;
+            let dc = (cb1 - cb2).abs().max((cr1 - cr2).abs());
+            if dc >= MIN_CHROMA_DELTA && (y1 - y2).abs() < MAX_LUMA_DELTA {
+                hits += 1;
+            }
             pairs += 1;
-            x += STRIDE_X;
         }
         y += STRIDE_Y;
     }
     if pairs == 0 {
         return 0.0;
     }
-    let cb = cb_flips as f32 / pairs as f32;
-    let cr = cr_flips as f32 / pairs as f32;
-    cb.max(cr)
-}
-
-/// BT.601 Cb/Cr for one pixel, rounded to 8-bit like a real YCbCr conversion.
-fn chroma_at(px: &[u8], offset: usize, bgra: bool) -> (u8, u8) {
-    let (r, g, b) = if bgra {
-        (px[offset + 2], px[offset + 1], px[offset])
-    } else {
-        (px[offset], px[offset + 1], px[offset + 2])
-    };
-    let (r, g, b) = (r as f32, g as f32, b as f32);
-    let cb = 128.0 - 0.168_736 * r - 0.331_264 * g + 0.5 * b;
-    let cr = 128.0 + 0.5 * r - 0.418_688 * g - 0.081_312 * b;
-    (
-        cb.round().clamp(0.0, 255.0) as u8,
-        cr.round().clamp(0.0, 255.0) as u8,
-    )
+    hits as f32 / pairs as f32
 }
 
 #[cfg(test)]
@@ -208,5 +282,172 @@ mod tests {
         }
         let r = chroma_lsb_flip_rate(&buf, W, H, true);
         assert!(r < STEGO_FLIP_THRESHOLD, "blocky UI chroma flip rate {r}");
+    }
+}
+
+#[cfg(test)]
+mod b6_隐写判据复核 {
+    use super::*;
+
+    const RW: usize = 1600;
+    const RH: usize = 900;
+
+    fn frame(mut f: impl FnMut(usize, usize) -> (u8, u8, u8)) -> Vec<u8> {
+        let mut buf = vec![255u8; RW * RH * 4];
+        for y in 0..RH {
+            for x in 0..RW {
+                let (r, g, b) = f(x, y);
+                let o = (y * RW + x) * 4;
+                // BGRA
+                buf[o] = b;
+                buf[o + 1] = g;
+                buf[o + 2] = r;
+            }
+        }
+        buf
+    }
+
+    fn rng(seed: u64) -> impl FnMut() -> u64 {
+        let mut s = seed;
+        move || {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1);
+            s >> 33
+        }
+    }
+
+    /// 普通内容不能触发隐写告警。
+    ///
+    /// 旧判据比较 `(x, x+7)` 的最低位,而平滑斜坡的最低位就是斜坡的奇偶性 —— 固定 7 像素
+    /// 跨步正好采到它。复核实测(1600×900,阈值 0.35):
+    ///
+    /// ```text
+    /// horizontal 8-bit gradient  luma=0.8860 FLAGGED
+    /// dithered gradient          luma=0.5788 FLAGGED
+    /// photo with film grain      luma=0.4932 FLAGGED
+    /// ```
+    ///
+    /// 一张渐变壁纸或一个视频窗口 → 每帧一条 Medium alert(OVL-008),而本 crate 自己在
+    /// `AlphaChannel` 的注释里就写着"a guard that alerts on every frame is a guard that
+    /// gets switched off"。
+    #[test]
+    fn 普通内容不触发隐写告警() {
+        let mut r = rng(7);
+        let cases: Vec<(&str, Vec<u8>)> = vec![
+            ("纯色", frame(|_, _| (200, 200, 200))),
+            (
+                "8bit 水平渐变",
+                frame(|x, _| {
+                    let v = ((x * 255) / RW) as u8;
+                    (v, v, v)
+                }),
+            ),
+            (
+                "抖动渐变",
+                frame(|x, _| {
+                    let v = ((x * 255) / RW) as i32 + (r() % 3) as i32 - 1;
+                    let v = v.clamp(0, 255) as u8;
+                    (v, v, v)
+                }),
+            ),
+            (
+                "照片颗粒噪声",
+                frame(|_, _| {
+                    let v = (128 + (r() % 13) as i32 - 6).clamp(0, 255) as u8;
+                    (v, v, v)
+                }),
+            ),
+            (
+                "反锯齿文字",
+                frame(|x, y| {
+                    let on = (y / 3) % 7 < 2 && (x / 2) % 5 < 3;
+                    let v = if on { 40 } else { 245 };
+                    (v, v, v)
+                }),
+            ),
+            (
+                "彩色渐变",
+                frame(|x, _| {
+                    let v = ((x * 255) / RW) as u8;
+                    (v, 100, 255 - v)
+                }),
+            ),
+        ];
+        for (name, buf) in &cases {
+            let luma = lsb_flip_rate(buf, RW, RH);
+            let chroma = chroma_lsb_flip_rate(buf, RW, RH, true);
+            assert!(
+                luma < STEGO_FLIP_THRESHOLD,
+                "{name}: 亮度判据误报 {luma:.4}"
+            );
+            assert!(
+                chroma < STEGO_FLIP_THRESHOLD,
+                "{name}: 色度判据误报 {chroma:.4}"
+            );
+        }
+    }
+
+    /// 对齐到任何固定跨步都不能把判据归零。
+    ///
+    /// 旧实现只比较 `(x, x+7)`,而 `STRIDE_X = 7` 是公开常量。把每第 7 列的 LSB 钉住,
+    /// 所有被采样的对就永远相同:**精确 0.0000**,载荷容量保留 85.7%,嵌入端改三行。
+    /// 这条测试遍历一批跨步 —— 攻击者可以对齐其中任何一个,判据都必须仍然报警。
+    #[test]
+    fn 对齐到固定跨步不能归零() {
+        for stride in [2usize, 3, 5, 7, 11, 13, 16] {
+            let mut r = rng(stride as u64 * 31);
+            // 在灰底上做 LSB 隐写,但把每第 `stride` 列的 LSB 钉成固定值。
+            let buf = frame(|x, _| {
+                let bit = if x % stride == 0 { 0 } else { (r() & 1) as u8 };
+                let v = (180 & 0xFE) | bit;
+                (v, v, v)
+            });
+            let luma = lsb_flip_rate(&buf, RW, RH);
+            assert!(
+                luma > STEGO_FLIP_THRESHOLD,
+                "对齐到跨步 {stride} 之后亮度判据只剩 {luma:.4} —— 被归零了"
+            );
+        }
+    }
+
+    /// 已发表的保亮度色度载荷仍然被抓到。
+    ///
+    /// 这是 A4 色度变体的实际形状:B 抬 ±6、R 压 ∓2 抵消亮度。它改动好几个比特,所以按
+    /// LSB 统计会漏 —— 色度那一路因此用的是"色度有边缘而亮度没有"这个结构性签名。
+    #[test]
+    fn 保亮度色度载荷被抓到() {
+        let mut r = rng(99);
+        let buf = frame(|_, _| {
+            let bit = (r() & 1) as i32;
+            let b = (120 + bit * 6).clamp(0, 255) as u8;
+            let rr = (120 - (bit * 6 * 114) / 299).clamp(0, 255) as u8;
+            (rr, 120, b)
+        });
+        let luma = lsb_flip_rate(&buf, RW, RH);
+        let chroma = chroma_lsb_flip_rate(&buf, RW, RH, true);
+        assert!(
+            luma < STEGO_FLIP_THRESHOLD,
+            "亮度判据不该看见保亮度载荷(那是色度那一路的活):{luma:.4}"
+        );
+        assert!(
+            chroma > STEGO_FLIP_THRESHOLD,
+            "已发表的保亮度色度载荷没有被抓到:{chroma:.4}"
+        );
+    }
+
+    /// 真正的 LSB 隐写仍然被抓到 —— 否则上面那些"不误报"是把功能关掉换来的。
+    #[test]
+    fn 真正的lsb隐写仍然被抓到() {
+        let mut r = rng(4242);
+        // 渐变底上的 LSB 隐写:底噪是平滑的,最低位是密文。
+        let buf = frame(|x, _| {
+            let base = (((x * 255) / RW) as u8) & 0xFE;
+            let v = base | (r() & 1) as u8;
+            (v, v, v)
+        });
+        let luma = lsb_flip_rate(&buf, RW, RH);
+        assert!(
+            luma > STEGO_FLIP_THRESHOLD,
+            "渐变底上的 LSB 隐写没有被抓到:{luma:.4}"
+        );
     }
 }
