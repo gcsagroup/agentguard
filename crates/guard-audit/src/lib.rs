@@ -15,8 +15,8 @@ pub use secure::{
     auto_approve_allowed, default_audit_key_path, ensure_audit_key_file, is_release_build,
 };
 pub use signing::{
-    AdapterVerifyKey, AuditSigner, AuditVerifyKey, FileDeviceKey, HeadWitness, KeyAlgorithm,
-    SignatureVerifyReport,
+    message_fingerprint, AdapterVerifyKey, AuditSigner, AuditVerifyKey, FileDeviceKey, HeadWitness,
+    KeyAlgorithm, SignatureVerifyReport,
 };
 pub use store::AuditStore;
 pub use types::*;

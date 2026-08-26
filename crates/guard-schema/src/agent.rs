@@ -272,6 +272,23 @@ pub const PUBLICLY_KNOWN_AGENT_KEYS: &[(&str, &str)] = &[
         "55154f42065ea5a1bea05463826be2684eb92df92c100027aabaae57ca554207",
         "仓库夹具密钥，种子为 0xb2 重复 32 次",
     ),
+    // **P-256。** 这一条以前不在表里,而它是仓库里唯一出现过的 P-256 公钥:
+    // `eval/fixtures/adapter_signature_vectors.json` 的 `rust_public_key_hex`,
+    // 私钥标量(0x11 重复 32 次)就写在 `guard-audit/src/signing.rs` 的向量生成器里。
+    //
+    // 后果是一次独立对抗性复核跑出来的:把它钉到 `policies/adapter-registry.yaml`
+    // 的 `android-companion`(那里正留着一个空的 public_key 位)之后 ——
+    //
+    //   ADAPTER-VERIFIED、已锁存的 Critical 风险被清掉,而
+    //   preflight 打印 `[PASS] adapter.keys.present  1/2 张适配器卡钉了公钥`
+    //
+    // 一句 FAIL 都没有。agent 那边的同类**是**被抓的(`agent.keys.publicly_known`),
+    // 这张表只是在加 P-256 的时候没有一起扩 —— 于是这个文件头部记着的那个教训
+    // ("发布注册表钉了两把私钥在仓库里的夹具密钥")通过新算法又可以复现一次。
+    (
+        "040217e617f0b6443928278f96999e69a23a4f2c152bdf6d6cdf66e5b80282d4ed194a7debcb97712d2dda3ca85aa8765a56f45fc758599652f2897c65306e5794",
+        "仓库跨语言测试向量里的 P-256 密钥，私钥标量 0x11 重复 32 次写在向量生成器里",
+    ),
 ];
 
 /// 若 `public_key_hex` 是一个私钥公开的已知密钥，返回它的出处。

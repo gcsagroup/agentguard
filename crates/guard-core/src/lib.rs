@@ -662,17 +662,52 @@ impl Engine {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
-        let skew = (now - timestamp_ms).abs();
+        // `saturating_sub` + `unsigned_abs`,不是 `(a - b).abs()`。
+        //
+        // 一个持有适配器密钥的调用方(被攻陷的伴生应用,或者钉了下面那把夹具密钥的
+        // 部署)发一个 `timestamp_ms = i64::MIN` 的断言:debug 构建下
+        // `now - i64::MIN` 溢出 panic,而 tiny_http 的循环**就是** main ——
+        // 守卫进程直接退出。release 构建下它回绕成负数,于是
+        // `skew > FRESHNESS_WINDOW_MS` 为假,那条断言被当成**新鲜的** ——
+        // 一个新鲜度绕过。两个分支都是错的。
+        //
+        // 这一条在验签之后,所以只有密钥持有者能碰到;但"崩掉整个守卫"这个后果
+        // 太大,不该留给一次算术溢出。一次独立对抗性复核跑出来的。
+        let skew =
+            i64::try_from(now.saturating_sub(timestamp_ms).unsigned_abs()).unwrap_or(i64::MAX);
         if now > 0 && skew > guard_schema::FRESHNESS_WINDOW_MS {
             return AI::Stale {
                 adapter_id,
                 skew_ms: skew,
             };
         }
-        if !Self::remember_adapter_event(&mut self.adapter_seen, &adapter_id, sig) {
+        // **重放键是「签名过的那条消息」,不是签名的那串十六进制文本。**
+        //
+        // 上一版直接把 `sig` 这个 header 字符串当键,而注释还写着"签名恰好是这次
+        // 断言的唯一标识"。那句话错了两次:
+        //
+        //   1. `hex::decode` 不分大小写。`hex::encode` 出的是小写,所以把任意几个
+        //      十六进制字母改成大写就得到一个**不同的字符串**、解出**相同的字节**。
+        //      一个 70 字节的 DER 签名有约 54 个字母 —— 也就是同一个签名有约 2^54
+        //      种拼法,每一种都是一个"新"的重放键。
+        //   2. ECDSA 的 `s` 可malleable:`s' = n - s` 同样验得过,DER 字节也不同。
+        //
+        // 一次独立对抗性复核用 curl 跑通了整条链:锁存一个 Critical 风险 →
+        // 伴生应用的合法签名调查把它清掉 → 攻击者重新锁存 → **把同一个签名的
+        // 十六进制改成大写重放** → 风险又被清掉。而且判决报的是 ADAPTER-VERIFIED
+        // 而不是 ADAPTER-REPLAY,于是 `is_impersonation()` 为假,**什么告警都没有**。
+        //
+        // 为什么不直接"拒绝 high-S":JCA 的 `SHA256withECDSA`(伴生应用用的就是它)
+        // 有约 42% 的概率产出 high-S。拒绝它会让 Android 客户端直接不能用。
+        //
+        // 所以键改成**消息的哈希**。消息是按构造规范化的 —— 域标签 + 长度前缀 +
+        // 字段,没有任何编码自由度。要保证"只能用一次"的本来就是这条消息,
+        // 而不是它的某一种签名写法。
+        let 消息指纹 = guard_audit::message_fingerprint(&msg);
+        if !Self::remember_adapter_event(&mut self.adapter_seen, &adapter_id, &消息指纹) {
             return AI::Replayed {
                 adapter_id,
-                event_id: format!("sig:{}", &sig[..sig.len().min(16)]),
+                event_id: format!("msg:{}", &消息指纹[..16]),
             };
         }
         AI::Verified { adapter_id }
@@ -6316,6 +6351,190 @@ rules:
 
     fn survey(meta: &[(&str, &str)]) -> GuardEvent {
         fresh_event(EventType::EnvironmentSurvey, "AgentGuard Companion", meta)
+    }
+
+    /// **同一条断言换一种签名写法,不能重放。**
+    ///
+    /// 一次独立对抗性复核用 curl 跑通了整条链:锁存一个 Critical 风险 → 伴生应用
+    /// 的合法签名调查把它清掉 → 攻击者重新锁存 → **把同一个签名的十六进制改成
+    /// 大写重放** → 风险又被清掉。判决报的是 ADAPTER-VERIFIED 而不是
+    /// ADAPTER-REPLAY,于是 `is_impersonation()` 为假,**什么告警都没有**。
+    ///
+    /// 根因:重放键用的是 `sig` 这个 header 字符串。而 `hex::decode` 不分大小写,
+    /// 所以同一个签名约有 2^54 种拼法(70 字节 DER ≈ 54 个十六进制字母),
+    /// 每一种都是一个"新"键。ECDSA 的 `s` 可 malleable 又把这个数翻一倍。
+    ///
+    /// 现在键是**消息的 SHA-256** —— 消息按构造规范化,没有编码自由度。
+    #[test]
+    fn 大小写不同的同一个签名不能重放() {
+        use p256::ecdsa::{signature::Signer, SigningKey};
+
+        // 固定私钥,和跨语言向量生成器同一把。
+        let sk = SigningKey::from_slice(&[0x22u8; 32]).unwrap();
+        let pk_hex = hex::encode(sk.verifying_key().to_encoded_point(false).as_bytes());
+        let reg = guard_schema::AdapterRegistry::from_yaml_str(&format!(
+            "adapters:\n  - adapter_id: companion\n    key_algorithm: ecdsa-p256\n    public_key: \"{pk_hex}\"\n    platforms: [android]\n"
+        ))
+        .unwrap();
+
+        let body = br#"{"type":"batch","events":[]}"#;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        let msg = guard_schema::adapter_body_message(
+            "companion",
+            guard_schema::ANDROID_ENVELOPE_FORMAT,
+            now,
+            body,
+        );
+        let sig: p256::ecdsa::Signature = sk.sign(&msg);
+        let 小写 = hex::encode(sig.to_der().as_bytes());
+        let 大写 = 小写.to_uppercase();
+        assert_ne!(小写, 大写, "签名里没有字母,这条测试证明不了什么");
+
+        let mut e = Engine::new(empty_rules(), GuardContract::default()).with_adapters(reg);
+        let 验一次 = |e: &mut Engine, s: &str| {
+            e.verify_adapter_body(
+                "companion",
+                guard_schema::ANDROID_ENVELOPE_FORMAT,
+                "android",
+                now,
+                body,
+                s,
+            )
+        };
+
+        // 第一次:通过。
+        assert!(
+            matches!(
+                验一次(&mut e, &小写),
+                guard_schema::AdapterIdentity::Verified { .. }
+            ),
+            "第一次就没验过,后面的断言没有意义"
+        );
+        // 同一串:正确地判成重放。
+        assert!(matches!(
+            验一次(&mut e, &小写),
+            guard_schema::AdapterIdentity::Replayed { .. }
+        ));
+        // **大写的同一个签名:也必须判成重放。**
+        let id = 验一次(&mut e, &大写);
+        assert!(
+            matches!(id, guard_schema::AdapterIdentity::Replayed { .. }),
+            "把十六进制改成大写就重放成功了 —— 结论是 {} / {}",
+            id.rule_id(),
+            id.explain()
+        );
+        // 前后加空白也一样(`verify_message` 会 trim)。
+        assert!(matches!(
+            验一次(&mut e, &format!("  {小写}  ")),
+            guard_schema::AdapterIdentity::Replayed { .. }
+        ));
+    }
+
+    /// **high-S malleable 的同一条签名也不能重放。**
+    ///
+    /// `s' = n - s` 同样验得过,DER 字节不同。注意**不能**靠"拒绝 high-S"来修:
+    /// 伴生应用用的 JCA `SHA256withECDSA` 约 42% 的概率产出 high-S,
+    /// 拒绝它等于让 Android 客户端不能用。
+    #[test]
+    fn malleable的同一条签名不能重放() {
+        use p256::ecdsa::{signature::Signer, SigningKey};
+
+        let sk = SigningKey::from_slice(&[0x33u8; 32]).unwrap();
+        let pk_hex = hex::encode(sk.verifying_key().to_encoded_point(false).as_bytes());
+        let reg = guard_schema::AdapterRegistry::from_yaml_str(&format!(
+            "adapters:\n  - adapter_id: companion\n    key_algorithm: ecdsa-p256\n    public_key: \"{pk_hex}\"\n    platforms: [android]\n"
+        ))
+        .unwrap();
+        let body = br#"{"type":"batch","events":[]}"#;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        let msg = guard_schema::adapter_body_message(
+            "companion",
+            guard_schema::ANDROID_ENVELOPE_FORMAT,
+            now,
+            body,
+        );
+        let sig: p256::ecdsa::Signature = sk.sign(&msg);
+        // 翻转 s:s' = n - s。`p256` 提供 `normalize_s`,这里手动构造另一半。
+        let 另一半 = {
+            let (r, s) = (sig.r(), sig.s());
+            let neg = -*s;
+            p256::ecdsa::Signature::from_scalars(*r, neg).ok()
+        };
+
+        let mut e = Engine::new(empty_rules(), GuardContract::default()).with_adapters(reg);
+        let 验一次 = |e: &mut Engine, s: &str| {
+            e.verify_adapter_body(
+                "companion",
+                guard_schema::ANDROID_ENVELOPE_FORMAT,
+                "android",
+                now,
+                body,
+                s,
+            )
+        };
+        assert!(matches!(
+            验一次(&mut e, &hex::encode(sig.to_der().as_bytes())),
+            guard_schema::AdapterIdentity::Verified { .. }
+        ));
+        if let Some(alt) = 另一半 {
+            let alt_hex = hex::encode(alt.to_der().as_bytes());
+            // 只有当另一半确实验得过时这条才有意义。
+            let id = 验一次(&mut e, &alt_hex);
+            assert!(
+                matches!(id, guard_schema::AdapterIdentity::Replayed { .. })
+                    || matches!(id, guard_schema::AdapterIdentity::BadSignature { .. }),
+                "malleable 的同一条签名被当成了新断言:{} / {}",
+                id.rule_id(),
+                id.explain()
+            );
+        }
+    }
+
+    /// `timestamp_ms = i64::MIN` 不能让守卫崩掉,也不能被当成新鲜的。
+    ///
+    /// 上一版是 `(now - timestamp_ms).abs()`:debug 下溢出 panic,而 tiny_http 的
+    /// 循环**就是** main,守卫进程直接退出;release 下回绕成负数,于是
+    /// `skew > 窗口` 为假 —— 那条断言被当成**新鲜的**,一个新鲜度绕过。
+    #[test]
+    fn 极端时间戳不panic也不算新鲜() {
+        use p256::ecdsa::{signature::Signer, SigningKey};
+        let sk = SigningKey::from_slice(&[0x44u8; 32]).unwrap();
+        let pk_hex = hex::encode(sk.verifying_key().to_encoded_point(false).as_bytes());
+        let reg = guard_schema::AdapterRegistry::from_yaml_str(&format!(
+            "adapters:\n  - adapter_id: companion\n    key_algorithm: ecdsa-p256\n    public_key: \"{pk_hex}\"\n    platforms: [android]\n"
+        ))
+        .unwrap();
+        let body = b"{}";
+        for ts in [i64::MIN, i64::MIN + 1, i64::MAX, 0, -1] {
+            let msg = guard_schema::adapter_body_message(
+                "companion",
+                guard_schema::ANDROID_ENVELOPE_FORMAT,
+                ts,
+                body,
+            );
+            let sig: p256::ecdsa::Signature = sk.sign(&msg);
+            let mut e =
+                Engine::new(empty_rules(), GuardContract::default()).with_adapters(reg.clone());
+            let id = e.verify_adapter_body(
+                "companion",
+                guard_schema::ANDROID_ENVELOPE_FORMAT,
+                "android",
+                ts,
+                body,
+                &hex::encode(sig.to_der().as_bytes()),
+            );
+            assert!(
+                matches!(id, guard_schema::AdapterIdentity::Stale { .. }),
+                "ts={ts} 被判成 {} —— 极端时间戳必须是 Stale",
+                id.rule_id()
+            );
+        }
     }
 
     /// 传输层递进来的信任**只对一个事件**生效,不会漂到下一个。

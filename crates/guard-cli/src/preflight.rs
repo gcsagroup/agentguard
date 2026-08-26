@@ -339,6 +339,36 @@ fn check_adapter_registry(path: &Path) -> Vec<Finding> {
             "每一张都会报 NoKeyOnRecord,于是没有任何断言能移除风险。这是对的默认(比假装验过安全),但机制等于没在用。Android 伴生应用:在应用里点「显示适配器公钥」,再用 `agentguard adapter-card --adapter-id android-companion --public-key <那串>` 生成卡。桌面外壳:`agentguard adapter-keygen`。",
         ));
     } else {
+        // **逐张点名没钉公钥的卡。**
+        //
+        // 上一版只在 `keyed == 0` 时报,于是只要有一张卡钉了公钥,其余每一张
+        // 什么都不强制的卡都被 `[PASS] adapter.keys.present` 盖过去,
+        // 一行都不提。agent 那边(`agent.keys.absent`)和 known-apps 那边
+        // (`apps.signers.absent`)都是逐个点名的,这里被落下了。
+        //
+        // 它确实是**失败关闭**的(没钥匙就报 NoKeyOnRecord,什么都授不出去),
+        // 但按这个模块自己的道理:一个永远悲观、又不说清哪里悲观的守卫,会被卸掉。
+        let keyless: Vec<String> = reg
+            .adapters
+            .iter()
+            .filter(|a| a.public_key.is_none())
+            .map(|a| a.adapter_id.clone())
+            .collect();
+        if !keyless.is_empty() {
+            out.push(
+                Finding::info(
+                    "adapter.keys.partial",
+                    format!(
+                        "{} 张卡没钉公钥,它们的断言不能移除风险:{}",
+                        keyless.len(),
+                        keyless.join("、")
+                    ),
+                )
+                .with_items(keyless.iter().map(|x| x.to_string())),
+            );
+        }
+    }
+    {
         out.push(Finding::pass(
             "adapter.keys.present",
             format!("{keyed}/{} 张适配器卡钉了公钥", reg.adapters.len()),

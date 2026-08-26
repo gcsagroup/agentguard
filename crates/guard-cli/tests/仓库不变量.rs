@@ -765,6 +765,7 @@ fn preflight能发出的结论id集合被钉住() {
     // 删一个检查分支 → 这里少一个 id → 测试红,而且报的是"少了哪一个"。
     let 期望: &[&str] = &[
         "adapter.keys.absent",
+        "adapter.keys.partial",
         "adapter.keys.present",
         "adapter.keys.publicly_known",
         "adapter.platforms.unpinned",
@@ -856,4 +857,42 @@ fn 提交的基线里只有一条已知的fail() {
          唯一**刻意保留**的 FAIL 是 agent.keys.publicly_known(仓库钉的是夹具密钥)。",
         fails[0]
     );
+}
+
+/// 中继那三个 HTTP 头的名字,Kotlin 侧和 Rust 侧必须一致。
+///
+/// 它们以前在两边各写一遍字面量,而**两侧都没有任何测试钉住**。改掉一侧的一个字母,
+/// 生产静默退化成 `Unsigned` —— 也就是"签名静默地永远验不过"那个失败形状,
+/// 而全部测试是绿的。跨语言向量整套机制就是为了防这件事,却漏掉了头名本身。
+/// 一次独立对抗性复核指出来的。
+#[test]
+fn 中继头名两侧一致() {
+    let rust = read("crates/guard-schema/src/adapter.rs");
+    let kotlin =
+        read("apps/android-companion/app/src/main/java/com/agentguard/companion/RelayClient.kt");
+    let mut 对上的 = 0usize;
+    for 常量 in [
+        "ADAPTER_HEADER_ID",
+        "ADAPTER_HEADER_TIMESTAMP",
+        "ADAPTER_HEADER_SIGNATURE",
+    ] {
+        // 从 Rust 常量定义里取出那个字符串值。
+        let needle = format!("pub const {常量}: &str = \"");
+        let i = rust
+            .find(&needle)
+            .unwrap_or_else(|| panic!("guard-schema 里找不到常量 {常量}"));
+        let rest = &rust[i + needle.len()..];
+        let name = &rest[..rest.find('"').expect("常量定义没闭合")];
+        assert!(
+            name.starts_with("X-AgentGuard-"),
+            "{常量} 的值看起来不像一个头名:{name}"
+        );
+        assert!(
+            kotlin.contains(&format!("\"{name}\"")),
+            "Kotlin 的 RelayClient 里没有发送头 `{name}` —— 两侧的头名漂开了,\
+             而那的表现是「签名静默地永远验不过」"
+        );
+        对上的 += 1;
+    }
+    assert_eq!(对上的, 3, "对上的头名数量不对");
 }

@@ -65,8 +65,31 @@ pub const FRESHNESS_WINDOW_MS: i64 = 120_000;
 /// 是一条内存耗尽路径,而一个全局共享的集合让一个适配器能挤掉另一个的记录。
 pub const REPLAY_WINDOW: usize = 4096;
 
+/// 中继路径上那三个 HTTP 头的名字。
+///
+/// # 为什么要有常量
+///
+/// 这三个名字以前在 Kotlin(`RelayClient.kt`)和 Rust(`guard-localapi`)各写一遍
+/// 字面量,**两侧都没有任何测试钉住它们**。改掉一侧的一个字母,生产会静默退化成
+/// `Unsigned` —— 也就是"签名静默地永远验不过"那个失败形状,而全部测试是绿的。
+///
+/// 跨语言向量整套机制就是为了防这件事而存在的,却漏掉了头名本身。
+/// 一次独立对抗性复核指出来的。Kotlin 侧那三个字面量由
+/// `crates/guard-cli/tests/仓库不变量.rs` 对着这里比。
+pub const ADAPTER_HEADER_ID: &str = "X-AgentGuard-Adapter";
+pub const ADAPTER_HEADER_TIMESTAMP: &str = "X-AgentGuard-Timestamp";
+pub const ADAPTER_HEADER_SIGNATURE: &str = "X-AgentGuard-Signature";
+
 /// 一张适配器身份卡。
+///
+/// `deny_unknown_fields` 不是洁癖:没有它,`publickey:`(少一个下划线)会**干净地
+/// 加载成一张没有公钥的卡** —— 运维以为这张卡在强制什么,实际上它什么都不强制,
+/// 而 preflight 也只会说"这张卡没钉公钥"。一次独立对抗性复核指出来的。
+///
+/// 策略文件是信任输入的入口。在这里,一个打错的字段名和"故意不填"在语义上是
+/// 两件完全不同的事,而 serde 默认把它们混成一件。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AdapterCard {
     /// 适配器自称的 id。
     pub adapter_id: String,

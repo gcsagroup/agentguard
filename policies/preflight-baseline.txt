@@ -8,6 +8,7 @@ INFO adapters.asymmetric_trust
 INFO agent.keys.absent [legacy-macro-bot]
 INFO gateway.cooperative
 INFO intel.secret.present
+PASS adapter.keys.present
 PASS intel.verified
 PASS plans.loaded
 PASS plans.paths.declared

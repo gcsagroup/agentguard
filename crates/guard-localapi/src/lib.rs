@@ -467,10 +467,10 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                 // 适配器签名走**请求头**,不进 body。签名要签的就是 body 的原始字节,
                 // 把签名塞进它自己要签的 JSON 里就必须先规范化那个 JSON ——
                 // 而那正是这个设计刻意绕开的陷阱。
-                let sig_adapter = header(&request, "X-AgentGuard-Adapter");
-                let sig_value = header(&request, "X-AgentGuard-Signature");
-                let sig_ts =
-                    header(&request, "X-AgentGuard-Timestamp").and_then(|v| v.parse::<i64>().ok());
+                let sig_adapter = header(&request, guard_schema::ADAPTER_HEADER_ID);
+                let sig_value = header(&request, guard_schema::ADAPTER_HEADER_SIGNATURE);
+                let sig_ts = header(&request, guard_schema::ADAPTER_HEADER_TIMESTAMP)
+                    .and_then(|v| v.parse::<i64>().ok());
 
                 let mut body = String::new();
                 if let Err(e) = std::io::Read::read_to_string(&mut request.as_reader(), &mut body) {
@@ -928,12 +928,38 @@ mod tests {
             vec![
                 ("X-AgentGuard-Adapter", "companion".into()),
                 ("X-AgentGuard-Timestamp", ts.to_string()),
-                ("X-AgentGuard-Signature", sig),
+                ("X-AgentGuard-Signature", sig.clone()),
             ],
         ));
         assert!(
             !risk_latched(),
             "签名过的干净调查也没能清掉风险 —— 那这个机制就只是把功能关掉了"
+        );
+
+        // 5. **同一个签名换一种十六进制写法重放 —— 必须清不掉。**
+        //
+        // 这一步是一次独立对抗性复核用 curl 跑出来的洞:重放键以前是签名的那串
+        // header 文本,而 `hex::decode` 不分大小写。于是把同一个签名的十六进制
+        // 改成大写重放,风险又被清掉一次,判决还报 `ADAPTER-VERIFIED`(不是
+        // `ADAPTER-REPLAY`),`is_impersonation()` 为假 —— **静默**。
+        //
+        // 上面第 4 步只证明"签名过的能清掉",证明不了"只能清掉一次"。
+        // 那正是复核指出的:这条端到端链路从来没测过重放。
+        let body2 = risky_survey_envelope();
+        assert!(post(body2, vec![]));
+        assert!(risk_latched(), "重新锁存失败,后面的断言没有意义");
+        assert!(post(
+            clean_survey_envelope(),
+            vec![
+                (guard_schema::ADAPTER_HEADER_ID, "companion".into()),
+                (guard_schema::ADAPTER_HEADER_TIMESTAMP, ts.to_string()),
+                // 同样的字节,大写的写法。
+                (guard_schema::ADAPTER_HEADER_SIGNATURE, sig.to_uppercase()),
+            ],
+        ));
+        assert!(
+            risk_latched(),
+            "把签名的十六进制改成大写重放,风险被清掉了 —— 重放防御在中继路径上是可绕的"
         );
 
         shutdown.store(true, Ordering::Relaxed);
