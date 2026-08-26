@@ -167,6 +167,24 @@ pub struct FrameDigest {
     pub cr: Vec<u8>,
     /// 块内跨阈边缘对的占比。均值平面看不见细笔画,这一路能 —— 见 `EDGE_THRESHOLD`。
     pub detail: Vec<u8>,
+    /// 这个摘要**真的带**细节平面吗,还是只是解析一个三平面摘要时补的零?
+    ///
+    /// # 为什么必须能区分
+    ///
+    /// macOS 的采集路径上,摘要不是由这个函数算的 —— 它由 `AgentGuardSCK.m` 里的手写孪生
+    /// 实现 `ag_frame_digest` 算出来、以字符串形式跨 FFI 传过来。那一侧仍然是**每块 9 个
+    /// 采样点、三个平面**,也就是这一轮修掉的相位盲区在 macOS 上**依然存在**。
+    ///
+    /// 如果不区分,一个三平面摘要会被当成"detail 恰好全为 0"的四平面摘要。两个都来自 ObjC
+    /// 的摘要相互比较时不会误报(两边都是 0),但那正是危险的地方:**一切看起来正常,而
+    /// 这一路完全没有信息**。这个字段让消费者能说出"这个摘要来自一个没有细节平面的实现",
+    /// 而不是默默地按零比较。
+    ///
+    /// `docs/frame-integrity.md` 要求两侧"必须逐字节一致",而仓库里**没有任何测试钉住这
+    /// 一点**(对比 icon dHash 有向量 fixture)。移植 ObjC 那一侧需要 macOS + Xcode,
+    /// 这个环境里做不到,所以留下的是:一个能被检测到的标志、一份向量 fixture(见
+    /// `eval/fixtures/frame_digest_vectors.json`)、以及运行时一条明确的警告。
+    pub has_detail: bool,
 }
 
 fn quantise(v: f32) -> u8 {
@@ -318,6 +336,7 @@ pub fn digest_rgba_stride(
         cb,
         cr,
         detail,
+        has_detail: true,
     })
 }
 
@@ -353,11 +372,11 @@ impl FrameDigest {
         let luma = dec(parts.next())?;
         let cb = dec(parts.next())?;
         let cr = dec(parts.next())?;
-        // `detail` 是这一轮新增的第四个平面。旧的三平面摘要仍然解析得出(detail 视为全 0),
-        // 这样一条旧审计行不会变成"无法解析",而是变成"这一路没有信息"。
-        let detail = match parts.next() {
-            Some(t) => dec(Some(t))?,
-            None => vec![0u8; expect],
+        // `detail` 是这一轮新增的第四个平面。三平面的摘要仍然解析得出,但**必须能被认出来**
+        // 是三平面的 —— 见 `has_detail`。
+        let (detail, has_detail) = match parts.next() {
+            Some(t) => (dec(Some(t))?, true),
+            None => (vec![0u8; expect], false),
         };
         if parts.next().is_some() {
             return None;
@@ -367,6 +386,7 @@ impl FrameDigest {
             cb,
             cr,
             detail,
+            has_detail,
         })
     }
 
@@ -1015,5 +1035,94 @@ mod b6_采样结构复核 {
             full < std::time::Duration::from_millis(30),
             "release 下 1080p 单帧摘要耗时 {full:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod b6_跨语言摘要向量 {
+    use super::*;
+
+    /// 摘要的跨语言向量,以及为什么这个文件必须存在。
+    ///
+    /// `docs/frame-integrity.md` 要求 Rust 的 `digest_rgba` 与 `AgentGuardSCK.m` 的
+    /// `ag_frame_digest` **逐字节一致**。仓库里**没有任何测试钉住这一点** —— 对比 icon dHash
+    /// 有 `eval/fixtures/icon_dhash_vectors.json`、OCR 常量有一条会去 grep `.m` 的测试。
+    ///
+    /// 而这一轮把 Rust 侧改了(块内全扫 + 第四个平面 + 尊重行跨距),ObjC 侧**没动** ——
+    /// 因为改它需要 macOS 和 Xcode 来编译和验证,这个环境里做不到。所以现在两侧确定不一致:
+    /// ObjC 发的是三平面、9 点采样。
+    ///
+    /// 这条测试做两件事:
+    ///
+    /// 1. 把 Rust 侧的输出**钉住**,这样它不会在无人注意时再漂一次;
+    /// 2. 把向量写进 `eval/fixtures/frame_digest_vectors.json`,给移植 ObjC 那一侧的人一个
+    ///    明确的目标 —— 移植完成之后,同一份向量应当由一条编译 `.m` 的测试消费。
+    ///
+    /// 在那之前,`FrameDigest::has_detail` 让运行时能认出三平面摘要,而 `FrameConsistency`
+    /// 会把这个事实写进证据字符串。
+    #[test]
+    fn 摘要向量与已记录的值一致() {
+        // 三个确定性的合成帧,覆盖三种形状。
+        let cases: Vec<(&str, usize, usize, Vec<u8>)> = vec![
+            ("solid_200", 320, 180, vec![200u8; 320 * 180 * 4]),
+            ("bands", 320, 180, {
+                let mut b = vec![210u8; 320 * 180 * 4];
+                for y in 45..90 {
+                    for x in 0..320 {
+                        let o = (y * 320 + x) * 4;
+                        b[o] = 20;
+                        b[o + 1] = 20;
+                        b[o + 2] = 20;
+                    }
+                }
+                b
+            }),
+            ("thin_stripes", 320, 180, {
+                let mut b = vec![235u8; 320 * 180 * 4];
+                for y in (0..180).step_by(4) {
+                    for x in 40..280 {
+                        let o = (y * 320 + x) * 4;
+                        b[o] = 30;
+                        b[o + 1] = 30;
+                        b[o + 2] = 30;
+                    }
+                }
+                b
+            }),
+        ];
+
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../eval/fixtures/frame_digest_vectors.json");
+        let mut lines = Vec::new();
+        for (name, w, h, px) in &cases {
+            let d = digest_rgba(px, *w, *h, false).expect("digest");
+            assert!(d.has_detail, "本实现产出的摘要必须带细节平面");
+            lines.push(format!(
+                "    {{\"name\": \"{name}\", \"width\": {w}, \"height\": {h}, \"bgra\": false, \"digest\": \"{}\"}}",
+                d.to_hex()
+            ));
+        }
+        let doc = format!(
+            "{{\n  \"note\": \"Rust digest_rgba 的输出。移植 AgentGuardSCK.m 的 ag_frame_digest 之后,那一侧必须逐字节复现这些值。见 crates/guard-vision/src/framehash.rs::b6_跨语言摘要向量。\",\n  \"planes\": \"luma|cb|cr|detail\",\n  \"vectors\": [\n{}\n  ]\n}}\n",
+            lines.join(",\n")
+        );
+
+        match std::fs::read_to_string(&path) {
+            Ok(existing) if existing == doc => {}
+            Ok(_) => panic!(
+                "摘要输出与 {} 里记录的向量不一致。\n\
+                 如果这是一次**有意**的算法改动,更新那个文件,并且**同时**移植 \
+                 AgentGuardSCK.m 的 ag_frame_digest —— 否则 macOS 采集路径会与 Rust 侧分家。\n\
+                 当前输出:\n{doc}",
+                path.display()
+            ),
+            Err(_) => {
+                // 首次生成。
+                if let Some(parent) = path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                std::fs::write(&path, &doc).expect("写向量文件");
+            }
+        }
     }
 }

@@ -138,3 +138,44 @@ coefficients, same 16×9×3×3 sampling, same 4-bit quantisation with `roundf`, 
 `luma|cb|cr` hex layout. The frame-stats struct ABI is bumped to **2**
 (`frame_digest` appended after `ocr_text`); `abi_layout_matches_c` pins the offsets
 (0/4/8/12/16/24/…/48/56, size 64).
+
+---
+
+## 一条我修不了的:macOS 采集路径上的摘要不是这个实现算的
+
+`AgentGuardSCK.m` 里有一个手写的孪生实现 `ag_frame_digest`,macOS 上的 `frame_digest`
+字符串**由它**算出来、跨 FFI 传进 Rust。本文档要求两侧"必须逐字节一致",而仓库里
+**没有任何测试钉住这一点**(对比 icon dHash 有向量 fixture、OCR 常量有一条会去 grep `.m`
+的测试)。
+
+第六轮把 Rust 侧改了三处:块内全扫代替 9 点采样、新增 `detail` 平面、尊重行跨距。
+**ObjC 侧没有动** —— 改它需要 macOS 和 Xcode 来编译和验证,而那不在这个环境的能力范围内。
+所以现在的真实状态是:
+
+| 路径 | 摘要来自 | 相位盲区 | 细节平面 |
+|---|---|---|---|
+| macOS(ScreenCaptureKit) | `AgentGuardSCK.m`,9 点采样,3 平面 | **仍然存在** | 无 |
+| `guard-cli frame-digest`、模拟、测试 | Rust `digest_rgba`,全扫,4 平面 | 已修 | 有 |
+
+也就是说 1920×1080 与 3840×2160 上那个"本项目自己的 A4 样本完全静音"的问题,**在 macOS
+上依然存在**。
+
+### 在移植完成之前留下了什么
+
+1. **`FrameDigest::has_detail`** —— 三平面摘要能被认出来,不会被当成"detail 恰好全为 0"的
+   四平面摘要。两个都来自 ObjC 的摘要相互比较不会误报,而那正是危险的地方:一切看起来正常
+   而这一路没有信息。
+2. **`FrameConsistency` 的证据字符串**会写明"摘要来自没有细节平面的实现(macOS ObjC 孪生),
+   细笔画注入在这条路上检测不到"。运维读到的"未检出篡改"因此含义不同,必须让他们看得见。
+3. **`eval/fixtures/frame_digest_vectors.json`** —— Rust 侧对三个确定性合成帧的输出。
+   移植 ObjC 那一侧之后,同一份向量应当由一条编译 `.m` 的测试消费;在那之前它至少把 Rust
+   侧钉住,不会再无人注意地漂一次。
+
+### 移植时要注意的四点
+
+* 行方向**每一行**都要读(不是按步长跳),这是相位无关性的来源;
+* 垂直梯度要跨过块的**上**边界(用 `y0-1` 那一行做种子),否则块边界上的笔画只剩一次跳变、
+  掉到容差以下;
+* `detail` 是**跨过 `EDGE_THRESHOLD` 的边缘对个数**占比,再过 `sqrt(x * DETAIL_SCALE)`
+  —— 不是边缘能量的均值(那个统计量和编码噪声同量级,试过,144 块全报变化);
+* `detail` 的容差是 `DETAIL_CHANGE_LEVELS = 1`,比亮度那一档紧。

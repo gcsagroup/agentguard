@@ -134,6 +134,20 @@ impl FrameConsistency {
                     .as_deref()
                     .and_then(crate::framehash::FrameDigest::from_hex),
             ) {
+                // 三平面摘要要在证据里说出来。
+                //
+                // macOS 的采集路径上摘要由 `AgentGuardSCK.m` 的手写孪生实现算出来,那一侧
+                // 仍然是每块 9 个采样点、三个平面 —— 也就是本轮修掉的相位盲区在 macOS 上
+                // **依然存在**(1920×1080 与 3840×2160 上,本项目自己的 A4 样本静音)。
+                //
+                // 不说出来的话,两个都来自 ObjC 的摘要相互比较不会误报(两边 detail 都是 0),
+                // 一切看起来正常,而这一路完全没有信息。运维读到的"未检出篡改"因此含义不同,
+                // 必须让他们看得见这个区别。
+                let legacy_note = if !a.has_detail || !b.has_detail {
+                    " [注意:摘要来自没有细节平面的实现(macOS ObjC 孪生),细笔画注入在这条                     路上检测不到;见 docs/frame-integrity.md]"
+                } else {
+                    ""
+                };
                 return match crate::framehash::compare(&a, &b) {
                     crate::framehash::DigestDelta::Localized { changed, total } => {
                         Some(OverlayFinding {
@@ -145,7 +159,7 @@ impl FrameConsistency {
                                  still (blocks {:?}); localized edit inside the A4 TOCTOU window",
                                 changed.len(),
                                 &changed[..changed.len().min(6)]
-                            ),
+                            ) + legacy_note,
                         })
                     }
                     // A global repaint is an app switch or a video, not a tamper.
