@@ -425,6 +425,63 @@ impl FrameDigest {
         out
     }
 
+    /// 变化块,但**先减掉全局偏移**再判 —— 用来识别藏在一次均匀全局变化下的局部编辑。
+    ///
+    /// # 为什么需要它
+    ///
+    /// `compare` 的连通分量分析能抓住与大块动画**空间分离**的注入。但攻击者不必空间分离:
+    /// 给整帧叠一个**均匀**的亮度/色度偏移(每块都偏移 > `BLOCK_CHANGE_LEVELS`,约 12.5%,
+    /// 一次淡入/主题切换的量),`changed_blocks` 就会报**所有**块都变了 → 并成一个连通分量 →
+    /// 没有次要簇 → `changed/total > 0.35` → `GlobalRepaint` → `None`,注入被整个吞掉
+    /// (第七轮复核发现 9)。
+    ///
+    /// 这里对每个平面估计一个**全局偏移**(所有块 signed delta 的中位数,对少数注入块稳健),
+    /// 减掉它,再看**残差**是否超容差。一个均匀色调偏移减完残差≈0(那些块不再算变化);而注入
+    /// 块偏离这个全局偏移,减完仍在。detail(边缘能量)不随均匀色调偏移走,所以仍用绝对差。
+    pub fn changed_blocks_residual(&self, other: &FrameDigest) -> Vec<usize> {
+        let n = [
+            self.luma.len(),
+            self.cb.len(),
+            self.cr.len(),
+            self.detail.len(),
+            other.luma.len(),
+            other.cb.len(),
+            other.cr.len(),
+            other.detail.len(),
+        ]
+        .into_iter()
+        .min()
+        .unwrap_or(0);
+        if n == 0 {
+            return Vec::new();
+        }
+        // 每个平面所有块的 signed delta,取中位数当全局偏移。
+        let median = |plane_self: &[u8], plane_other: &[u8]| -> i32 {
+            let mut deltas: Vec<i32> = (0..n)
+                .map(|i| plane_other[i] as i32 - plane_self[i] as i32)
+                .collect();
+            deltas.sort_unstable();
+            deltas[n / 2]
+        };
+        let off_luma = median(&self.luma, &other.luma);
+        let off_cb = median(&self.cb, &other.cb);
+        let off_cr = median(&self.cr, &other.cr);
+        let tol = BLOCK_CHANGE_LEVELS as i32;
+        let mut out = Vec::new();
+        for i in 0..n {
+            let resid =
+                |ps: &[u8], po: &[u8], off: i32| (po[i] as i32 - ps[i] as i32 - off).unsigned_abs();
+            if resid(&self.luma, &other.luma, off_luma) > tol as u32
+                || resid(&self.cb, &other.cb, off_cb) > tol as u32
+                || resid(&self.cr, &other.cr, off_cr) > tol as u32
+                || self.detail[i].abs_diff(other.detail[i]) > DETAIL_CHANGE_LEVELS
+            {
+                out.push(i);
+            }
+        }
+        out
+    }
+
     /// 只比较**均值**平面,给两幅分辨率不同的画面用。
     ///
     /// # 为什么 detail 平面不能跨分辨率比
@@ -544,6 +601,27 @@ pub fn compare(prev: &FrameDigest, next: &FrameDigest) -> DigestDelta {
 
     // 没有分离的次要簇。剩下的是"要么一大块连续变化,要么一个小局部编辑"。
     if total > 0 && changed.len() as f32 / total as f32 > GLOBAL_CHANGE_RATIO {
+        // 下结论 GlobalRepaint 之前:减掉全局偏移看残差。攻击者可以给整帧叠一个**均匀**的
+        // 亮度/色度偏移,让每块都算"变了"、从而把注入藏进 GlobalRepaint→None。均匀偏移减完
+        // 残差≈0,而注入块偏离这个偏移、减完仍在。若残差里剩下一个**小于全局比例**的局部簇,
+        // 那就是藏在全局变化下的局部编辑 —— 报 Localized(第七轮复核发现 9)。
+        // 一次**真正**的全局重绘(内容各处不同)减完偏移残差仍然铺满整屏,ratio 超阈值,
+        // 不会被这里改判;而一次纯均匀偏移(如 app 切到另一个纯色屏)残差≈0、无簇,照旧
+        // GlobalRepaint。
+        let residual = prev.changed_blocks_residual(next);
+        let cluster: Vec<usize> = connected_components(&residual)
+            .into_iter()
+            .filter(|c| c.len() >= MIN_LOCALIZED_BLOCKS)
+            .flatten()
+            .collect();
+        if !cluster.is_empty() && (cluster.len() as f32 / total as f32) <= GLOBAL_CHANGE_RATIO {
+            let mut blocks = cluster;
+            blocks.sort_unstable();
+            return DigestDelta::Localized {
+                changed: blocks,
+                total,
+            };
+        }
         return DigestDelta::GlobalRepaint {
             changed: changed.len(),
             total,
@@ -697,6 +775,34 @@ mod tests {
             compare(&a, &b),
             DigestDelta::Localized { .. } | DigestDelta::GlobalRepaint { .. }
         ));
+    }
+
+    /// 注入 + **均匀全局色调偏移**:攻击者给整帧叠一个均匀亮度偏移,让每块都算"变了",
+    /// 想把注入藏进 GlobalRepaint→None。减掉全局偏移后注入块仍偏离 → 必须判 Localized
+    /// (第七轮复核发现 9)。
+    #[test]
+    fn 注入叠加均匀全局偏移仍判局部() {
+        let base = solid(100);
+        let mut tampered = solid(148); // 均匀 +48 全局偏移
+        inject_text(&mut tampered, 20, 40, 20, 300); // 注入落在一个横带
+        let a = digest_rgba(&base, W, H, false).unwrap();
+        let b = digest_rgba(&tampered, W, H, false).unwrap();
+        match compare(&a, &b) {
+            DigestDelta::Localized { .. } => {}
+            other => panic!("注入被均匀全局偏移藏住了,得到 {other:?}"),
+        }
+    }
+
+    /// 对照:**纯**均匀全局偏移(无注入)不能被误判成局部篡改 —— 它是 GlobalRepaint。
+    /// 守住上一条修复的误报侧:减掉偏移后残差≈0、无局部簇,照旧全局重绘。
+    #[test]
+    fn 纯均匀全局偏移仍是全局重绘() {
+        let a = digest_rgba(&solid(100), W, H, false).unwrap();
+        let b = digest_rgba(&solid(148), W, H, false).unwrap();
+        match compare(&a, &b) {
+            DigestDelta::GlobalRepaint { .. } => {}
+            other => panic!("纯均匀偏移不该判成局部篡改,得到 {other:?}"),
+        }
     }
 
     /// A full repaint is reported as such, not as a tamper.
