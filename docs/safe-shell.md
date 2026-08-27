@@ -155,10 +155,13 @@ Known limits:
 - `denied_actions` matching against operands is a case-insensitive substring scan,
   so it is a coarse filter rather than a parser. `delete_system` in the denylist
   matches an action *named* that; it does not understand `-delete` or `rm -rf`.
-- No path scope. Adding one would mean canonicalising every path operand and
-  requiring it inside a declared project root, plus rejecting empty / `/` / `~` /
-  `$HOME` operands — the empty-variable case (`rm -rf "$dir/"*` with `$dir`
-  unset) is the classic accident and is currently invisible here.
+- ~~No path scope.~~ **A path scope is implemented** (`check_paths`, `SHELL-PATH-SENSITIVE` /
+  `-UNPROVABLE` / `-UNSCOPED` / `-OUTSIDE`): path operands are canonicalised and required inside a
+  declared `scope.paths` ceiling, sensitive targets (`/root/.ssh`, `~/.ssh/id_rsa`, …) are denied
+  unconditionally, and the empty-variable accident (`rm -rf "$dir/"*` with `$dir` unset → an empty
+  operand) is an explicit non-allow — pinned by the test `四_变量为空展开成空操作数_证明不了因此不放行`.
+  声明了 `scope.paths` 反而**减少**确认(越界直接拒、授权内直接放行);未声明时按 `SHELL-PATH-UNSCOPED`
+  报告。这个「已知局限」是旧的,已不成立。
 - Advisory only: see the warning at the top.
 
 Integrate with desktop confirm UI or `Engine::process_gated` for end-to-end gating.

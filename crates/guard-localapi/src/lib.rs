@@ -616,8 +616,75 @@ fn json_error(status: u16, msg: &str) -> Response<std::io::Cursor<Vec<u8>>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
     use std::thread;
     use std::time::Duration;
+
+    /// **doc↔code 一致性**:`docs/local-api.md` 的端点表必须和代码实际匹配的路由**逐条**一致。
+    ///
+    /// 第七轮复核发现:文档端点表漏了 `/v1/events`(唯一能清除已锁存 Critical 风险的入站面)。
+    /// 这类漂移("宣称 vs 实现")是这个项目反复出现的一类问题;这条测试把**这一处**钉死 ——
+    /// 加了路由不更文档、或删了文档里的端点,`cargo test` 就红,而不是留给读文档的人踩。
+    #[test]
+    fn 端点表与实际路由一致() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        // 路径规范化:去掉尾 `/` 和查询串。
+        // 按定界符切开,任何以 `/` 开头的段就是一个路径字面量(在 `Method::` 行 / 端点表格行上,
+        // 被引号 / 反引号包起来、又以 `/` 开头的,只有路由)。规范化:去掉尾 `/` 和查询串。
+        let extract = |line: &str, delim: char| -> Vec<String> {
+            line.split(delim)
+                .filter(|seg| seg.starts_with('/'))
+                .map(|seg| {
+                    seg.trim_end_matches('/')
+                        .split('?')
+                        .next()
+                        .unwrap_or("")
+                        .to_string()
+                })
+                .collect()
+        };
+
+        // 代码侧:dispatch(在 `#[cfg(test)]` 之前)里所有含 `Method::` 行上的 "/..." 字面量。
+        let src = std::fs::read_to_string(root.join("src/lib.rs")).expect("读 lib.rs");
+        let dispatch = &src[..src.find("#[cfg(test)]").unwrap_or(src.len())];
+        let mut code: BTreeSet<String> = BTreeSet::new();
+        for line in dispatch.lines().filter(|l| l.contains("Method::")) {
+            for p in extract(line, '"') {
+                code.insert(p);
+            }
+        }
+
+        // 文档侧:只看 `## Endpoints` 那一节(避开 `## Auth` 表里的 `/v1/*` 通配)里 `|` 表格行
+        // 上反引号包起来的 `/...` 路径。
+        let doc =
+            std::fs::read_to_string(root.join("../../docs/local-api.md")).expect("读 local-api.md");
+        let start = doc
+            .find("## Endpoints")
+            .expect("local-api.md 里应有 ## Endpoints");
+        let section = &doc[start..];
+        let section = &section[..section[3..]
+            .find("\n## ")
+            .map(|i| i + 3)
+            .unwrap_or(section.len())];
+        let mut documented: BTreeSet<String> = BTreeSet::new();
+        for line in section.lines().filter(|l| l.trim_start().starts_with('|')) {
+            for p in extract(line, '`') {
+                documented.insert(p);
+            }
+        }
+
+        assert!(
+            code.len() >= 5 && documented.len() >= 5,
+            "扫描器没找到足够路由(code={code:?} doc={documented:?}),证明不了任何东西"
+        );
+        assert_eq!(
+            code,
+            documented,
+            "\ndocs/local-api.md 端点表和实际路由不一致:\n  只在代码里(文档漏了): {:?}\n  只在文档里(代码没有): {:?}",
+            code.difference(&documented).collect::<Vec<_>>(),
+            documented.difference(&code).collect::<Vec<_>>()
+        );
+    }
 
     /// 轮询 `/health` 直到服务器起来,取代固定 `sleep`。
     ///

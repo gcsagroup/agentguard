@@ -1,6 +1,7 @@
 # Local loopback HTTP API
 
-AgentGuard exposes a **127.0.0.1-only** HTTP API for companion agents and tooling.
+AgentGuard exposes a **127.0.0.1-only by default** HTTP API for companion agents and tooling
+(非回环绑定要显式 `--allow-lan`,见下方 Endpoints 表末的说明).
 
 ```bash
 # 令牌:命令行 > AGENTGUARD_API_TOKEN > 自动生成(启动时打印一次)
@@ -50,8 +51,11 @@ Missing/invalid token → **401**.
 | POST | `/v1/pause` | Pause engine |
 | POST | `/v1/resume` | Resume engine |
 | POST | `/v1/confirm` | Body `{"approve":true\|false}` → resume/pause |
+| POST | `/v1/events` | Android 伴生应用的信封入口 —— **能清除已锁存的 Critical 环境风险**。除 bearer 令牌外,还验证一层**适配器签名**(未签名的调查只能**加**风险、不能清;适配器注册表未配时没有任何断言能清风险)。 |
 
-Non-loopback binds are refused.
+**默认只绑 127.0.0.1;非回环绑定被拒。** 例外:`--allow-lan` 显式允许绑到非回环地址
+(Android↔桌面走 Wi-Fi),但这是**明文 HTTP**,bearer 令牌在每条路由上仍然强制 —— 只在
+可信 LAN 上用。`/v1/events` 尤其要留意:它是唯一能**移除**风险的入站面。
 
 ## Example
 

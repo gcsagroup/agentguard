@@ -104,7 +104,11 @@ indistinguishable from a real measurement.
 
 - **No composed-desktop capture**, so an overlay drawn by another process is invisible unless it is
   the foreground window. See `GRAPHICS_CAPTURE_NOTE`.
-- **No OCR**, so `ocr_text` is never set and `OVL-009` / `OVL-010` do not run.
+- ~~**No OCR**~~ **OCR now works** via `Windows.Media.Ocr` (the OS's built-in OCR — offline, no
+  model files; `win-adapter/src/ocr.rs`, wired in `native.rs`, gated on the `Media_Ocr` feature).
+  `ocr_text` is set and `OVL-009` / `OVL-010` run, sharing the trigger/contrast with macOS
+  (`guard_vision::ocr`). This was the one place this doc said "no OCR"; it is stale — see
+  `platform-matrix.md`.
 - **No app attestation.** Nothing collects a signing digest on Windows, so `APP-SIGNER-MISMATCH`
   and `APP-LOOKALIKE` have no input there.
 - **No opacity or font size from the tree.** UIA exposes neither, and inventing one would be worse

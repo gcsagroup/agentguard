@@ -78,7 +78,12 @@ secret readable in raw file bytes     -> true
 ### 一条如实的残余缺口
 
 `AuditStore::open()` 在 `AGENTGUARD_AUDIT_KEY` 未设时返回**明文**库 —— 这是一个明确的选择
-(开发默认),不是失败。但只有两个 Tauri 壳调用 `ensure_audit_key_file`;`api-serve`、
-`replay`、`guard-nm-host` 都不调,而 nm-host 那条路径连签名都没有(`with_signer` 在整个
-crate 里没有调用点)。也就是说**浏览器这条路的审计既不签名也不加密,且不打警告**。
-这一条没有修,因为它需要决定 nm-host 从哪里取密钥 —— 记在这里而不是留在代码里不说。
+(开发默认),不是失败。只有两个 Tauri 壳调用 `ensure_audit_key_file`;`api-serve`、`replay`
+仍不调。
+
+**关于 `guard-nm-host` 的那半句已经过时(现在会打警告)。** nm-host 现在启动时调
+`apply_audit_signing`:`AGENTGUARD_AUDIT_SIGNING_KEY` 指向已存在密钥就装签名者;env 设了但加载
+不了就**拒绝启动**;没设就不签名但**对 stderr 打警告**,若同时没设加密密钥再打第二条警告、
+点明事件 JSON 载荷以明文落盘、含观测到的 URL(见 `docs/audit-signing.md`「浏览器这条审计
+路径」一节)。所以旧的「且不打警告」不再成立。仍如实的残余:默认(不设两个 env)时这条路
+确实既不签名也不加密 —— 但不再是**静默**的。
