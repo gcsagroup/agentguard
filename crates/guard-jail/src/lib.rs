@@ -48,10 +48,38 @@ pub enum JailError {
     NoBackend(String),
     #[error("profile 自相矛盾，拒绝启动（部分生效的约束和完全生效在使用者看来没有区别）：\n{0}")]
     Contradictory(String),
+    #[error(
+        "拒绝以 root(euid 0)运行 mount-namespace 后端:此时新 user namespace 里 0 映射到 0,\
+         /dev 仍可写,`dd of=/dev/sdX` 能绕过整棵树的只读约束。\n\
+         以非 root 运行,或(明确接受这个风险时)设 AGENTGUARD_JAIL_ALLOW_ROOT=1。见 docs/内核约束.md。"
+    )]
+    RootMountNamespace,
     #[error("启动子进程失败：{0}")]
     Spawn(#[from] std::io::Error),
     #[error("{0}")]
     Backend(String),
+}
+
+/// 读**有效** uid(`/proc/self/status` 的 `Uid:` 行第二列)。
+///
+/// 不用 syscall 号(那是按架构变的);`/proc` 在 Linux 上一定有。读不到返回 `None`,
+/// 调用方按「不确定」处理(不拒绝 —— 拒绝要基于确知是 root)。
+#[cfg(target_os = "linux")]
+fn effective_uid() -> Option<u32> {
+    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    for line in status.lines() {
+        if let Some(rest) = line.strip_prefix("Uid:") {
+            // Uid: <real> <effective> <saved> <fs>
+            return rest.split_whitespace().nth(1).and_then(|s| s.parse().ok());
+        }
+    }
+    None
+}
+
+/// mount-ns + root 是不安全组合(见 `RootMountNamespace`)。这个纯函数把判定单独拿出来
+/// 便于测试:确知是 root、后端是 mount-ns、且没有明确放行时才拒。
+fn refuse_root_mountns(backend: Backend, euid: Option<u32>, allow_root: bool) -> bool {
+    matches!(backend, Backend::MountNamespace) && euid == Some(0) && !allow_root
 }
 
 /// 在约束下启动 `argv`。
@@ -74,6 +102,22 @@ pub fn launch(profile: &Profile, argv: &[String]) -> Result<Launched, JailError>
             .join("\n");
         return Err(JailError::NoBackend(why));
     };
+
+    // mount-ns 作为 root 跑时 /dev 仍可写(内核执行的只读约束绕得过去)。默认拒这个组合;
+    // 运维明确接受风险可设 AGENTGUARD_JAIL_ALLOW_ROOT=1(会打警告)。
+    #[cfg(target_os = "linux")]
+    {
+        let allow_root = std::env::var_os("AGENTGUARD_JAIL_ALLOW_ROOT").is_some();
+        if refuse_root_mountns(backend, effective_uid(), allow_root) {
+            return Err(JailError::RootMountNamespace);
+        }
+        if allow_root && matches!(backend, Backend::MountNamespace) && effective_uid() == Some(0) {
+            eprintln!(
+                "agentguard-jail: 警告:AGENTGUARD_JAIL_ALLOW_ROOT 已设,以 root 跑 mount-ns —— \
+                 /dev 仍可写,只读约束可被 dd 到块设备绕过。"
+            );
+        }
+    }
 
     let mut cmd = Command::new(&argv[0]);
     cmd.args(&argv[1..]);
@@ -134,5 +178,31 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("不启动任何进程"), "{msg}");
         assert!(msg.contains("比没有 jail 更糟"), "{msg}");
+    }
+
+    /// mount-ns + root 默认被拒;非 root、Landlock、或明确放行时不拒。
+    #[test]
+    fn root跑mountns默认被拒() {
+        // 危险组合:root + mount-ns + 未放行 → 拒。
+        assert!(refuse_root_mountns(Backend::MountNamespace, Some(0), false));
+        // 明确放行 → 不拒(运维接受风险)。
+        assert!(!refuse_root_mountns(Backend::MountNamespace, Some(0), true));
+        // 非 root → 不拒(/dev 不可写,没有这个逃逸)。
+        assert!(!refuse_root_mountns(
+            Backend::MountNamespace,
+            Some(1000),
+            false
+        ));
+        // Landlock 后端即便 root 也不拒:它按路径约束,不靠 ns 里的 uid 映射。
+        assert!(!refuse_root_mountns(Backend::Landlock, Some(0), false));
+        // 读不到 uid(None)= 不确知是 root → 不拒(拒绝要基于确知)。
+        assert!(!refuse_root_mountns(Backend::MountNamespace, None, false));
+    }
+
+    #[test]
+    fn root_mountns_错误信息说清怎么办() {
+        let msg = JailError::RootMountNamespace.to_string();
+        assert!(msg.contains("/dev"), "{msg}");
+        assert!(msg.contains("AGENTGUARD_JAIL_ALLOW_ROOT"), "{msg}");
     }
 }

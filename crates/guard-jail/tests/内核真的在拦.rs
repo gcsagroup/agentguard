@@ -70,6 +70,10 @@ fn backend_or_skip() -> bool {
 /// 在约束下跑一条 sh 命令，返回退出码。
 fn jailed_sh(tmp: &Tmp, script: &str) -> i32 {
     let out = Command::new(JAIL)
+        // 这些集成测试常在 root 的 CI 容器里跑,而 mount-ns 现在默认拒绝 root(root 下
+        // /dev 仍可写、只读约束可绕)。测试是明确接受这个前提来验证**约束本身**是否生效的,
+        // 所以显式放行;真实部署不设它就会被拦(单元测试 root跑mountns默认被拒 守着默认)。
+        .env("AGENTGUARD_JAIL_ALLOW_ROOT", "1")
         .args(["--plans"])
         .arg(tmp.plans())
         .args(["--task", "jailed", "--", "/bin/sh", "-c", script])
