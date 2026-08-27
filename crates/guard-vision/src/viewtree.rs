@@ -90,13 +90,15 @@ pub fn tokenize(text: &str) -> BTreeSet<String> {
         //
         // 二元组让分词位置不再影响比较:`收款方未知钱包` 和 `未知钱包金额` 共享
         // `未知`/`知钱`/`钱包` 这些二元组,而一段注入文字的二元组集合与页面正文不相交。
+        //
+        // 这里**不**特判 `ch.len() == 1`:上面第 72 行的 `count() < MIN_TOKEN_LEN(2)` 已经把
+        // 单字 token 全部跳过了,所以走到这里的 `raw` 至少两字,`windows(2)` 一定产出 ≥1 个
+        // 二元组。以前有一段 `if ch.len() == 1` 的分支说要保留单字标签,但它在第 72 行之后
+        // **永远到不了**(第七轮复核发现的死代码),而且和第 89 行「MIN_TOKEN_LEN=2 让单字标签
+        // 全部消失」自相矛盾 —— 已删。单字 CJK 标签按设计不参与比较(要改是一个带误报权衡的
+        // 行为变更,不在这条清理范围内)。
         if is_unsegmented_script(raw) {
             let ch: Vec<char> = raw.chars().collect();
-            if ch.len() == 1 {
-                // 单字标签仍然要参与比较,否则"是/否/关"这类按钮在两侧都消失。
-                out.insert(ch[0].to_lowercase().collect::<String>());
-                continue;
-            }
             for w in ch.windows(2) {
                 out.insert(w.iter().collect::<String>().to_lowercase());
             }
@@ -337,6 +339,21 @@ mod tests {
                 .any(|f| f.kind == OverlayKind::TreeTextNotOnScreen),
             "{findings:?}"
         );
+    }
+
+    /// CJK 分词的实际行为(把删掉的死分支钉住):多字 → 二元组;单字按设计被丢弃。
+    /// 以前有一段"保留单字标签"的分支,但它在 MIN_TOKEN_LEN 过滤之后永远到不了。
+    #[test]
+    fn cjk_单字丢弃多字取二元组() {
+        // 单字 CJK 标签:被 MIN_TOKEN_LEN 过滤,不进 token 集。
+        assert!(tokenize("是").is_empty(), "单字 CJK 按设计不参与比较");
+        // 多字 CJK:取相邻二元组,分词位置不影响。
+        let t = tokenize("确认支付");
+        assert!(
+            t.contains("确认") && t.contains("认支") && t.contains("支付"),
+            "{t:?}"
+        );
+        assert!(!t.contains("确认支付"), "不该整段当一个 token");
     }
 
     #[test]
