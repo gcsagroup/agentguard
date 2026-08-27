@@ -619,6 +619,23 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    /// 轮询 `/health` 直到服务器起来,取代固定 `sleep`。
+    ///
+    /// 固定 `sleep(300ms)` 在并行/高负载下不够(MSRV 全量测试里偶发:客户端在服务器线程
+    /// 完成 bind 之前就发请求,连接被拒 → 测试红)。连接被拒会**立刻**返回,所以这个轮询
+    /// 既快又稳。任何响应(含非 2xx)都说明服务器已经在监听。
+    fn wait_ready(port: u16) {
+        let url = format!("http://127.0.0.1:{port}/health");
+        for _ in 0..200 {
+            match ureq::get(&url).call() {
+                Ok(_) => return,
+                Err(ureq::Error::Status(_, _)) => return,
+                Err(_) => thread::sleep(Duration::from_millis(25)),
+            }
+        }
+        panic!("server on 127.0.0.1:{port} did not become ready in time");
+    }
+
     #[test]
     fn health_open_status_requires_token() {
         let dir = tempfile::tempdir().unwrap();
@@ -649,7 +666,7 @@ mod tests {
                 Some(flag),
             );
         });
-        thread::sleep(Duration::from_millis(300));
+        wait_ready(18766);
         let health = ureq::get("http://127.0.0.1:18766/health").call().unwrap();
         assert_eq!(health.status(), 200);
 
@@ -699,7 +716,7 @@ mod tests {
                 Some(flag),
             );
         });
-        thread::sleep(Duration::from_millis(300));
+        wait_ready(18767);
 
         // Unauthenticated → 401.
         let denied = ureq::post("http://127.0.0.1:18767/v1/events")
@@ -893,7 +910,7 @@ mod tests {
                 Some(flag),
             );
         });
-        thread::sleep(Duration::from_millis(400));
+        wait_ready(18781);
 
         // 返回 `bool` 而不是 `Result`:ureq 的错误类型很大(clippy 的
         // `result_large_err` 会说),而这条测试只关心这次 POST 有没有被接受。

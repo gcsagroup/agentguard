@@ -157,6 +157,19 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    /// 轮询 `/health` 直到服务器起来,取代固定 `sleep`(固定 sleep 在并行/高负载下偶发不够)。
+    fn wait_ready(port: u16) {
+        let url = format!("http://127.0.0.1:{port}/health");
+        for _ in 0..200 {
+            match ureq::get(&url).call() {
+                Ok(_) => return,
+                Err(ureq::Error::Status(_, _)) => return,
+                Err(_) => thread::sleep(Duration::from_millis(25)),
+            }
+        }
+        panic!("billing webhook on 127.0.0.1:{port} did not become ready in time");
+    }
+
     #[test]
     fn health_and_signed_purchase_via_http() {
         // 这个测试独占 webhook 密钥环境变量;端口也独占,避免和下面拒收测试撞车。
@@ -169,7 +182,7 @@ mod tests {
         let handle = thread::spawn(move || {
             let _ = serve_billing_webhook("127.0.0.1:18765".parse().unwrap(), store_c, Some(flag));
         });
-        thread::sleep(Duration::from_millis(300));
+        wait_ready(18765);
 
         let health = ureq::get("http://127.0.0.1:18765/health").call().unwrap();
         assert_eq!(health.status(), 200);
