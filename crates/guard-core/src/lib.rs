@@ -3183,21 +3183,31 @@ impl Engine {
             });
         }
 
-        let ceiling = self.granted_scope.paths.as_ref();
-        let grants: Vec<String> = ceiling.and_then(|p| p.write.clone()).unwrap_or_default();
-        if grants.is_empty() {
+        // **「未声明」和「声明了空」不是一回事(第七轮复核发现 6)。**
+        //
+        // 以前是 `ceiling.and_then(|p| p.write.clone()).unwrap_or_default()`,它把三种情形
+        // 压成同一个空列表、都判 FS-UNSCOPED(Alert):(a) 整个 paths 天花板都没声明;
+        // (b) 声明了 paths 但 write 是 `None`;(c) 声明了 `write: []`。而 `navigation_jump`
+        // 发的正是 `write: []`、`order_food` 是只读 —— 路径模型.md 把它们当作**明确的**
+        // "不给写",本该 Block。区分的关键就一位:paths 天花板到底声明了没有。
+        let Some(paths) = self.granted_scope.paths.as_ref() else {
+            // (a) 完全没声明 paths 天花板 → 未约束。报告(Alert),不拒绝 —— 一个没配策略的
+            // 宿主不该完全无法写文件,但这次写没被任何天花板约束过,必须在审计里留痕。
             return Some(Decision {
                 action: DecisionAction::Alert,
                 severity: Severity::Medium,
                 rule_id: "FS-UNSCOPED".into(),
                 human_message: format!(
-                    "{} {:?}：本次会话没有 paths 写授权，这次操作未被任何天花板约束过",
+                    "{} {:?}:本次会话没有声明 paths 天花板,这次操作未被任何天花板约束过",
                     intent.as_str(),
                     resolved.display()
                 ),
                 require_confirm: false,
             });
-        }
+        };
+        // (b)/(c) paths **声明了**:写授权 = `paths.write`(没写 = 空 = 只读,「没声明就是
+        // 只读」)。落在它之外(含空授权的一切写)= FS-OUTSIDE Block,不是 Alert。
+        let grants: Vec<String> = paths.write.clone().unwrap_or_default();
         let inside = grants.iter().any(|g| {
             guard_schema::paths::resolve(g, guard_schema::paths::ResolveContext::current())
                 .map(|gp| guard_schema::paths::is_within(&gp, &resolved))
@@ -10407,6 +10417,64 @@ mod b1_文件系统判决 {
             .process(&fs_event(EventType::FileWrite, "/etc/passwd"))
             .expect("判决");
         assert_eq!(d.rule_id, "FS-SENSITIVE", "{d:?}");
+    }
+
+    /// 声明了 `write: []`(显式只读,navigation_jump / order_food 发的就是这个)时,越界写
+    /// 是 **FS-OUTSIDE(Block)**,不是 FS-UNSCOPED(Alert)。以前「未声明」和「声明了空」
+    /// 被压成同一个空列表都判 Alert(第七轮复核发现 6)。
+    #[test]
+    fn 声明了空写授权时越界写被拒() {
+        let mut e = engine();
+        e.granted_scope.paths = Some(guard_schema::TaskPaths {
+            read: None,
+            write: Some(vec![]),
+        });
+        let d = e
+            .process(&fs_event(
+                EventType::FileWrite,
+                "/tmp/ag-b1-declared-empty.txt",
+            ))
+            .expect("判决");
+        assert_eq!(d.rule_id, "FS-OUTSIDE", "声明只读时越界写必须 Block:{d:?}");
+        assert_eq!(d.action, DecisionAction::Block);
+    }
+
+    /// paths **完全未声明**(None)时仍是 FS-UNSCOPED(Alert)—— 未约束,报告而非拒绝。
+    /// 这条和上一条的区别正是这次修复的全部:声明了空 ≠ 没声明。
+    #[test]
+    fn 未声明paths时仍是unscoped告警() {
+        let mut e = engine();
+        e.granted_scope.paths = None;
+        let d = e
+            .process(&fs_event(EventType::FileWrite, "/tmp/ag-b1-none.txt"))
+            .expect("判决");
+        assert_eq!(d.rule_id, "FS-UNSCOPED", "{d:?}");
+        assert_eq!(d.action, DecisionAction::Alert);
+    }
+
+    /// 声明的写授权内 → 放行;授权外 → FS-OUTSIDE Block。
+    #[test]
+    fn 声明的写授权内放行授权外拒绝() {
+        let mut e = engine();
+        e.granted_scope.paths = Some(guard_schema::TaskPaths {
+            read: None,
+            write: Some(vec!["/tmp/ag-allowed".into()]),
+        });
+        let inside = e
+            .process(&fs_event(EventType::FileWrite, "/tmp/ag-allowed/x.txt"))
+            .expect("判决");
+        assert_eq!(
+            inside.action,
+            DecisionAction::Allow,
+            "授权内应放行:{inside:?}"
+        );
+        let outside = e
+            .process(&fs_event(EventType::FileWrite, "/tmp/ag-other/x.txt"))
+            .expect("判决");
+        assert_eq!(
+            outside.rule_id, "FS-OUTSIDE",
+            "授权外必须 Block:{outside:?}"
+        );
     }
 
     /// FS-SENSITIVE 不可被用户确认放行 —— 即便一个「全部批准」的确认策略也拦不住它降级。
