@@ -22,6 +22,18 @@ use guard_schema::{
 };
 use serde::{Deserialize, Serialize};
 
+/// `now` 和一个事件时间戳之间的新鲜度偏差(毫秒,非负),**溢出安全**。
+///
+/// 两条路都用它:适配器中继(`verify_adapter_relay`)和逐事件适配器身份检查。以前它们
+/// 各写各的 —— 中继用了 `saturating_sub().unsigned_abs()`(对),逐事件路仍是
+/// `(now - ts).abs()`(错)。`ts = i64::MIN` 时后者:debug 溢出 panic(守卫是 tiny_http 的
+/// main,直接退出 = DoS),release 回绕成负数让 `skew > 窗口` 为假(被当成新鲜 = 新鲜度
+/// 绕过)。两条断言都在验签之后,所以要一把有效适配器密钥才能碰到,但后果太大不该留给
+/// 一次算术溢出。抽成一个函数,两条路就不可能再各自漂移。
+fn freshness_skew_ms(now: i64, timestamp_ms: i64) -> i64 {
+    i64::try_from(now.saturating_sub(timestamp_ms).unsigned_abs()).unwrap_or(i64::MAX)
+}
+
 /// One agent's consumed-nonce window: a set for membership, a queue for eviction order.
 #[derive(Debug, Default)]
 struct NonceWindow {
@@ -680,8 +692,7 @@ impl Engine {
         //
         // 这一条在验签之后,所以只有密钥持有者能碰到;但"崩掉整个守卫"这个后果
         // 太大,不该留给一次算术溢出。一次独立对抗性复核跑出来的。
-        let skew =
-            i64::try_from(now.saturating_sub(timestamp_ms).unsigned_abs()).unwrap_or(i64::MAX);
+        let skew = freshness_skew_ms(now, timestamp_ms);
         if now > 0 && skew > guard_schema::FRESHNESS_WINDOW_MS {
             return AI::Stale {
                 adapter_id,
@@ -2377,7 +2388,10 @@ impl Engine {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
-        let skew = (now - event.timestamp_ms).abs();
+        // `freshness_skew_ms`,不是 `(now - ts).abs()`:后者对 `ts = i64::MIN` 会溢出
+        // (debug panic = 守卫 DoS;release 回绕成负数 → 被当成新鲜,新鲜度绕过)。
+        // 这条路和中继路(见 `freshness_skew_ms` 的注释)是同一个洞的两处,以前只修了中继。
+        let skew = freshness_skew_ms(now, event.timestamp_ms);
         if now > 0 && skew > guard_schema::FRESHNESS_WINDOW_MS {
             return AI::Stale {
                 adapter_id,
@@ -6655,6 +6669,45 @@ rules:
                 matches!(id, guard_schema::AdapterIdentity::Stale { .. }),
                 "ts={ts} 被判成 {} —— 极端时间戳必须是 Stale",
                 id.rule_id()
+            );
+        }
+    }
+
+    /// `freshness_skew_ms` 本身对极端时间戳溢出安全(非负、不 panic、不回绕)。
+    #[test]
+    fn freshness_skew_溢出安全() {
+        let now = 1_700_000_000_000i64;
+        for ts in [i64::MIN, i64::MIN + 1, i64::MAX, 0, -1, now] {
+            let skew = super::freshness_skew_ms(now, ts);
+            assert!(skew >= 0, "skew 必须非负,ts={ts} 得到 {skew}");
+        }
+        assert_eq!(super::freshness_skew_ms(now, now), 0);
+        // i64::MIN 那一版会 panic/回绕;这里必须是一个大的正数,远超新鲜度窗口。
+        assert!(super::freshness_skew_ms(now, i64::MIN) > guard_schema::FRESHNESS_WINDOW_MS);
+    }
+
+    /// 同一个洞的**逐事件路径**(resolve_adapter_identity)。中继路修过、这条没修:
+    /// 以前是 `(now - event.timestamp_ms).abs()`。现在两条都走 freshness_skew_ms。
+    #[test]
+    fn 逐事件极端时间戳不panic也不算新鲜() {
+        for ts in [i64::MIN, i64::MIN + 1, i64::MAX] {
+            let mut e = Engine::new(empty_rules(), GuardContract::default())
+                .with_adapters(adapter_registry());
+            let mut ev = fresh_event(
+                EventType::EnvironmentSurvey,
+                "browser",
+                &[("env_surveyed", "true")],
+            );
+            ev.timestamp_ms = ts; // 先覆盖成极端值,再签 —— assertion_message_for 覆盖时间戳
+            let ev = signed_by("companion", ev);
+            e.process(&ev).unwrap();
+            assert!(
+                matches!(
+                    e.adapter_identity(),
+                    guard_schema::AdapterIdentity::Stale { .. }
+                ),
+                "ts={ts} 逐事件路径判成 {} —— 极端时间戳必须 Stale",
+                e.adapter_identity().rule_id()
             );
         }
     }
