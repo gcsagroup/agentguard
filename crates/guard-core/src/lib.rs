@@ -3163,13 +3163,23 @@ impl Engine {
         };
 
         // 无条件敏感的目标：与有没有天花板无关。
+        //
+        // `require_confirm: false` 是**故意**的,而且是一处修复:以前它是 `true`,于是
+        // `process_gated` 会在用户点"批准"后把它降成 Allow —— 也就是「删 `/`」可被一次点击
+        // 放行,而一个不可归约的通配目标(FS-UNPROVABLE,require_confirm:false)反倒是硬拦。
+        // 风险次序整个反了。`路径模型.md` 说敏感目标是**无条件** Deny、不需要任何配置,所以
+        // 它不能是可确认的。第七轮复核发现 13。
         if let Some(why) = guard_schema::paths::sensitive_target(&resolved, intent) {
             return Some(Decision {
                 action: DecisionAction::Block,
                 severity: Severity::Critical,
                 rule_id: "FS-SENSITIVE".into(),
-                human_message: format!("{} {:?}：{why}", intent.as_str(), resolved.display()),
-                require_confirm: true,
+                human_message: format!(
+                    "{} {:?}:{why}(无条件拒绝,不可确认放行)",
+                    intent.as_str(),
+                    resolved.display()
+                ),
+                require_confirm: false,
             });
         }
 
@@ -10355,6 +10365,25 @@ mod b1_文件系统判决 {
             .process(&fs_event(EventType::FileWrite, "/etc/passwd"))
             .expect("判决");
         assert_eq!(d.rule_id, "FS-SENSITIVE", "{d:?}");
+    }
+
+    /// FS-SENSITIVE 不可被用户确认放行 —— 即便一个「全部批准」的确认策略也拦不住它降级。
+    ///
+    /// 以前它是 require_confirm:true,process_gated 在批准后把「删 `/`」降成 Allow;而一个
+    /// 不可归约的通配目标(FS-UNPROVABLE)反倒是硬拦,风险次序反了(第七轮复核发现 13)。
+    #[test]
+    fn 删根目录不可被确认放行() {
+        let mut e = engine();
+        let d = e
+            .process_gated(&fs_event(EventType::FileDelete, "/"), &AutoApprove)
+            .expect("判决");
+        assert_eq!(d.rule_id, "FS-SENSITIVE", "{d:?}");
+        assert_eq!(
+            d.action,
+            DecisionAction::Block,
+            "即便 AutoApprove 也不能把删根目录降成 Allow:{d:?}"
+        );
+        assert!(!d.require_confirm, "FS-SENSITIVE 不该是可确认的:{d:?}");
     }
 
     #[test]
