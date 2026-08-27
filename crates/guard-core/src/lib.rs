@@ -3854,6 +3854,12 @@ impl Engine {
                 _ => Some(StepKind::Observe),
             },
             EventType::NetworkFlow => Some(StepKind::NetworkEgress),
+            // 网关把一次工具调用(跑命令)装成 ProcessExec。它必须计入 `run_shell` 预算,
+            // 否则计划里的 `max:{run_shell:0}` 对网关发起的 curl/python/git 完全不生效 ——
+            // `PLAN-OVER-BUDGET` 在网关这条主执行路径上永远不触发(第七轮复核发现 5)。
+            // 文件写/删**不**进预算:`StepKind` 里没有 FileWrite/FileDelete 种类,而它们的
+            // 授权由 B1 的 FS-* 判决管(见 `check_filesystem_scope`),不是计划预算的事。
+            EventType::ProcessExec => Some(StepKind::RunShell),
             // Session boundaries are the anchor, not steps taken within it.
             // Recording them left the trajectory non-empty the instant a session
             // began, which is only cosmetic here but would matter to anything
@@ -8760,6 +8766,42 @@ rules:
             "Eleme",
             &[("ui_text", "请确认支付 $42")],
         )
+    }
+
+    /// **网关跑的命令(ProcessExec)必须计入 run_shell 预算。** 以前 ProcessExec 落到
+    /// StepKind::Observe(从不计数),于是计划里的 `max:{run_shell:0}` 对网关发起的命令
+    /// 完全不生效,PLAN-OVER-BUDGET 在网关这条主执行路径上永远不触发(第七轮复核发现 5)。
+    #[test]
+    fn 网关exec计入run_shell预算() {
+        let plans = guard_schema::TaskPlanLibrary::from_yaml_str(
+            "require_plan: false\nplans:\n  - task_profile: book_hotel\n    \
+             goal: \"Reserve a room\"\n    allow: [app_switch, run_shell]\n    \
+             max:\n      run_shell: 0\n    order: []\n",
+        )
+        .unwrap();
+        let contract = GuardContract {
+            on_plan_drift: guard_schema::EnforcementMode::Block,
+            ..Default::default()
+        };
+        let mut e = Engine::new(empty_rules(), contract).with_task_plans(plans);
+        e.process(&event(
+            EventType::AgentSessionStart,
+            "Claude",
+            &[("task_profile", "book_hotel")],
+        ))
+        .unwrap();
+        // book_hotel 的 max:{run_shell:0} —— 任何一次 exec 都超预算。
+        let d = e
+            .process(&event(
+                EventType::ProcessExec,
+                "shell",
+                &[("argv0", "curl")],
+            ))
+            .unwrap();
+        assert_eq!(
+            d.rule_id, "PLAN-OVER-BUDGET",
+            "ProcessExec 必须计入 run_shell 预算:{d:?}"
+        );
     }
 
     /// The drift the old label comparison could not see: same task label, same step
