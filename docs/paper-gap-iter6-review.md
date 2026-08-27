@@ -356,7 +356,7 @@ the grant has no time bound.
 |---|---|---|
 | Attack-success-rate metric | (A)I Sees: 20 trials/attack/agent, reported k/20, 5 real agents, 2 devices | 24 binary pass/fail acceptance scenarios, no agent in the loop |
 | ASR + TSR pair | Aura §5 on MobileSafetyBench: TSR 75 → 94.3 %, ASR ~40 → 4.4 % | ✅ *analogue* in iter 10: attack-miss-rate paired with false-positive-rate. Not the papers' ASR (no agent in the loop), and the docs say so |
-| Per-surface coverage matrix | AgentScan: 9 agents × 11 vectors, avg 6.3/11 vulnerable | ✅ iter 10: 29 surfaces, verified against rules + scenarios by `make coverage` |
+| Per-surface coverage matrix | AgentScan: 9 agents × 11 vectors, avg 6.3/11 vulnerable | ✅ iter 10: 30 surfaces (13 covered, 16 partial, 1 uncovered), verified against rules + scenarios by `make coverage` |
 | Cross-session paired tasks | MyPhoneBench: 50 A/B pairs, save in A → reuse in B | `memory_pair_correct_use` is single-session; no session boundary |
 | `ask_user` as a positive signal | iMy’s 4th tool: clarify instead of guessing | unmodeled |
 | Scale | 300 tasks, 10 apps, 9 domains | 46 scenarios, 2 form policies |
@@ -385,7 +385,7 @@ Still open, in the order I'd take them next:
    Remaining: the ~2 FPS stream cannot see a 50 ms TOCTOU window.
    See [frame-integrity.md](./frame-integrity.md).
 4. ~~**Class 5 evaluation protocol**~~ — **mostly shipped in iter 10**: verified
-   coverage matrix (29 surfaces), `kind: attack|benign` tagging, and the paired
+   coverage matrix (30 surfaces; 13 covered, 16 partial, 1 uncovered), `kind: attack|benign` tagging, and the paired
    miss-rate / false-positive-rate. Remaining: agent-in-the-loop ASR/TSR (needs real
    agents and sampling, which a deterministic corpus cannot support), and giving
    every agent profile a privacy probe so `rank_score` stops resting on a neutral

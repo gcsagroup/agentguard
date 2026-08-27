@@ -114,7 +114,7 @@ check-jail:
 	cargo run -q -p guard-jail --bin agentguard-jail -- --probe
 	cargo test -p guard-jail
 
-## Kotlin unit tests + APK. Needs ANDROID_HOME and a JDK 17+.
+## Kotlin unit tests + APK. Needs ANDROID_HOME and JDK 21 (verified; Gradle minimum is 17).
 check-android:
 	cd apps/android-companion && ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
@@ -146,10 +146,12 @@ check-shell-apps:
 # 不挂进 `make check`:它需要装一条额外的工具链,而 `check` 要能在裸仓库上跑。
 # CI 里是单独一个 job。
 MSRV := 1.87
+MSRV_TOOLCHAIN := 1.87.0
 check-msrv:
-	@rustup toolchain list | grep -q "^$(MSRV)" || { \
-		echo "缺 Rust $(MSRV):rustup toolchain install $(MSRV) --profile minimal"; exit 1; }
-	cargo +$(MSRV) test --workspace
+	@rustup toolchain list | grep -q "^$(MSRV_TOOLCHAIN)-" || { \
+		echo "缺 Rust $(MSRV):rustup toolchain install $(MSRV_TOOLCHAIN) --profile minimal"; exit 1; }
+	@MSRV_BIN="$$(dirname "$$(rustup which cargo --toolchain $(MSRV_TOOLCHAIN))")"; \
+		PATH="$$MSRV_BIN:$$PATH" cargo test --workspace
 	@echo "MSRV $(MSRV) PASS"
 
 # 在非 macOS 机器上编译 mac-adapter 里 macOS 专属的代码路径。
@@ -250,6 +252,6 @@ check: check-fmt check-supply-chain check-clippy test eval coverage scoreboard l
 	@echo "platform checks are separate targets, because each needs a toolchain:"
 	@echo "  make check-msrv       (rustup toolchain install $(MSRV))"
 	@echo "  make check-windows    (rustup target add x86_64-pc-windows-msvc)"
-	@echo "  make check-android    (ANDROID_HOME + JDK 17+)"
+	@echo "  make check-android    (ANDROID_HOME + JDK 21 verified; Gradle minimum 17)"
 	@echo "  make check-shell-apps (GTK/WebKit on Linux, or run on the native OS)"
 	@echo "  make check-jail       (Linux；探测后端后跑内核约束的集成测试)"

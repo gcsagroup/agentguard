@@ -7,73 +7,40 @@ network egress metadata — and decides Allow / Alert / Block on that basis.
 This page is about what it is **not**, because several of the gaps are easy to
 mistake for coverage.
 
-## 它不是沙箱 —— 除了 Linux 上、由它自己启动的进程
+## 文件系统边界：合作式网关 + Linux-only guard-jail
 
-> **2026-08 更新。** 这一节的标题原来是"它不是沙箱，也不保护文件系统"，那句话现在**不再完整
-> 成立**：`crates/guard-jail`（B2）在 Linux 上用内核机制约束它自己启动的进程，并且有集成测试
-> 从 jail 外面核对越界写确实没有发生。详见 [内核约束.md](./内核约束.md)。
->
-> 但边界很窄，窄到必须先说清：**只有 Linux**、**只约束文件系统**、**只对 AgentGuard 启动的
-> 进程**、而且 Landlock 后端只实现了探测（实际依赖 mount namespace）。macOS、Windows 上
-> 这一节仍然完整成立；Android 上永远成立（没有 root 做不到）。
->
-> 下面三条理由里，第一条已经不成立（B1 加了文件系统事件类型），第二条已经不成立（B0 加了
-> 路径模型），第三条**在 `guard-jail` 之外仍然成立**。
+AgentGuard **不是主机级通用沙箱**，但“没有文件系统事件、没有路径模型、没有 Landlock”也已经
+不是事实。当前实现有两条必须分开说明的路径：
 
-**AgentGuard will not stop an agent from deleting files outside your project
-directory.** Not `rm -rf /`, not `find "$dir" -delete` with an empty `$dir`, not
-`--no-preserve-root`. Three independent reasons, each sufficient on its own:
+1. **合作式网关（`guard-gateway` / `guard-shell`）。** 经 MCP 工具网关路由的调用会先转换成
+   `FileWrite`、`FileDelete` 或 `ProcessExec` 事件，并带上路径交给策略引擎独立判决。只有宿主
+   显式接入审计存储和签名器时，结果才会写入可验证审计。路径模型以
+   `task-plans.yaml` 的 `scope.paths` 为天花板，做组件级前缀判断、`..` 归约和已存在前缀的
+   `canonicalize`；`rm -rf /`、授权外删除及敏感路径读取会被拒绝。详见
+   [路径模型.md](./路径模型.md)。
 
-1. **There is no filesystem event type.** `EventType` covers `ScreenFrame`,
-   `UiTreeDelta`, `ProcessFocus`, `NetworkFlow`, `ClipboardChange`,
-   `AgentSessionStart/End`, `FormFill`, `Deeplink`, `PermissionRequest`,
-   `MemoryWrite`, `MemoryRead`, `EnvironmentSurvey`. There is no `FileWrite`,
-   `FileDelete` or `ProcessExec`. `ProcessFocus` means "which app is in the
-   foreground", not "what was executed". The engine never sees a file operation,
-   so it cannot have an opinion about one.
+   这仍然是**合作式门禁**：`Deny` 能让网关不执行这次工具调用，却不能拦截绕开网关、直接
+   `spawn` shell 或直接发起系统调用的进程。`FileWrite` / `FileDelete` / `ProcessExec` 是由网关
+   或宿主上报的动作事件，不是覆盖整台主机的文件系统探针。
 
-   The one delete-related rule, `CRIT-003 permanent_delete`, matches **UI text**
-   (`"永久删除"`, `"Empty Recycle Bin"`, `"清空回收站"`) — the GUI button, not a
-   shell command. `-delete` on a command line matches nothing.
+2. **Linux 内核边界（`guard-jail`）。** 在 Linux 上，AgentGuard 可以为**由它启动的子进程**
+   安装文件系统约束；该进程是否配合不影响内核拒绝。后端按 Landlock → mount namespace
+   选择；两者都不可用时 fail closed，不启动进程。Landlock 后端已经实现规则集与读/写天花板，
+   不是只做探测；mount namespace 后端提供内核执行的写边界，但没有 Landlock 的读天花板。
+   详见 [内核约束.md](./内核约束.md)。
 
-2. **`guard-shell` 现在有路径模型了 —— 但它是一道协作式的门，不是边界。**
-   这一条以前写的是"`guard-shell` 没有路径模型"，并且量过一张四行答案完全相同的表。
-   `docs/interception-design.md` 把修它列为 **B0**，已经做完，那张表现在长这样：
+边界因此很窄：`guard-jail` 只在 Linux 生效、只约束文件系统、只保护它自己启动的进程；它不
+接管已经运行或由别处直接启动的进程，也不为 macOS、Windows 或 Android 提供等价内核边界。
 
-   | 提议的动作 | B0 之前 | 现在 |
-   |---|---|---|
-   | `find <授权目录> -delete` | `Ask [SHELL-UNKNOWN-TOOL]` | `Ask [SHELL-CONFIRM]` |
-   | `find / -delete` | `Ask [SHELL-UNKNOWN-TOOL]` | **`Deny [SHELL-PATH-SENSITIVE]`** |
-   | `rm -rf /` | `Ask [SHELL-UNKNOWN-TOOL]` | **`Deny [SHELL-PATH-SENSITIVE]`** |
-   | `find "$id" -delete`（`$id` 为空）| `Ask [SHELL-UNKNOWN-TOOL]` | `Ask [SHELL-PATH-UNPROVABLE]` |
-   | `find <授权外目录> -delete` | `Ask [SHELL-UNKNOWN-TOOL]` | **`Deny [SHELL-PATH-OUTSIDE]`** |
-   | `read ~/.ssh/id_rsa` | `Allow [SHELL-ALLOWLIST]` | **`Deny [SHELL-PATH-SENSITIVE]`** |
+| 动作 | 经合作式网关 | 在 Linux `guard-jail` 内 | 绕过两者 |
+|---|---|---|---|
+| `rm -rf /` | `Deny [SHELL-PATH-SENSITIVE]`，网关不执行 | 超出授权范围时由内核拒绝 | AgentGuard 无法阻止 |
+| `find <授权外目录> -delete` | `Deny [SHELL-PATH-OUTSIDE]`，网关不执行 | 超出授权范围时由内核拒绝 | AgentGuard 无法阻止 |
+| `find "$id" -delete`（路径无法证明） | `Ask [SHELL-PATH-UNPROVABLE]` | 只允许 profile 已授予的范围 | AgentGuard 无法阻止 |
 
-   现在有项目根（来自 `task-plans.yaml` 的 `scope.paths` 天花板）、有按组件比的前缀包含
-   判断、有对已存在前缀的 `canonicalize`（所以中间夹一个符号链接跑不出去）、也有 `..`
-   归约。细节见 [路径模型.md](./路径模型.md)。
-
-   **但这不改变本节的结论。** 路径模型让"守卫知道这条命令动的是哪个目录"成为可能，它没有
-   让任何东西被拦住 —— 见下面第 3 条。一道宿主必须自愿来问的门，对一个直接 spawn shell 的
-   智能体是不存在的。
-
-3. **什么都不强制执行。** `SafeShell::propose()` 返回一个枚举。这个仓库里没有 seccomp、
-   没有 Landlock、没有 `sandbox-exec`、没有 ptrace、没有任何文件系统钩子。宿主必须**自愿**
-   在动手前来问；一个直接 spawn shell 的智能体是隐形的。即使判了 `Deny`，它本身也没有阻止
-   任何事情 —— 那是一个返回值，不是系统调用屏障。
-
-   B0 之后，这是三条理由里唯一还完整成立的一条，也因此是这一节的核心。
-   `docs/interception-design.md` §2 把这件事写成一条不能含混的区分：**协作式**控制（智能体
-   自愿走网关，可以绕过去）和**内核执行**控制（内核代为拒绝）不是同一种保证。路径模型让
-   协作式那一半变得有意义；把它说成沙箱，就是这个项目在自己的能力表里已经犯过一次的错。
-
-If you need that protection, it comes from the operating system, not from here:
-run the agent where it physically cannot see the rest of the disk (container, VM,
-`sandbox-exec` profile, Landlock/seccomp, a mount namespace with only the project
-mounted). That is the only approach that survives an agent that is buggy or
-prompt-injected rather than merely cooperative. A second, cheaper layer worth
-having regardless: make deletes reversible — move to a quarantine directory
-instead of unlinking — which turns a catastrophe into an inconvenience.
+需要覆盖整台主机或非 Linux 平台时，仍应使用操作系统提供的容器、虚拟机或平台沙箱，并让删除
+默认可恢复。不要把合作式返回值描述成系统调用屏障，也不要把这个窄 Linux jail 描述成主机级
+保护。
 
 ## Other non-goals
 
@@ -98,8 +65,10 @@ instead of unlinking — which turns a catastrophe into an inconvenience.
   the desktop shells and browser host do not, so on those platforms a registered
   app's privileges still rest on its name. Enforcement is off by default for that
   reason. See [app-identity.md](./app-identity.md).
-- **Windows real-device UIA / Graphics Capture** is simulated only; explicitly
-  deferred in [roadmap-status.md](./roadmap-status.md).
+- **Windows observation is implemented but not accepted on representative devices.**
+  Native UIA, GDI capture, and OCR paths have compile and test gates, but the repo
+  has no representative Windows end-to-end evidence for RDP, display scaling,
+  permissions, packaging, or code signing. See [roadmap-status.md](./roadmap-status.md).
 
 ## What it does cover
 

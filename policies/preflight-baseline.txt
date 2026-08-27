@@ -7,7 +7,7 @@ FAIL agent.keys.publicly_known [claude-desktop(仓库夹具密钥，种子为 0x
 INFO adapters.asymmetric_trust
 INFO agent.keys.absent [legacy-macro-bot]
 INFO gateway.cooperative
-INFO intel.secret.present
+PASS intel.secret.absent
 PASS adapter.keys.present
 PASS intel.verified
 PASS plans.loaded

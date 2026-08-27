@@ -896,3 +896,118 @@ fn 中继头名两侧一致() {
     }
     assert_eq!(对上的, 3, "对上的头名数量不对");
 }
+
+/// 发布版本不能再出现「核心是 RC、各客户端仍是 0.1.0」的漂移。
+///
+/// Chromium 的 `version` 只能用数字段，所以它用 `1.0.0.1`，并通过
+/// `version_name` 保留对外版本 `1.0.0-rc.1`。Android 的 versionCode 同理单独编码。
+#[test]
+fn 发布版本元数据一致() {
+    const VERSION: &str = "1.0.0-rc.1";
+
+    for path in [
+        "Cargo.toml",
+        "apps/desktop-macos/package.json",
+        "apps/desktop-macos/package-lock.json",
+        "apps/desktop-macos/src-tauri/Cargo.toml",
+        "apps/desktop-macos/src-tauri/Cargo.lock",
+        "apps/desktop-macos/src-tauri/tauri.conf.json",
+        "apps/desktop-windows/package.json",
+        "apps/desktop-windows/package-lock.json",
+        "apps/desktop-windows/src-tauri/Cargo.toml",
+        "apps/desktop-windows/src-tauri/Cargo.lock",
+        "apps/desktop-windows/src-tauri/tauri.conf.json",
+    ] {
+        assert!(
+            read(path).contains(VERSION),
+            "{path} 没有对齐发布版本 {VERSION}"
+        );
+    }
+
+    let android = read("apps/android-companion/app/build.gradle.kts");
+    assert!(android.contains("versionCode = 1000001"));
+    assert!(android.contains(&format!("versionName = \"{VERSION}\"")));
+
+    let chromium: serde_json::Value =
+        serde_json::from_str(&read("apps/extension-chromium/manifest.json"))
+            .expect("Chromium manifest 必须是有效 JSON");
+    assert_eq!(chromium["version"], "1.0.0.1");
+    assert_eq!(chromium["version_name"], VERSION);
+}
+
+/// GitHub 入口、变更记录、核心发布说明和每个组件 README 必须成组三语存在。
+///
+/// 深层研究与审计材料保留原始语言，由三语文档门户标注；这里盯的是用户会直接
+/// 进入的公开材料，防止以后只更新其中一种语言或误删一版。
+#[test]
+fn 公开文档三语成组() {
+    let groups: &[&[&str]] = &[
+        &["README.md", "README.zh-TW.md", "README.en.md"],
+        &["CHANGELOG.md", "CHANGELOG.zh-TW.md", "CHANGELOG.en.md"],
+        &[
+            "docs/README.md",
+            "docs/README.zh-TW.md",
+            "docs/README.en.md",
+        ],
+        &[
+            "docs/RELEASE-1.0.0-rc.1.md",
+            "docs/RELEASE-1.0.0-rc.1.zh-TW.md",
+            "docs/RELEASE-1.0.0-rc.1.en.md",
+        ],
+        &[
+            "docs/privacy-policy.md",
+            "docs/privacy-policy.zh-TW.md",
+            "docs/privacy-policy.en.md",
+        ],
+        &[
+            "apps/desktop-macos/README.md",
+            "apps/desktop-macos/README.zh-TW.md",
+            "apps/desktop-macos/README.en.md",
+        ],
+        &[
+            "apps/desktop-windows/README.md",
+            "apps/desktop-windows/README.zh-TW.md",
+            "apps/desktop-windows/README.en.md",
+        ],
+        &[
+            "apps/android-companion/README.md",
+            "apps/android-companion/README.zh-TW.md",
+            "apps/android-companion/README.en.md",
+        ],
+        &[
+            "apps/extension-chromium/README.md",
+            "apps/extension-chromium/README.zh-TW.md",
+            "apps/extension-chromium/README.en.md",
+        ],
+        &[
+            "apps/ios-webshield/README.md",
+            "apps/ios-webshield/README.zh-TW.md",
+            "apps/ios-webshield/README.en.md",
+        ],
+        &[
+            "intel/README.md",
+            "intel/README.zh-TW.md",
+            "intel/README.en.md",
+        ],
+    ];
+
+    for group in groups {
+        for path in *group {
+            assert!(root().join(path).is_file(), "三语文档缺少:{path}");
+        }
+    }
+
+    for path in [
+        "README.md",
+        "README.zh-TW.md",
+        "README.en.md",
+        "CHANGELOG.md",
+        "CHANGELOG.zh-TW.md",
+        "CHANGELOG.en.md",
+    ] {
+        assert!(
+            read(path).contains("1.0.0-rc.1"),
+            "{path} 没有标明当前发布候选版本"
+        );
+    }
+}

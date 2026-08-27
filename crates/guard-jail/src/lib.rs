@@ -24,6 +24,7 @@ pub mod profile;
 
 #[cfg(target_os = "linux")]
 pub mod landlock;
+#[cfg(target_os = "linux")]
 pub mod mountns;
 
 pub use backend::{best_available, probe, Availability, Backend};
@@ -78,6 +79,7 @@ fn effective_uid() -> Option<u32> {
 
 /// mount-ns + root 是不安全组合(见 `RootMountNamespace`)。这个纯函数把判定单独拿出来
 /// 便于测试:确知是 root、后端是 mount-ns、且没有明确放行时才拒。
+#[cfg(target_os = "linux")]
 fn refuse_root_mountns(backend: Backend, euid: Option<u32>, allow_root: bool) -> bool {
     matches!(backend, Backend::MountNamespace) && euid == Some(0) && !allow_root
 }
@@ -182,6 +184,7 @@ mod tests {
 
     /// mount-ns + root 默认被拒;非 root、Landlock、或明确放行时不拒。
     #[test]
+    #[cfg(target_os = "linux")]
     fn root跑mountns默认被拒() {
         // 危险组合:root + mount-ns + 未放行 → 拒。
         assert!(refuse_root_mountns(Backend::MountNamespace, Some(0), false));

@@ -371,7 +371,7 @@ pub fn to_markdown(matrix: &CoverageMatrix, report: &CoverageReport) -> String {
     md.push_str(
         "`partial` means the mechanism exists but is weaker than the published attack, or \
          is a proxy for it; the note says how. Our own numbers are never the papers' \
-         numbers — see [eval-methodology.md](./eval-methodology.md) for why the \
+         numbers — see [eval-methodology.md](../docs/eval-methodology.md) for why the \
          attack-miss-rate we report is not the papers' ASR.\n\n",
     );
 
@@ -706,5 +706,7 @@ surfaces:
         assert!(md.contains("Something"));
         assert!(md.contains("covered"));
         assert!(md.contains("1234.5678"));
+        assert!(md.contains("[eval-methodology.md](../docs/eval-methodology.md)"));
+        assert!(!md.contains("[eval-methodology.md](./eval-methodology.md)"));
     }
 }

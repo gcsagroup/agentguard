@@ -1,71 +1,64 @@
-# AgentGuard Privacy Policy
+# AgentGuard 隐私说明草案
 
-**Last updated:** 2026-08-01  
-**Product version:** 1.0.0-rc.1  
-**Applies to:** macOS Menu Bar app, Chromium extension, local CLI / loopback API
+[简体中文](privacy-policy.md) | [繁體中文](privacy-policy.zh-TW.md) | [English](privacy-policy.en.md)
 
-AgentGuard is **local-first**. This document describes what the software does on your device. Replace the contact email before public distribution.
+- **最后更新：** 2026-08-28
+- **产品版本：** 1.0.0-rc.1
+- **适用范围：** macOS、Windows、Android 伴生应用、Chromium 扩展、Native Messaging host、CLI 与本地 API
 
-## Summary
+> 这是随源码提供的技术披露草案，不是已经完成法务审阅的正式隐私政策。公开分发前必须补充有效的运营主体、联系地址、适用地区和数据保留条款。
 
-| Data | Leaves device? | Notes |
-|------|----------------|-------|
-| UI / AX text used for rules | No (default) | Processed in-process; may be stored in local audit DB |
-| ScreenCaptureKit frames | No | Sparse luma/opacity stats only; **pixels are not persisted** |
-| Audit SQLite / SQLCipher DB | No | Under Application Support / APPDATA |
-| Threat intel CDN fetch | Optional download | Signature-verified Ed25519 (or legacy sha256); you choose the URL |
-| Billing / account | N/A in free launch | Not required for core guardian features |
-| Crash telemetry | No (default) | Not shipped in RC |
+## 摘要
 
-## What we process on-device
+AgentGuard 默认在本机处理观测数据，不提供默认云端账户、遥测或厂商上传服务。用户或企业可以主动配置威胁情报、策略同步、Android 中继或本地 API；这些连接的目标、传输安全和数据保留由实际部署配置决定。
 
-1. **Accessibility / UI tree text** (when permission granted) to match high-risk patterns (payments, injection, traps).
-2. **Browser DOM signals** via the Chromium extension (local). Optional Native Messaging to the desktop app is user-controlled.
-3. **ScreenCaptureKit coarse stats** (when Screen Recording granted): width/height, mean luminance, low-opacity ratio. Overlay decisions prefer structured markers / AX when available.
-4. **Network egress metadata** when provided by adapters/netmon helpers (host, rough size)—not full packet capture.
-5. **Audit records**: event type, rule id, decision, truncated human message, optional user confirm choice.
+| 数据 | 默认是否离开设备 | 说明 |
+|---|---|---|
+| UI / AX / UIA / Accessibility 文本 | 否 | 用于本地规则判断，可能进入本地审计记录 |
+| ScreenCaptureKit / GDI 帧 | 否 | 在本机提取摘要或视觉特征；默认不上传原始像素 |
+| 浏览器 DOM 信号 | 否 | 保存在扩展本地；启用 Native Messaging 后发送给本机 host |
+| 审计数据库 | 否 | 本地 SQLite；可选 SQLCipher |
+| 威胁情报与企业策略 | 可选下载 | 仅在部署方配置端点后访问；发布路径要求签名验证 |
+| Android 中继 | 可选 | 用户可配置 loopback、ADB reverse 或 LAN 地址 |
+| 崩溃遥测与广告追踪 | 否 | 当前源码候选未集成默认遥测或广告 SDK |
 
-## Storage locations (typical)
+## 本机处理的数据
 
-- macOS: `~/Library/Application Support/agentguard/`
-  - `audit-macos.db` (plaintext or SQLCipher)
-  - `audit.key` (SQLCipher passphrase file, mode 0600, when encryption enabled)
-  - `audit-signing.key` (Ed25519 device key, mode 0600, plus `.pub`) — signs audit
-    records so they are attributable and cannot be silently rewritten; never
-    transmitted anywhere. See [audit-signing.md](./audit-signing.md)
-  - `entitlement.json`, `device-cache.yaml`, `reports/`
-- Extension: browser extension storage only as needed for settings; page content is not uploaded by AgentGuard servers (there are none by default).
+1. 无障碍树、窗口与表单文本，用于识别支付、隐私过度披露、注入和可疑界面。
+2. 浏览器 DOM 信号，用于本地检测隐藏文本、隐私陷阱与高风险操作提示。
+3. 屏幕帧或帧摘要，用于透明浮层、低对比度内容、隐写与帧变化检测。
+4. 网络流元数据，例如主机名和粗略大小；AgentGuard 不是完整抓包工具。
+5. 审计记录，例如事件类型、规则编号、判决、截断后的说明与人工确认结果。
+6. Android 环境调查结果，例如其它可读输入的广播接收器或无障碍服务。
 
-## Network
+## 典型存储位置
 
-- **Default offline** for decisioning.
-- **Optional:** HTTPS GET of a threat-intel bundle / manifest you or your org configure. Bundles are verified before use in release builds; verification failure yields an empty intel set (fail-closed), not a silently trusted file.
-- Local loopback API (`127.0.0.1` only) may expose status/audit to other local processes that present a Bearer token. Non-loopback binds are refused.
+- macOS：`~/Library/Application Support/agentguard/`
+- Windows：应用数据目录中的本地审计与配置文件
+- Android：应用私有目录中的 JSONL 信封、偏好和 Android Keystore 密钥
+- Chromium：扩展本地存储；Native Messaging host 使用部署方指定的本地审计数据库
 
-## Permissions (macOS)
+Android Keystore 中的适配器私钥按设计不可导出；当前文件型审计签名密钥以 `0600` 权限存放在本地，能读取该文件的账户或 root 仍可导出。仓库中的公开测试密钥仅供夹具与评测，不能用于生产。
 
-| Permission | Why |
-|------------|-----|
-| Accessibility | Read UI trees of Agent / browser windows |
-| Screen Recording | Optional SCK stats for overlay heuristics |
+## 网络行为
 
-Denying a permission **reduces** coverage; the app should surface that state rather than claim full protection.
+- 核心规则判断默认不需要互联网。
+- 威胁情报和企业策略只在用户或组织配置端点后下载。
+- 本地 API 默认绑定 loopback 并要求 Bearer token；只有显式使用 `--allow-lan` 才允许 LAN 绑定。LAN 例外可能是明文 HTTP，部署方必须自行提供受信网络或额外传输保护。
+- Android 中继由用户主动配置；发送内容和目标取决于该配置。
+- Chromium Native Messaging 只连接本机已安装 host，不直接连接 AgentGuard 云服务。
 
-## Your controls
+## 权限与控制
 
-- Start / end guard sessions; approve or deny Critical Confirm prompts (release builds disable “auto-approve” unless you set an explicit env override).
-- Export / delete local audit DB and reports.
-- Disable ScreenCaptureKit / rely on simulation or extension-only paths.
-- Choose not to configure any intel CDN.
+- macOS：辅助功能与屏幕录制；拒绝权限会降低覆盖，应用不得把这种状态描述为完整保护。
+- Windows：UI Automation、窗口与屏幕观测能力取决于系统权限和目标应用。
+- Android：无障碍服务与前台服务通知；事件通知通常发生在动作之后，不是阻塞确认。
+- 用户可以结束会话、停用可选观测、关闭中继，并删除本地数据库与报告。
 
-## Children
+## 当前发布状态
 
-Not directed at children under 13 (or local digital-age equivalent).
+本仓库是源码发布候选。正式签名安装包、商店数据安全表单、法务审阅、真实设备验收和公开支持渠道尚未完成。
 
-## Changes
+## 联系方式
 
-Material changes will bump “Last updated” and the product release notes.
-
-## Contact
-
-`privacy@example.com` — **replace before public launch.**
+当前源码候选未提供可对外承诺的隐私联系地址。公开分发前必须在此填写真实、可用并由运营主体维护的联系方式。

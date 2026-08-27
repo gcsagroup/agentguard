@@ -12,8 +12,8 @@ android {
         applicationId = "com.agentguard.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 1000001
+        versionName = "1.0.0-rc.1"
     }
 
     signingConfigs {

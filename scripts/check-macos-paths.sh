@@ -31,10 +31,12 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORK="${AGENTGUARD_MACPROBE_DIR:-/tmp/agentguard-macos-paths}"
+WORK="$(mktemp -d /tmp/agentguard-macos-paths.XXXXXX)"
+cleanup() {
+  rm -rf -- "$WORK"
+}
+trap cleanup EXIT
 
-rm -rf "$WORK"
-mkdir -p "$WORK"
 cp -r "$ROOT/adapters" "$ROOT/crates" "$WORK/"
 cp "$ROOT/Cargo.toml" "$WORK/"
 [ -f "$ROOT/Cargo.lock" ] && cp "$ROOT/Cargo.lock" "$WORK/"
@@ -50,8 +52,10 @@ open(p, "w", encoding="utf-8").write(s)
 PY
 
 cd "$WORK"
-sed -i 's/target_os = "macos"/target_os = "linux"/g' adapters/mac-adapter/src/*.rs
-sed -i 's/, kind = "framework"//g' adapters/mac-adapter/src/*.rs
+# `sed -i` 在 GNU sed 可省略备份扩展名，BSD sed（macOS）则会把下一项误当扩展名。
+# 显式使用 `.bak` 可同时兼容两者；文件只存在于本轮的临时副本中，不会进入源码树。
+sed -i.bak 's/target_os = "macos"/target_os = "linux"/g' adapters/mac-adapter/src/*.rs
+sed -i.bak 's/, kind = "framework"//g' adapters/mac-adapter/src/*.rs
 
 echo "编译 mac-adapter 的 macOS 代码路径（已改写为 target_os = linux）..."
 cargo check -p mac-adapter --all-targets

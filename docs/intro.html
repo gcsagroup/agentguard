@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>AgentGuard Conformance Statement</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -310,19 +311,20 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
 <header class="mast">
   <div class="wrap mast-in">
     <div class="eyebrow">
-      <span><b>AgentGuard</b></span><span>1.0.0-rc.1</span><span>Rust · 20 workspace crates</span>
+      <span><b>AgentGuard</b></span><span>1.0.0-rc.1</span><span>Rust · 22 workspace crates</span>
       <span>Apache-2.0</span><span>2026-08</span>
+      <span>Docs: <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a></span>
     </div>
     <div class="bi">
       <div class="zh">
         <h1 class="zh-h">能做什么，<br>不能做什么</h1>
-        <p class="lede">AgentGuard 是 GUI 智能体的<strong>旁路观察器</strong>：它看智能体看到的屏幕、读到的无障碍树、填过的表单、拉起的 deeplink 和外发流量的元数据，然后给出 <strong>允许 / 告警 / 阻断</strong>。它<strong>不</strong>是沙箱，不接管系统调用，也不拦网络。</p>
+        <p class="lede">AgentGuard 是 GUI 智能体的<strong>旁路观察器</strong>：它看智能体看到的屏幕、读到的无障碍树、填过的表单、拉起的 deeplink 和外发流量的元数据，然后给出 <strong>允许 / 告警 / 阻断</strong>。它不拦网络，也不是主机级沙箱；唯一的内核边界是 Linux 上由 <code>agentguard-jail</code> 启动的子进程文件系统约束。其他执行门禁都是<strong>合作式</strong>的，只能拦经它路由的动作。</p>
         <p class="lede">这一页把能力和边界排在<strong>同等大小的版面</strong>上——因为项目本身就是这么写文档的：<code>guard-cli coverage</code> 会去仓库里核对覆盖矩阵的每一条声明，声明不成立命令就失败。下面每个数字都能用一条命令复现。<br><br><strong>2026-08 更新：</strong>Windows 从"一行 UIA 代码都没有"变成真实的 UI Automation 遍历 + GDI 抓帧；Android 从 7 个序列化器里 3 个有调用方变成 8 个；两个桌面壳子<strong>第一次被编译过</strong>——此前 CI 只用 <code>rustfmt --check</code> 验证它们，那只解析、不解析引用，所以两个 Tauri 应用的代码从没被编译器看过。（更正：我先前写过"它们引用的图标文件不存在，根本构建不出来"——那是错的，是我拿到的仓库副本不完整造成的。图标一直都在。）</p>
       </div>
       <div class="en">
         <h1>What it does,<br>and what it doesn't</h1>
         <p class="lede">AgentGuard is an <strong>out-of-band observer</strong> for GUI agents. It watches what an agent sees and types — screen frames, accessibility trees, form fills, deeplinks, network-flow metadata — and returns <strong>Allow / Alert / Block</strong>. It does not block traffic. It is <strong>not</strong> a sandbox — with one exception now: on Linux, for a process <em>it</em> launches, <code>agentguard-jail</code> applies a kernel-enforced filesystem boundary that does not depend on the guarded process cooperating. Everywhere else, and for every other layer, enforcement is <strong>cooperative</strong>: it stops what goes through it.</p>
-        <p class="lede">This page gives capabilities and limits <strong>equal space on the page</strong>, because that is how the repository documents itself: <code>guard-cli coverage</code> checks every claim in the coverage matrix against the repo, and an unbacked claim fails the command. Every figure below is reproducible with one command.<br><br><strong>Updated 2026-08:</strong> Windows went from not one line of UIA to a real UI Automation walk plus GDI capture; Android from 3 of 7 serializers having callers to 8; and both desktop shells were <strong>compiled for the first time</strong> — CI had only ever verified them with <code>rustfmt --check</code>, which parses and does not resolve, so no compiler had looked at either Tauri app. (Correction: I previously wrote that they referenced icon files missing from the repository and could not be built at all. That was wrong — an artefact of an incomplete working copy on my side. The icons were there all along.)<br><br><strong>Also new:</strong> a cooperative MCP tool gateway, a filesystem path model wired into the signed audit trail, the kernel-enforced Linux boundary above, and a release-blocker pass (<code>docs/发布阻塞项.md</code>), and signed adapter assertions with an asymmetric trust rule (<code>docs/适配器断言签名.md</code>). What this project may and may not claim, and who it is responsible to ship to, is now a separate document: <code>docs/上线评估.md</code>. The short version: <strong>it is an honest observation-and-accountability system with a cooperative layer of dissuasion and one narrow real boundary.</strong> Shipping it as that is responsible. Shipping it as "protection" is not.</p>
+        <p class="lede">This page gives capabilities and limits <strong>equal space on the page</strong>, because that is how the repository documents itself: <code>guard-cli coverage</code> checks every claim in the coverage matrix against the repo, and an unbacked claim fails the command. Every figure below is reproducible with one command.<br><br><strong>Updated 2026-08:</strong> Windows went from not one line of UIA to a real UI Automation walk plus GDI capture; Android from 3 of 7 serializers having callers to 8; and both desktop shells were <strong>compiled for the first time</strong> — CI had only ever verified them with <code>rustfmt --check</code>, which parses and does not resolve, so no compiler had looked at either Tauri app. (Correction: I previously wrote that they referenced icon files missing from the repository and could not be built at all. That was wrong — an artefact of an incomplete working copy on my side. The icons were there all along.)<br><br><strong>Also new:</strong> a cooperative MCP tool gateway, a filesystem path model wired into independent engine decisions (with verifiable audit only when the host attaches an audit store and signer), the kernel-enforced Linux boundary above, and a release-blocker pass (<code>docs/发布阻塞项.md</code>), and signed adapter assertions with an asymmetric trust rule (<code>docs/适配器断言签名.md</code>). What this project may and may not claim, and who it is responsible to ship to, is now a separate document: <code>docs/上线评估.md</code>. The short version: <strong>it is an honest observation-and-accountability system with a cooperative layer of dissuasion and one narrow real boundary.</strong> Publishing this source candidate with those limits stated is responsible; shipping production installers remains No-Go.</p>
       </div>
     </div>
   </div>
@@ -331,12 +333,12 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
 <div class="band">
   <div class="wrap">
     <div class="stats">
-      <div class="stat"><span class="n">878</span><span class="k">tests passing</span><span class="kz">847 Rust · 31 Kotlin · 5 壳</span></div>
-      <div class="stat"><span class="n">125/125</span><span class="k">scoreboard</span><span class="kz">记分板场景</span></div>
+      <div class="stat"><span class="n">840</span><span class="k">Rust test cases</span><span class="kz">workspace suite: PASS</span></div>
+      <div class="stat"><span class="n">130/130</span><span class="k">scoreboard</span><span class="kz">记分板场景</span></div>
       <div class="stat"><span class="n">104/104</span><span class="k">release acceptance</span><span class="kz">发布验收</span></div>
       <div class="stat"><span class="n">13/16/1</span><span class="k">covered / partial / none</span><span class="kz">30 个攻击面</span></div>
-      <div class="stat"><span class="n">1.10%</span><span class="k">attack-miss rate</span><span class="kz">攻击漏检 (1 / 91)</span></div>
-      <div class="stat"><span class="n">0.0%</span><span class="k">false positives</span><span class="kz">误报 (0 / 34 良性)</span></div>
+      <div class="stat"><span class="n">1.12%</span><span class="k">attack-miss rate</span><span class="kz">攻击漏检 (1 / 89)</span></div>
+      <div class="stat"><span class="n">0.0%</span><span class="k">false positives</span><span class="kz">误报 (0 / 35 良性)</span></div>
       <div class="stat"><span class="n">3</span><span class="k">platforms observing</span><span class="kz">macOS · Windows · Android</span></div>
     </div>
   </div>
@@ -365,7 +367,7 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
       </div>
       <div class="facecard facecard--no">
         <div class="fc-top"><span class="fc-n">18</span><span class="fc-l">不能做</span><span class="fc-le">What it does not</span></div>
-        <div class="fc-d"><span class="z">不是沙箱、不保护文件系统；iOS 仍是占位；Windows 看不到别的进程叠上来的窗口、也没有 OCR；Android 的确认是事后通知不是拦停；三端都没有人在真机上跑过。</span>Not a sandbox and no filesystem protection; iOS is still a stub; Windows cannot see another process's window composited on top and has no OCR; Android confirmation is a notification after the fact, not a gate; and nobody has run any of the three on real hardware.</div>
+        <div class="fc-d"><span class="z">不是主机级沙箱；Linux jail 只保护它启动的子进程，合作式网关可绕过；iOS 仍是占位；Windows 看不到别的进程叠上来的窗口，OCR 依赖系统语言包；Android 的确认是事后通知不是拦停；仓库没有三端代表性真机端到端验收证据。</span>Not a host-wide sandbox: the Linux jail covers only children it launches and the cooperative gateway can be bypassed. iOS is still a stub; Windows cannot see another process's window composited on top and OCR depends on an installed language pack; Android confirmation is a notification after the fact, not a gate; and the repository has no representative real-device end-to-end acceptance evidence for the three platforms.</div>
       </div>
     </div>
 
@@ -476,9 +478,9 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
           <div class="group">
             <h3><span class="zh-t">最重要的一条</span> The one that matters most <span class="chip chip--no">by design</span></h3>
             <div class="item"><div class="bi">
-              <div class="zh"><b>1 · 它不是沙箱，不保护文件系统。</b>AgentGuard <b>不会</b>阻止智能体删掉项目目录以外的文件。三个各自足够的理由：<b>(a)</b> 没有文件系统事件类型——<code>EventType</code> 里没有 <code>FileWrite</code>、<code>FileDelete</code>、<code>ProcessExec</code>，引擎根本看不到文件操作；<b>(b)</b> <code>guard-shell</code> 没有路径模型，<code>find / -delete</code> 和删项目目录得到的是同一个答案；<b>(c)</b> 什么都不强制——<code>SafeShell::propose()</code> 返回一个枚举，仓库里没有 seccomp、没有 Landlock、没有 <code>sandbox-exec</code>、没有 ptrace。要这层保护，请交给操作系统。</div>
-              <div class="en"><b>1 · It is not a sandbox and it does not protect the filesystem.</b> AgentGuard <b>will not</b> stop an agent deleting files outside your project directory. Three reasons, each sufficient alone: <b>(a)</b> there is no filesystem event type — <code>EventType</code> has no <code>FileWrite</code>, <code>FileDelete</code> or <code>ProcessExec</code>, so the engine never sees a file operation; <b>(b)</b> <code>guard-shell</code> has no path model, and <code>find / -delete</code> gets the same verdict as deleting the project; <b>(c)</b> nothing is enforced — <code>SafeShell::propose()</code> returns an enum, and there is no seccomp, no Landlock, no <code>sandbox-exec</code>, no ptrace anywhere in the repository. That protection has to come from the OS.</div>
-            </div><span class="trace">docs/scope-and-non-goals.md — measured verdicts for all four delete forms are tabulated there</span></div>
+              <div class="zh"><b>1 · 它不是主机级沙箱，文件系统保护有明确边界。</b><code>FileWrite</code>、<code>FileDelete</code>、<code>ProcessExec</code> 事件和路径模型已经存在。合作式网关能在执行前拒绝经它路由的 <code>rm -rf /</code> 或授权外路径；Linux <code>guard-jail</code> 还会用 Landlock 或 mount namespace 约束它启动的子进程，后端不可用就不启动。<b>但直接绕过网关、且不在 jail 内的进程不受保护</b>，macOS、Windows、Android 也没有等价内核边界。</div>
+              <div class="en"><b>1 · It is not a host-wide sandbox; filesystem protection has a narrow boundary.</b> <code>FileWrite</code>, <code>FileDelete</code> and <code>ProcessExec</code> events and a path model now exist. The cooperative gateway can refuse a routed <code>rm -rf /</code> or out-of-scope path before execution; on Linux, <code>guard-jail</code> also confines children it launches with Landlock or a mount namespace and refuses to launch when neither backend is available. <b>A process that bypasses the gateway and is not inside the jail is not protected</b>, and macOS, Windows and Android have no equivalent kernel boundary.</div>
+            </div><span class="trace">docs/scope-and-non-goals.md · docs/路径模型.md · docs/内核约束.md</span></div>
           </div>
 
           <div class="group">
@@ -500,16 +502,16 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
               <div class="en"><b>5 · The browser extension has no session concept at all</b> and emits two event kinds, <code>ui_text</code> and <code>form_fill</code>; every session-bound rule is inert there.</div>
             </div><span class="trace">apps/extension-chromium · 2 event kinds found by grep</span></div>
             <div class="item"><div class="bi">
-              <div class="zh"><b>6 · 没有人在真机上跑过这三端。</b>Windows 的 UIA 遍历和 GDI 抓帧能为 <code>x86_64-pc-windows-msvc</code> 编译，CI 在 <code>windows-latest</code> 上构建并测试；macOS 的 Objective-C 桥在 <code>macos-latest</code> 上编译；Android 的 APK 在 CI 里打出来。<b>这三件事都不等于"看着它守护过一个真实的智能体"</b>，而这个仓库里没有任何东西做过后者：没有 instrumented test、没有真机运行记录、没有一次人工验收。iOS 的 Swift 仍然没有任何东西编译它。</div>
-              <div class="en"><b>6 · Nobody has run any of the three on real hardware.</b> The Windows UIA walk and GDI capture compile for <code>x86_64-pc-windows-msvc</code>, and CI builds and tests them on <code>windows-latest</code>; the macOS Objective-C bridges compile on <code>macos-latest</code>; the Android APK is assembled in CI. <b>None of that is the same as having watched it guard a real agent</b>, and nothing in this repository has: no instrumented test, no device run, no manual acceptance. The iOS Swift is still compiled by nothing at all.</div>
+              <div class="zh"><b>6 · 仓库没有三端代表性真机端到端验收证据。</b>Windows 的 UIA 遍历和 GDI 抓帧能为 <code>x86_64-pc-windows-msvc</code> 编译，CI 在 <code>windows-latest</code> 上构建并测试；macOS 的 Objective-C 桥在 <code>macos-latest</code> 上编译；Android 的 APK 在 CI 里打出来。<b>这三件事都不等于“看着它守护过一个真实的智能体”</b>：仓库没有 instrumented test、代表性设备运行记录或完成的人工验收。iOS 的 Swift 仍然没有任何东西编译它。</div>
+              <div class="en"><b>6 · The repository has no representative real-device end-to-end acceptance evidence for the three platforms.</b> The Windows UIA walk and GDI capture compile for <code>x86_64-pc-windows-msvc</code>, and CI builds and tests them on <code>windows-latest</code>; the macOS Objective-C bridges compile on <code>macos-latest</code>; the Android APK is assembled in CI. <b>None of that is the same as having watched it guard a real agent</b>: the repository contains no instrumented test, representative device-run record, or completed manual acceptance. The iOS Swift is still compiled by nothing at all.</div>
             </div><span class="trace">.github/workflows/ci.yml — 5 jobs: test (macOS+Ubuntu), windows, macos-shell, android, frontend</span></div>
           </div>
 
           <div class="group">
             <h3><span class="zh-t">机制自己的天花板</span> Ceilings of the mechanisms</h3>
             <div class="item"><div class="bi">
-              <div class="zh"><b>7 · 图标哈希不能拦，只能记。</b>在 30 个同风格生成图标上实测：无关图标对的距离是 0–27（不是理想的"接近 32"），6.6% 落在 4 bit 以内，4 对完全撞哈希——8×8 网格分不出一笔的差别。分布重叠，没有阈值能分开，所以只有图标证据时判 <code>LogOnly</code>。代价是<b>论文里 10/10 成功的那个攻击场景，在我们的语料里被永久记成一次漏检</b>：这就是漏检率 1.10% 而不是 0.0% 的原因。</div>
-              <div class="en"><b>7 · The icon hash can log, not intervene.</b> Measured over 30 generated icons in one style: unrelated pairs run 0–27 bits apart (not the ideal "near 32"), 6.6% land within 4 bits, and four pairs collide exactly — an 8×8 grid cannot resolve one stroke. The distributions overlap, so no threshold separates them, and icon-only evidence is <code>LogOnly</code>. The price: <b>the paper's 10/10 attack is counted as a permanent miss in our own corpus</b> — that is why the miss rate is 1.10% and not 0.0%.</div>
+              <div class="zh"><b>7 · 图标哈希不能拦，只能记。</b>在 30 个同风格生成图标上实测：无关图标对的距离是 0–27（不是理想的"接近 32"），6.6% 落在 4 bit 以内，4 对完全撞哈希——8×8 网格分不出一笔的差别。分布重叠，没有阈值能分开，所以只有图标证据时判 <code>LogOnly</code>。代价是<b>论文里 10/10 成功的那个攻击场景，在我们的语料里被永久记成一次漏检</b>：这就是漏检率 1.12% 而不是 0.0% 的原因。</div>
+              <div class="en"><b>7 · The icon hash can log, not intervene.</b> Measured over 30 generated icons in one style: unrelated pairs run 0–27 bits apart (not the ideal "near 32"), 6.6% land within 4 bits, and four pairs collide exactly — an 8×8 grid cannot resolve one stroke. The distributions overlap, so no threshold separates them, and icon-only evidence is <code>LogOnly</code>. The price: <b>the paper's 10/10 attack is counted as a permanent miss in our own corpus</b> — that is why the miss rate is 1.12% and not 0.0%.</div>
             </div><span class="trace">guard-schema test <code>the_icon_channel_false_match_rate_is_measured_not_assumed</code> — it regenerates and prints these figures; the assertions themselves are looser bounds · known miss pinned by <code>guard-eval::acceptance</code> known_misses = [lookalike_cloned_icon_only_001]</span></div>
             <div class="item"><div class="bi">
               <div class="zh"><b>8 · 名字比对只覆盖两种拼写形变</b>（相邻换位、字母重复）。通用的"一次编辑"规则会把 Stride、Strive、Stripes、Stripo、Strip、WebChat、Elemi 全变成 Critical 阻断，所以它被收窄了。<b>包含关系不算匹配</b>——"WeChat Pay" 逃过这条规则，因为"企业微信"是个真实存在的不同应用。四个字母的拉丁名（比如策略里自带的 AMap）在信息量门槛之下，无法用名字保护。</div>
@@ -556,8 +558,8 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
               <div class="en"><b>17 · Two kinds of fixture, with unequal guarantees.</b> The signing digests in <code>known-apps.yaml</code> are <b>obviously fake</b> (repeated nibbles) and a test enforces that they stay so — a registry pinning a wrong digest is worse than none, because it looks verified and verifies nothing. But the keys in <code>agent-registry.yaml</code> are <b>real Ed25519 public keys</b>, indistinguishable by eye from production values, and the only guard there is a test asserting the file carries a <code>FIXTURE KEYS</code> banner. Their private halves are in the repo.</div>
             </div><span class="trace">docs/release-security.md · docs/audit-encryption.md · <code>AGENTGUARD_AUDIT_KEY</code></span></div>
             <div class="item"><div class="bi">
-              <div class="zh"><b>18 · 我们的数字不是论文的数字。</b>1.10% 是<b>我们自己语料</b>上的漏检率，不是论文的 ASR，两者不可比。<code>ask_user</code>（MyPhoneBench 四个契约工具之一）状态是 <code>none</code>——完全没实现。PQSR 只在 3 个任务上测过（另有 4 个未测），这个样本量小到不该单独引用。<code>rustc</code> 最低版本没钉，两个 Tauri crate 在本次环境里只做了解析检查、没有编译。</div>
-              <div class="en"><b>18 · Our numbers are not the papers' numbers.</b> 1.10% is a miss rate on <b>our own corpus</b>, not an ASR, and the two are not comparable. <code>ask_user</code> — one of MyPhoneBench's four contract tools — has status <code>none</code>: not implemented. PQSR is measured over 3 tasks with 4 unmeasured, a sample too small to quote on its own. MSRV is unpinned, and the two Tauri crates were parse-checked rather than compiled in this environment.</div>
+              <div class="zh"><b>18 · 我们的数字不是论文的数字。</b>1.12% 是<b>我们自己语料</b>上的漏检率，不是论文的 ASR，两者不可比。<code>ask_user</code>（MyPhoneBench 四个契约工具之一）状态是 <code>none</code>——完全没实现。PQSR 只在 3 个任务上测过（另有 4 个未测），这个样本量小到不该单独引用。MSRV 已钉为 Rust 1.87，并由独立 CI 作业运行完整 workspace 测试；两个 Tauri 壳也有原生编译门禁，但这些都不能替代真机验证。</div>
+              <div class="en"><b>18 · Our numbers are not the papers' numbers.</b> 1.12% is a miss rate on <b>our own corpus</b>, not an ASR, and the two are not comparable. <code>ask_user</code> — one of MyPhoneBench's four contract tools — has status <code>none</code>: not implemented. PQSR is measured over 3 tasks with 4 unmeasured, a sample too small to quote on its own. The MSRV is pinned to Rust 1.87 and a dedicated CI job tests the whole workspace; both Tauri shells also have native compile gates, but none of that substitutes for real-device validation.</div>
             </div><span class="trace">docs/eval-methodology.md · docs/leaderboard-comparability.md · eval/acceptance-report.json</span></div>
           </div>
 
@@ -627,7 +629,7 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
             <td>
               <span class="zh-c">真实的 AccessibilityService；<code>PackageManager</code> 取签名摘要与图标 dHash；环境调查；窗口列表查浮层；系统权限弹窗解析（中英双语）；浏览器地址栏取主机；会话事件带任务名。</span>
               <span class="en-c">A real AccessibilityService; signing digests and icon dHashes from <code>PackageManager</code>; the environment survey; overlay detection from the window list; runtime permission dialogs parsed in English and Chinese; hosts from a browser address bar; session events naming the task.</span>
-              <span class="mono">9 个种类里 8 个有真实来源 · 24 个单元测试 · APK 在 CI 里打出</span>
+              <span class="mono">9 个种类里 8 个有真实来源 · 31 个单元测试 · APK 在 CI 里打出</span>
             </td>
             <td><span class="chip chip--ok">live</span><span class="mono">此前 7 个序列化器只有 3 个有调用方<br>3 of 7 serializers had callers</span></td>
             <td>
@@ -644,8 +646,8 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
             </td>
             <td><span class="chip chip--part">partial</span><span class="mono">2 事件种类 / 2 event kinds</span></td>
             <td>
-              <span class="zh-c">完全没有会话概念，所以所有会话作用域的规则在这里都不生效。CI 只做语法检查。</span>
-              <span class="en-c">No session concept at all, so every session-scoped rule is inert here. CI syntax-checks it and nothing more.</span>
+              <span class="zh-c">完全没有会话概念，所以所有会话作用域的规则在这里都不生效。DOM 观察和 host 判决是异步的，不与具体操作同步绑定；CI 只做语法检查。</span>
+              <span class="en-c">No session concept at all, so every session-scoped rule is inert here. DOM observation and host verdicts are asynchronous and not bound to a specific action; CI syntax-checks it and nothing more.</span>
             </td>
           </tr>
           <tr>
@@ -656,8 +658,8 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
             </td>
             <td><span class="chip chip--ok">portable</span><span class="mono">CI: macOS + Ubuntu + Windows</span></td>
             <td>
-              <span class="zh-c"><code>guard-ffi</code> 在仓库内没有使用方；MSRV 未钉。</span>
-              <span class="en-c"><code>guard-ffi</code> has no in-tree consumer; MSRV is unpinned.</span>
+              <span class="zh-c"><code>guard-ffi</code> 在仓库内没有使用方；MSRV 钉为 Rust 1.87，并由独立 CI 作业验证。</span>
+              <span class="en-c"><code>guard-ffi</code> has no in-tree consumer; the MSRV is pinned to Rust 1.87 and verified by a dedicated CI job.</span>
             </td>
           </tr>
           <tr>
@@ -839,7 +841,7 @@ POST  /v1/resume          <span class="c">恢复 / resume</span></pre>
                   <td><span class="zh-c">Objective-C 桥（AX 遍历器、SCK）在 macOS SDK 下编译不过</span><span class="en-c">The Objective-C bridges failing to build against the macOS SDK</span></td></tr>
               <tr><td class="mono">android<br>ubuntu-latest</td>
                   <td><span class="zh-c"><code>:app:testDebugUnitTest</code>、<code>:app:assembleDebug</code>，APK 作为构建产物上传</span><span class="en-c"><code>:app:testDebugUnitTest</code>, <code>:app:assembleDebug</code>, APK uploaded as an artifact</span></td>
-                  <td><span class="zh-c">Kotlin 编译失败、24 个单元测试任一失败、APK 打不出来。包含<b>跨语言 dHash 契约</b>：Rust 比较器和 Kotlin 生成器都对 <code>eval/fixtures/icon_dhash_vectors.json</code> 断言，任一侧漂移两边都会红。</span><span class="en-c">Kotlin failing to compile, any of the 24 unit tests failing, or the APK failing to package. Includes the <b>cross-language dHash contract</b>: the Rust comparator and the Kotlin producer both assert against <code>eval/fixtures/icon_dhash_vectors.json</code>, so a drift fails on both sides.</span></td></tr>
+                  <td><span class="zh-c">Kotlin 编译失败、31 个单元测试任一失败、APK 打不出来。包含<b>跨语言 dHash 契约</b>：Rust 比较器和 Kotlin 生成器都对 <code>eval/fixtures/icon_dhash_vectors.json</code> 断言，任一侧漂移两边都会红。</span><span class="en-c">Kotlin failing to compile, any of the 31 unit tests failing, or the APK failing to package. Includes the <b>cross-language dHash contract</b>: the Rust comparator and the Kotlin producer both assert against <code>eval/fixtures/icon_dhash_vectors.json</code>, so a drift fails on both sides.</span></td></tr>
               <tr><td class="mono">frontend<br>ubuntu-latest</td>
                   <td><span class="zh-c"><code>make check-shells</code>——7 个前端模块 + 所有 <code>.sh</code></span><span class="en-c"><code>make check-shells</code> — 7 front-end modules and every <code>.sh</code></span></td>
                   <td><span class="zh-c">壳子 JS 里的语法错误（此前会让按钮静默失效而 Rust 全绿）。第一版这个检查<b>是假的</b>：一个 <code>|| import(...)</code> 兜底把失败吞掉了，语法坏掉的文件照样通过。</span><span class="en-c">A syntax error in either shell's JS — which used to make buttons silently do nothing while Rust stayed green. The first version of this check was <b>vacuous</b>: a <code>|| import(...)</code> fallback swallowed the failure and a broken file passed.</span></td></tr>
@@ -875,11 +877,11 @@ POST  /v1/resume          <span class="c">恢复 / resume</span></pre>
       </summary>
       <div class="d-body">
         <pre><span class="c"># the engine</span>
-cargo test --workspace                       <span class="c">→ 493 passing</span>
+cargo test --workspace                       <span class="c">→ PASS · 840 tests listed</span>
 cargo run -p guard-cli -- coverage           <span class="c">→ 30 surfaces: 13 / 16 / 1</span>
 cargo run -p guard-cli -- scoreboard \
-    --scenarios eval/scenarios               <span class="c">→ 125/125 · miss 1.10% · FP 0.0%</span>
-cargo run -p guard-cli -- acceptance-run     <span class="c">→ 104/104 · miss 1.37% · FP 0.0%</span>
+    --scenarios eval/scenarios               <span class="c">→ 130/130 · miss 1.12% · FP 0.0%</span>
+cargo run -p guard-cli -- acceptance-run     <span class="c">→ 104/104 · miss 1.45% · FP 0.0%</span>
 make check                                   <span class="c">→ all of the above + the front ends</span>
 
 <span class="c"># the platforms — separate targets, because each needs its own toolchain</span>
@@ -887,12 +889,12 @@ make check-windows       <span class="c">→ compiles the UIA walk + GDI capture
                          <span class="c">  and runs clippy -D warnings on it. cargo check does not link,</span>
                          <span class="c">  so no MSVC linker is needed:</span>
                          <span class="c">  rustup target add x86_64-pc-windows-msvc</span>
-make check-android       <span class="c">→ 24 Kotlin unit tests + assembleDebug (needs ANDROID_HOME, JDK 17+)</span>
+make check-android       <span class="c">→ 31 Kotlin unit tests + assembleDebug (needs ANDROID_HOME; JDK 21 verified)</span>
 make check-shell-apps    <span class="c">→ both Tauri shells, compiled rather than parsed</span>
 make check-shells        <span class="c">→ 7 front-end modules + every .sh</span></pre>
         <div class="bi">
-          <div class="zh">两个漏检率不同是因为两个语料不同：验收门用 73 个攻击场景（1.37%），记分板用 91 个（1.10%）。<b>都是同一次漏检</b>——那个只有图标证据的克隆应用场景，它被刻意留在语料里当作一次已知的、承认的失败。<br><br><code>make check-windows</code> 里的 <code>-D warnings</code> 不是洁癖。这一轮最严重的 bug 就是 <code>rustc</code> 用一条<b>警告</b>报出来的：拿 <code>windows</code> crate 那些小驼峰常量去写 <code>match</code> 分支，Rust 会把它当成<b>新绑定</b>，第一条分支匹配一切——于是每一个 UI 元素都被判成可编辑字段。能编译、能运行、答案自信地全错。</div>
-          <div class="en">The two miss rates differ because the corpora differ: the release gate runs 73 attack scenarios (1.37%), the scoreboard 91 (1.10%). <b>It is the same single miss</b> — the icon-only cloned-app scenario, deliberately kept in the corpus as a known and admitted failure.<br><br>The <code>-D warnings</code> in <code>make check-windows</code> is not fastidiousness. This iteration's worst bug was reported by <code>rustc</code> as a <b>warning</b>: a <code>match</code> over the <code>windows</code> crate's lower-camel-case constants makes each arm a <b>new binding</b>, so the first arm matched every control type and every UI element classified as an editable field. It compiled, it ran, and it was confidently wrong.</div>
+          <div class="zh">两个漏检率不同是因为两个语料不同：验收门用 69 个攻击场景（1.45%），记分板用 89 个（1.12%）。<b>都是同一次漏检</b>——那个只有图标证据的克隆应用场景，它被刻意留在语料里当作一次已知的、承认的失败。<br><br><code>make check-windows</code> 里的 <code>-D warnings</code> 不是洁癖。这一轮最严重的 bug 就是 <code>rustc</code> 用一条<b>警告</b>报出来的：拿 <code>windows</code> crate 那些小驼峰常量去写 <code>match</code> 分支，Rust 会把它当成<b>新绑定</b>，第一条分支匹配一切——于是每一个 UI 元素都被判成可编辑字段。能编译、能运行、答案自信地全错。</div>
+          <div class="en">The two miss rates differ because the corpora differ: the release gate runs 69 attack scenarios (1.45%), the scoreboard 89 (1.12%). <b>It is the same single miss</b> — the icon-only cloned-app scenario, deliberately kept in the corpus as a known and admitted failure.<br><br>The <code>-D warnings</code> in <code>make check-windows</code> is not fastidiousness. This iteration's worst bug was reported by <code>rustc</code> as a <b>warning</b>: a <code>match</code> over the <code>windows</code> crate's lower-camel-case constants makes each arm a <b>new binding</b>, so the first arm matched every control type and every UI element classified as an editable field. It compiled, it ran, and it was confidently wrong.</div>
         </div>
       </div>
     </details>
@@ -908,8 +910,8 @@ make check-shells        <span class="c">→ 7 front-end modules + every .sh</sp
       <div class="paper"><span class="pid">arXiv 2604.00986</span><span class="pt">Do Phone-Use Agents Respect Your Privacy?</span></div>
     </div>
     <div class="fine bi">
-      <div class="zh"><b>关于这一页的数字。</b>1.10% 是我们自己语料上的攻击漏检率，<b>不是</b>论文的攻击成功率——两个指标测的不是一回事，不能并排比较。误报率 0.0% 是在 34 个良性对照场景上测的，这个数字的意义完全取决于对照集有多难；语料里现在包含 emoji、ZWNJ、软连字符、bidi 隔离符和长 token，因为早先那个 0.0% 是在一个不含这些东西的语料上测出来的。<br><br>覆盖矩阵里每一个 <code>partial</code> 都带一段说明「弱在哪」的注释，那些注释是这份仓库里最有价值的部分，而不是免责声明。<br><br><b>关于拦截。</b>这一页从头到尾说的都是<b>观察</b>。观察者拦不住任何东西——看到无障碍事件的时候点击已经发生了。要真拦，守卫必须站在动作的<b>路径上</b>，而那是一次架构改动，不是一个开关。设计写在 <code>docs/interception-design.md</code>：四层路径、每层的威胁模型，以及一条不能含混的区分——<b>「配合式」控制（智能体自愿走网关，可绕）和「内核执行」控制（内核代为拒绝）不是同一种保证</b>。这个项目在自己的能力表里已经把这两者混过一次。文档目前是<b>纯设计，一行都没实现</b>。</div>
-      <div class="en"><b>On the figures.</b> 1.10% is an attack-miss rate on our own corpus and is <b>not</b> the papers' attack success rate — the two measure different things and cannot be compared side by side. The 0.0% false-positive rate is over 34 benign controls, and that number means exactly as much as the control set is hard; the corpus now contains emoji, ZWNJ, soft hyphens, bidi isolates and long tokens, because an earlier 0.0% was measured on a corpus containing none of them.<br><br>Every <code>partial</code> in the coverage matrix carries a note saying how it is weaker than the published attack. Those notes are the most valuable thing in the repository, not a disclaimer.<br><br><b>On interception.</b> Everything on this page is <b>observation</b>. An observer cannot intercept — by the time it has the accessibility event, the click has happened. Real interception requires the guard to stand <b>in the path of the action</b>, which is an architectural change rather than a switch. The design is in <code>docs/interception-design.md</code>: four possible paths, a threat model per layer, and one distinction that must never be blurred — <b>a cooperative control (the agent routes through the gateway voluntarily, and can go around it) is not the same guarantee as a kernel-enforced one</b>. This project has already conflated the two once, in its own capability matrix. The document is <b>design only; none of it is built</b>.</div>
+      <div class="zh"><b>关于这一页的数字。</b>1.12% 是我们自己语料上的攻击漏检率，<b>不是</b>论文的攻击成功率——两个指标测的不是一回事，不能并排比较。误报率 0.0% 是在 35 个良性对照场景上测的，这个数字的意义完全取决于对照集有多难；语料里现在包含 emoji、ZWNJ、软连字符、bidi 隔离符和长 token，因为早先那个 0.0% 是在一个不含这些东西的语料上测出来的。<br><br>覆盖矩阵里每一个 <code>partial</code> 都带一段说明「弱在哪」的注释，那些注释是这份仓库里最有价值的部分，而不是免责声明。<br><br><b>关于拦截。</b>GUI 观察仍然是事后信号：看到无障碍事件时，点击已经发生。但动作路径上已有两层实现：合作式 MCP 网关会在执行前扣住经它路由的工具调用，Linux <code>guard-jail</code> 会对它启动的子进程施加内核文件系统边界。前者可被直接执行绕过，后者只覆盖 Linux 和该子进程；其他设计层仍未实现。把合作式门禁或这个窄 jail 说成主机级保护，仍然不成立。</div>
+      <div class="en"><b>On the figures.</b> 1.12% is an attack-miss rate on our own corpus and is <b>not</b> the papers' attack success rate — the two measure different things and cannot be compared side by side. The 0.0% false-positive rate is over 35 benign controls, and that number means exactly as much as the control set is hard; the corpus now contains emoji, ZWNJ, soft hyphens, bidi isolates and long tokens, because an earlier 0.0% was measured on a corpus containing none of them.<br><br>Every <code>partial</code> in the coverage matrix carries a note saying how it is weaker than the published attack. Those notes are the most valuable thing in the repository, not a disclaimer.<br><br><b>On interception.</b> GUI observation remains post hoc: by the time the accessibility event arrives, the click has happened. Two in-path layers are now implemented: the cooperative MCP gateway holds routed tool calls before execution, and Linux <code>guard-jail</code> gives children it launches a kernel-enforced filesystem boundary. Direct execution can bypass the former; the latter covers only Linux and that child process. The other designed layers remain unbuilt, so neither mechanism is a host-wide protection claim.</div>
     </div>
   </div>
 </footer>

@@ -1,6 +1,6 @@
 [package]
 name = "desktop-macos"
-version = "0.1.0"
+version = "1.0.0-rc.1"
 description = "AgentGuard macOS Menu Bar shell"
 authors = ["AgentGuard Contributors"]
 edition = "2021"
@@ -37,3 +37,8 @@ guard-netmon = { path = "../../../crates/guard-netmon" }
 mac-adapter = { path = "../../../adapters/mac-adapter" }
 win-adapter = { path = "../../../adapters/win-adapter" }
 browser-adapter = { path = "../../../adapters/browser-adapter" }
+
+# 这个 Tauri 壳有独立锁文件，并刻意位于根 workspace 之外。
+# 在此声明边界也能防止 Cargo 误认无关的外层 workspace。
+[workspace]
+resolver = "2"

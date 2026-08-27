@@ -79,7 +79,7 @@ Product version: **1.0.0-rc.1**
 - [x] (A)I Sees A4 frame integrity: `framehash` grid digest + `OVL-013` + signed
       `frame_digest` + `guard-cli frame-digest` — see docs/frame-integrity.md
 - [ ] On-demand double capture (the ~2 FPS stream cannot see a 50 ms TOCTOU window)
-- [x] Verified per-surface coverage matrix (`make coverage`, 29 surfaces) +
+- [x] Verified per-surface coverage matrix (`make coverage`, 30 surfaces) +
       `kind: attack|benign` tagging + paired miss-rate / false-positive-rate
 - [ ] Agent-in-the-loop ASR/TSR (needs real agents + sampling)
 - [x] Every agent profile exercising a privacy dimension (shared probe suite; `make leaderboard` fails otherwise)

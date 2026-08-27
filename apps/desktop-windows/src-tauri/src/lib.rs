@@ -158,6 +158,7 @@ fn cap_zh(available: &bool, detail: &str) -> String {
 /// An empty list is a real answer, not a failure: `classify_field` then falls back to its
 /// heuristics. It is worth noticing though, because a missing schema directory turns a
 /// trap field into an ordinary one.
+#[cfg(windows)]
 fn load_form_schemas() -> Vec<guard_privacy::AppFormSchema> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for candidate in [
