@@ -7,7 +7,10 @@ on API 33+ it was never granted; the iOS row described policy code that does not
 Windows rows claimed capabilities behind an adapter with no Win32 code in it at all.
 
 The lesson is the same one `guard-cli coverage` exists for: a table nothing verifies drifts, and
-it drifts optimistic. So this file now says which job or test backs each claim.
+it drifts optimistic. So this file now says which job or test backs each claim. A curated subset of
+the rows here is additionally **machine-verified** by `guard-cli capability-claims` — each such
+claim is pinned to a test that must exist and prose that must still appear in this file (see
+[主张与测试映射.md](./主张与测试映射.md); rows not yet pinned are listed there as residual).
 
 ## What each platform can actually observe
 

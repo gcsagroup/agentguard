@@ -1,4 +1,4 @@
-.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -15,6 +15,10 @@ acceptance:
 # Verify the published-attack-surface coverage matrix against the repo and render it.
 coverage:
 	cargo run -p guard-cli -- coverage
+
+# Verify the user-facing capability-claims → tests map against the repo and render it (X-2).
+capability-claims:
+	cargo run -p guard-cli -- capability-claims
 
 # Every ranked agent answers the same probe suite; the command fails when a
 # profile is not comparable against it (docs/leaderboard-comparability.md).

@@ -131,6 +131,7 @@ gate "供应链 (cargo deny: CVE/许可/来源)"   make check-supply-chain
 gate "全 workspace 测试"                    cargo test --workspace
 gate "离线评测场景"                          make eval
 gate "覆盖矩阵(每个场景都被认领)"          make coverage
+gate "主张↔测试映射(声明都有测试兜底)"    make capability-claims
 gate "前端与 shell 脚本能解析"              make check-shells
 gate "macOS 专属代码路径能编译"             make check-macos-cfg
 gate "macOS 路径判决语义"                    make check-macos-path-semantics
@@ -192,7 +193,7 @@ if [ "$EVIDENCE_SEEN" -ne "$EXPECTED_EVIDENCE" ]; then
 fi
 # 精确相等,不是下限。上一版用 `-lt`,于是"新增一道门禁"就买到了"静默删掉一道门禁"
 # 的额度:11+6 仍然 >= 17。检查总数是一个已知的数,就该按已知的数核对。
-EXPECTED_GATES=11
+EXPECTED_GATES=12
 if [ $((PASS + FAIL + ${#UNVERIFIED[@]})) -ne $((EXPECTED_GATES + EXPECTED_EVIDENCE)) ]; then
   say ""
   say "脚本自身有 bug:通过 $PASS + 失败 $FAIL + 未验证 ${#UNVERIFIED[@]} 不等于应有的 $((EXPECTED_GATES + EXPECTED_EVIDENCE)) 项。"
