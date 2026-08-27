@@ -314,29 +314,21 @@ fn header(req: &tiny_http::Request, name: &str) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
+/// 入站面 #5(见 `docs/入站信任.md` §一)。处置 = [`OnUnverified::Refuse`](guard_trust::OnUnverified::Refuse):
+/// 令牌对上就放全权(放宽方向),所以令牌弱 / 非回环绑定都在启动期就拒(见 `弱令牌不让服务器起来`),
+/// 而不是"这次先信"。相等比较走[唯一的常数时间实现](guard_trust::constant_time_eq),不给猜令牌的计时侧信道。
 fn bearer_ok(request: &Request, expected: &str) -> bool {
     for h in request.headers() {
         if h.field.equiv("Authorization") {
             let v = h.value.as_str().trim();
             let prefix = "Bearer ";
             if let Some(tok) = v.strip_prefix(prefix) {
-                return constant_time_eq(tok.as_bytes(), expected.as_bytes());
+                return guard_trust::constant_time_eq(tok.as_bytes(), expected.as_bytes());
             }
             return false;
         }
     }
     false
-}
-
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff = 0u8;
-    for (x, y) in a.iter().zip(b.iter()) {
-        diff |= x ^ y;
-    }
-    diff == 0
 }
 
 /// Serve loopback API until `shutdown` is set (or forever if None).
@@ -512,9 +504,12 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                         Ok(events) => match state.engine.lock() {
                             Err(_) => json_error(500, "engine lock"),
                             Ok(mut engine) => {
-                                // 验的是**线上那串字节**,在解析之前就已经拿到了。
-                                // 验不过一律退化成"未签名"(可以加风险、不能清风险),
-                                // 而不是拒掉这个请求:适配器时钟偏了、注册表还没配、
+                                // 入站面 #6(见 `docs/入站信任.md` §一)。处置 =
+                                // `OnUnverified::DegradeSafe`:这是六个面里**唯一**允许降级的,
+                                // 因为一份未签名调查最坏只能**加**风险、清不了风险(`env_surveyed`
+                                // 之类锁存只在验过的适配器断言下才移除)。方向是收紧,所以降级安全。
+                                // —— 验的是**线上那串字节**,在解析之前就已经拿到了。
+                                // 验不过一律退化成"未签名":适配器时钟偏了、注册表还没配、
                                 // 旧版本适配器,都不该让守卫瞎掉。
                                 let adapter_identity = match (&sig_adapter, &sig_value, sig_ts) {
                                     (Some(id), Some(sig), Some(ts)) => engine.verify_adapter_body(

@@ -106,6 +106,10 @@ impl ThreatBundle {
     /// 谁就能重算那个摘要。于是攻击者把一个 Ed25519 包的签名换成 `sha256:<自算>`,即便公钥已
     /// 钉扎也「验过」。所以现在:**一旦调用方给了公钥,`sha256:` 和未签名一律不够,直接拒。**
     /// 只有 `public_key == None` 的软加载路径(开发/完整性自检)才接受它们。
+    ///
+    /// 入站面 #1(见 `docs/入站信任.md` §一)。处置 = `OnUnverified::Refuse`:情报一旦被接受就
+    /// 直接喂进 `is_malicious_domain` 等判据(放宽/收紧两个方向都会动),所以给了公钥就绝不接受
+    /// 未签名或 `sha256:` 降级。fail-closed 回归测试:`有公钥时拒绝未签名`。
     pub fn verify(&self, public_key: Option<&PublicKeyBytes>) -> Result<(), IntelError> {
         match &self.signature {
             None => {

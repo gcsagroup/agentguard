@@ -390,6 +390,10 @@ enum OriginCheck {
 /// manifest 的 `allowed_origins` 是 **Chrome 侧**强制的,对"由别的东西直接 exec 的进程"什么都
 /// 不说明。所以宿主必须自己有一份该接受的 origin(装机时由 `install-host.sh` 写在二进制旁边,
 /// 或用 `AGENTGUARD_ALLOWED_ORIGIN` 指定);两者都没有就拒绝跑。
+///
+/// 入站面 #4(见 `docs/入站信任.md` §一)。处置 = `OnUnverified::Refuse`:接受一个调用者就等于
+/// 让它把自编的 `source_app` 写进签名审计(放宽方向),所以没配期望 origin / origin 对不上都
+/// 拒绝启动,不降级。fail-closed 回归测试:`调用方origin默认拒绝且要对上`。
 fn decide_caller_origin(expected: Option<&str>, got: Option<&str>) -> OriginCheck {
     let Some(want) = expected.map(|w| w.trim().trim_end_matches('/')) else {
         return OriginCheck::Refuse(
