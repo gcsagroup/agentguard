@@ -375,30 +375,63 @@ where
     }
 }
 
-/// 校验调用方就是 manifest 声明的那个扩展。
+/// 调用方 origin 校验的结果。
+#[derive(Debug, PartialEq, Eq)]
+enum OriginCheck {
+    Ok,
+    Refuse(String),
+}
+
+/// 纯判定:给定"期望的 origin"和"实际收到的 origin",该不该放行。
 ///
-/// Chrome 会把扩展 origin 作为 `argv[1]` 传进来。manifest 里的 `allowed_origins` 是
-/// **Chrome 侧**强制的,这对"由别的东西启动的进程"什么都不说明:任何本地进程都能说这套
-/// 协议,并让自己编的 `source_app` 落进签名审计。`AGENTGUARD_ALLOWED_ORIGIN` 让部署方
-/// 声明该接受什么;没设时只警告不拒绝,这样加上这道检查不会把已有安装弄坏。
+/// **默认 fail-closed(第七轮复核发现):没有配置期望 origin = 无法验证调用方 = 拒绝启动。**
+/// 以前这一支只警告不拒绝,理由是"别把已有安装弄坏" —— 但那等于任何本地进程都能说这套协议、
+/// 把自己编的 `source_app` 写进签名审计。Chrome 把扩展 origin 作为 `argv[1]` 传进来,而
+/// manifest 的 `allowed_origins` 是 **Chrome 侧**强制的,对"由别的东西直接 exec 的进程"什么都
+/// 不说明。所以宿主必须自己有一份该接受的 origin(装机时由 `install-host.sh` 写在二进制旁边,
+/// 或用 `AGENTGUARD_ALLOWED_ORIGIN` 指定);两者都没有就拒绝跑。
+fn decide_caller_origin(expected: Option<&str>, got: Option<&str>) -> OriginCheck {
+    let Some(want) = expected.map(|w| w.trim().trim_end_matches('/')) else {
+        return OriginCheck::Refuse(
+            "调用方 origin 无法验证:AGENTGUARD_ALLOWED_ORIGIN 未设,二进制旁边也没有 \
+             allowed-origin 文件。拒绝启动 —— 不验证的话,任何本地进程都能说这套协议、\
+             把伪造的 source_app 写进签名审计。修:运行 install-host.sh(它会写 allowed-origin),\
+             或显式设 AGENTGUARD_ALLOWED_ORIGIN。"
+                .into(),
+        );
+    };
+    match got.map(|g| g.trim().trim_end_matches('/')) {
+        Some(g) if g == want => OriginCheck::Ok,
+        other => OriginCheck::Refuse(format!(
+            "拒绝调用方 origin {:?};期望 {want}",
+            other.unwrap_or_default()
+        )),
+    }
+}
+
+/// 期望的调用方 origin:`AGENTGUARD_ALLOWED_ORIGIN` 环境变量 > 二进制旁边的 `allowed-origin`
+/// 文件(装机时 `install-host.sh` 写的)。都没有返回 `None`(→ fail-closed)。
+fn expected_origin() -> Option<String> {
+    if let Ok(v) = std::env::var("AGENTGUARD_ALLOWED_ORIGIN") {
+        let v = v.trim();
+        if !v.is_empty() {
+            return Some(v.to_string());
+        }
+    }
+    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let raw = std::fs::read_to_string(dir.join("allowed-origin")).ok()?;
+    raw.lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .map(str::to_string)
+}
+
 fn check_caller_origin() {
-    let want = std::env::var("AGENTGUARD_ALLOWED_ORIGIN").ok();
+    let expected = expected_origin();
     let got = std::env::args().nth(1);
-    match (want, got) {
-        (Some(w), Some(g)) if g.trim_end_matches('/') == w.trim_end_matches('/') => {}
-        (Some(w), got) => {
-            eprintln!(
-                "agentguard: refusing caller origin {:?}; AGENTGUARD_ALLOWED_ORIGIN={w}",
-                got.unwrap_or_default()
-            );
-            std::process::exit(2);
-        }
-        (None, got) => {
-            eprintln!(
-                "agentguard: caller origin {:?} not verified (AGENTGUARD_ALLOWED_ORIGIN unset)",
-                got.unwrap_or_default()
-            );
-        }
+    if let OriginCheck::Refuse(why) = decide_caller_origin(expected.as_deref(), got.as_deref()) {
+        eprintln!("agentguard: {why}");
+        std::process::exit(2);
     }
 }
 
@@ -894,6 +927,37 @@ mod tests {
             r.unwrap().signer_key_id().is_none(),
             "未设密钥时不应当有 signer"
         );
+    }
+
+    /// 调用方 origin 校验默认 fail-closed:没配期望 origin 就拒绝;配了就必须逐字对上。
+    #[test]
+    fn 调用方origin默认拒绝且要对上() {
+        // 没有期望 origin(env 和文件都没有)→ 拒绝启动。
+        assert!(matches!(
+            decide_caller_origin(None, Some("chrome-extension://abc/")),
+            OriginCheck::Refuse(_)
+        ));
+        // 配了但对不上 → 拒绝。
+        assert!(matches!(
+            decide_caller_origin(
+                Some("chrome-extension://abc/"),
+                Some("chrome-extension://evil/")
+            ),
+            OriginCheck::Refuse(_)
+        ));
+        // 配了、对得上(尾斜杠/空白不敏感)→ 放行。
+        assert_eq!(
+            decide_caller_origin(
+                Some("chrome-extension://abc/"),
+                Some("chrome-extension://abc")
+            ),
+            OriginCheck::Ok
+        );
+        // 配了但调用方没给 origin → 拒绝。
+        assert!(matches!(
+            decide_caller_origin(Some("chrome-extension://abc/"), None),
+            OriginCheck::Refuse(_)
+        ));
     }
 
     /// **Critical 判决必须产生 `notify`,扩展才能弹 Critical Confirm 通知。**
