@@ -33,14 +33,17 @@ CREATE TABLE IF NOT EXISTS audit_events (
   seq INTEGER NOT NULL DEFAULT 0
 );
 
+-- 这三个计数器是**不作数的缓存**,不是证据:它们由 UPDATE 累加,不在哈希链、也没签名,
+-- 谁能写库就能改。`session_summary` **不读**它们 —— 它从 audit_events(action/agent_session_id
+-- 都在 record_hash 覆盖内)现算,那才是防篡改的。计数器留着只为让写入侧便宜、以及历史兼容。
 CREATE TABLE IF NOT EXISTS agent_sessions (
   id TEXT PRIMARY KEY,
   started_at INTEGER NOT NULL,
   ended_at INTEGER,
   agent_app TEXT,
-  event_count INTEGER NOT NULL DEFAULT 0,
-  block_count INTEGER NOT NULL DEFAULT 0,
-  alert_count INTEGER NOT NULL DEFAULT 0
+  event_count INTEGER NOT NULL DEFAULT 0,   -- 缓存,非证据(见上)
+  block_count INTEGER NOT NULL DEFAULT 0,   -- 缓存,非证据
+  alert_count INTEGER NOT NULL DEFAULT 0    -- 缓存,非证据
 );
 
 CREATE TABLE IF NOT EXISTS decision_receipts (
@@ -1123,26 +1126,44 @@ impl AuditStore {
         Ok(out)
     }
 
+    /// 会话摘要。元数据(起止时间、app)来自 `agent_sessions`,但三个**计数从 `audit_events`
+    /// 现算**,不读 `agent_sessions` 里那三个可变计数器(第七轮复核发现)。
+    ///
+    /// 那三个计数器(`event_count` / `block_count` / `alert_count`)是 `UPDATE` 出来的聚合,
+    /// **不在哈希链、也没签名** —— 谁能写库就能改,而桌面 UI 把它们当审计的一部分显示。相反,
+    /// `audit_events` 的 `action` 和 `agent_session_id` 都在 `record_hash` 的覆盖范围内,所以从
+    /// 它们数出来的计数是**防篡改的**:改一行 `action` 会让链验不过(`verify_chain` 抓得到)。
+    /// 因此这里从签名过的事件行现算,`agent_sessions` 的计数器降级成一个不作数的缓存(见 schema
+    /// 注释)。
     pub fn session_summary(&self, session_id: &str) -> Result<Option<SessionSummary>> {
-        self.conn
+        let meta: Option<(String, i64, Option<i64>, String)> = self
+            .conn
             .query_row(
-                r#"SELECT id, started_at, ended_at, agent_app, event_count, block_count, alert_count
-                   FROM agent_sessions WHERE id = ?1"#,
+                "SELECT id, started_at, ended_at, agent_app FROM agent_sessions WHERE id = ?1",
                 params![session_id],
-                |row| {
-                    Ok(SessionSummary {
-                        session_id: row.get(0)?,
-                        started_at: row.get(1)?,
-                        ended_at: row.get(2)?,
-                        agent_app: row.get(3)?,
-                        event_count: row.get(4)?,
-                        block_count: row.get(5)?,
-                        alert_count: row.get(6)?,
-                    })
-                },
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
-            .optional()
-            .map_err(Into::into)
+            .optional()?;
+        let Some((session, started_at, ended_at, agent_app)) = meta else {
+            return Ok(None);
+        };
+        // 计数从哈希覆盖的事件行现算。`idx_audit_session` 索引让这几次 COUNT 走索引。
+        let count = |pred: &str| -> Result<i64> {
+            let sql =
+                format!("SELECT COUNT(*) FROM audit_events WHERE agent_session_id = ?1{pred}");
+            Ok(self
+                .conn
+                .query_row(&sql, params![session_id], |r| r.get(0))?)
+        };
+        Ok(Some(SessionSummary {
+            session_id: session,
+            started_at,
+            ended_at,
+            agent_app,
+            event_count: count("")?,
+            block_count: count(" AND action LIKE '%Block%'")?,
+            alert_count: count(" AND action LIKE '%Alert%'")?,
+        }))
     }
 
     /// JSONL export including chain hash, signature and position, so the
@@ -1322,6 +1343,47 @@ mod tests {
         assert_eq!(summary.event_count, 1);
         assert_eq!(summary.block_count, 1);
         assert_eq!(summary.ended_at, Some(2000));
+    }
+
+    /// 会话计数是从签名过的 audit_events 现算的,不是读 agent_sessions 里那个可变缓存 ——
+    /// 所以篡改缓存计数器骗不了 session_summary(第七轮复核发现)。
+    #[test]
+    fn 会话计数从事件现算而不信可变缓存() {
+        let store = AuditStore::open_in_memory().unwrap();
+        let event = GuardEvent {
+            event_id: "e1".into(),
+            timestamp_ms: 1000,
+            platform: "windows".into(),
+            event_type: EventType::FormFill,
+            source_app: "Claude".into(),
+            agent_context_id: Some("sess-1".into()),
+            metadata: HashMap::new(),
+        };
+        let decision = Decision {
+            action: DecisionAction::Block,
+            severity: Severity::Critical,
+            rule_id: "CRIT-001".into(),
+            human_message: "payment".into(),
+            require_confirm: true,
+        };
+        store
+            .append(&AuditRecord::from_event_decision(&event, &decision))
+            .unwrap();
+
+        // 攻击者直接改可变缓存计数器,想把"1 次拦截"抹成 0。
+        store
+            .conn
+            .execute(
+                "UPDATE agent_sessions SET event_count = 999, block_count = 0, alert_count = 999 WHERE id = 'sess-1'",
+                [],
+            )
+            .unwrap();
+
+        // session_summary 从 audit_events 现算,无视被篡改的缓存。
+        let summary = store.session_summary("sess-1").unwrap().unwrap();
+        assert_eq!(summary.event_count, 1, "计数必须来自事件行,不是缓存");
+        assert_eq!(summary.block_count, 1, "拦截计数不能被缓存篡改抹掉");
+        assert_eq!(summary.alert_count, 0);
     }
 
     #[test]
