@@ -772,9 +772,11 @@ name = "guard-sync"
 version = "1.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "guard-intel",
  "serde",
  "serde_json",
  "serde_yaml",
+ "sha2",
  "tempfile",
  "ureq",
 ]

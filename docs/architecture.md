@@ -141,6 +141,6 @@ outcome. See [myphonebench-mapping.md](./myphonebench-mapping.md).
 | `guard-overlay` | 浮层 / 隐形文字启发式 |
 | `guard-ffi` | Swift C ABI |
 | `guard-shell` | Aura-lite 安全壳 |
-| `guard-sync` | 企业/Pro 策略同步 POC |
+| `guard-sync` | 企业/Pro 策略同步 POC(生产走 `pull_policy_verified`:Ed25519 分离签名验证 + 拒明文 http + 限大小;`pull_policy` 未认证,仅本地/开发) |
 | `guard-netmon` | 外传元数据启发式 |
 | `android-adapter` | Accessibility JSON → GuardEvent |
