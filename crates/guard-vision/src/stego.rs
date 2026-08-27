@@ -12,9 +12,13 @@
 /// 判据阈值。两条路的指标见下方长注释。
 pub const STEGO_FLIP_THRESHOLD: f32 = 0.35;
 
-/// 采样行间距(让代价对大帧保持平坦)。行**内**每个相邻像素对都看 —— 固定跨步比较是
-/// 上一版被精确归零的原因。
-const STRIDE_Y: usize = 11;
+/// 扫描的最小高度。**每一行都扫**(不再按固定行间距采样)。
+///
+/// 上一版按 `STRIDE_Y = 11` 采样行(只看第 0、11、22… 行)—— 这和它已经修掉的**水平**固定
+/// 跨步是同一个洞的垂直版:攻击者把 LSB 载荷只嵌到 `y % 11 != 0` 的行(约 91% 容量),每个
+/// 被采样行都干净,翻转率归零、OVL-008/011 静默(第七轮复核发现 8)。既然行内已经每个相邻对
+/// 都看,行也全看:2 FPS 下全扫一帧(约 1600×900)只是毫秒级,没有理由留一个可对齐的靶子。
+const MIN_SCAN_HEIGHT: usize = 2;
 
 // # 为什么两条路的指标都换掉了
 //
@@ -92,14 +96,13 @@ const STRIDE_Y: usize = 11;
 /// identically; one channel is representative and cheapest).
 /// `px` is tightly packed 4-byte pixels.
 pub fn lsb_flip_rate(px: &[u8], width: usize, height: usize) -> f32 {
-    if width < 4 || height < STRIDE_Y * 2 || px.len() < width * height * 4 {
+    if width < 4 || height < MIN_SCAN_HEIGHT || px.len() < width * height * 4 {
         return 0.0;
     }
     let mut b0 = 0usize;
     let mut b1 = 0usize;
     let mut pairs = 0usize;
-    let mut y = 0;
-    while y < height {
+    for y in 0..height {
         let row = y * width * 4;
         for x in 0..width - 1 {
             let a = px[row + x * 4 + 1];
@@ -108,7 +111,6 @@ pub fn lsb_flip_rate(px: &[u8], width: usize, height: usize) -> f32 {
             b1 += (((a >> 1) ^ (b >> 1)) & 1) as usize;
             pairs += 1;
         }
-        y += STRIDE_Y;
     }
     if pairs == 0 {
         return 0.0;
@@ -128,7 +130,7 @@ pub fn lsb_flip_rate(px: &[u8], width: usize, height: usize) -> f32 {
 ///
 /// `bgra` selects channel order; pixels are analyzed in place, never retained.
 pub fn chroma_lsb_flip_rate(px: &[u8], width: usize, height: usize, bgra: bool) -> f32 {
-    if width < 4 || height < STRIDE_Y * 2 || px.len() < width * height * 4 {
+    if width < 4 || height < MIN_SCAN_HEIGHT || px.len() < width * height * 4 {
         return 0.0;
     }
     // 判据:**色度变了而亮度没变**的相邻对占比。理由见文件上方长注释的"色度那一路"。
@@ -142,8 +144,7 @@ pub fn chroma_lsb_flip_rate(px: &[u8], width: usize, height: usize, bgra: bool) 
     const MAX_LUMA_DELTA: f32 = 0.5;
     let mut hits = 0usize;
     let mut pairs = 0usize;
-    let mut y = 0;
-    while y < height {
+    for y in 0..height {
         let row = y * width * 4;
         for x in 0..width - 1 {
             let rgb = |o: usize| -> (f32, f32, f32) {
@@ -167,7 +168,6 @@ pub fn chroma_lsb_flip_rate(px: &[u8], width: usize, height: usize, bgra: bool) 
             }
             pairs += 1;
         }
-        y += STRIDE_Y;
     }
     if pairs == 0 {
         return 0.0;
@@ -405,6 +405,37 @@ mod b6_隐写判据复核 {
             assert!(
                 luma > STEGO_FLIP_THRESHOLD,
                 "对齐到跨步 {stride} 之后亮度判据只剩 {luma:.4} —— 被归零了"
+            );
+        }
+    }
+
+    /// **垂直方向**的同一个洞:载荷只嵌在 `y % stride != 0` 的行(避开旧的 STRIDE_Y=11
+    /// 采样行),旧实现每个被采样行都干净、翻转率**精确归零**。现在每一行都扫,这条对齐
+    /// evasion被堵(第七轮复核发现 8)。
+    ///
+    /// 用 stride ∈ {7,11,13}:避开这些采样行仍保留 ≥85% 的行做载荷,翻转率远在阈值之上。
+    /// **一条如实的密度下限**:全扫堵的是「对齐到采样行」这种几乎不损容量的 evasion;若攻击者
+    /// 肯把 ≥30% 的行留成干净灰底(stride=2、3),平均翻转率会被稀释到阈值下 —— 但那要付出
+    /// 大量容量,且和文件上方那条「高熵载体检测不出」是同一类速率检测器的固有局限,不是可
+    /// 对齐的固定靶子。
+    #[test]
+    fn 避开采样行的隐写仍被抓到() {
+        for stride in [7usize, 11, 13] {
+            let mut r = rng(stride as u64 * 71 + 5);
+            // 只在 `y % stride != 0` 的行做 LSB 隐写;被跳过的行是干净灰底。
+            let buf = frame(|_, y| {
+                if y % stride == 0 {
+                    (180, 180, 180) // 旧采样行:干净
+                } else {
+                    let bit = (r() & 1) as u8;
+                    let v = (180 & 0xFE) | bit;
+                    (v, v, v)
+                }
+            });
+            let luma = lsb_flip_rate(&buf, RW, RH);
+            assert!(
+                luma > STEGO_FLIP_THRESHOLD,
+                "载荷避开 {stride} 的采样行后亮度判据只剩 {luma:.4} —— 垂直方向被归零了"
             );
         }
     }
