@@ -1,5 +1,13 @@
 //! C ABI surface for Swift / macOS hosts.
 //!
+//! # 状态:未接线的实验件(第七轮复核发现,D6)
+//!
+//! 这个 crate 编译成 `cdylib` / `staticlib` 并有单元测试,但**仓库里没有任何消费者**:没有
+//! crate 依赖它,也没有任何 Rust / Swift / Objective-C / Kotlin 代码调 `ag_engine_*`
+//! (`desktop-macos` 是 Tauri,直接调 `mac-adapter`;`ios-webshield` 没有 Xcode 工程)。所以
+//! 它是一个**面向未来 Swift 集成的实验性 ABI**,不是一条已交付、正在用的集成路径。在真的接上
+//! 一个消费者(并对着它验证内存所有权约定)之前,别把它当成"已经在保护某个 Swift 宿主"。
+//!
 //! ```text
 //! ag_engine_new(rules_path, policy_path) -> *mut EngineHandle
 //! ag_engine_free(handle)

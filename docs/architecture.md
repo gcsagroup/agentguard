@@ -31,7 +31,7 @@ flowchart LR
 | `guard-eval` | Offline scenario runner |
 | `guard-intel` | Threat bundle + Ed25519 / legacy sha256 verify |
 | `guard-overlay` | Structured UI region → overlay findings → `[AG_*]` markers |
-| `guard-ffi` | C ABI (`ag_engine_*`) for Swift / macOS hosts |
+| `guard-ffi` | C ABI (`ag_engine_*`) for Swift / macOS hosts — **实验件,仓库内无消费者**(未接线,见 crate 头) |
 | `guard-shell` | Aura-lite safe shell: allowlist / deny / confirm |
 | `guard-cli` | Developer CLI |
 | `guard-nm-host` | Chrome Native Messaging host |
@@ -139,7 +139,7 @@ outcome. See [myphonebench-mapping.md](./myphonebench-mapping.md).
 | Crate | Role |
 |-------|------|
 | `guard-overlay` | 浮层 / 隐形文字启发式 |
-| `guard-ffi` | Swift C ABI |
+| `guard-ffi` | Swift C ABI(实验件,无消费者) |
 | `guard-shell` | Aura-lite 安全壳 |
 | `guard-sync` | 企业/Pro 策略同步 POC(生产走 `pull_policy_verified`:Ed25519 分离签名验证 + 拒明文 http + 限大小;`pull_policy` 未认证,仅本地/开发) |
 | `guard-netmon` | 外传元数据启发式 |
