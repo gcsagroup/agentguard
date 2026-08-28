@@ -32,6 +32,11 @@ claim is pinned to a test that must exist and prose that must still appear in th
 
 **Legend:** ✅ works · 🟡 works with a stated limit · ❌ absent
 
+The **Chromium** column covers both Chrome and **Edge** (same MV3 extension). **Firefox** runs the same
+extension via a separate `manifest.firefox.json` (ported, real-device unverified); **Safari** is an
+Xcode-wrapped design item, not built. Per-browser breakdown and the capability-by-browser table are in
+[跨浏览器.md](./跨浏览器.md).
+
 ### Note 1 — Windows overlay coverage is narrower than macOS
 
 The capture path is GDI `BitBlt` on the target window's device context, which reads *that
