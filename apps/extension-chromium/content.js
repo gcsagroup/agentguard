@@ -216,7 +216,7 @@ function reportPrevented(reason, kind) {
 
 // 极简的本地确认层。preventDefault 之后 DOM 已经被按住了,所以这个可以是异步的——
 // 批准回调里再程序化重放动作。刻意不用 window.confirm(某些页面会覆盖它)。
-function askAllowOnce(reason, onAllow) {
+function askAllowOnce(reason, onAllow, onCancel) {
   // 用离散的 style 属性赋值,不用 el.style.cssText(那是"把字符串当 CSS 解析"的 sink,仓库
   // 不变量测试禁掉整个 API)。也不用 innerHTML —— 全程 createElement + textContent。
   const host = document.createElement("div");
@@ -271,7 +271,16 @@ function askAllowOnce(reason, onAllow) {
     cursor: "pointer",
   });
   const close = () => host.remove();
-  cancel.addEventListener("click", close);
+  cancel.addEventListener("click", () => {
+    close();
+    if (typeof onCancel === "function") {
+      try {
+        onCancel();
+      } catch (e) {
+        console.debug("AgentGuard cancel handler failed", e);
+      }
+    }
+  });
   allow.addEventListener("click", () => {
     close();
     try {
@@ -334,3 +343,20 @@ document.addEventListener(
   },
   true
 );
+
+/* 页面上下文(guard-page.js,MAIN world)拦到一个付款形状的直发 fetch/XHR,通过 window.postMessage
+ * 来要一个"允许/拒绝"。内容脚本在隔离世界,能弹确认 UI、能连扩展,所以由它作答并留痕。 */
+const AG_REQ = "__agentguard_req_gate__";
+const AG_DECISION = "__agentguard_req_decision__";
+window.addEventListener("message", (ev) => {
+  if (ev.source !== window) return;
+  const d = ev.data;
+  if (!d || d.type !== AG_REQ || typeof d.id !== "number") return;
+  const reason = d.reason || "这个请求看起来在发起一次付款/转账";
+  reportPrevented(reason, "outbound_request");
+  askAllowOnce(
+    reason,
+    () => window.postMessage({ type: AG_DECISION, id: d.id, allow: true }, "*"),
+    () => window.postMessage({ type: AG_DECISION, id: d.id, allow: false }, "*")
+  );
+});

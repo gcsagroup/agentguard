@@ -72,4 +72,28 @@ test("空主机列表得到空规则(不无中生有拦东西)", () => {
   assert.deepEqual(Gate.buildBlockRules([]), []);
 });
 
+test("付款形状的 POST 请求要在发出前拦", () => {
+  assert.equal(Gate.classifyRequest("https://shop.example/api/checkout", "POST").gate, true);
+  assert.equal(Gate.classifyRequest("/v1/payment/charge", "POST").gate, true);
+  assert.equal(Gate.classifyRequest("https://bank.example/transfer", "PUT").gate, true);
+});
+
+test("只读方法不拦(GET/HEAD 不该有副作用)", () => {
+  // 反面用例:付款路径 + GET 也不拦——拦它是误伤,而误伤会让人关掉门。
+  assert.equal(Gate.classifyRequest("https://shop.example/checkout", "GET").gate, false);
+  assert.equal(Gate.classifyRequest("https://shop.example/payment", "HEAD").gate, false);
+});
+
+test("普通 POST 不拦(避免把门变成噪音)", () => {
+  assert.equal(Gate.classifyRequest("https://api.example/search", "POST").gate, false);
+  assert.equal(Gate.classifyRequest("https://api.example/login", "POST").gate, false);
+  // 'paypal.com' 作为主机名不该因为含 'pay' 命中——判据看的是**路径**,不是整串里的子串。
+  assert.equal(Gate.classifyRequest("https://paypal.com/home", "POST").gate, false);
+});
+
+test("拦截时带一个给用户看的理由", () => {
+  const d = Gate.classifyRequest("https://x.example/api/pay", "POST");
+  assert.ok(d.gate && d.reason.length > 0);
+});
+
 console.log(`\nguard-gate: ${passed} 条测试全部通过`);

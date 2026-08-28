@@ -80,7 +80,43 @@
     }));
   }
 
-  const Gate = { gateForFinding, gateForFindings, buildBlockRules, BLOCKING };
+  // 付款/转账形状的请求路径。命中的出站请求在发出前要过确认——这补上"内容脚本 DOM 门拦不了
+  // 一段直接 fetch() 的脚本"那条残余(E2.1)。判据刻意只看 URL(不看 body):body 因站而异、误判
+  // 高,而误拦会让人关掉门;URL 路径里的 pay/checkout/charge/transfer 是跨站相当稳的信号。
+  const PAYMENT_PATH_RE =
+    /\/(pay|payment|checkout|charge|transfer|remit|purchase|order[_-]?confirm|confirm[_-]?order)(\/|\b|$)/i;
+
+  /**
+   * 一个出站请求要不要在发出前拦下确认。
+   * @param {string} url - 请求 URL(绝对或相对)
+   * @param {string} [method] - HTTP 方法
+   * @returns {{gate: boolean, reason: string}}
+   */
+  function classifyRequest(url, method) {
+    const u = String(url || "");
+    // 只读方法(GET/HEAD)不拦:付款/转账是状态变更,GET 不该有副作用,拦它只会误伤。
+    const m = String(method || "GET").toUpperCase();
+    if (m === "GET" || m === "HEAD") return { gate: false, reason: "" };
+    let path = u;
+    try {
+      // 相对 URL 也能解析(base 随便给一个);解析失败就退回按整串匹配。
+      path = new URL(u, "http://x").pathname;
+    } catch (_e) {
+      /* 用原串 */
+    }
+    if (PAYMENT_PATH_RE.test(path) || PAYMENT_PATH_RE.test(u)) {
+      return { gate: true, reason: "这个请求看起来在发起一次付款/转账" };
+    }
+    return { gate: false, reason: "" };
+  }
+
+  const Gate = {
+    gateForFinding,
+    gateForFindings,
+    buildBlockRules,
+    classifyRequest,
+    BLOCKING,
+  };
 
   root.AgentGuardGate = Gate;
   if (typeof module !== "undefined" && module.exports) {
