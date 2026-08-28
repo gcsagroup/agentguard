@@ -37,6 +37,10 @@ extension via a separate `manifest.firefox.json` (ported, real-device unverified
 Xcode-wrapped design item, not built. Per-browser breakdown and the capability-by-browser table are in
 [跨浏览器.md](./跨浏览器.md).
 
+Real-device acceptance checklists (the last mile CI cannot cover) live per platform:
+[macOS](./acceptance-macos.md), [Windows](./acceptance-windows.md), [Firefox](./acceptance-firefox.md);
+each is a `release-gate.sh` "needs real hardware" evidence item.
+
 ### Note 1 — Windows overlay coverage is narrower than macOS
 
 The capture path is GDI `BitBlt` on the target window's device context, which reads *that

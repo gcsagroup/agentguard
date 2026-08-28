@@ -182,8 +182,14 @@ need_evidence \
   "docs/acceptance-firefox.md 的 F1–F8 逐条走完并留记录" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX \
   "acceptance"
+need_evidence \
+  "真机端到端验收(Windows 桌面)" \
+  "需要一台真 Windows(UI Automation 取树、GDI 抓帧、Windows.Media.Ocr 读屏、阻断式模态只有真机能验)" \
+  "docs/acceptance-windows.md 的 W1–W7 逐条走完并留记录" \
+  AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS \
+  "acceptance"
 
-# 自检:上面应该恰好登记 7 项需要证据的东西。
+# 自检:上面应该恰好登记 8 项需要证据的东西。
 #
 # 这一条存在,是因为这个脚本自己犯过一次:第一版用了中文局部变量名,bash 的 `local`
 # 不接受,于是 need_evidence 整体失效 —— 六项一条都没登记,而脚本最后打印的是
@@ -191,7 +197,7 @@ need_evidence \
 #
 # 教训不是"别用中文变量名",是**一个门禁必须能发现自己失效了**。所以这里对着一个
 # 写死的数字核对:登记数不对,报的是脚本自身的 bug,而不是发布通过。
-EXPECTED_EVIDENCE=7
+EXPECTED_EVIDENCE=8
 if [ "$EVIDENCE_SEEN" -ne "$EXPECTED_EVIDENCE" ]; then
   say ""
   say "脚本自身有 bug:登记了 $EVIDENCE_SEEN 项需要证据的检查,期望 $EXPECTED_EVIDENCE 项。"
