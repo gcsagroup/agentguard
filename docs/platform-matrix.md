@@ -25,7 +25,7 @@ claim is pinned to a test that must exist and prose that must still appear in th
 | **Overlay detection** | ✅ pixels + AX regions | 🟡 window's own rendering only — see note 1 | 🟡 window list, draw-over-other-apps only — see note 2 | ✅ DOM opacity/geometry | ❌ |
 | **Environment survey (A5/A6)** | ❌ | ❌ | ✅ a11y services, broadcast sinks, log readers | ❌ | ❌ |
 | **Critical-node confirmation** | ✅ blocking modal in the shell | ✅ blocking modal in the shell | 🟡 notification **after** the event — see note 3 | 🟡 in-page 执行前拦截(付款/陷阱提交)+ host 事后通知 — see note 4 | ❌ |
-| **Auto-poller** | 1.5 s frames / 2.5 s tree | 2.5 s, tied to the session | event-driven | event-driven | — |
+| **Auto-poller** | 1.5 s frames; tree now **AXObserver push** + ≤3 s 兜底 — see note 5 | 2.5 s, tied to the session | event-driven | event-driven | — |
 | **Runtime capability probe** | ✅ TCC preflight | ✅ real probe with a reason string | ✅ a11y-enabled + notification permission | — | — |
 | **Compiled in CI** | ✅ `macos-shell` job | ✅ `windows` job | ✅ `android` job | 🟡 syntax only (`frontend` job) | ❌ nothing to compile |
 | **Tests** | 3 packaging | 2 packaging + 5 adapter | 24 unit | 0 | 0 |
@@ -101,6 +101,23 @@ cross-origin iframes, or any native-app action. So the cell is "🟡 in-page 执
 the block is real but its reach is the page, not the machine. See [浏览器执行前阻断.md](./浏览器执行前阻断.md);
 decision logic pinned by `guard-gate.js`'s node tests, host-notify still pinned by
 `critical判决产生notify供扩展弹通知`.
+
+### Note 5 — macOS tree observation is push-driven, with polling kept as a floor (E3)
+
+The tree used to be a fixed 2.5 s poll, so a change that appeared and vanished between two polls
+could fall entirely in the gap — the "not real-time monitoring" boundary. E3 registers an
+**AXObserver** (`native/AgentGuardAX.m`, FFI in `ax_native.rs`) that pushes a notification when the
+frontmost app's tree changes; a change now triggers a capture within `DEBOUNCE_MS` (150 ms) instead
+of waiting up to a full poll period. A pure coalescer (`ax_push.rs`) debounces bursts and caps the
+change-to-capture latency at `MAX_LATENCY_MS` (800 ms) so a continuously-animating UI still gets
+captured. Polling is **not** removed — it stays as a `FALLBACK_FLOOR_MS` (3 s) floor, so a failed
+observer registration or a missed notification degrades to the old poll rather than to blindness.
+
+Two honesty limits: **pixel capture stays sampled** (1.5 s frames) — AXObserver is a tree signal, not
+a frame signal, so this shrinks the *tree* gap, not the pixel gap; and the coalescer is unit-tested
+here (`ax_push::tests`), but the AXObserver registration and the Objective-C callback are compiled
+only on macOS (`check-macos-cfg` rewrites the Rust half to Linux to type-check it) and **not verified
+on a real device**. This is "faster, with a bounded gap", not "zero gap".
 
 ## iOS
 
