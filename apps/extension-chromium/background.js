@@ -100,9 +100,9 @@ function handleVerdict(response) {
   if (response.audit_degraded) {
     console.debug("AgentGuard: verdict returned but audit row did not persist");
   }
-  // 宿主可以随判决附一组要在网络层拦的主机(恶意域 / 越出 scope.hosts 的目的地)。
-  if (Array.isArray(response.block_hosts)) {
-    installBlockedHosts(response.block_hosts);
+  // 宿主可以随判决附一组要在网络层拦的主机(恶意域 / 越出 scope.hosts 的目的地),每条带 kind。
+  if (Array.isArray(response.block_hosts) && response.block_hosts.length) {
+    updateBlocklist(response.block_hosts);
   }
   if (items.length || response.paused) {
     pushRecent({
@@ -119,20 +119,56 @@ function handleVerdict(response) {
   }
 }
 
-// 网络层执行前阻断:把宿主判定要拦的主机装成 declarativeNetRequest 动态规则,请求发出**前**拦。
-// 规则构造是 guard-gate.js 的纯函数(有 node 单测);这里只做安装 + 清掉上一批(id 稳定,便于替换)。
-async function installBlockedHosts(hosts) {
+// 名单状态(E8):{persistent:[恶意域], session:[{host,exp}]}。恶意域累积保留并落 storage 跨
+// 重启存活;越界项随会话过期。合并/过期逻辑是 guard-gate.js 的纯函数 mergeBlocklist(有 node 单测)。
+let blocklist = { persistent: [], session: [] };
+chrome.storage.local.get(["blocklist"], (data) => {
+  if (data.blocklist && Array.isArray(data.blocklist.persistent)) {
+    blocklist = {
+      persistent: data.blocklist.persistent,
+      session: Array.isArray(data.blocklist.session) ? data.blocklist.session : [],
+    };
+    // 启动即把已知恶意域重新装上(service worker 重启后 DNR 动态规则可能已被清)。
+    installActive();
+  }
+});
+
+// 收到宿主的一批 block_hosts:按 kind 分流,合并进累积状态,持久化,再装 active 集。
+function updateBlocklist(blockHosts) {
+  const Gate = self.AgentGuardGate;
+  if (!Gate) return;
+  const malicious = [];
+  const outOfScope = [];
+  for (const b of blockHosts) {
+    if (!b || !b.host) continue;
+    if (b.kind === "malicious") malicious.push(b.host);
+    else if (b.kind === "out_of_scope") outOfScope.push(b.host);
+  }
+  const merged = Gate.mergeBlocklist(blocklist, malicious, outOfScope, Date.now());
+  blocklist = { persistent: merged.persistent, session: merged.session };
+  try {
+    chrome.storage.local.set({ blocklist });
+  } catch (e) {
+    console.debug("AgentGuard blocklist persist failed", e);
+  }
+  installActive();
+}
+
+// 把当前 active 主机集(持久 ∪ 未过期会话)装进 DNR。重算 active 时顺带过期会话项。
+async function installActive() {
   const Gate = self.AgentGuardGate;
   if (!Gate || !chrome.declarativeNetRequest) return;
+  // 用一次空合并把过期项剪掉,拿到当前 active 与清理后的 session。
+  const merged = Gate.mergeBlocklist(blocklist, [], [], Date.now());
+  blocklist = { persistent: merged.persistent, session: merged.session };
   try {
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
     const removeRuleIds = existing.map((r) => r.id);
-    const addRules = Gate.buildBlockRules(hosts);
+    const addRules = Gate.buildBlockRules(merged.active);
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
   } catch (e) {
     // fail-open 在这里是**有意**的且已声明:DNR 是对内容脚本同步门的**加**一层,不是唯一防线。
-    // 装不上就记一条,不假装拦住了——不把它做成 fail-closed 是因为一个连不上 DNR 的扩展不该
-    // 让用户整个浏览器都上不了网。
+    // 装不上就记一条,不假装拦住了——一个连不上 DNR 的扩展不该让用户整个浏览器都上不了网。
     console.debug("AgentGuard DNR install failed", e);
   }
 }

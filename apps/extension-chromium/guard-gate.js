@@ -110,11 +110,73 @@
     return { gate: false, reason: "" };
   }
 
+  // DNR 名单的累积语义(E8)。两类主机的寿命不同,所以不能每批判决整体替换(那会让一条恶意域
+  // 在下一批 benign 判决到来时被清掉):
+  //   - malicious(已知恶意域):**累积保留**,并落 chrome.storage 跨 service-worker 重启存活。
+  //   - out_of_scope(越出任务 hosts):**随会话过期**——它是任务相对的,不该永久拦掉用户对该主机的
+  //     正常访问。用时间戳过期(默认 30 分钟没被再次判越界就撤)。
+  const SESSION_TTL_MS = 30 * 60 * 1000;
+  // DNR 动态规则有配额;给持久名单一个上限,超了丢最旧的(保留最近判定的)。
+  const MAX_PERSISTENT = 4000;
+
+  const normHost = (h) => String(h || "").trim().toLowerCase();
+
+  /**
+   * 把上一份名单状态和这一批新判决合并,算出当前该装进 DNR 的完整主机集。
+   *
+   * @param {{persistent?: string[], session?: Array<{host:string,exp:number}>}} state 上一份状态
+   * @param {string[]} malicious 这批新判的恶意域
+   * @param {string[]} outOfScope 这批新判的越界目的地
+   * @param {number} now 当前时间 ms
+   * @param {number} [ttlMs] 会话项寿命
+   * @param {number} [maxPersistent] 持久名单上限
+   * @returns {{persistent: string[], session: Array<{host:string,exp:number}>, active: string[]}}
+   */
+  function mergeBlocklist(state, malicious, outOfScope, now, ttlMs, maxPersistent) {
+    const ttl = typeof ttlMs === "number" ? ttlMs : SESSION_TTL_MS;
+    const cap = typeof maxPersistent === "number" ? maxPersistent : MAX_PERSISTENT;
+
+    // 持久集:累积恶意域,去重,保序(新的追加到尾),超上限丢最旧的。
+    let persistent = Array.isArray(state && state.persistent)
+      ? state.persistent.map(normHost).filter(Boolean)
+      : [];
+    const seen = new Set(persistent);
+    for (const h of (malicious || []).map(normHost).filter(Boolean)) {
+      if (!seen.has(h)) {
+        seen.add(h);
+        persistent.push(h);
+      }
+    }
+    if (persistent.length > cap) persistent = persistent.slice(persistent.length - cap);
+    const persistentSet = new Set(persistent);
+
+    // 会话集:{host, exp}。先丢掉已过期的,再把这批越界项(exp = now+ttl)加/刷新。
+    // 已经在持久集里的主机不必再进会话集(持久的更强)。
+    const sessionMap = new Map();
+    for (const e of (state && state.session) || []) {
+      if (e && e.host && typeof e.exp === "number" && e.exp > now) {
+        const h = normHost(e.host);
+        if (h && !persistentSet.has(h)) sessionMap.set(h, e.exp);
+      }
+    }
+    for (const h of (outOfScope || []).map(normHost).filter(Boolean)) {
+      if (!persistentSet.has(h)) sessionMap.set(h, now + ttl);
+    }
+    const session = [...sessionMap.entries()].map(([host, exp]) => ({ host, exp }));
+
+    // active = 持久 ∪ 未过期会话,排序稳定(便于测试与稳定的 DNR 规则 id)。
+    const active = Array.from(new Set([...persistent, ...sessionMap.keys()])).sort();
+    return { persistent, session, active };
+  }
+
   const Gate = {
     gateForFinding,
     gateForFindings,
     buildBlockRules,
     classifyRequest,
+    mergeBlocklist,
+    SESSION_TTL_MS,
+    MAX_PERSISTENT,
     BLOCKING,
   };
 

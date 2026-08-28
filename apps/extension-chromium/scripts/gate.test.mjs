@@ -96,4 +96,47 @@ test("拦截时带一个给用户看的理由", () => {
   assert.ok(d.gate && d.reason.length > 0);
 });
 
+test("恶意域累积保留:下一批 benign 判决不会把它清掉", () => {
+  // E5 原来的 bug:整体替换 → 一批空判决就把上一批的恶意域撤了。累积语义修掉它。
+  const s1 = Gate.mergeBlocklist({}, ["evil.example"], [], 1000);
+  assert.deepEqual(s1.persistent, ["evil.example"]);
+  assert.ok(s1.active.includes("evil.example"));
+  const s2 = Gate.mergeBlocklist(s1, [], [], 2000); // benign 批,无新恶意域
+  assert.ok(s2.persistent.includes("evil.example"), "恶意域必须仍在持久名单");
+  assert.ok(s2.active.includes("evil.example"), "恶意域必须仍在 active");
+});
+
+test("越界目的地随会话过期,不永久拦掉用户对该主机的正常访问", () => {
+  const ttl = 1000;
+  const s1 = Gate.mergeBlocklist({}, [], ["booking.com"], 1000, ttl);
+  assert.ok(s1.active.includes("booking.com"), "刚判越界应在 active");
+  // 过了 ttl 且没再判越界 → 撤掉。
+  const s2 = Gate.mergeBlocklist(s1, [], [], 1000 + ttl + 1, ttl);
+  assert.ok(!s2.active.includes("booking.com"), "过期的越界主机应从 active 撤掉");
+});
+
+test("再次判越界会刷新过期时间", () => {
+  const ttl = 1000;
+  const s1 = Gate.mergeBlocklist({}, [], ["x.example"], 1000, ttl);
+  const s2 = Gate.mergeBlocklist(s1, [], ["x.example"], 1500, ttl); // 刷新
+  const s3 = Gate.mergeBlocklist(s2, [], [], 1000 + ttl + 1, ttl); // 原 exp 已过,但被刷新过
+  assert.ok(s3.active.includes("x.example"), "刷新后应延到新 exp,仍在 active");
+});
+
+test("既恶意又越界的主机归入持久(malicious 更强)", () => {
+  const s = Gate.mergeBlocklist({}, ["dual.example"], ["dual.example"], 1000, 1000);
+  assert.ok(s.persistent.includes("dual.example"));
+  // 不重复出现在会话集里。
+  assert.ok(!s.session.some((e) => e.host === "dual.example"));
+});
+
+test("持久名单有上限,超了丢最旧的(尊重 DNR 配额)", () => {
+  let state = {};
+  for (let i = 0; i < 5; i++) {
+    state = Gate.mergeBlocklist(state, [`m${i}.example`], [], 1000 + i, 1000, 3);
+  }
+  assert.equal(state.persistent.length, 3, "持久名单应被截到上限 3");
+  assert.deepEqual(state.persistent, ["m2.example", "m3.example", "m4.example"], "保留最近的");
+});
+
 console.log(`\nguard-gate: ${passed} 条测试全部通过`);

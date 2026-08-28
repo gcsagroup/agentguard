@@ -204,7 +204,9 @@ claims:
       - { test: 恶意域判决在响应里带上block_hosts, file: crates/guard-nm-host/src/main.rs }
       - { test: 只从恶意域判决抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
       - { test: 越界目的地也抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
-    note: SCOPE-HOST 只在任务声明了 hosts 时发(没声明不拦);越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
+      - { test: "恶意域累积保留:下一批 benign 判决不会把它清掉", file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: "越界目的地随会话过期,不永久拦掉用户对该主机的正常访问", file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
 
   - id: macos-realtime-tree
     claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)

@@ -80,37 +80,52 @@ struct HostResponse {
     /// 判决做出来了但没能落盘。判决仍然返回 —— 丢掉审计行不能连答案一起丢掉。
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     audit_degraded: bool,
-    /// 引擎判为恶意域、要浏览器在**网络层**硬拦的主机(E5)。扩展 background.js 拿它装
-    /// declarativeNetRequest 规则,于是"引擎判恶意 → 浏览器请求发出前就拦"这条链接上了 ——
-    /// 不再只是弹个事后通知。空则不出现。
+    /// 引擎判为要浏览器在**网络层**硬拦的主机(E5/E7)。每条带 `kind`,扩展 background.js 据此
+    /// 决定累积语义(E8):`malicious` 累积保留、`out_of_scope` 随会话过期。空则不出现。
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    block_hosts: Vec<String>,
+    block_hosts: Vec<BlockedHost>,
 }
 
-/// 从一条判决里抠出"要浏览器网络层拦的主机",没有则 `None`。
+/// 一个要浏览器拦的主机,以及它**为什么**被拦——决定累积语义。
+#[derive(Serialize, Debug, PartialEq, Eq)]
+struct BlockedHost {
+    host: String,
+    /// `"malicious"`(已知恶意域,累积保留)或 `"out_of_scope"`(越出任务 hosts,随会话过期)。
+    kind: &'static str,
+}
+
+/// 从一条判决里抠出"要浏览器网络层拦的主机"(含类别),没有则 `None`。
 ///
 /// 纯函数,便于单测。两类会拦主机的判决,各用自己的**结构化 rule_id + 共享前缀**(都在
 /// `guard_schema` 里,生产端改了措辞这里编译期就跟着改)——不在自由文本里瞎猜:
 ///
-/// * `INTEL-DOMAIN`:已知恶意域。主机在前缀后,取第一个空白词(门会追加" (user denied…)"后缀,
-///   主机名不含空白,所以第一个词就是主机)。
-/// * `SCOPE-HOST`(E7):目的地越出任务 `scope.hosts` 天花板。主机在两个 `'` 之间。引擎的
-///   `check_scope_host` **只在任务声明了 hosts 时**才发这条(没声明就不发),所以这里天然不会
-///   因为"没配 scope"而拦掉一切。哨兵 `<unnameable>`(主机解析不出)不进名单。
-fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<String> {
+/// * `INTEL-DOMAIN` → `kind="malicious"`:已知恶意域。主机在前缀后,取第一个空白词(门会追加
+///   " (user denied…)"后缀,主机名不含空白,所以第一个词就是主机)。
+/// * `SCOPE-HOST`(E7)→ `kind="out_of_scope"`:目的地越出任务 `scope.hosts` 天花板。主机在两个
+///   `'` 之间。引擎的 `check_scope_host` **只在任务声明了 hosts 时**才发这条(没声明就不发),
+///   所以这里天然不会因为"没配 scope"而拦掉一切。哨兵 `<unnameable>`(主机解析不出)不进名单。
+fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<BlockedHost> {
     if rule_id == guard_schema::INTEL_DOMAIN_RULE_ID {
         return human_message
             .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
             .and_then(|rest| rest.split_whitespace().next())
             .map(|h| h.to_string())
-            .filter(|h| !h.is_empty());
+            .filter(|h| !h.is_empty())
+            .map(|host| BlockedHost {
+                host,
+                kind: "malicious",
+            });
     }
     if rule_id == guard_schema::SCOPE_HOST_RULE_ID {
         return human_message
             .strip_prefix(guard_schema::SCOPE_HOST_MSG_PREFIX)
             .and_then(|rest| rest.split('\'').next()) // 主机 = 到下一个 `'` 为止
             .map(|h| h.trim().to_string())
-            .filter(|h| !h.is_empty() && h != "<unnameable>");
+            .filter(|h| !h.is_empty() && h != "<unnameable>")
+            .map(|host| BlockedHost {
+                host,
+                kind: "out_of_scope",
+            });
     }
     None
 }
@@ -499,7 +514,7 @@ fn process_payload(
     }
     let mut decisions = Vec::new();
     let mut notify: Vec<NotifyItem> = Vec::new();
-    let mut block_hosts: Vec<String> = Vec::new();
+    let mut block_hosts: Vec<BlockedHost> = Vec::new();
     let mut audit_degraded = false;
     for event in &events {
         match engine.process_gated(event, &AutoDeny) {
@@ -1049,7 +1064,10 @@ mod tests {
                 guard_schema::INTEL_DOMAIN_RULE_ID,
                 &format!("{}evil.example", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
             ),
-            Some("evil.example".to_string())
+            Some(BlockedHost {
+                host: "evil.example".to_string(),
+                kind: "malicious"
+            })
         );
         // 反面:别的 rule_id 不抠(哪怕消息碰巧带前缀)——避免从自由文本里瞎猜。
         assert_eq!(
@@ -1073,7 +1091,10 @@ mod tests {
                     guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX
                 )
             ),
-            Some("evil.example".to_string())
+            Some(BlockedHost {
+                host: "evil.example".to_string(),
+                kind: "malicious"
+            })
         );
     }
 
@@ -1089,7 +1110,10 @@ mod tests {
                     guard_schema::SCOPE_HOST_MSG_PREFIX
                 )
             ),
-            Some("collector.unknown.example".to_string())
+            Some(BlockedHost {
+                host: "collector.unknown.example".to_string(),
+                kind: "out_of_scope",
+            })
         );
         // 哨兵 <unnameable>(主机解析不出)不进名单 —— 拦一个拦不了的"主机"没有意义。
         assert_eq!(
@@ -1125,9 +1149,13 @@ mod tests {
             .get("block_hosts")
             .and_then(|h| h.as_array())
             .expect("恶意域判决应在响应里带 block_hosts");
+        // 现在每条带 kind:恶意域是 "malicious"(background.js 据此累积保留)。
         assert!(
-            hosts.iter().any(|h| h.as_str() == Some("evil.example")),
-            "block_hosts 应含 evil.example:{hosts:?}"
+            hosts.iter().any(|h| {
+                h.get("host").and_then(|x| x.as_str()) == Some("evil.example")
+                    && h.get("kind").and_then(|x| x.as_str()) == Some("malicious")
+            }),
+            "block_hosts 应含 {{evil.example, malicious}}:{hosts:?}"
         );
     }
 }
