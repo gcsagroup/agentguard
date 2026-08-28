@@ -14,8 +14,9 @@
 //! 1. **声明真的印在那份文档里。** `source.anchor` 必须作为子串出现在 `source.doc` 里。
 //!    这挡住"映射表声称我们宣传了 X,而文档里根本没有 X"——反过来,文档改了措辞、把某条
 //!    能力删了,而映射表没跟上,也会红。
-//! 2. **每条证明测试真的存在。** `proven_by` 里每条 `fn <名>(` 必须出现在它声明的源文件里。
-//!    删掉 / 改名一条证明测试而不更新映射,就红——和 `coverage.rs`、X-1 的入站面清册同一招。
+//! 2. **每条证明测试真的存在。** 证明测试的签名必须出现在它声明的源文件里——Rust 是 `fn <名>(`,
+//!    JS/TS(浏览器扩展的 node 测试)是 `test("<名>"`(按扩展名自动选,见 `test_needle`)。删掉 /
+//!    改名一条证明测试而不更新映射,就红——和 `coverage.rs`、X-1 的入站面清册同一招。
 //!
 //! `mechanism`(哪段代码兑现)是**描述性**的,和 `coverage.rs` 的 `mechanism` 一样**不**被
 //! 机器核对——把它也做成"符号必须存在"会给一层假精确(符号改名不代表能力没了)。真正钉住
@@ -44,7 +45,7 @@ pub struct ClaimSource {
 /// 一条证明该声明"真的会触发"的测试。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProvingTest {
-    /// 测试函数名(可含中文)。核对方式:`fn <test>(` 必须出现在 `file` 里。
+    /// 测试名(可含中文)。核对方式见 `test_needle`:Rust 找 `fn <test>(`,JS 找 `test("<test>"`。
     pub test: String,
     /// 相对仓库根的源文件路径。
     pub file: String,
@@ -84,6 +85,20 @@ impl ClaimsRegistry {
         let raw = std::fs::read_to_string(path.as_ref())
             .with_context(|| format!("read capability claims {}", path.as_ref().display()))?;
         serde_yaml::from_str(&raw).context("parse capability claims YAML")
+    }
+}
+
+/// 按源文件类型选"这条测试存在"的匹配串。
+///
+/// Rust 测试是 `fn <名>(`;JS/TS(node 测试用 `apps/extension-chromium/scripts/*.mjs` 那套
+/// `test("<名>", …)` 的形态)是 `test("<名>"`。两种都精确到**具名**那条测试的签名,所以删/改名
+/// 任一条仍然会红——不退化成"文件里随便有这个串就算"的弱匹配。
+fn test_needle(file: &str, test: &str) -> String {
+    let is_js = file.ends_with(".mjs") || file.ends_with(".js") || file.ends_with(".ts");
+    if is_js {
+        format!("test(\"{test}\"")
+    } else {
+        format!("fn {test}(")
     }
 }
 
@@ -168,8 +183,7 @@ pub fn verify(
                     detail: format!("proving-test file '{}' does not exist", pt.file),
                 }),
                 Some(content) => {
-                    let needle = format!("fn {}(", pt.test);
-                    if !content.contains(&needle) {
+                    if !content.contains(&test_needle(&pt.file, &pt.test)) {
                         problems.push(ClaimProblem {
                             claim: c.id.clone(),
                             detail: format!(
@@ -400,6 +414,40 @@ claims:
             r.problems.iter().any(|p| p.detail.contains("duplicate")),
             "{r:?}"
         );
+    }
+
+    #[test]
+    fn js证明测试按test签名匹配() {
+        // 一条 JS 证明测试:needle 是 `test("名"`,不是 `fn 名(`。
+        let y = r#"
+version: 1
+claims:
+  - id: js1
+    claim: browser gate
+    source: { doc: docs/x.md, anchor: "gate" }
+    proven_by:
+      - { test: 付款CTA拦下, file: apps/ext/scripts/gate.test.mjs }
+"#;
+        let ok = verify(
+            &reg(y),
+            files(&[
+                ("docs/x.md", "the gate"),
+                (
+                    "apps/ext/scripts/gate.test.mjs",
+                    "test(\"付款CTA拦下\", () => {})",
+                ),
+            ]),
+        );
+        assert!(ok.ok(), "{ok:?}");
+        // 改名(fn 风格 needle 不会误命中 JS)→ 红。
+        let bad = verify(
+            &reg(y),
+            files(&[
+                ("docs/x.md", "the gate"),
+                ("apps/ext/scripts/gate.test.mjs", "fn 付款CTA拦下() {}"),
+            ]),
+        );
+        assert!(!bad.ok(), "JS 文件里 fn 形态不该算命中 test 名");
     }
 
     #[test]

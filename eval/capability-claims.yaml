@@ -143,3 +143,64 @@ claims:
     proven_by:
       - { test: 弱令牌不让服务器起来, file: crates/guard-localapi/src/lib.rs }
       - { test: 文档里的示例令牌被点名拒绝, file: crates/guard-localapi/src/lib.rs }
+
+  # ---- E 系列:实时化 / 执行前阻断 / 跨浏览器(本轮新增) ----
+
+  - id: jail-net-egress
+    claim: Linux jail 可在内核里强制 TCP 出口天花板(声明才强制、fail-closed)
+    area: jail
+    source:
+      doc: docs/内核约束.md
+      anchor: "网络出口天花板"
+    mechanism: guard-jail Landlock ABI v4 端口规则;空天花板治理 bind+connect 两类;后端非 Landlock 拒启动
+    proven_by:
+      - { test: 空网络天花板拒绝一切tcp, file: crates/guard-jail/src/landlock.rs }
+      - { test: 声明网络但后端非landlock被拒, file: crates/guard-jail/src/lib.rs }
+    note: 只到 TCP 端口、不按主机/IP、不含 UDP;syscall 路径本容器测不到(真机 E2E 未验证)
+
+  - id: browser-preexec-block
+    claim: 浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "执行前阻断"
+    mechanism: content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js
+    proven_by:
+      - { test: 付款 CTA 要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: 隐私陷阱 PII 提交要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: 只覆盖页面自身 DOM 动作;真 Chrome/Firefox E2E 未验证(DOM 接线只 node --check)
+
+  - id: browser-fetch-gate
+    claim: 拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "页面直发的"
+    mechanism: guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发
+    proven_by:
+      - { test: 付款形状的 POST 请求要在发出前拦, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: 只读方法不拦(GET/HEAD 不该有副作用), file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
+
+  - id: cross-browser-consistency
+    claim: Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移
+    area: browser
+    source:
+      doc: docs/跨浏览器.md
+      anchor: "manifests.test.mjs"
+    mechanism: manifest.json 与 manifest.firefox.json 由结构测试钉住一致
+    proven_by:
+      - { test: 两份 manifest 装的是同一套内容脚本文件, file: apps/extension-chromium/scripts/manifests.test.mjs }
+    note: Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
+
+  - id: macos-realtime-tree
+    claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)
+    area: macos
+    source:
+      doc: docs/macos实时观测.md
+      anchor: "AXObserver"
+    mechanism: ax_push.rs 合并器(去抖 150ms + 延迟上限 800ms + 3s 兜底);AXObserver FFI 推送
+    proven_by:
+      - { test: 延迟上限_持续通知也会强制抓, file: adapters/mac-adapter/src/ax_push.rs }
+      - { test: 去抖_安静够了才抓, file: adapters/mac-adapter/src/ax_push.rs }
+    note: 像素捕获仍采样(压小的是树间隙非像素);AXObserver 注册与回调只 macOS 编译,真机未验证

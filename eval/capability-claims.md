@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**12 条声明,19 条去重证明测试。**
+**17 条声明,28 条去重证明测试。**
 
 ## android
 
@@ -27,10 +27,16 @@
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
 | Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行 | `apps/extension-chromium/STORE.md` | guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知 | `critical判决产生notify供扩展弹通知` |
+| 浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知) | `docs/浏览器执行前阻断.md` | content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js | `付款 CTA 要执行前拦下`<br/>`隐私陷阱 PII 提交要执行前拦下` |
+| 拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余) | `docs/浏览器执行前阻断.md` | guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发 | `付款形状的 POST 请求要在发出前拦`<br/>`只读方法不拦(GET/HEAD 不该有副作用)` |
+| Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移 | `docs/跨浏览器.md` | manifest.json 与 manifest.firefox.json 由结构测试钉住一致 | `两份 manifest 装的是同一套内容脚本文件` |
 
 说明:
 
 - **Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行**:只有桌面壳子有阻断式模态;宿主是在事件发生后观测,所以浏览器侧只能事后通知
+- **浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)**:只覆盖页面自身 DOM 动作;真 Chrome/Firefox E2E 未验证(DOM 接线只 node --check)
+- **拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)**:MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
+- **Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移**:Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
 
 ## core
 
@@ -49,11 +55,31 @@
 
 - **威胁情报更新是签名的(Ed25519),给了公钥就拒未签名 / sha256 降级**:残余:发布注册表私钥是仓库夹具(公开),发布前必须 intel-keygen 换掉(preflight 盯着)
 
+## jail
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| Linux jail 可在内核里强制 TCP 出口天花板(声明才强制、fail-closed) | `docs/内核约束.md` | guard-jail Landlock ABI v4 端口规则;空天花板治理 bind+connect 两类;后端非 Landlock 拒启动 | `空网络天花板拒绝一切tcp`<br/>`声明网络但后端非landlock被拒` |
+
+说明:
+
+- **Linux jail 可在内核里强制 TCP 出口天花板(声明才强制、fail-closed)**:只到 TCP 端口、不按主机/IP、不含 UDP;syscall 路径本容器测不到(真机 E2E 未验证)
+
 ## localapi
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
 | 回环 API 要 bearer 令牌,弱令牌 / 示例令牌拒绝启动 | `docs/local-api.md` | guard-localapi 启动期令牌强度检查;非回环绑定默认拒;常数时间比对 | `弱令牌不让服务器起来`<br/>`文档里的示例令牌被点名拒绝` |
+
+## macos
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询) | `docs/macos实时观测.md` | ax_push.rs 合并器(去抖 150ms + 延迟上限 800ms + 3s 兜底);AXObserver FFI 推送 | `延迟上限_持续通知也会强制抓`<br/>`去抖_安静够了才抓` |
+
+说明:
+
+- **macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)**:像素捕获仍采样(压小的是树间隙非像素);AXObserver 注册与回调只 macOS 编译,真机未验证
 
 ## shell
 
