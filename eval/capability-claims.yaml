@@ -216,9 +216,10 @@ claims:
       anchor: "scope_hosts"
     mechanism: nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像)
     proven_by:
-      - { test: hostInScope_对齐Rust拒绝后缀伪造, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: host_in_scope向量表_rust与js同源, file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: "scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", file: apps/extension-chromium/scripts/gate.test.mjs }
-    note: 下发的是策略(允许表)不是浏览历史;MAIN world 客户端检查尽力而为;活性取决于会话声明了 scope.hosts;真机未验证
+      - { test: host_scope_向量表是rust与js的单一真相源, file: crates/guard-schema/src/plan.rs }
+    note: 下发的是策略(允许表)不是浏览历史;host_in_scope 由共享向量表(eval/host-scope-vectors.json)钉住 Rust/JS 同源;MAIN world 客户端检查尽力而为;真机未验证
 
   - id: macos-realtime-tree
     claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)

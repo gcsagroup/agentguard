@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**19 条声明,35 条去重证明测试。**
+**19 条声明,36 条去重证明测试。**
 
 ## android
 
@@ -31,7 +31,7 @@
 | 拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余) | `docs/浏览器执行前阻断.md` | guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发 | `付款形状的 POST 请求要在发出前拦`<br/>`只读方法不拦(GET/HEAD 不该有副作用)` |
 | Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移 | `docs/跨浏览器.md` | manifest.json 与 manifest.firefox.json 由结构测试钉住一致 | `两份 manifest 装的是同一套内容脚本文件` |
 | 引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR) | `docs/浏览器执行前阻断.md` | guard-nm-host 从 INTEL-DOMAIN / SCOPE-HOST 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则 | `恶意域判决在响应里带上block_hosts`<br/>`只从恶意域判决抠出要拦的主机`<br/>`越界目的地也抠出要拦的主机`<br/>`恶意域累积保留:下一批 benign 判决不会把它清掉`<br/>`越界目的地随会话过期,不永久拦掉用户对该主机的正常访问` |
-| 任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust) | `docs/浏览器执行前阻断.md` | nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像) | `hostInScope_对齐Rust拒绝后缀伪造`<br/>`scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦` |
+| 任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust) | `docs/浏览器执行前阻断.md` | nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像) | `host_in_scope向量表_rust与js同源`<br/>`scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦`<br/>`host_scope_向量表是rust与js的单一真相源` |
 
 说明:
 
@@ -40,7 +40,7 @@
 - **拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)**:MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
 - **Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移**:Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
 - **引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)**:E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
-- **任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)**:下发的是策略(允许表)不是浏览历史;MAIN world 客户端检查尽力而为;活性取决于会话声明了 scope.hosts;真机未验证
+- **任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)**:下发的是策略(允许表)不是浏览历史;host_in_scope 由共享向量表(eval/host-scope-vectors.json)钉住 Rust/JS 同源;MAIN world 客户端检查尽力而为;真机未验证
 
 ## core
 

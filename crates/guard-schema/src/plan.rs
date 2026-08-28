@@ -827,6 +827,37 @@ mod scope_tests {
         assert!(!host_in_scope("stripe.com", ""));
     }
 
+    /// host_in_scope 的**单一真相源**(E11):Rust 这条测试和浏览器扩展的 JS 测试
+    /// (`gate.test.mjs` 的 `host_in_scope向量表_rust与js同源`)跑**同一个** `eval/host-scope-vectors.json`。
+    /// 任一端语义漂移——尤其后缀伪造那几条——就会在自己这边红。这比两份各写各的手写用例强:
+    /// 契约是那份向量表,两个实现都对它负责。
+    #[test]
+    fn host_scope_向量表是rust与js的单一真相源() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../eval/host-scope-vectors.json");
+        let raw =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("读 {}:{e}", path.display()));
+        let doc: serde_json::Value = serde_json::from_str(&raw).expect("解析向量表 JSON");
+        let vectors = doc["vectors"].as_array().expect("vectors 应是数组");
+        // 反空洞:向量表不能空(否则这条测试空转通过)。
+        assert!(
+            vectors.len() >= 10,
+            "向量表太少({}),证明不了什么",
+            vectors.len()
+        );
+        for v in vectors {
+            let observed = v["observed"].as_str().unwrap();
+            let entry = v["entry"].as_str().unwrap();
+            let want = v["in_scope"].as_bool().unwrap();
+            assert_eq!(
+                host_in_scope(observed, entry),
+                want,
+                "向量 {{observed:{observed:?}, entry:{entry:?}}} 期望 {want},注:{}",
+                v["note"].as_str().unwrap_or("")
+            );
+        }
+    }
+
     #[test]
     fn url_host_extraction() {
         for (url, want) in [

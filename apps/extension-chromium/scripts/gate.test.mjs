@@ -8,6 +8,7 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 import assert from "node:assert/strict";
 
 const require = createRequire(import.meta.url);
@@ -139,16 +140,19 @@ test("持久名单有上限,超了丢最旧的(尊重 DNR 配额)", () => {
   assert.deepEqual(state.persistent, ["m2.example", "m3.example", "m4.example"], "保留最近的");
 });
 
-test("hostInScope_对齐Rust拒绝后缀伪造", () => {
-  // 精确与子域放行。
-  assert.equal(Gate.hostInScope("stripe.com", "stripe.com"), true);
-  assert.equal(Gate.hostInScope("checkout.stripe.com", "stripe.com"), true);
-  // 后缀伪造必须拒(点边界):这几个是 Rust host_in_scope 明确拒绝的同款用例。
-  assert.equal(Gate.hostInScope("stripe.com.evil.example", "stripe.com"), false);
-  assert.equal(Gate.hostInScope("notstripe.com", "stripe.com"), false);
-  // 大小写 / 尾点 / 端口不影响判定。
-  assert.equal(Gate.hostInScope("Stripe.COM", "stripe.com."), true);
-  assert.equal(Gate.hostInScope("stripe.com:443", "stripe.com"), true);
+test("host_in_scope向量表_rust与js同源", () => {
+  // E11:和 Rust 的 host_scope_向量表是rust与js的单一真相源 跑**同一个** JSON。任一端漂移就红。
+  const vpath = path.join(here, "..", "..", "..", "eval", "host-scope-vectors.json");
+  const doc = JSON.parse(fs.readFileSync(vpath, "utf8"));
+  const vectors = doc.vectors;
+  assert.ok(Array.isArray(vectors) && vectors.length >= 10, "向量表太少,证明不了什么");
+  for (const v of vectors) {
+    assert.equal(
+      Gate.hostInScope(v.observed, v.entry),
+      v.in_scope,
+      `向量 {observed:${JSON.stringify(v.observed)}, entry:${JSON.stringify(v.entry)}} 期望 ${v.in_scope}(${v.note || ""})`
+    );
+  }
 });
 
 test("scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", () => {
