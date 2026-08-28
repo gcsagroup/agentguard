@@ -1,4 +1,4 @@
-.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -19,6 +19,11 @@ coverage:
 # Verify the user-facing capability-claims → tests map against the repo and render it (X-2).
 capability-claims:
 	cargo run -p guard-cli -- capability-claims
+
+# 从真实来源(capability-claims.json + release-gate.sh + gate-status.json)生成状态仪表盘 HTML。
+# 不手写、不漂移。先跑 capability-claims 刷新 JSON。
+dashboard: capability-claims
+	python3 scripts/gen-dashboard.py
 
 # Every ranked agent answers the same probe suite; the command fails when a
 # profile is not comparable against it (docs/leaderboard-comparability.md).

@@ -2421,11 +2421,20 @@ fn main() -> Result<()> {
                 }
             }
             std::fs::write(&md, &markdown)?;
+            // 同时写一份 JSON,给状态仪表盘生成器(scripts/gen-dashboard.py)当结构化数据源——
+            // 仪表盘不手写、不漂移,和 md 一样从注册表生成。
+            let json_path = md.with_extension("json");
+            let json = serde_json::json!({
+                "claims": reg.claims,
+                "report": report,
+            });
+            std::fs::write(&json_path, serde_json::to_string_pretty(&json)?)?;
             println!(
-                "capability-claims: {} claim(s), {} distinct proving test(s) → {}",
+                "capability-claims: {} claim(s), {} distinct proving test(s) → {} / {}",
                 report.total_claims,
                 report.distinct_tests,
-                md.display()
+                md.display(),
+                json_path.display()
             );
             for p in &report.problems {
                 println!("  PROBLEM {}: {}", p.claim, p.detail);
