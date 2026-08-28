@@ -76,12 +76,14 @@ STYLE = """
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);
   font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
-.wrap{max-width:1040px;margin:0 auto;padding:32px 20px 64px}
-h1{font-size:24px;margin:0 0 4px}
-.sub{color:var(--muted);margin:0 0 24px;font-size:13px}
+.wrap{max-width:1040px;margin:0 auto;padding:36px 20px 64px}
+h1{font-size:25px;margin:0 0 4px;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 24px;font-size:13px;max-width:70ch}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:28px}
-.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
-.tile .n{font-size:28px;font-weight:700;line-height:1}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);opacity:.85}
+.tile.ok::before{background:var(--ok)} .tile.warn::before{background:var(--warn)}
+.tile .n{font-size:29px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .tile .l{color:var(--muted);font-size:12px;margin-top:6px}
 h2{font-size:16px;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
 .area{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:18px 0 8px}
@@ -131,14 +133,17 @@ def build_body(claims_doc, gate_status):
     )
 
     # 统计瓦片
-    def tile(n, l):
-        return f'<div class="tile"><div class="n">{esc(n)}</div><div class="l">{esc(l)}</div></div>'
+    def tile(n, l, cls=""):
+        c = f'tile {cls}'.strip()
+        return f'<div class="{c}"><div class="n">{esc(n)}</div><div class="l">{esc(l)}</div></div>'
+    all_pass = ap is not None and af == 0
     tiles = [
         tile(report.get("total_claims", len(claims)), "能力声明(有测试兜底)"),
         tile(report.get("distinct_tests", ""), "去重证明测试"),
         tile(f'{ap}/{ap+af}' if ap is not None and af is not None else len(autos),
-             "自动检查通过" if ap is not None else "自动检查项"),
-        tile(un, "需真机/凭据(未验证)"),
+             "自动检查通过" if ap is not None else "自动检查项",
+             "ok" if all_pass else ""),
+        tile(un, "需真机/凭据(未验证)", "warn" if un else ""),
     ]
     parts.append('<div class="tiles">' + "".join(tiles) + "</div>")
 
