@@ -4,7 +4,13 @@
   "version": "0.1.0",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
-  "permissions": ["storage", "nativeMessaging", "activeTab", "notifications"],
+  "permissions": [
+    "storage",
+    "nativeMessaging",
+    "activeTab",
+    "notifications",
+    "declarativeNetRequest"
+  ],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js",
@@ -13,7 +19,7 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "js": ["guard-gate.js", "content.js"],
       "run_at": "document_idle",
       "all_frames": false
     }

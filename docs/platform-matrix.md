@@ -24,7 +24,7 @@ claim is pinned to a test that must exist and prose that must still appear in th
 | **Display identity / lookalike (§3.6)** | ❌ | ❌ | ✅ label + icon dHash | ❌ | ❌ |
 | **Overlay detection** | ✅ pixels + AX regions | 🟡 window's own rendering only — see note 1 | 🟡 window list, draw-over-other-apps only — see note 2 | ✅ DOM opacity/geometry | ❌ |
 | **Environment survey (A5/A6)** | ❌ | ❌ | ✅ a11y services, broadcast sinks, log readers | ❌ | ❌ |
-| **Critical-node confirmation** | ✅ blocking modal in the shell | ✅ blocking modal in the shell | 🟡 notification **after** the event — see note 3 | 🟡 extension notification **after** the event — see note 4 | ❌ |
+| **Critical-node confirmation** | ✅ blocking modal in the shell | ✅ blocking modal in the shell | 🟡 notification **after** the event — see note 3 | 🟡 in-page 执行前拦截(付款/陷阱提交)+ host 事后通知 — see note 4 | ❌ |
 | **Auto-poller** | 1.5 s frames / 2.5 s tree | 2.5 s, tied to the session | event-driven | event-driven | — |
 | **Runtime capability probe** | ✅ TCC preflight | ✅ real probe with a reason string | ✅ a11y-enabled + notification permission | — | — |
 | **Compiled in CI** | ✅ `macos-shell` job | ✅ `windows` job | ✅ `android` job | 🟡 syntax only (`frontend` job) | ❌ nothing to compile |
@@ -89,8 +89,18 @@ each with rule id, action, severity, and a `log_safe`'d message), and `backgroun
 (note 3): the host observes a DOM event that has **already happened** over async native messaging,
 so there is nothing to hold and wait on — it is observe-and-notify, not the desktop's blocking gate.
 A true interactive approve-then-proceed would need the content script to intercept the action
-*before* it happens, which is a different capability (interception, not observation) and is not
-built. Pinned by `guard-nm-host`'s `critical判决产生notify供扩展弹通知` test.
+*before* it happens, which is a different capability (interception, not observation).
+
+**E2 built that in-page half.** The host-notify path above is unchanged (it is still observe-and-notify
+over async native messaging), but the content script now also runs a **synchronous** capturing gate:
+a `submit` / payment-CTA `click` is `preventDefault()`'d *before* it fires, and only replayed after a
+local "允许一次" confirmation (`content.js`, decision logic in `guard-gate.js`). It covers the page's
+own DOM actions (payment CTAs, privacy-trap PII submits); it does **not** cover a script that calls
+`fetch()` directly (no DOM event — that is what the `declarativeNetRequest` block-host rules are for),
+cross-origin iframes, or any native-app action. So the cell is "🟡 in-page 执行前拦截 + host 事后通知":
+the block is real but its reach is the page, not the machine. See [浏览器执行前阻断.md](./浏览器执行前阻断.md);
+decision logic pinned by `guard-gate.js`'s node tests, host-notify still pinned by
+`critical判决产生notify供扩展弹通知`.
 
 ## iOS
 

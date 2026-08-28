@@ -1,4 +1,4 @@
-.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -136,6 +136,10 @@ check-shells:
 	echo "$$n front-end modules parse"
 	@set -e; find . -name '*.sh' -not -path './target/*' -print0 | xargs -0 -n1 bash -n
 	@echo "shell scripts parse"
+
+# 浏览器执行前阻断的纯决策逻辑单测(E2)。DOM 接线只 node --check;真 Chrome E2E 未验证。
+check-extension-gate:
+	node apps/extension-chromium/scripts/gate.test.mjs
 
 ## The desktop shells, compiled rather than parsed. On Linux this needs GTK/WebKit:
 ##   apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev

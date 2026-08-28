@@ -133,6 +133,7 @@ gate "离线评测场景"                          make eval
 gate "覆盖矩阵(每个场景都被认领)"          make coverage
 gate "主张↔测试映射(声明都有测试兜底)"    make capability-claims
 gate "前端与 shell 脚本能解析"              make check-shells
+gate "浏览器执行前阻断逻辑"                  make check-extension-gate
 gate "macOS 专属代码路径能编译"             make check-macos-cfg
 gate "macOS 路径判决语义"                    make check-macos-path-semantics
 gate "部署自检结论与基线一致"                make preflight
@@ -193,7 +194,7 @@ if [ "$EVIDENCE_SEEN" -ne "$EXPECTED_EVIDENCE" ]; then
 fi
 # 精确相等,不是下限。上一版用 `-lt`,于是"新增一道门禁"就买到了"静默删掉一道门禁"
 # 的额度:11+6 仍然 >= 17。检查总数是一个已知的数,就该按已知的数核对。
-EXPECTED_GATES=12
+EXPECTED_GATES=13
 if [ $((PASS + FAIL + ${#UNVERIFIED[@]})) -ne $((EXPECTED_GATES + EXPECTED_EVIDENCE)) ]; then
   say ""
   say "脚本自身有 bug:通过 $PASS + 失败 $FAIL + 未验证 ${#UNVERIFIED[@]} 不等于应有的 $((EXPECTED_GATES + EXPECTED_EVIDENCE)) 项。"

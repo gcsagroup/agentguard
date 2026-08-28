@@ -1,3 +1,7 @@
+// 副作用导入:执行 guard-gate.js 的 IIFE,把纯逻辑挂到 self.AgentGuardGate。
+// 内容脚本按 manifest 顺序拿到同一份文件;这里 background(module service worker)靠 import 拿到。
+import "./guard-gate.js";
+
 const NATIVE_HOST = "com.agentguard.native";
 const MAX_BUFFER = 50;
 
@@ -96,6 +100,10 @@ function handleVerdict(response) {
   if (response.audit_degraded) {
     console.debug("AgentGuard: verdict returned but audit row did not persist");
   }
+  // 宿主可以随判决附一组要在网络层拦的主机(恶意域 / 越出 scope.hosts 的目的地)。
+  if (Array.isArray(response.block_hosts)) {
+    installBlockedHosts(response.block_hosts);
+  }
   if (items.length || response.paused) {
     pushRecent({
       ts: Date.now(),
@@ -108,6 +116,24 @@ function handleVerdict(response) {
         require_confirm: !!i.require_confirm,
       })),
     });
+  }
+}
+
+// 网络层执行前阻断:把宿主判定要拦的主机装成 declarativeNetRequest 动态规则,请求发出**前**拦。
+// 规则构造是 guard-gate.js 的纯函数(有 node 单测);这里只做安装 + 清掉上一批(id 稳定,便于替换)。
+async function installBlockedHosts(hosts) {
+  const Gate = self.AgentGuardGate;
+  if (!Gate || !chrome.declarativeNetRequest) return;
+  try {
+    const existing = await chrome.declarativeNetRequest.getDynamicRules();
+    const removeRuleIds = existing.map((r) => r.id);
+    const addRules = Gate.buildBlockRules(hosts);
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+  } catch (e) {
+    // fail-open 在这里是**有意**的且已声明:DNR 是对内容脚本同步门的**加**一层,不是唯一防线。
+    // 装不上就记一条,不假装拦住了——不把它做成 fail-closed 是因为一个连不上 DNR 的扩展不该
+    // 让用户整个浏览器都上不了网。
+    console.debug("AgentGuard DNR install failed", e);
   }
 }
 
@@ -146,6 +172,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     });
   }
   sendResponse({ ok: true, forwarded: events.length });
+  return true;
+});
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== "agentguard_prevented") return;
+  // 内容脚本在页面上同步拦下了一次动作(付款/陷阱提交)。记进最近列表,并转给宿主进签名审计
+  // ——一次"执行前阻断"和一次判决一样,是应当留痕的事件。
+  pushRecent({
+    ts: msg.ts,
+    url: msg.url,
+    title: msg.title,
+    kind: "prevented",
+    reason: msg.reason,
+    prevented_kind: msg.kind,
+  });
+  setBadge("!", "#b00020");
+  sendNative({
+    type: "browser_events",
+    source: "extension-chromium",
+    events: [
+      {
+        type: "ui_text",
+        app: "browser",
+        text: `[AG_PREVENTED:${msg.kind}] ${msg.reason || ""}`,
+        url: msg.url,
+      },
+    ],
+  });
+  sendResponse({ ok: true });
   return true;
 });
 

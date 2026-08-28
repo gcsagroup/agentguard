@@ -162,3 +162,175 @@ const mo = new MutationObserver(scheduleScan);
 if (document.body) {
   mo.observe(document.body, { childList: true, subtree: true, characterData: true });
 }
+
+/* ---------------------------------------------------------------------------
+ * 执行前阻断(E2)。
+ *
+ * scanX 是**事后**的:它上报已经填好的表单、已经在页面上的付款按钮。这一段不同——它在捕获阶段
+ * 同步拦住 submit / 付款 CTA 的 click,在动作**真正发生之前** preventDefault 把它按住,弹一个
+ * 本地确认;只有用户点"允许一次"才放行。判决用的是 guard-gate.js 的纯逻辑(可在 node 里单测)。
+ *
+ * 覆盖的是页面自己的 DOM 动作;拦不了直接 fetch() 的脚本(除非命中 DNR 主机规则)和原生 app。
+ * 见 guard-gate.js 头部的"覆盖什么、不覆盖什么"。
+ * ------------------------------------------------------------------------- */
+
+const PAYMENT_CTA_RE = /确认支付|Confirm Payment|Pay now|Complete purchase|立即支付/i;
+// 已被用户批准放行一次的元素/表单。放行后我们程序化重放动作,重放会再次进这个监听器,
+// 用这个 WeakSet 认出"这是刚批准的那次"并直接放过,避免死循环。
+const gateApproved = new WeakSet();
+
+function ctaText(el) {
+  return PAYMENT_CTA_RE.test((el && (el.innerText || el.value)) || "");
+}
+
+function nearestActionable(el) {
+  return el && el.closest
+    ? el.closest("button, a, [role='button'], input[type='submit']")
+    : null;
+}
+
+function formHasTrapPII(form) {
+  for (const el of form.querySelectorAll("input, textarea, select")) {
+    if (el.type === "hidden" || el.type === "submit" || el.type === "button") continue;
+    if (!(el.value || "").trim()) continue;
+    const meta = fieldMeta(el);
+    if (meta.trap && meta.pii) return true;
+  }
+  return false;
+}
+
+function reportPrevented(reason, kind) {
+  try {
+    chrome.runtime.sendMessage({
+      type: "agentguard_prevented",
+      url: location.href,
+      title: document.title,
+      reason,
+      kind,
+      ts: Date.now(),
+    });
+  } catch (e) {
+    console.debug("AgentGuard prevented-report failed", e);
+  }
+}
+
+// 极简的本地确认层。preventDefault 之后 DOM 已经被按住了,所以这个可以是异步的——
+// 批准回调里再程序化重放动作。刻意不用 window.confirm(某些页面会覆盖它)。
+function askAllowOnce(reason, onAllow) {
+  // 用离散的 style 属性赋值,不用 el.style.cssText(那是"把字符串当 CSS 解析"的 sink,仓库
+  // 不变量测试禁掉整个 API)。也不用 innerHTML —— 全程 createElement + textContent。
+  const host = document.createElement("div");
+  Object.assign(host.style, {
+    position: "fixed",
+    inset: "0",
+    zIndex: "2147483647",
+    background: "rgba(0,0,0,.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    font: "14px/1.5 system-ui,sans-serif",
+  });
+  const card = document.createElement("div");
+  Object.assign(card.style, {
+    maxWidth: "420px",
+    background: "#fff",
+    color: "#111",
+    borderRadius: "12px",
+    padding: "20px",
+    boxShadow: "0 10px 40px rgba(0,0,0,.3)",
+  });
+  const h = document.createElement("div");
+  Object.assign(h.style, { fontWeight: "600", marginBottom: "8px" });
+  h.textContent = "AgentGuard — 执行前拦截";
+  const p = document.createElement("div");
+  p.style.marginBottom = "16px";
+  p.textContent = `${reason}。是否允许这一次?`;
+  const row = document.createElement("div");
+  Object.assign(row.style, {
+    display: "flex",
+    gap: "8px",
+    justifyContent: "flex-end",
+  });
+  const cancel = document.createElement("button");
+  cancel.textContent = "取消";
+  Object.assign(cancel.style, {
+    padding: "8px 14px",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
+    background: "#f5f5f5",
+    cursor: "pointer",
+  });
+  const allow = document.createElement("button");
+  allow.textContent = "允许一次";
+  Object.assign(allow.style, {
+    padding: "8px 14px",
+    borderRadius: "8px",
+    border: "0",
+    background: "#b02a2a",
+    color: "#fff",
+    cursor: "pointer",
+  });
+  const close = () => host.remove();
+  cancel.addEventListener("click", close);
+  allow.addEventListener("click", () => {
+    close();
+    try {
+      onAllow();
+    } catch (e) {
+      console.debug("AgentGuard allow-once replay failed", e);
+    }
+  });
+  row.append(cancel, allow);
+  card.append(h, p, row);
+  host.append(card);
+  (document.body || document.documentElement).append(host);
+}
+
+function gateEvent(e, findings, replay) {
+  const Gate = self.AgentGuardGate;
+  if (!Gate) return; // 纯逻辑没加载(不该发生);不静默改变页面行为。
+  const d = Gate.gateForFindings(findings);
+  if (!d.block) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  reportPrevented(d.reason, d.kind);
+  askAllowOnce(d.reason, replay);
+}
+
+document.addEventListener(
+  "click",
+  (e) => {
+    const el = nearestActionable(e.target) || e.target;
+    if (!el) return;
+    if (gateApproved.has(el)) {
+      gateApproved.delete(el);
+      return; // 这是刚批准后重放的那次点击,放过。
+    }
+    const findings = ctaText(el) ? [{ kind: "payment_cta" }] : [];
+    gateEvent(e, findings, () => {
+      gateApproved.add(el);
+      el.click();
+    });
+  },
+  true
+);
+
+document.addEventListener(
+  "submit",
+  (e) => {
+    const form = e.target;
+    if (!form || gateApproved.has(form)) {
+      if (form) gateApproved.delete(form);
+      return;
+    }
+    const findings = [];
+    if (formHasTrapPII(form)) findings.push({ kind: "privacy_trap" });
+    if (e.submitter && ctaText(e.submitter)) findings.push({ kind: "payment_cta" });
+    gateEvent(e, findings, () => {
+      gateApproved.add(form);
+      // form.submit() 不触发 submit 事件,所以不会再进这个监听器——这里的 WeakSet 只是防御性。
+      form.submit();
+    });
+  },
+  true
+);

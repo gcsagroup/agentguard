@@ -9,6 +9,7 @@ trap 'rm -rf "$STAGE"' EXIT
 
 cp "$ROOT/manifest.json" "$STAGE/"
 cp "$ROOT/background.js" "$STAGE/"
+cp "$ROOT/guard-gate.js" "$STAGE/"
 cp "$ROOT/content.js" "$STAGE/"
 cp "$ROOT/popup.html" "$STAGE/"
 cp "$ROOT/popup.js" "$STAGE/"
