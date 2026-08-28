@@ -41,7 +41,7 @@ fn main() {
         return;
     }
 
-    let (read, write) = match (get("--plans"), get("--task")) {
+    let (read, write, net) = match (get("--plans"), get("--task")) {
         (Some(plans), task) => {
             let raw = match std::fs::read_to_string(&plans) {
                 Ok(r) => r,
@@ -63,21 +63,29 @@ fn main() {
                     // 找不到计划**不是**"那就不约束"。没有天花板意味着整个文件系统只读，
                     // 而那是一个有意义的、安全的默认，不是失败。
                     eprintln!("警告：计划库里没有 '{profile_name}'，按只读约束启动");
-                    (vec![], vec![])
+                    (vec![], vec![], None)
                 }
                 Some(plan) => {
                     let p = plan.scope.paths.clone().unwrap_or_default();
-                    (p.read.unwrap_or_default(), p.write.unwrap_or_default())
+                    // 网络天花板是 opt-in:只有任务里 scope.net 明确声明了某一维才强制。
+                    let net = plan
+                        .scope
+                        .net
+                        .as_ref()
+                        .filter(|n| n.is_declared())
+                        .map(guard_jail::NetCeiling::from_task_net);
+                    (p.read.unwrap_or_default(), p.write.unwrap_or_default(), net)
                 }
             }
         }
         _ => {
             eprintln!("警告：没给 --plans，按只读约束启动（不是不约束）");
-            (vec![], vec![])
+            (vec![], vec![], None)
         }
     };
 
-    let (profile, rejected) = guard_jail::Profile::from_ceiling(&read, &write);
+    let (mut profile, rejected) = guard_jail::Profile::from_ceiling(&read, &write);
+    profile.net = net;
     for r in &rejected {
         eprintln!("警告：丢弃了一条路径授权 {r}");
     }
@@ -91,6 +99,13 @@ fn main() {
             ""
         }
     );
+    match &profile.net {
+        None => eprintln!("网络：不约束(任务未声明 scope.net)"),
+        Some(n) => eprintln!(
+            "网络：只许 connect TCP {:?}、bind TCP {:?},其余拒(需 Landlock 后端 + 内核 ≥6.7)",
+            n.connect_tcp, n.bind_tcp
+        ),
+    }
 
     let Some(sep) = args.iter().position(|a| a == "--") else {
         eprintln!("用法：agentguard-jail [--plans P --task T] -- <程序> [参数...]");

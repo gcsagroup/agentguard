@@ -1297,6 +1297,9 @@ impl Engine {
                     read: path_read,
                     write: path_write,
                 }),
+                // net 是**内核**维(guard-jail 从任务计划的天花板直接读),不参与引擎这套
+                // 协作式 narrow —— 引擎的 granted_scope 不承载它。
+                net: None,
             };
             self.scope_over_request = over;
             // `task_allowlist` is left **exactly** as declared. The first version reassigned it to

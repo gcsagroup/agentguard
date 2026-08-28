@@ -276,6 +276,19 @@ pub struct TaskScope {
     /// 详见 `docs/interception-design.md` §5。
     #[serde(default)]
     pub paths: Option<TaskPaths>,
+    /// 网络出口天花板(`guard-jail` 用 Landlock 网络约束在内核里强制,内核 ≥6.7 / ABI v4)。
+    ///
+    /// 和 [`hosts`](Self::hosts) 是**互补**、不是重复:`hosts` 是引擎在**协作式**路径上按主机名
+    /// 判断的细粒度允许表;`net` 是内核**非协作式**强制的**粗粒度端口**天花板(Landlock 网络
+    /// 只到 TCP 端口,到不了主机名/IP)。前者答"这个目的地该不该发",后者答"这个进程根本能不能
+    /// 开这个 TCP 连接"——绕过引擎直接 `connect()` 的进程只有后者拦得住。
+    ///
+    /// **声明它才强制**(opt-in):不声明 `net` = jail 只约束文件系统(现状),网络不管。这条
+    /// 和"没声明 paths 就整个文件系统只读"方向相反,是**有意**的——见 `TaskNet` 文档:强行默认
+    /// 拒网会让 jail 在内核 6.1–6.6(有 Landlock 文件约束、没网络约束)上整个拒绝启动,那等于
+    /// 用一个还没普及的能力废掉一个已经能用的边界。
+    #[serde(default)]
+    pub net: Option<TaskNet>,
 }
 
 /// 路径天花板的读写两半。
@@ -288,6 +301,42 @@ pub struct TaskPaths {
     pub read: Option<Vec<String>>,
     #[serde(default)]
     pub write: Option<Vec<String>>,
+}
+
+/// 网络出口天花板:允许的 TCP 端口。
+///
+/// # 语义(声明即"只许这些,其余拒")
+///
+/// 声明了 `net` 这一节,就意味着:**除了列出的端口,一律拒绝**。`connect_tcp: []`(空列表)
+/// 是一句明确的"不许开任何出站 TCP 连接",和 `paths: {write: []}` 是"文件系统只读"同一种
+/// 明确的"不给"。不声明 `net` 整节(`None`)才是"网络不管"。
+///
+/// # Landlock 网络约束覆盖什么、**不**覆盖什么(如实)
+///
+/// Landlock 网络(ABI v4)只治理 **TCP 的 `bind` 和 `connect`,而且只到端口号**。这意味着:
+///
+/// * 覆盖:"这个进程不许开出站 TCP"(`connect_tcp: []`)、"只许连 443"(`connect_tcp: [443]`)。
+/// * **不**覆盖:按**主机/IP**过滤(端口 443 连 evil.example 和连 stripe.com 一样放行——
+///   那是 `hosts` 维在协作式路径上的事)、**UDP**(含 DNS、QUIC)、原始套接字、已建立连接上的
+///   收发。想要"只能连某主机"或"连 DNS 都禁"需要网络命名空间 + 代理,是另一层(见 `docs/内核约束.md`)。
+///
+/// 端口 `0` 不是一个可连接的端口(它是"内核选一个"的通配),放进天花板读起来像授权、实际
+/// 无法对应任何 `connect`,所以 `validate` 直接拒它——理由和 `hosts` 拒单标签域名同源。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskNet {
+    /// 允许**发起出站连接**到的 TCP 端口。`Some([])` = 一个都不许;`None` = 这一维不声明。
+    #[serde(default)]
+    pub connect_tcp: Option<Vec<u16>>,
+    /// 允许**监听/绑定**的 TCP 端口。`Some([])` = 一个都不许;`None` = 这一维不声明。
+    #[serde(default)]
+    pub bind_tcp: Option<Vec<u16>>,
+}
+
+impl TaskNet {
+    /// 这一节是否声明了任何一维(声明了才进入强制)。
+    pub fn is_declared(&self) -> bool {
+        self.connect_tcp.is_some() || self.bind_tcp.is_some()
+    }
 }
 
 /// Whether `observed` is `entry` or a subdomain of it.
@@ -433,6 +482,25 @@ impl TaskScope {
                          character from 'booking.com'. There is no public-suffix list here, so a \
                          host entry must contain a dot."
                     )));
+                }
+            }
+        }
+        if let Some(net) = &self.net {
+            for (dim, ports) in [
+                ("net.connect_tcp", &net.connect_tcp),
+                ("net.bind_tcp", &net.bind_tcp),
+            ] {
+                let Some(ports) = ports else { continue };
+                for p in ports {
+                    // 端口 0 是"内核选一个"的通配,不对应任何具体 connect/bind 目标。放进天花板
+                    // 读起来像授权、实际无法对应——和单标签域名一样"看着是保护、实则不是"。
+                    if *p == 0 {
+                        return Err(PolicyError::Invalid(format!(
+                            "task plan '{profile}': scope.{dim} 含端口 0。0 是内核通配、不是一个\
+                             可连接/可绑定的端口,放进天花板无法对应任何目标。删掉它,或写你真正\
+                             要放行的端口。"
+                        )));
+                    }
                 }
             }
         }
@@ -1062,6 +1130,45 @@ mod 路径天花板 {
     fn 没有_paths_的作用域仍然合法() {
         // 反面用例：路径是可选的，加了这一维不能让所有既有策略失效。
         assert!(TaskScope::default().validate("t").is_ok());
+    }
+
+    #[test]
+    fn 网络天花板端口0被拒绝() {
+        // 端口 0 是内核通配、不对应任何 connect/bind 目标：看着是授权、实际无法对应。
+        let s = TaskScope {
+            net: Some(TaskNet {
+                connect_tcp: Some(vec![443, 0]),
+                bind_tcp: None,
+            }),
+            ..Default::default()
+        };
+        let err = s.validate("t").unwrap_err().to_string();
+        assert!(err.contains("端口 0"), "{err}");
+    }
+
+    #[test]
+    fn 合法的网络天花板通过并能解析() {
+        // 反面用例 + 解析:声明 net 一节是合法的,能从 YAML 读出来。
+        let s = TaskScope {
+            net: Some(TaskNet {
+                connect_tcp: Some(vec![443]),
+                bind_tcp: Some(vec![]),
+            }),
+            ..Default::default()
+        };
+        assert!(s.validate("t").is_ok());
+
+        let plan: TaskScope =
+            serde_yaml::from_str("net:\n  connect_tcp: [443]\n  bind_tcp: []\n").unwrap();
+        assert!(plan.net.as_ref().unwrap().is_declared());
+        assert_eq!(plan.net.unwrap().connect_tcp, Some(vec![443]));
+    }
+
+    #[test]
+    fn 空的net一节不算声明() {
+        // `net: {}`(两维都 None)= 没声明,不进入强制。
+        let plan: TaskScope = serde_yaml::from_str("net: {}\n").unwrap();
+        assert!(!plan.net.unwrap().is_declared());
     }
 
     #[test]
