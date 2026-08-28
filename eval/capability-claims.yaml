@@ -193,6 +193,18 @@ claims:
       - { test: 两份 manifest 装的是同一套内容脚本文件, file: apps/extension-chromium/scripts/manifests.test.mjs }
     note: Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
 
+  - id: engine-to-browser-dnr
+    claim: 引擎判为恶意域的主机会被浏览器在网络层硬拦(判决→DNR,不只是事后通知)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "block_hosts"
+    mechanism: guard-nm-host 从 INTEL-DOMAIN 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则
+    proven_by:
+      - { test: 恶意域判决在响应里带上block_hosts, file: crates/guard-nm-host/src/main.rs }
+      - { test: 只从恶意域判决抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
+    note: DNR fail-open;恶意域清单来自内置情报基线;真 Chrome/Firefox E2E 未验证
+
   - id: macos-realtime-tree
     claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)
     area: macos

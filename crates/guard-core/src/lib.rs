@@ -1515,8 +1515,10 @@ impl Engine {
                 return Ok(Decision {
                     action: DecisionAction::Block,
                     severity: Severity::Critical,
-                    rule_id: "INTEL-DOMAIN".into(),
-                    human_message: format!("Malicious domain blocked: {host}"),
+                    rule_id: guard_schema::INTEL_DOMAIN_RULE_ID.into(),
+                    // 前缀是共享契约(见 guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX):nm-host 靠它把
+                    // 主机名抠出来喂浏览器 DNR 名单。改措辞两端一起改。
+                    human_message: format!("{}{host}", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX),
                     require_confirm: true,
                 });
             }
@@ -4429,8 +4431,15 @@ rules:
             metadata: meta,
         };
         let d = engine.process(&event).unwrap();
-        assert_eq!(d.rule_id, "INTEL-DOMAIN");
+        assert_eq!(d.rule_id, guard_schema::INTEL_DOMAIN_RULE_ID);
         assert_eq!(d.action, DecisionAction::Block);
+        // E5 契约:消息必须能用共享前缀把主机名抠回来(nm-host 靠这个喂浏览器 DNR 名单)。
+        // 前缀一改,这条红——生产端不能悄悄改措辞让下游解析出空。
+        let host = d
+            .human_message
+            .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            .expect("恶意域判决消息必须带共享前缀");
+        assert_eq!(host, "evil.example");
     }
 
     #[test]

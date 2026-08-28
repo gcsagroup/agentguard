@@ -80,6 +80,30 @@ struct HostResponse {
     /// 判决做出来了但没能落盘。判决仍然返回 —— 丢掉审计行不能连答案一起丢掉。
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     audit_degraded: bool,
+    /// 引擎判为恶意域、要浏览器在**网络层**硬拦的主机(E5)。扩展 background.js 拿它装
+    /// declarativeNetRequest 规则,于是"引擎判恶意 → 浏览器请求发出前就拦"这条链接上了 ——
+    /// 不再只是弹个事后通知。空则不出现。
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    block_hosts: Vec<String>,
+}
+
+/// 从一条判决里抠出"要浏览器网络层拦的主机",没有则 `None`。
+///
+/// 纯函数,便于单测。只认 `INTEL-DOMAIN` 这条结构化的 rule_id(不是在自由文本里瞎猜),再用
+/// 共享前缀常量把主机名取出来 —— rule_id 和前缀都是 `guard_schema` 里的契约,生产端改了措辞
+/// 这里编译期就跟着改。
+fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<String> {
+    if rule_id != guard_schema::INTEL_DOMAIN_RULE_ID {
+        return None;
+    }
+    // 只取前缀后的**第一个空白分隔词**:门(AutoDeny 等)会在 human_message 后面追加
+    // " (user denied; session paused)" 之类的后缀,而主机名里绝不含空白,所以第一个词就是主机。
+    // 这样即便下游门改了后缀措辞,抠出来的主机也不会带上尾巴。
+    human_message
+        .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+        .and_then(|rest| rest.split_whitespace().next())
+        .map(|h| h.to_string())
+        .filter(|h| !h.is_empty())
 }
 
 impl HostResponse {
@@ -94,6 +118,7 @@ impl HostResponse {
             notify: None,
             paused: false,
             audit_degraded: false,
+            block_hosts: Vec::new(),
         }
     }
 
@@ -108,6 +133,7 @@ impl HostResponse {
             notify: None,
             paused: false,
             audit_degraded: false,
+            block_hosts: Vec::new(),
         }
     }
 }
@@ -464,11 +490,17 @@ fn process_payload(
     }
     let mut decisions = Vec::new();
     let mut notify: Vec<NotifyItem> = Vec::new();
+    let mut block_hosts: Vec<String> = Vec::new();
     let mut audit_degraded = false;
     for event in &events {
         match engine.process_gated(event, &AutoDeny) {
             Ok(d) => {
                 decisions.push(format!("{}:{:?}", d.rule_id, d.action));
+                if let Some(h) = block_host_from_decision(&d.rule_id, &d.human_message) {
+                    if !block_hosts.contains(&h) {
+                        block_hosts.push(h);
+                    }
+                }
                 // 要让**用户看见**的:被拦下的、Critical/High 的、或本应人工确认的判决。
                 // 这些就是商店文案说的 "Critical Confirm" 该触发的地方 —— 以前扩展把它们
                 // 连同整个判决一起丢进 console.debug,用户什么都收不到。
@@ -505,6 +537,7 @@ fn process_payload(
     if !notify.is_empty() {
         resp.notify = Some(notify);
     }
+    resp.block_hosts = block_hosts;
     if !skipped.is_empty() {
         eprintln!(
             "agentguard: {} of {} events in this batch could not be converted and were NOT judged",
@@ -995,6 +1028,70 @@ mod tests {
                     || n.get("require_confirm").and_then(|r| r.as_bool()) == Some(true)
             }),
             "notify 里应有一条 block/critical/require_confirm:{notify:?}"
+        );
+    }
+
+    /// 提取器只认结构化的 INTEL-DOMAIN + 共享前缀,别的判决一律不产生 block_host。
+    #[test]
+    fn 只从恶意域判决抠出要拦的主机() {
+        // 命中:INTEL-DOMAIN + 正确前缀 → 抠出主机。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::INTEL_DOMAIN_RULE_ID,
+                &format!("{}evil.example", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            ),
+            Some("evil.example".to_string())
+        );
+        // 反面:别的 rule_id 不抠(哪怕消息碰巧带前缀)——避免从自由文本里瞎猜。
+        assert_eq!(
+            block_host_from_decision(
+                "CRIT-001",
+                &format!("{}evil.example", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            ),
+            None
+        );
+        // 反面:是 INTEL-DOMAIN 但消息没前缀(措辞漂移)→ None,而不是塞一个空主机进名单。
+        assert_eq!(
+            block_host_from_decision(guard_schema::INTEL_DOMAIN_RULE_ID, "something else"),
+            None
+        );
+        // 门(AutoDeny 等)会在消息后追加后缀。抠出来的主机不能带上那条尾巴 —— 只取第一个词。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::INTEL_DOMAIN_RULE_ID,
+                &format!(
+                    "{}evil.example (user denied; session paused)",
+                    guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX
+                )
+            ),
+            Some("evil.example".to_string())
+        );
+    }
+
+    /// 端到端:一个到恶意域的浏览器事件 → 响应里带 block_hosts,扩展据此装 DNR 网络层拦截(E5)。
+    #[test]
+    fn 恶意域判决在响应里带上block_hosts() {
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let mut engine = Engine::from_paths(&rules, None::<PathBuf>)
+            .expect("加载 p0 规则")
+            .with_intel(guard_intel::ThreatBundle::default());
+        let mut adapter = BrowserAdapter::new();
+        let msg: Value = serde_json::from_str(
+            r#"{"type":"browser_events","events":[
+                {"type":"ui_text","text":"x","app":"Safari","url":"https://evil.example/phish"}
+            ]}"#,
+        )
+        .unwrap();
+        let resp = process_payload(&mut engine, &mut adapter, &msg).unwrap();
+        let j = serde_json::to_value(&resp).unwrap();
+        let hosts = j
+            .get("block_hosts")
+            .and_then(|h| h.as_array())
+            .expect("恶意域判决应在响应里带 block_hosts");
+        assert!(
+            hosts.iter().any(|h| h.as_str() == Some("evil.example")),
+            "block_hosts 应含 evil.example:{hosts:?}"
         );
     }
 }

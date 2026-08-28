@@ -194,6 +194,15 @@ pub enum DecisionAction {
     LogOnly,
 }
 
+/// 情报判定"这个主机是恶意域"时用的 rule_id。
+pub const INTEL_DOMAIN_RULE_ID: &str = "INTEL-DOMAIN";
+/// 恶意域判决 `human_message` 的前缀,后面紧跟被拦的主机名。
+///
+/// 这是一个**共享契约**:生产端(`guard-core` 发这条判决)和消费端(`guard-nm-host` 要把主机名
+/// 抠出来喂给浏览器 DNR 名单,让"引擎判恶意 → 浏览器网络层硬拦"这条链接上)都引用它。措辞一改,
+/// 两边一起改——编译期就能发现,不会一端悄悄改了措辞、另一端解析出空。
+pub const MALICIOUS_DOMAIN_MSG_PREFIX: &str = "Malicious domain blocked: ";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Decision {
     pub action: DecisionAction,

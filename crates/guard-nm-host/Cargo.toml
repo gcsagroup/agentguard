@@ -20,3 +20,7 @@ browser-adapter = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
+
+[dev-dependencies]
+# 仅测试用:构造带默认恶意域清单的 ThreatBundle,验证 block_hosts 端到端。
+guard-intel = { workspace = true }
