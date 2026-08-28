@@ -194,16 +194,17 @@ claims:
     note: Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
 
   - id: engine-to-browser-dnr
-    claim: 引擎判为恶意域的主机会被浏览器在网络层硬拦(判决→DNR,不只是事后通知)
+    claim: 引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)
     area: browser
     source:
       doc: docs/浏览器执行前阻断.md
       anchor: "block_hosts"
-    mechanism: guard-nm-host 从 INTEL-DOMAIN 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则
+    mechanism: guard-nm-host 从 INTEL-DOMAIN / SCOPE-HOST 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则
     proven_by:
       - { test: 恶意域判决在响应里带上block_hosts, file: crates/guard-nm-host/src/main.rs }
       - { test: 只从恶意域判决抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
-    note: DNR fail-open;恶意域清单来自内置情报基线;真 Chrome/Firefox E2E 未验证
+      - { test: 越界目的地也抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
+    note: SCOPE-HOST 只在任务声明了 hosts 时发(没声明不拦);越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
 
   - id: macos-realtime-tree
     claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)

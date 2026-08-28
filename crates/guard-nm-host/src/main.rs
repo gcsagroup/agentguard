@@ -89,21 +89,30 @@ struct HostResponse {
 
 /// 从一条判决里抠出"要浏览器网络层拦的主机",没有则 `None`。
 ///
-/// 纯函数,便于单测。只认 `INTEL-DOMAIN` 这条结构化的 rule_id(不是在自由文本里瞎猜),再用
-/// 共享前缀常量把主机名取出来 —— rule_id 和前缀都是 `guard_schema` 里的契约,生产端改了措辞
-/// 这里编译期就跟着改。
+/// 纯函数,便于单测。两类会拦主机的判决,各用自己的**结构化 rule_id + 共享前缀**(都在
+/// `guard_schema` 里,生产端改了措辞这里编译期就跟着改)——不在自由文本里瞎猜:
+///
+/// * `INTEL-DOMAIN`:已知恶意域。主机在前缀后,取第一个空白词(门会追加" (user denied…)"后缀,
+///   主机名不含空白,所以第一个词就是主机)。
+/// * `SCOPE-HOST`(E7):目的地越出任务 `scope.hosts` 天花板。主机在两个 `'` 之间。引擎的
+///   `check_scope_host` **只在任务声明了 hosts 时**才发这条(没声明就不发),所以这里天然不会
+///   因为"没配 scope"而拦掉一切。哨兵 `<unnameable>`(主机解析不出)不进名单。
 fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<String> {
-    if rule_id != guard_schema::INTEL_DOMAIN_RULE_ID {
-        return None;
+    if rule_id == guard_schema::INTEL_DOMAIN_RULE_ID {
+        return human_message
+            .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            .and_then(|rest| rest.split_whitespace().next())
+            .map(|h| h.to_string())
+            .filter(|h| !h.is_empty());
     }
-    // 只取前缀后的**第一个空白分隔词**:门(AutoDeny 等)会在 human_message 后面追加
-    // " (user denied; session paused)" 之类的后缀,而主机名里绝不含空白,所以第一个词就是主机。
-    // 这样即便下游门改了后缀措辞,抠出来的主机也不会带上尾巴。
-    human_message
-        .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
-        .and_then(|rest| rest.split_whitespace().next())
-        .map(|h| h.to_string())
-        .filter(|h| !h.is_empty())
+    if rule_id == guard_schema::SCOPE_HOST_RULE_ID {
+        return human_message
+            .strip_prefix(guard_schema::SCOPE_HOST_MSG_PREFIX)
+            .and_then(|rest| rest.split('\'').next()) // 主机 = 到下一个 `'` 为止
+            .map(|h| h.trim().to_string())
+            .filter(|h| !h.is_empty() && h != "<unnameable>");
+    }
+    None
 }
 
 impl HostResponse {
@@ -1065,6 +1074,33 @@ mod tests {
                 )
             ),
             Some("evil.example".to_string())
+        );
+    }
+
+    /// E7:越出 scope.hosts 的目的地(SCOPE-HOST)也抠进要拦的主机,主机取两个 `'` 之间那段。
+    #[test]
+    fn 越界目的地也抠出要拦的主机() {
+        // 命中:SCOPE-HOST,主机在引号之间。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::SCOPE_HOST_RULE_ID,
+                &format!(
+                    "{}collector.unknown.example' is not in this session's host grant (…)",
+                    guard_schema::SCOPE_HOST_MSG_PREFIX
+                )
+            ),
+            Some("collector.unknown.example".to_string())
+        );
+        // 哨兵 <unnameable>(主机解析不出)不进名单 —— 拦一个拦不了的"主机"没有意义。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::SCOPE_HOST_RULE_ID,
+                &format!(
+                    "{}<unnameable>' is not in this session's host grant (…)",
+                    guard_schema::SCOPE_HOST_MSG_PREFIX
+                )
+            ),
+            None
         );
     }
 

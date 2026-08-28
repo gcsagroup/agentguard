@@ -3281,9 +3281,12 @@ impl Engine {
         Some(Decision {
             action: DecisionAction::Block,
             severity: Severity::High,
-            rule_id: "SCOPE-HOST".into(),
+            rule_id: guard_schema::SCOPE_HOST_RULE_ID.into(),
+            // 前缀 `destination '` 是共享契约(guard_schema::SCOPE_HOST_MSG_PREFIX):nm-host 靠
+            // 两个 `'` 之间那段把越界主机抠进浏览器 DNR 名单。改这句要连那个常量一起改。
             human_message: format!(
-                "destination '{}' is not in this session's host grant ({}){}",
+                "{}{}' is not in this session's host grant ({}){}",
+                guard_schema::SCOPE_HOST_MSG_PREFIX,
                 host.as_deref().unwrap_or("<unnameable>"),
                 Self::describe_grant(allowed),
                 if host.is_none() {
@@ -5363,6 +5366,26 @@ rules:
                 assert_ne!(d.rule_id, "SCOPE-HOST", "{url} is in scope: {d:?}");
             }
         }
+        // E7 契约:一个纯粹越界(非情报命中)的目的地,其 SCOPE-HOST 消息必须能用共享前缀 +
+        // 收尾 `'` 把主机抠回来(nm-host 靠这个把越界主机喂进浏览器 DNR 名单)。
+        let mut e = scoped_engine("book_hotel", &[]);
+        let d = e
+            .process(&event(
+                EventType::NetworkFlow,
+                "Booking",
+                &[
+                    ("url", "https://collector.unknown.example/upload"),
+                    ("bytes", "9"),
+                ],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, guard_schema::SCOPE_HOST_RULE_ID);
+        let host = d
+            .human_message
+            .strip_prefix(guard_schema::SCOPE_HOST_MSG_PREFIX)
+            .and_then(|r| r.split('\'').next())
+            .expect("SCOPE-HOST 消息必须带共享前缀且主机以 ' 收尾");
+        assert_eq!(host, "collector.unknown.example");
         // `hosts: []` is an explicit "never egresses", and must block rather than allow.
         let mut e = scoped_engine("navigation_jump", &[]);
         let d = e

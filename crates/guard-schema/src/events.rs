@@ -203,6 +203,14 @@ pub const INTEL_DOMAIN_RULE_ID: &str = "INTEL-DOMAIN";
 /// 两边一起改——编译期就能发现,不会一端悄悄改了措辞、另一端解析出空。
 pub const MALICIOUS_DOMAIN_MSG_PREFIX: &str = "Malicious domain blocked: ";
 
+/// 目的地越出任务 `scope.hosts` 天花板时的 rule_id(E7)。
+pub const SCOPE_HOST_RULE_ID: &str = "SCOPE-HOST";
+/// `SCOPE-HOST` 判决 `human_message` 里,被拦主机名**前**的那段:主机名紧跟其后、以 `'` 收尾。
+///
+/// 同样是生产端 / 消费端共享的契约:nm-host 用它把越界目的地也抠进 `block_hosts`,让浏览器
+/// 不止拦"已知恶意",还能拦"这个任务本不该去的地方"。主机取两个 `'` 之间那段。
+pub const SCOPE_HOST_MSG_PREFIX: &str = "destination '";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Decision {
     pub action: DecisionAction,
