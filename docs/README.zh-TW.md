@@ -1,5 +1,9 @@
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="../assets/brand/agentguard-logo.png" alt="AgentGuard 標誌" width="120">
+</p>
+
 # AgentGuard 文件入口
 
 本入口提供三語導覽。目前三語覆蓋根 README、本入口、`1.0.0-rc.1` 發佈說明、CHANGELOG、隱私說明、各元件 README 與主要商店文案；深層技術與稽核文件保留原始語言，並在下方標明用途與狀態。

@@ -1062,6 +1062,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state)
         .setup(|app| {
+            let tray_icon =
+                tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
             let show = MenuItem::with_id(app, "show", "Open dashboard", true, None::<&str>)?;
             let ax_poll = MenuItem::with_id(app, "ax_poll", "Capture frontmost AX tree", true, None::<&str>)?;
             let ax_auto = MenuItem::with_id(app, "ax_auto", "AX auto-poll: on/off", true, None::<&str>)?;
@@ -1071,6 +1073,8 @@ pub fn run() {
             let menu =
                 Menu::with_items(app, &[&show, &ax_poll, &ax_auto, &sck_start, &sck_stop, &quit])?;
             let _tray = TrayIconBuilder::with_id("agentguard-tray")
+                .icon(tray_icon)
+                .icon_as_template(true)
                 .menu(&menu)
                 .tooltip("AgentGuard")
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -1220,5 +1224,16 @@ mod packaging_tests {
             let path = root.join(rel);
             assert!(path.is_file(), "declared icon {rel} does not exist at {}", path.display());
         }
+    }
+
+    /// 菜单栏必须使用独立的单色模板图；彩色 App 图标在浅色/深色菜单栏都不可靠。
+    #[test]
+    fn tray_template_is_packaged_and_enabled() {
+        let png = include_bytes!("../icons/tray-template.png");
+        assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
+
+        let source = include_str!("lib.rs");
+        assert!(source.contains(".icon(tray_icon)"));
+        assert!(source.contains(".icon_as_template(true)"));
     }
 }

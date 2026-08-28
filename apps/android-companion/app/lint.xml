@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- minSdk 已是 26，但版本目录明确隔离 adaptive 与 Android 13 monochrome 语义。 -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+    <!-- v26 故意不含 API 33 的 monochrome；v33 同名资源已提供该层。 -->
+    <issue id="MonochromeLauncherIcon">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+</lint>

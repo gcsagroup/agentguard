@@ -22,6 +22,14 @@ header {
   margin-bottom: 1.25rem;
 }
 
+.brand { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 174, 239, 0.22));
+}
 .header-actions { display: flex; align-items: center; gap: 0.75rem; }
 .locale-picker { display: flex; align-items: center; gap: 0.4rem; color: #9fb2cb; font-size: 0.8rem; }
 .locale-picker select {
@@ -61,6 +69,8 @@ h2 { margin: 0 0 0.75rem; font-size: 1rem; color: #c5d3e8; }
 
 @media (max-width: 760px) {
   .grid { grid-template-columns: 1fr; }
+  header { gap: 1rem; flex-wrap: wrap; }
+  .brand-mark { width: 42px; height: 42px; }
 }
 
 .card {

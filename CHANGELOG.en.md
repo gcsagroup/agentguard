@@ -4,6 +4,12 @@
 
 This file records notable AgentGuard changes. Versions follow Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- Adopted the bright D brand direction with shared logo and app-icon masters; refreshed macOS, Windows, Android, and Chromium icons (including menu-bar, adaptive/themed, and notification assets); and added the unified mark to trilingual READMEs, documentation portals, conformance statement, and product headers.
+
 ## [1.0.0-rc.1] - 2026-08-28
 
 > This is a source release candidate, not evidence that production installers are ready. Code signing, notarization, store publication, and real-device end-to-end acceptance are incomplete. The production release decision remains **No-Go**.

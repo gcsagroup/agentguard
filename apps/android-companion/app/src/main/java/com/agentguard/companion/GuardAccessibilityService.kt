@@ -418,7 +418,7 @@ class GuardAccessibilityService : AccessibilityService() {
         val n = NotificationCompat.Builder(this, RISK_CHANNEL)
             .setContentTitle("AgentGuard: ${hit.ruleId}")
             .setContentText(hit.message)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setSmallIcon(R.drawable.ic_stat_agentguard)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .build()

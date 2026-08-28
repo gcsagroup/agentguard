@@ -14,7 +14,15 @@ body {
   background: #0f1419;
   color: #e8eef7;
 }
-h1 { font-size: 14px; margin: 0 0 8px; }
+h1 { font-size: 14px; line-height: 1.2; margin: 0; }
+.brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.brand-mark {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(0, 174, 239, 0.22));
+}
 .row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 select { margin-left: auto; background: #182230; color: #e8eef7; border: 1px solid #33465f; border-radius: 6px; padding: 3px 5px; }
 .muted { color: #8fa3bf; font-size: 12px; }

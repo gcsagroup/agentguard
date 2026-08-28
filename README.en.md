@@ -1,5 +1,9 @@
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="assets/brand/agentguard-logo.png" alt="AgentGuard logo" width="160">
+</p>
+
 # AgentGuard
 
 AgentGuard is a local-first observation and audit system for third-party GUI agents. It analyzes screens, accessibility trees, forms, deep links, tool calls, and egress metadata, then produces auditable risk decisions.

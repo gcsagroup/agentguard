@@ -15,6 +15,24 @@ fn read(rel: &str) -> String {
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 {}: {e}", p.display()))
 }
 
+/// 读取 PNG 的 IHDR。这里不需要引入图像解码依赖，只盯住品牌资产最容易回退的
+/// 三件事：像素尺寸、8 位色深，以及是否带 Alpha 通道。
+fn png_信息(rel: &str) -> (u32, u32, u8, u8) {
+    let p = root().join(rel);
+    let bytes = std::fs::read(&p).unwrap_or_else(|e| panic!("读不到 {}: {e}", p.display()));
+    assert!(bytes.len() >= 26, "{} 不是完整 PNG", p.display());
+    assert_eq!(
+        &bytes[..8],
+        b"\x89PNG\r\n\x1a\n",
+        "{} 不是 PNG",
+        p.display()
+    );
+    assert_eq!(&bytes[12..16], b"IHDR", "{} 缺少首个 IHDR", p.display());
+    let width = u32::from_be_bytes(bytes[16..20].try_into().expect("PNG 宽度字段"));
+    let height = u32::from_be_bytes(bytes[20..24].try_into().expect("PNG 高度字段"));
+    (width, height, bytes[24], bytes[25])
+}
+
 /// 剥掉行内注释,但**不要**被字符串里的 `//` 骗到。
 ///
 /// 上一版是 `line.split("//").next()`,于是
@@ -338,6 +356,162 @@ fn 两个外壳都配了限制性csp() {
         );
     }
     assert_eq!(扫到, 3, "内联样式检查的文件数变了");
+}
+
+/// 品牌母版是所有平台图标的来源。全幅 App 图标必须无透明边缘；可复用标志、
+/// 菜单栏模板和网页资源则必须带 Alpha，不能在深色界面上露出白方块。
+#[test]
+fn 品牌母版的尺寸与透明通道固定() {
+    for (path, width, height, color_type) in [
+        ("assets/brand/agentguard-app-icon-1024.png", 1024, 1024, 2),
+        (
+            "assets/brand/agentguard-app-icon-transparent-1024.png",
+            1024,
+            1024,
+            6,
+        ),
+        ("assets/brand/agentguard-logo.png", 512, 512, 6),
+        ("assets/brand/agentguard-mark-blue.png", 512, 512, 6),
+        ("assets/brand/agentguard-mark-white.png", 512, 512, 6),
+        ("assets/brand/agentguard-tray-template.png", 44, 44, 6),
+    ] {
+        assert_eq!(
+            png_信息(path),
+            (width, height, 8, color_type),
+            "{path} 的 PNG 规格回退"
+        );
+    }
+}
+
+/// 桌面端打包 PNG、网页标志和 macOS 菜单栏模板必须来自同一套 D 方案资产。
+#[test]
+fn 桌面品牌资源与菜单栏接线完整() {
+    let white_master = std::fs::read(root().join("assets/brand/agentguard-mark-white.png"))
+        .expect("读不到白色品牌母版");
+    for platform in ["desktop-macos", "desktop-windows"] {
+        for (name, size) in [
+            ("32x32.png", 32),
+            ("128x128.png", 128),
+            ("128x128@2x.png", 256),
+        ] {
+            let path = format!("apps/{platform}/src-tauri/icons/{name}");
+            assert_eq!(png_信息(&path), (size, size, 8, 6), "{path} 规格错误");
+        }
+
+        let frontend = format!("apps/{platform}/src/index.html");
+        assert!(
+            read(&frontend).contains("assets/agentguard-mark-white.png"),
+            "{frontend} 没有引用品牌标志"
+        );
+        assert_eq!(
+            png_信息(&format!(
+                "apps/{platform}/src/assets/agentguard-mark-white.png"
+            )),
+            (512, 512, 8, 6),
+            "{platform} 前端品牌标志规格错误"
+        );
+        let packaged = std::fs::read(root().join(format!(
+            "apps/{platform}/src/assets/agentguard-mark-white.png"
+        )))
+        .unwrap_or_else(|e| panic!("读不到 {platform} 品牌标志：{e}"));
+        assert_eq!(
+            packaged.as_slice(),
+            white_master.as_slice(),
+            "{platform} 前端品牌标志与母版漂移"
+        );
+    }
+
+    for name in [
+        "32x32.png",
+        "128x128.png",
+        "128x128@2x.png",
+        "icon.icns",
+        "icon.ico",
+    ] {
+        let mac = std::fs::read(root().join(format!("apps/desktop-macos/src-tauri/icons/{name}")))
+            .unwrap_or_else(|e| panic!("读不到 macOS {name}：{e}"));
+        let windows =
+            std::fs::read(root().join(format!("apps/desktop-windows/src-tauri/icons/{name}")))
+                .unwrap_or_else(|e| panic!("读不到 Windows {name}：{e}"));
+        assert_eq!(
+            mac, windows,
+            "macOS 与 Windows 的 {name} 已从同一品牌母版漂移"
+        );
+    }
+
+    let tray_source = std::fs::read(root().join("assets/brand/agentguard-tray-template.png"))
+        .expect("读不到菜单栏品牌母版");
+    let tray_packaged =
+        std::fs::read(root().join("apps/desktop-macos/src-tauri/icons/tray-template.png"))
+            .expect("读不到 macOS 打包菜单栏图标");
+    assert_eq!(tray_packaged, tray_source, "macOS 菜单栏图标与品牌母版漂移");
+
+    let mac = read("apps/desktop-macos/src-tauri/src/lib.rs");
+    assert!(mac.contains("include_bytes!(\"../icons/tray-template.png\")"));
+    assert!(mac.contains(".icon_as_template(true)"));
+}
+
+/// Chromium Manifest、真实 PNG 和商店打包清单必须同时覆盖 16/32/48/128。
+#[test]
+fn chromium_品牌图标与打包清单一致() {
+    let manifest: serde_json::Value =
+        serde_json::from_str(&read("apps/extension-chromium/manifest.json"))
+            .expect("Chromium manifest 必须是有效 JSON");
+    for size in [16, 32, 48, 128] {
+        let path = format!("icons/icon{size}.png");
+        assert_eq!(manifest["icons"][size.to_string()], path);
+        assert_eq!(
+            png_信息(&format!("apps/extension-chromium/{path}")),
+            (size, size, 8, 6),
+            "Chromium {size}px 图标规格错误"
+        );
+    }
+    for size in [16, 32] {
+        assert_eq!(
+            manifest["action"]["default_icon"][size.to_string()],
+            format!("icons/icon{size}.png")
+        );
+    }
+
+    let script = read("apps/extension-chromium/scripts/package-store.sh");
+    assert!(
+        !script.contains("Placeholder"),
+        "正式包不能静默生成占位图标"
+    );
+    assert!(script.contains("for size in 16 32 48 128"));
+    assert!(script.contains("assets/agentguard-mark-white.png"));
+
+    let white_master = std::fs::read(root().join("assets/brand/agentguard-mark-white.png"))
+        .expect("读不到白色品牌母版");
+    let extension_mark =
+        std::fs::read(root().join("apps/extension-chromium/assets/agentguard-mark-white.png"))
+            .expect("读不到 Chromium 品牌标志");
+    assert_eq!(
+        extension_mark.as_slice(),
+        white_master.as_slice(),
+        "Chromium 品牌标志与母版漂移"
+    );
+}
+
+/// 三语入口必须展示同一个品牌标志，不能只更新其中一种语言。
+#[test]
+fn 三语文档都展示品牌标志() {
+    for path in ["README.md", "README.zh-TW.md", "README.en.md"] {
+        assert!(
+            read(path).contains("assets/brand/agentguard-logo.png"),
+            "{path} 没有展示品牌标志"
+        );
+    }
+    for path in [
+        "docs/README.md",
+        "docs/README.zh-TW.md",
+        "docs/README.en.md",
+    ] {
+        assert!(
+            read(path).contains("../assets/brand/agentguard-logo.png"),
+            "{path} 没有展示品牌标志"
+        );
+    }
 }
 
 /// 扩展 popup 引用的每个本地文件都必须在打包脚本里。

@@ -16,23 +16,15 @@ cp "$ROOT/popup.css" "$STAGE/"
 if [[ -d "$ROOT/_locales" ]]; then
   cp -R "$ROOT/_locales" "$STAGE/_locales"
 fi
-if [[ -d "$ROOT/icons" ]]; then
-  cp -R "$ROOT/icons" "$STAGE/icons"
-else
-  mkdir -p "$STAGE/icons"
-  # Placeholder 1x1 PNGs if icons missing (replace before store submission).
-  python3 - <<'PY' "$STAGE/icons"
-import struct, zlib, sys, pathlib
-out = pathlib.Path(sys.argv[1])
-def png(w,h,rgba=(0x3b,0x82,0xf6,0xff)):
-    def chunk(tag, data):
-        return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag+data) & 0xffffffff)
-    raw = b''.join(b'\x00' + bytes(rgba)*(w) for _ in range(h))
-    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w,h,8,6,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
-for s in (16,48,128):
-    (out / f'icon{s}.png').write_bytes(png(s,s))
-PY
-fi
+for size in 16 32 48 128; do
+  icon="$ROOT/icons/icon${size}.png"
+  [[ -f "$icon" ]] || { echo "缺少正式扩展图标：$icon" >&2; exit 1; }
+done
+cp -R "$ROOT/icons" "$STAGE/icons"
+brand_asset="$ROOT/assets/agentguard-mark-white.png"
+[[ -f "$brand_asset" ]] || { echo "缺少扩展品牌标志：$brand_asset" >&2; exit 1; }
+mkdir -p "$STAGE/assets"
+cp "$brand_asset" "$STAGE/assets/agentguard-mark-white.png"
 
 # Exclude native-host from store zip (documented separately).
 (

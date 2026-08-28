@@ -40,7 +40,7 @@ class GuardForegroundService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(LocaleController.text(this, R.string.notification_title))
             .setContentText(LocaleController.text(this, R.string.notification_text))
-            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setSmallIcon(R.drawable.ic_stat_agentguard)
             .setContentIntent(pending)
             .setOngoing(true)
             .build()

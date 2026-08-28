@@ -1,5 +1,6 @@
 <meta charset="utf-8">
 <title>AgentGuard Conformance Statement</title>
+<link rel="icon" type="image/png" href="../assets/brand/agentguard-app-icon-1024.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+SC:wght@400;500;600&display=swap">
@@ -90,10 +91,18 @@ body{
 /* ---------- masthead ---------- */
 header.mast{border-bottom:1px solid var(--rule); background:var(--surface)}
 .mast-in{padding:clamp(34px,6vw,68px) 0 clamp(28px,4vw,44px)}
+.mast-identity{
+  display:flex; align-items:center; gap:clamp(14px,2vw,20px);
+  margin-bottom:clamp(18px,3vw,30px);
+}
+.mast-logo{
+  width:clamp(54px,7vw,72px); height:clamp(54px,7vw,72px); flex:0 0 auto;
+  border-radius:20%; box-shadow:0 8px 24px -12px rgba(4,132,255,.65);
+}
 .eyebrow{
   font-family:var(--f-mono); font-size:11.5px; font-weight:500;
   letter-spacing:.17em; text-transform:uppercase; color:var(--ink-3);
-  display:flex; flex-wrap:wrap; gap:.35em 1.1em; margin-bottom:clamp(18px,3vw,30px);
+  display:flex; flex-wrap:wrap; gap:.35em 1.1em; margin:0;
 }
 .eyebrow b{color:var(--accent); font-weight:600}
 .eyebrow span + span::before{content:"\2022"; color:var(--rule); margin-right:1.05em}
@@ -306,14 +315,21 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
 @media (prefers-reduced-motion: no-preference){
   .stat,.group,details{transition:border-color .16s ease, background-color .16s ease}
 }
+@media (max-width:520px){
+  .mast-identity{align-items:flex-start}
+  .mast-logo{width:50px; height:50px; border-radius:12px}
+}
 </style>
 
 <header class="mast">
   <div class="wrap mast-in">
-    <div class="eyebrow">
-      <span><b>AgentGuard</b></span><span>1.0.0-rc.1</span><span>Rust · 22 workspace crates</span>
-      <span>Apache-2.0</span><span>2026-08</span>
-      <span>Docs: <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a></span>
+    <div class="mast-identity">
+      <img class="mast-logo" src="../assets/brand/agentguard-logo.png" alt="">
+      <div class="eyebrow">
+        <span><b>AgentGuard</b></span><span>1.0.0-rc.1</span><span>Rust · 22 workspace crates</span>
+        <span>Apache-2.0</span><span>2026-08</span>
+        <span>Docs: <a href="./README.md">简体中文</a> · <a href="./README.zh-TW.md">繁體中文</a> · <a href="./README.en.md">English</a></span>
+      </div>
     </div>
     <div class="bi">
       <div class="zh">

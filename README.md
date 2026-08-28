@@ -1,5 +1,9 @@
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="assets/brand/agentguard-logo.png" alt="AgentGuard 标志" width="160">
+</p>
+
 # AgentGuard
 
 AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系统。它分析屏幕、无障碍树、表单、深链、工具调用和外传元数据，并给出可审计的风险判决。

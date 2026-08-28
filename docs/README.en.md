@@ -1,5 +1,9 @@
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md)
 
+<p align="center">
+  <img src="../assets/brand/agentguard-logo.png" alt="AgentGuard logo" width="120">
+</p>
+
 # AgentGuard documentation portal
 
 This portal is the trilingual entry point. Trilingual coverage includes the root README, this portal, the `1.0.0-rc.1` release notes, the changelog, privacy disclosures, component READMEs, and primary store copy. Deep technical and audit documents remain in their original languages and are labeled below by purpose and status.
