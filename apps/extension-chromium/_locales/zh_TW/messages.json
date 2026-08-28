@@ -52,5 +52,8 @@
   },
   "noBlocked": {
     "message": "目前沒有攔截"
+  },
+  "blockedBy": {
+    "message": "觸發規則"
   }
 }

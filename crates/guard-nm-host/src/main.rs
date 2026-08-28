@@ -91,12 +91,14 @@ struct HostResponse {
     scope_hosts: Option<Vec<String>>,
 }
 
-/// 一个要浏览器拦的主机,以及它**为什么**被拦——决定累积语义。
+/// 一个要浏览器拦的主机,以及它**为什么**被拦——决定累积语义,并给 popup 溯源(E12)。
 #[derive(Serialize, Debug, PartialEq, Eq)]
 struct BlockedHost {
     host: String,
     /// `"malicious"`(已知恶意域,累积保留)或 `"out_of_scope"`(越出任务 hosts,随会话过期)。
     kind: &'static str,
+    /// 触发这次拦截的判决 rule_id(`INTEL-DOMAIN` / `SCOPE-HOST`)——popup 溯源用(E12)。
+    rule_id: String,
 }
 
 /// 从一条判决里抠出"要浏览器网络层拦的主机"(含类别),没有则 `None`。
@@ -119,6 +121,7 @@ fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<Blocke
             .map(|host| BlockedHost {
                 host,
                 kind: "malicious",
+                rule_id: rule_id.to_string(),
             });
     }
     if rule_id == guard_schema::SCOPE_HOST_RULE_ID {
@@ -130,6 +133,7 @@ fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<Blocke
             .map(|host| BlockedHost {
                 host,
                 kind: "out_of_scope",
+                rule_id: rule_id.to_string(),
             });
     }
     None
@@ -1075,7 +1079,8 @@ mod tests {
             ),
             Some(BlockedHost {
                 host: "evil.example".to_string(),
-                kind: "malicious"
+                kind: "malicious",
+                rule_id: guard_schema::INTEL_DOMAIN_RULE_ID.to_string(),
             })
         );
         // 反面:别的 rule_id 不抠(哪怕消息碰巧带前缀)——避免从自由文本里瞎猜。
@@ -1102,7 +1107,8 @@ mod tests {
             ),
             Some(BlockedHost {
                 host: "evil.example".to_string(),
-                kind: "malicious"
+                kind: "malicious",
+                rule_id: guard_schema::INTEL_DOMAIN_RULE_ID.to_string(),
             })
         );
     }
@@ -1122,6 +1128,7 @@ mod tests {
             Some(BlockedHost {
                 host: "collector.unknown.example".to_string(),
                 kind: "out_of_scope",
+                rule_id: guard_schema::SCOPE_HOST_RULE_ID.to_string(),
             })
         );
         // 哨兵 <unnameable>(主机解析不出)不进名单 —— 拦一个拦不了的"主机"没有意义。

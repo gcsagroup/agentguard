@@ -52,5 +52,8 @@
   },
   "noBlocked": {
     "message": "Nothing blocked"
+  },
+  "blockedBy": {
+    "message": "Blocked by"
   }
 }

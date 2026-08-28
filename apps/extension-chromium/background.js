@@ -130,12 +130,17 @@ function handleVerdict(response) {
 
 // 名单状态(E8):{persistent:[恶意域], session:[{host,exp}]}。恶意域累积保留并落 storage 跨
 // 重启存活;越界项随会话过期。合并/过期逻辑是 guard-gate.js 的纯函数 mergeBlocklist(有 node 单测)。
-let blocklist = { persistent: [], session: [] };
+// provenance(E12):host → {kind, rule_id},给 popup 溯源"为什么被拦"。
+let blocklist = { persistent: [], session: [], provenance: {} };
 chrome.storage.local.get(["blocklist"], (data) => {
   if (data.blocklist && Array.isArray(data.blocklist.persistent)) {
     blocklist = {
       persistent: data.blocklist.persistent,
       session: Array.isArray(data.blocklist.session) ? data.blocklist.session : [],
+      provenance:
+        data.blocklist.provenance && typeof data.blocklist.provenance === "object"
+          ? data.blocklist.provenance
+          : {},
     };
     // 启动即把已知恶意域重新装上(service worker 重启后 DNR 动态规则可能已被清)。
     installActive();
@@ -148,13 +153,16 @@ function updateBlocklist(blockHosts) {
   if (!Gate) return;
   const malicious = [];
   const outOfScope = [];
+  const provenance = { ...blocklist.provenance };
   for (const b of blockHosts) {
     if (!b || !b.host) continue;
+    const host = String(b.host).trim().toLowerCase();
+    provenance[host] = { kind: b.kind, rule_id: b.rule_id || "" };
     if (b.kind === "malicious") malicious.push(b.host);
     else if (b.kind === "out_of_scope") outOfScope.push(b.host);
   }
   const merged = Gate.mergeBlocklist(blocklist, malicious, outOfScope, Date.now());
-  blocklist = { persistent: merged.persistent, session: merged.session };
+  blocklist = { persistent: merged.persistent, session: merged.session, provenance };
   try {
     chrome.storage.local.set({ blocklist });
   } catch (e) {
@@ -169,7 +177,11 @@ async function installActive() {
   if (!Gate || !chrome.declarativeNetRequest) return;
   // 用一次空合并把过期项剪掉,拿到当前 active 与清理后的 session。
   const merged = Gate.mergeBlocklist(blocklist, [], [], Date.now());
-  blocklist = { persistent: merged.persistent, session: merged.session };
+  blocklist = {
+    persistent: merged.persistent,
+    session: merged.session,
+    provenance: blocklist.provenance || {},
+  };
   try {
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
     const removeRuleIds = existing.map((r) => r.id);
@@ -267,18 +279,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const merged = Gate.mergeBlocklist(blocklist, [], [], Date.now());
       blocklist = { persistent: merged.persistent, session: merged.session };
     }
+    const prov = blocklist.provenance || {};
     sendResponse({
       malicious: blocklist.persistent.slice(),
       out_of_scope: blocklist.session.map((e) => e.host),
+      // E12:每个主机的溯源 {kind, rule_id},popup 用它显示"为什么被拦"。
+      provenance: prov,
     });
     return true;
   }
   // E10:用户手动解除一条——从两个集合里都删掉,持久化,重装 DNR。
   if (msg?.type === "unblock_host" && typeof msg.host === "string") {
     const h = msg.host.trim().toLowerCase();
+    const provenance = { ...(blocklist.provenance || {}) };
+    delete provenance[h];
     blocklist = {
       persistent: blocklist.persistent.filter((x) => x !== h),
       session: blocklist.session.filter((e) => e.host !== h),
+      provenance,
     };
     try {
       chrome.storage.local.set({ blocklist });

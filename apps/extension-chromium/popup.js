@@ -41,6 +41,7 @@ function renderBlocklist() {
     const list = document.getElementById("blocklist");
     if (!list) return;
     list.replaceChildren();
+    const prov = (resp && resp.provenance) || {};
     const rows = [];
     for (const h of (resp && resp.malicious) || []) rows.push([h, t("kindMalicious")]);
     for (const h of (resp && resp.out_of_scope) || []) rows.push([h, t("kindOutOfScope")]);
@@ -63,6 +64,14 @@ function renderBlocklist() {
       li.appendChild(label);
       li.appendChild(document.createTextNode(" "));
       li.appendChild(btn);
+      // E12:溯源——第二行显示触发这次拦截的规则(为什么被拦)。
+      const ruleId = prov[host] && prov[host].rule_id;
+      if (ruleId) {
+        const why = document.createElement("div");
+        why.className = "muted";
+        why.textContent = `${t("blockedBy")}: ${ruleId}`;
+        li.appendChild(why);
+      }
       list.appendChild(li);
     }
   });
