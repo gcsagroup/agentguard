@@ -348,6 +348,28 @@ document.addEventListener(
  * 来要一个"允许/拒绝"。内容脚本在隔离世界,能弹确认 UI、能连扩展,所以由它作答并留痕。 */
 const AG_REQ = "__agentguard_req_gate__";
 const AG_DECISION = "__agentguard_req_decision__";
+const AG_SCOPE = "__agentguard_scope__";
+
+// E9:把任务主机允许表(background 从宿主判决里拿到、存进 storage)推给页面世界的 guard-page.js。
+// 允许表是**策略**、不是浏览历史——推给页面本地判越界,不回传任何 URL。
+function pushScopeToPage(allowlist) {
+  window.postMessage(
+    { type: AG_SCOPE, allowlist: Array.isArray(allowlist) ? allowlist : null },
+    "*"
+  );
+}
+try {
+  chrome.storage.local.get(["scope_hosts"], (data) => {
+    pushScopeToPage(data && data.scope_hosts);
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.scope_hosts) {
+      pushScopeToPage(changes.scope_hosts.newValue);
+    }
+  });
+} catch (e) {
+  console.debug("AgentGuard scope relay unavailable", e);
+}
 window.addEventListener("message", (ev) => {
   if (ev.source !== window) return;
   const d = ev.data;

@@ -84,6 +84,11 @@ struct HostResponse {
     /// 决定累积语义(E8):`malicious` 累积保留、`out_of_scope` 随会话过期。空则不出现。
     #[serde(skip_serializing_if = "Vec::is_empty")]
     block_hosts: Vec<BlockedHost>,
+    /// 当前会话的**主机允许表**(`scope.hosts` 授权,E9)。扩展在**本地**用它判出站目的地在不在
+    /// 允许表里——是**策略**、不是浏览历史,不回传任何 URL。`None`(字段不出现)= 没声明 → 扩展
+    /// 不做本地越界拦截;`Some([])` = 明确"不许出网"。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scope_hosts: Option<Vec<String>>,
 }
 
 /// 一个要浏览器拦的主机,以及它**为什么**被拦——决定累积语义。
@@ -143,6 +148,7 @@ impl HostResponse {
             paused: false,
             audit_degraded: false,
             block_hosts: Vec::new(),
+            scope_hosts: None,
         }
     }
 
@@ -158,6 +164,7 @@ impl HostResponse {
             paused: false,
             audit_degraded: false,
             block_hosts: Vec::new(),
+            scope_hosts: None,
         }
     }
 }
@@ -562,6 +569,8 @@ fn process_payload(
         resp.notify = Some(notify);
     }
     resp.block_hosts = block_hosts;
+    // E9:把当前会话的主机允许表快照给扩展,让它在本地判越界(不回传 URL)。没声明则不带。
+    resp.scope_hosts = engine.granted_hosts().map(|h| h.to_vec());
     if !skipped.is_empty() {
         eprintln!(
             "agentguard: {} of {} events in this batch could not be converted and were NOT judged",

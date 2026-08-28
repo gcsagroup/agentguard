@@ -208,6 +208,18 @@ claims:
       - { test: "越界目的地随会话过期,不永久拦掉用户对该主机的正常访问", file: apps/extension-chromium/scripts/gate.test.mjs }
     note: E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
 
+  - id: browser-local-scope-gate
+    claim: 任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "scope_hosts"
+    mechanism: nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像)
+    proven_by:
+      - { test: hostInScope_对齐Rust拒绝后缀伪造, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: "scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: 下发的是策略(允许表)不是浏览历史;MAIN world 客户端检查尽力而为;活性取决于会话声明了 scope.hosts;真机未验证
+
   - id: macos-realtime-tree
     claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)
     area: macos

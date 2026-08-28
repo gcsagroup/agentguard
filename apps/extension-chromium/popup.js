@@ -28,8 +28,44 @@ async function initialize() {
     await chrome.storage.local.set({ localeOverride: select.value });
     await loadMessages(select.value);
     renderRecent();
+    renderBlocklist();
   };
   renderRecent();
+  renderBlocklist();
+}
+
+// E10:列出当前拦截名单(恶意域累积 / 越界会话),每条可手动解除。
+// 全程 createElement + textContent + addEventListener,不用 innerHTML / onclick=(仓库不变量禁 sink)。
+function renderBlocklist() {
+  chrome.runtime.sendMessage({ type: "get_blocklist" }, (resp) => {
+    const list = document.getElementById("blocklist");
+    if (!list) return;
+    list.replaceChildren();
+    const rows = [];
+    for (const h of (resp && resp.malicious) || []) rows.push([h, t("kindMalicious")]);
+    for (const h of (resp && resp.out_of_scope) || []) rows.push([h, t("kindOutOfScope")]);
+    if (rows.length === 0) {
+      const li = document.createElement("li");
+      li.className = "muted";
+      li.textContent = t("noBlocked");
+      list.appendChild(li);
+      return;
+    }
+    for (const [host, kind] of rows) {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = `${host} · ${kind}`;
+      const btn = document.createElement("button");
+      btn.textContent = t("unblock");
+      btn.addEventListener("click", () => {
+        chrome.runtime.sendMessage({ type: "unblock_host", host }, () => renderBlocklist());
+      });
+      li.appendChild(label);
+      li.appendChild(document.createTextNode(" "));
+      li.appendChild(btn);
+      list.appendChild(li);
+    }
+  });
 }
 
 function renderRecent() {

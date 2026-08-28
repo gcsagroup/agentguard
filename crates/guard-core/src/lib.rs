@@ -4164,6 +4164,15 @@ impl Engine {
             intel_version: self.intel.version.clone(),
         }
     }
+
+    /// 当前会话的**主机允许表**(`scope.hosts` 经 narrow 后的授权),没声明则 `None`。
+    ///
+    /// 这是**策略**、不是浏览历史——把它下发给浏览器扩展,扩展就能在**本地**判一个出站目的地
+    /// 在不在允许表里(E9),而不必把访问过的 URL 回传给宿主。`None` = 没声明 → 扩展不做本地
+    /// 越界拦截(和引擎 `check_scope_host` 的"没声明不拦"一致);`Some([])` = 明确"不许出网"。
+    pub fn granted_hosts(&self) -> Option<&[String]> {
+        self.granted_scope.hosts.as_deref()
+    }
 }
 
 /// Longest case-insensitive `match_any_text` hit for one rule, if any.

@@ -40,21 +40,51 @@
 
   const REQ = "__agentguard_req_gate__";
   const DECISION = "__agentguard_req_decision__";
+  const SCOPE = "__agentguard_scope__";
   let seq = 0;
   /** id -> {resolve} 等待中的确认。 */
   const pending = new Map();
+  // 任务主机允许表(E9)。内容脚本从 background 拿到后 postMessage 过来。
+  // `undefined` = 还没收到 / 没声明 → 不做本地越界拦截(和引擎"没声明不拦"一致)。
+  let scopeAllowlist = undefined;
 
   window.addEventListener("message", (ev) => {
-    // 只认自己这一页发回来的决定。
+    // 只认自己这一页来的消息。
     if (ev.source !== window) return;
     const d = ev.data;
-    if (!d || d.type !== DECISION || typeof d.id !== "number") return;
-    const waiter = pending.get(d.id);
-    if (waiter) {
-      pending.delete(d.id);
-      waiter(!!d.allow);
+    if (!d) return;
+    if (d.type === DECISION && typeof d.id === "number") {
+      const waiter = pending.get(d.id);
+      if (waiter) {
+        pending.delete(d.id);
+        waiter(!!d.allow);
+      }
+      return;
+    }
+    if (d.type === SCOPE) {
+      // null / 缺失 = 没声明;数组(含空)= 声明了。
+      scopeAllowlist = Array.isArray(d.allowlist) ? d.allowlist : undefined;
     }
   });
+
+  // 一个出站请求要不要拦:先看付款形状,再看是否越出任务允许表(E9)。任一命中即拦。
+  function decideOutbound(url, method) {
+    const pay = Gate.classifyRequest(url, method);
+    if (pay.gate) return pay;
+    if (Array.isArray(scopeAllowlist)) {
+      let host = "";
+      try {
+        host = new URL(url, location.href).hostname;
+      } catch (_e) {
+        host = "";
+      }
+      if (host) {
+        const sc = Gate.scopeGateHost(host, scopeAllowlist);
+        if (sc.gate) return sc;
+      }
+    }
+    return { gate: false, reason: "" };
+  }
 
   // 向内容脚本要一个"允许/拒绝"的决定;超时(没有内容脚本回应)按**放行**处理,理由和
   // background 的 DNR 一致:这一层是加的一道,不该因为它自己卡住就把用户的正常请求全掐死。
@@ -85,11 +115,11 @@
         const url = typeof input === "string" ? input : input && input.url;
         const method =
           (init && init.method) || (input && typeof input === "object" && input.method) || "GET";
-        const d = Gate.classifyRequest(url, method);
+        const d = decideOutbound(url, method);
         if (d.gate) {
           return askDecision(url, d.reason).then((allow) => {
             if (allow) return origFetch(input, init);
-            return Promise.reject(new DOMException("AgentGuard 拦下了一次付款/转账请求", "AbortError"));
+            return Promise.reject(new DOMException("AgentGuard 拦下了一次出站请求", "AbortError"));
           });
         }
       } catch (_e) {
@@ -113,7 +143,7 @@
     XHR.prototype.send = function (body) {
       let decision = { gate: false };
       try {
-        decision = Gate.classifyRequest(this.__ag_url, this.__ag_method);
+        decision = decideOutbound(this.__ag_url, this.__ag_method);
       } catch (_e) {
         /* 按不拦处理 */
       }

@@ -139,4 +139,29 @@ test("持久名单有上限,超了丢最旧的(尊重 DNR 配额)", () => {
   assert.deepEqual(state.persistent, ["m2.example", "m3.example", "m4.example"], "保留最近的");
 });
 
+test("hostInScope_对齐Rust拒绝后缀伪造", () => {
+  // 精确与子域放行。
+  assert.equal(Gate.hostInScope("stripe.com", "stripe.com"), true);
+  assert.equal(Gate.hostInScope("checkout.stripe.com", "stripe.com"), true);
+  // 后缀伪造必须拒(点边界):这几个是 Rust host_in_scope 明确拒绝的同款用例。
+  assert.equal(Gate.hostInScope("stripe.com.evil.example", "stripe.com"), false);
+  assert.equal(Gate.hostInScope("notstripe.com", "stripe.com"), false);
+  // 大小写 / 尾点 / 端口不影响判定。
+  assert.equal(Gate.hostInScope("Stripe.COM", "stripe.com."), true);
+  assert.equal(Gate.hostInScope("stripe.com:443", "stripe.com"), true);
+});
+
+test("scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", () => {
+  // 没声明(null/undefined)→ 不拦(和引擎"没声明不拦"一致)。
+  assert.equal(Gate.scopeGateHost("anything.example", null).gate, false);
+  assert.equal(Gate.scopeGateHost("anything.example", undefined).gate, false);
+  // 声明了:在表内不拦,表外拦。
+  assert.equal(Gate.scopeGateHost("checkout.stripe.com", ["stripe.com"]).gate, false);
+  const d = Gate.scopeGateHost("collector.evil.example", ["stripe.com"]);
+  assert.equal(d.gate, true);
+  assert.ok(d.reason.length > 0);
+  // 空表 = 明确不许出网 → 全拦。
+  assert.equal(Gate.scopeGateHost("stripe.com", []).gate, true);
+});
+
 console.log(`\nguard-gate: ${passed} 条测试全部通过`);

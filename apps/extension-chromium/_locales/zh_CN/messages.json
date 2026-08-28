@@ -1,15 +1,56 @@
 {
-  "extensionName": { "message": "AgentGuard 网页防护" },
-  "extensionDescription": { "message": "检测 AI 智能体使用页面中的提示词注入、非必要个人信息填写和隐私陷阱。" },
-  "actionTitle": { "message": "AgentGuard 网页防护" },
-  "nativeForward": { "message": "转发到桌面端（Native Messaging）" },
-  "recentDetections": { "message": "最近检测" },
-  "noRecords": { "message": "暂无检测记录" },
-  "readError": { "message": "无法读取状态" },
-  "findings": { "message": "检测结果" },
-  "language": { "message": "语言" },
-  "system": { "message": "跟随系统" },
-  "english": { "message": "English" },
-  "simplifiedChinese": { "message": "简体中文" },
-  "traditionalChinese": { "message": "繁體中文" }
+  "extensionName": {
+    "message": "AgentGuard 网页防护"
+  },
+  "extensionDescription": {
+    "message": "检测 AI 智能体使用页面中的提示词注入、非必要个人信息填写和隐私陷阱。"
+  },
+  "actionTitle": {
+    "message": "AgentGuard 网页防护"
+  },
+  "nativeForward": {
+    "message": "转发到桌面端（Native Messaging）"
+  },
+  "recentDetections": {
+    "message": "最近检测"
+  },
+  "noRecords": {
+    "message": "暂无检测记录"
+  },
+  "readError": {
+    "message": "无法读取状态"
+  },
+  "findings": {
+    "message": "检测结果"
+  },
+  "language": {
+    "message": "语言"
+  },
+  "system": {
+    "message": "跟随系统"
+  },
+  "english": {
+    "message": "English"
+  },
+  "simplifiedChinese": {
+    "message": "简体中文"
+  },
+  "traditionalChinese": {
+    "message": "繁體中文"
+  },
+  "blockedHosts": {
+    "message": "已拦截的网络目的地"
+  },
+  "unblock": {
+    "message": "解除"
+  },
+  "kindMalicious": {
+    "message": "恶意域"
+  },
+  "kindOutOfScope": {
+    "message": "越出任务范围"
+  },
+  "noBlocked": {
+    "message": "当前没有拦截"
+  }
 }

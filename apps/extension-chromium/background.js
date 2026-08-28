@@ -104,6 +104,15 @@ function handleVerdict(response) {
   if (Array.isArray(response.block_hosts) && response.block_hosts.length) {
     updateBlocklist(response.block_hosts);
   }
+  // E9:当前会话的主机允许表快照。存进 storage,内容脚本据此推给页面做本地越界判定。
+  // 字段缺失 = 没声明 → 存 null(内容脚本会据此关掉本地越界拦截)。
+  try {
+    chrome.storage.local.set({
+      scope_hosts: Array.isArray(response.scope_hosts) ? response.scope_hosts : null,
+    });
+  } catch (e) {
+    console.debug("AgentGuard scope_hosts persist failed", e);
+  }
   if (items.length || response.paused) {
     pushRecent({
       ts: Date.now(),
@@ -248,6 +257,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "set_native") {
     nativeEnabled = !!msg.enabled;
     chrome.storage.local.set({ nativeEnabled });
+    sendResponse({ ok: true });
+    return true;
+  }
+  // E10:popup 管理面读当前拦截名单。先剪掉过期会话项(installActive 里那次空合并),再回。
+  if (msg?.type === "get_blocklist") {
+    const Gate = self.AgentGuardGate;
+    if (Gate) {
+      const merged = Gate.mergeBlocklist(blocklist, [], [], Date.now());
+      blocklist = { persistent: merged.persistent, session: merged.session };
+    }
+    sendResponse({
+      malicious: blocklist.persistent.slice(),
+      out_of_scope: blocklist.session.map((e) => e.host),
+    });
+    return true;
+  }
+  // E10:用户手动解除一条——从两个集合里都删掉,持久化,重装 DNR。
+  if (msg?.type === "unblock_host" && typeof msg.host === "string") {
+    const h = msg.host.trim().toLowerCase();
+    blocklist = {
+      persistent: blocklist.persistent.filter((x) => x !== h),
+      session: blocklist.session.filter((e) => e.host !== h),
+    };
+    try {
+      chrome.storage.local.set({ blocklist });
+    } catch (e) {
+      console.debug("AgentGuard blocklist persist failed", e);
+    }
+    installActive();
     sendResponse({ ok: true });
     return true;
   }

@@ -169,12 +169,59 @@
     return { persistent, session, active };
   }
 
+  // 一个观察到的主机是否落在允许表条目 `entry` 之内:精确相等,或它的子域(E9)。
+  //
+  // 这是 Rust 端 `guard_schema::host_in_scope` 的 JS 镜像,**安全攸关**:点边界是关键——裸
+  // `endsWith("stripe.com")` 会把 `stripe.com.evil.example` 也当成 stripe.com 的子域放行,那是
+  // 经典的后缀伪造,会把允许表变成"允许一切"。两端语义必须一致,否则 JS 会放行一个 Rust 会拦的
+  // 目的地(或反之)——`hostInScope_对齐Rust拒绝后缀伪造` 那条 node 测试把这几个伪造用例钉死。
+  function hostInScope(observed, entry) {
+    const norm = (s) => {
+      let x = String(s || "").trim().toLowerCase();
+      while (x.endsWith(".")) x = x.slice(0, -1);
+      // 去掉 user:pass@ 和 :port(IPv6 字面量保留方括号)。
+      if (x.includes("@")) x = x.split("@").pop();
+      const i = x.lastIndexOf(":");
+      if (i >= 0 && !x.endsWith("]") && !x.slice(i + 1).includes("]")) x = x.slice(0, i);
+      return x;
+    };
+    const o = norm(observed);
+    const e = norm(entry);
+    if (!o || !e) return false;
+    return o === e || o.endsWith(`.${e}`);
+  }
+
+  /**
+   * 一个出站目的地主机在**任务允许表**里吗——不在则该本地拦(E9)。
+   *
+   * @param {string} host 目的地主机
+   * @param {string[]|null|undefined} allowlist 允许表:`null`/`undefined` = 没声明(不拦);
+   *        `[]` = 明确"不许出网"(全拦);否则精确/子域匹配。
+   * @returns {{gate: boolean, reason: string}}
+   */
+  function scopeGateHost(host, allowlist) {
+    // 没声明允许表 = 不做本地越界拦截(和引擎 check_scope_host 的"没声明不拦"一致)。
+    if (!Array.isArray(allowlist)) return { gate: false, reason: "" };
+    const h = String(host || "").trim();
+    if (!h) return { gate: false, reason: "" };
+    if (allowlist.some((a) => hostInScope(h, a))) return { gate: false, reason: "" };
+    return {
+      gate: true,
+      reason:
+        allowlist.length === 0
+          ? "这个任务被声明为不许出网,而这是一个出站请求"
+          : `目的地 ${h} 不在这个任务声明的允许网站里`,
+    };
+  }
+
   const Gate = {
     gateForFinding,
     gateForFindings,
     buildBlockRules,
     classifyRequest,
     mergeBlocklist,
+    hostInScope,
+    scopeGateHost,
     SESSION_TTL_MS,
     MAX_PERSISTENT,
     BLOCKING,
