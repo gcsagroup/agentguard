@@ -42,6 +42,34 @@ def parse_gate_checks():
     return autos, evid
 
 
+def parse_acceptance(rel):
+    """数一份真机验收清单里有多少用例、多少已填(实测/证据两列非空 = 已走过)。
+
+    这样进度块反映**真实**状态:模板全空 → 0/N;有人在真机走完并填了实测/证据 → 自动 >0。
+    不手写进度,也不靠一个单独的计数常量漂移。
+    """
+    p = ROOT / rel
+    if not p.exists():
+        return 0, 0
+    text = p.read_text(encoding="utf-8")
+    # 只数「验收用例」那一节的表(macOS 文档另有一张「离线场景↔清单映射」编号表,不算验收进度)。
+    m = re.search(r'##\s*验收用例(.*?)(?:\n##\s|\Z)', text, re.S)
+    section = m.group(1) if m else text
+    done = total = 0
+    for line in section.splitlines():
+        s = line.strip()
+        if not re.match(r'^\|\s*[WF]?\d+\s*\|', s):
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        total += 1
+        # 末两列 = 实测 + 证据;任一非空即认为这条已走过。
+        if cells[-1] or cells[-2]:
+            done += 1
+    return done, total
+
+
 def git_head():
     try:
         return subprocess.check_output(
@@ -86,6 +114,15 @@ h1{font-size:25px;margin:0 0 4px;letter-spacing:-.01em;text-wrap:balance}
 .tile .n{font-size:29px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .tile .l{color:var(--muted);font-size:12px;margin-top:6px}
 h2{font-size:16px;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.accept{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:6px}
+.prow{display:grid;grid-template-columns:120px 1fr 62px;align-items:center;gap:12px;padding:9px 0;border-top:1px solid var(--line)}
+.prow:first-of-type{border-top:none}
+.pname{font-weight:600;font-size:13px}
+.pname small{display:block;color:var(--muted);font-weight:400;font-size:11px;margin-top:1px}
+.bar{height:8px;border-radius:999px;background:var(--chip);overflow:hidden}
+.bar span{display:block;height:100%;border-radius:999px;background:var(--warn)}
+.bar span.full{background:var(--ok)}
+.pcount{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;color:var(--muted)}
 .area{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin:18px 0 8px}
 .claim{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
 .claim .title{font-weight:600;margin-bottom:6px}
@@ -146,6 +183,29 @@ def build_body(claims_doc, gate_status):
         tile(un, "需真机/凭据(未验证)", "warn" if un else ""),
     ]
     parts.append('<div class="tiles">' + "".join(tiles) + "</div>")
+
+    # 真机验收进度(三份清单各自 X/N)
+    accept = [
+        ("macOS 桌面", "docs/acceptance-macos.md", "AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS"),
+        ("Windows 桌面", "docs/acceptance-windows.md", "AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS"),
+        ("Firefox 扩展", "docs/acceptance-firefox.md", "AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX"),
+    ]
+    parts.append('<h2>真机验收进度</h2>')
+    parts.append('<p class="sub">这三条只有真设备能验;进度直接数各 <code>acceptance-*.md</code> 里填了实测/'
+                 '证据的用例。模板全空即 0——在真机走完前如实显示为未开始,不是缺陷。</p>')
+    prows = []
+    for name, rel, _env in accept:
+        done, total = parse_acceptance(rel)
+        pct = int(round(100 * done / total)) if total else 0
+        full = " full" if total and done == total else ""
+        prows.append(
+            '<div class="prow">'
+            f'<div class="pname">{esc(name)}<small>{esc(rel.split("/")[-1])}</small></div>'
+            f'<div class="bar"><span class="{full.strip()}" style="width:{pct}%"></span></div>'
+            f'<div class="pcount">{done}/{total}</div>'
+            '</div>'
+        )
+    parts.append('<div class="accept">' + "".join(prows) + '</div>')
 
     # 能力 → 证明测试
     parts.append('<h2>能力声明 → 证明测试</h2>')
