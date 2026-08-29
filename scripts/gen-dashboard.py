@@ -130,7 +130,8 @@ h2{font-size:16px;margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid 
 .tests{display:flex;flex-wrap:wrap;gap:6px}
 .t{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.note{color:var(--warn);font-size:12px;margin-top:8px}
+.note{color:var(--muted);font-size:12px;margin-top:8px;padding-left:9px;border-left:2px solid var(--line)}
+.note b{color:var(--warn);font-weight:600;letter-spacing:.02em}
 .gate{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:720px){.gate{grid-template-columns:1fr}}
 .gcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -219,7 +220,11 @@ def build_body(claims_doc, gate_status):
         for c in by_area[area]:
             tests = "".join(f'<span class="t">{esc(t.get("test",""))}</span>'
                             for t in c.get("proven_by", []))
-            note = f'<div class="note">残余:{esc(c["note"])}</div>' if c.get("note") else ""
+            # note 是**边界/说明**,不是"待办残余"——很多是永久性的诚实限制。不再统一贴"残余:"
+            # 前缀(那会把边界误读成未修的 TODO,也会和自带"残余:"的文案叠成双前缀)。
+            note = (
+                f'<div class="note"><b>边界</b> {esc(c["note"])}</div>' if c.get("note") else ""
+            )
             parts.append(
                 '<div class="claim">'
                 f'<div class="title">{esc(c.get("claim",""))}</div>'

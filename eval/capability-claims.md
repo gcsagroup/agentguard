@@ -35,11 +35,11 @@
 
 说明:
 
-- **Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行**:只有桌面壳子有阻断式模态;宿主是在事件发生后观测,所以浏览器侧只能事后通知
+- **Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行**:这条 claim 说的是**宿主 native-messaging 路径**——异步观测,只能事后通知;但页面内的付款/陷阱动作已由 E2 内容脚本同步门在执行前拦(见 browser-preexec-block)。桌面壳子仍是唯一的阻断式模态
 - **浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)**:只覆盖页面自身 DOM 动作;真 Chrome/Firefox E2E 未验证(DOM 接线只 node --check)
 - **拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)**:MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
 - **Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移**:Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
-- **引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)**:E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
+- **引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)**:E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;此 DNR 桥的越界只对网络流事件成立,但浏览器侧的越界已由 E9 本地允许表门覆盖(见 browser-local-scope-gate),不再是残余;DNR fail-open;真 Chrome/Firefox E2E 未验证
 - **任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)**:下发的是策略(允许表)不是浏览历史;host_in_scope 由共享向量表(eval/host-scope-vectors.json)钉住 Rust/JS 同源;MAIN world 客户端检查尽力而为;真机未验证
 
 ## core

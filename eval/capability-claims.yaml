@@ -98,7 +98,7 @@ claims:
     mechanism: guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知
     proven_by:
       - { test: critical判决产生notify供扩展弹通知, file: crates/guard-nm-host/src/main.rs }
-    note: 只有桌面壳子有阻断式模态;宿主是在事件发生后观测,所以浏览器侧只能事后通知
+    note: 这条 claim 说的是**宿主 native-messaging 路径**——异步观测,只能事后通知;但页面内的付款/陷阱动作已由 E2 内容脚本同步门在执行前拦(见 browser-preexec-block)。桌面壳子仍是唯一的阻断式模态
 
   - id: session-scope
     claim: 会话作用域(Aura §4.4):授权在会话开始记录、不越过会话存活
@@ -206,7 +206,7 @@ claims:
       - { test: 越界目的地也抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
       - { test: "恶意域累积保留:下一批 benign 判决不会把它清掉", file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: "越界目的地随会话过期,不永久拦掉用户对该主机的正常访问", file: apps/extension-chromium/scripts/gate.test.mjs }
-    note: E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;越界只对网络流事件成立(浏览器 ui_text 那段是显式残余);DNR fail-open;真 Chrome/Firefox E2E 未验证
+    note: E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;此 DNR 桥的越界只对网络流事件成立,但浏览器侧的越界已由 E9 本地允许表门覆盖(见 browser-local-scope-gate),不再是残余;DNR fail-open;真 Chrome/Firefox E2E 未验证
 
   - id: browser-local-scope-gate
     claim: 任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)
