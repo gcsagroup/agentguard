@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**19 条声明,36 条去重证明测试。**
+**20 条声明,39 条去重证明测试。**
 
 ## android
 
@@ -48,6 +48,16 @@
 |---|---|---|---|
 | 会话作用域(Aura §4.4):授权在会话开始记录、不越过会话存活 | `docs/platform-matrix.md` | guard-core 会话开始记 SESSION-START 授权,会话结束授权失效 | `the_session_grant_is_recorded_at_session_start`<br/>`the_grant_does_not_outlive_its_session` |
 | 文件系统天花板由引擎自己执行(授权内放行、授权外 Block、未声明 unscoped 告警) | `docs/路径模型.md` | guard-core::check_filesystem_scope 区分 FS-OUTSIDE(Block)与 FS-UNSCOPED(Alert) | `声明的写授权内放行授权外拒绝`<br/>`未声明paths时仍是unscoped告警` |
+
+## extension
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| 用户界面不出现无解释的裸术语——finding 种类/规则 ID 都有三语人话词条,技术标识收进详情 | `docs/消费者化界面.md` | guard-strings.js 单一词表;覆盖率测试从 content.js/events.rs 源码提取标识符对词典点名 | `content.js 上报的每个 finding kind 在词典里都有三语人话词条`<br/>`guard-schema events.rs 里的每个规则 ID 在词典里都有三语人话词条`<br/>`guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)` |
+
+说明:
+
+- **用户界面不出现无解释的裸术语——finding 种类/规则 ID 都有三语人话词条,技术标识收进详情**:覆盖率靠源码字面量提取,动态拼接的标识符看不见;翻译质量测试保证不了(见文档边界节)
 
 ## intel
 

@@ -68,19 +68,26 @@
   });
 
   // 一个出站请求要不要拦:先看付款形状,再看是否越出任务允许表(E9)。任一命中即拦。
+  // 返回值附带 kind / host —— 内容脚本的确认层用它查人话词典(guard-strings.js),
+  // 而不是把 reason 原文怼给用户。kind:payment_request / out_of_scope_host / no_egress。
   function decideOutbound(url, method) {
+    let host = "";
+    try {
+      host = new URL(url, location.href).hostname;
+    } catch (_e) {
+      host = "";
+    }
     const pay = Gate.classifyRequest(url, method);
-    if (pay.gate) return pay;
-    if (Array.isArray(scopeAllowlist)) {
-      let host = "";
-      try {
-        host = new URL(url, location.href).hostname;
-      } catch (_e) {
-        host = "";
-      }
-      if (host) {
-        const sc = Gate.scopeGateHost(host, scopeAllowlist);
-        if (sc.gate) return sc;
+    if (pay.gate) return { gate: true, reason: pay.reason, kind: "payment_request", host };
+    if (Array.isArray(scopeAllowlist) && host) {
+      const sc = Gate.scopeGateHost(host, scopeAllowlist);
+      if (sc.gate) {
+        return {
+          gate: true,
+          reason: sc.reason,
+          kind: scopeAllowlist.length === 0 ? "no_egress" : "out_of_scope_host",
+          host,
+        };
       }
     }
     return { gate: false, reason: "" };
@@ -88,7 +95,7 @@
 
   // 向内容脚本要一个"允许/拒绝"的决定;超时(没有内容脚本回应)按**放行**处理,理由和
   // background 的 DNR 一致:这一层是加的一道,不该因为它自己卡住就把用户的正常请求全掐死。
-  function askDecision(url, reason) {
+  function askDecision(url, decision) {
     return new Promise((resolve) => {
       const id = ++seq;
       let settled = false;
@@ -98,7 +105,17 @@
         resolve(allow);
       };
       pending.set(id, done);
-      window.postMessage({ type: REQ, id, url: String(url).slice(0, 300), reason }, "*");
+      window.postMessage(
+        {
+          type: REQ,
+          id,
+          url: String(url).slice(0, 300),
+          reason: decision.reason,
+          kind: decision.kind || "",
+          host: decision.host || "",
+        },
+        "*"
+      );
       setTimeout(() => {
         if (pending.has(id)) {
           pending.delete(id);
@@ -117,7 +134,7 @@
           (init && init.method) || (input && typeof input === "object" && input.method) || "GET";
         const d = decideOutbound(url, method);
         if (d.gate) {
-          return askDecision(url, d.reason).then((allow) => {
+          return askDecision(url, d).then((allow) => {
             if (allow) return origFetch(input, init);
             return Promise.reject(new DOMException("AgentGuard 拦下了一次出站请求", "AbortError"));
           });
@@ -150,7 +167,7 @@
       if (!decision.gate) return origSend.apply(this, arguments);
       const self = this;
       const args = arguments;
-      askDecision(self.__ag_url, decision.reason).then((allow) => {
+      askDecision(self.__ag_url, decision).then((allow) => {
         if (allow) {
           origSend.apply(self, args);
         } else {

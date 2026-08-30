@@ -8,14 +8,29 @@
   "actionTitle": {
     "message": "AgentGuard Web Shield"
   },
+  "settings": {
+    "message": "Settings"
+  },
+  "statusOn": {
+    "message": "Protecting this page"
+  },
+  "todaySummary": {
+    "message": "Today: {f} found · {b} blocked"
+  },
   "nativeForward": {
-    "message": "Forward to desktop (Native Messaging)"
+    "message": "Connect the desktop app for stronger protection (optional)"
+  },
+  "nativeForwardHint": {
+    "message": "With the desktop app connected, blocking decisions are also signed into the local audit log, and malicious sites are blocked on desktop too."
   },
   "recentDetections": {
-    "message": "Recent detections"
+    "message": "Recent findings"
   },
   "noRecords": {
     "message": "No detections yet"
+  },
+  "allClear": {
+    "message": "All clear — nothing suspicious on this page. When something risky happens (a payment, personal info being sent), AgentGuard stops it and asks you first."
   },
   "readError": {
     "message": "Unable to read status"
@@ -39,21 +54,24 @@
     "message": "Traditional Chinese"
   },
   "blockedHosts": {
-    "message": "Blocked network destinations"
+    "message": "Blocked sites"
   },
   "unblock": {
     "message": "Unblock"
   },
   "kindMalicious": {
-    "message": "malicious"
+    "message": "Known malicious site"
   },
   "kindOutOfScope": {
-    "message": "out of task scope"
+    "message": "Outside this task's scope"
   },
   "noBlocked": {
-    "message": "Nothing blocked"
+    "message": "No sites are blocked right now"
+  },
+  "whyBlocked": {
+    "message": "Why was it blocked?"
   },
   "blockedBy": {
-    "message": "Blocked by"
+    "message": "Technical id"
   }
 }

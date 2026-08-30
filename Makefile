@@ -142,11 +142,12 @@ check-shells:
 	@set -e; find . -name '*.sh' -not -path './target/*' -print0 | xargs -0 -n1 bash -n
 	@echo "shell scripts parse"
 
-# 浏览器执行前阻断的纯决策逻辑单测(E2)+ 跨浏览器 manifest 一致性(E4)。
+# 浏览器执行前阻断的纯决策逻辑单测(E2)+ 跨浏览器 manifest 一致性(E4)+ 人话词典(E16)。
 # DOM 接线只 node --check;真 Chrome/Firefox E2E 未验证。
 check-extension-gate:
 	node apps/extension-chromium/scripts/gate.test.mjs
 	node apps/extension-chromium/scripts/manifests.test.mjs
+	node apps/extension-chromium/scripts/strings.test.mjs
 
 ## The desktop shells, compiled rather than parsed. On Linux this needs GTK/WebKit:
 ##   apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev

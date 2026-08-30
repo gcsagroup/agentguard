@@ -12,7 +12,7 @@
       <header>
         <div>
           <h1>AgentGuard</h1>
-          <p class="subtitle">Windows Desktop · Phase 2 / productize</p>
+          <p class="subtitle" data-i18n="subtitle">Guards what AI agents do on this PC</p>
         </div>
         <div class="header-actions">
           <label class="locale-picker">
@@ -36,25 +36,23 @@
               Aura §4.4: naming the task selects its plan, and with it the session resource ceiling.
               Blank is unscoped — the pre-existing behaviour.
             -->
-            <label class="task-profile"><span>Task</span>
+            <!-- 任务下拉给人话名(value 仍是 policies/task-plans.yaml 的 profile id)。
+                 上一版直接把 book_hotel 这种配置名怼给用户。 -->
+            <label class="task-profile"><span data-i18n="taskLabel">Task</span>
               <select id="task-profile">
-                <option value="">(unscoped)</option>
-                <option value="book_hotel">book_hotel</option>
-                <option value="order_food">order_food</option>
-                <option value="navigation_jump">navigation_jump</option>
-                <option value="preference_save">preference_save</option>
+                <option value="" data-i18n="taskNone">(any task)</option>
+                <option value="book_hotel" data-i18n="taskBookHotel">Book a hotel</option>
+                <option value="order_food" data-i18n="taskOrderFood">Order food</option>
+                <option value="navigation_jump" data-i18n="taskNavigate">Navigate pages</option>
+                <option value="preference_save" data-i18n="taskPrefSave">Save preferences</option>
               </select>
             </label>
             <button id="btn-start" data-i18n="start">Start session</button>
             <button id="btn-end" class="secondary" data-i18n="end">End session</button>
             <button id="btn-resume" class="secondary" data-i18n="resume">Resume</button>
           </div>
-          <label class="check" id="auto-approve-row">
-            <input type="checkbox" id="auto-approve" />
-            <span data-i18n="autoApprove">Auto-approve critical confirmations (test only)</span>
-          </label>
           <div class="btn-row">
-            <button id="btn-reload-intel" class="secondary" data-i18n="reloadIntel">Reload threat intel</button>
+            <button id="btn-reload-intel" class="secondary" data-i18n="reloadIntel">Update threat intelligence</button>
           </div>
           <p id="caps" class="muted"></p>
         </div>
@@ -67,9 +65,15 @@
           <div id="observe-status" class="caps-list"></div>
         </div>
 
-        <div class="card">
-          <h2 data-i18n="threats">Simulate threats</h2>
+        <!-- 开发者面板(E16):仿真注入 / 企业策略 / 决策原始日志是演示与诊断工具,
+             普通用户不需要看到 —— 默认折叠,不再伪装成主界面。 -->
+        <details class="card dev">
+          <summary data-i18n="devPanel">Developer panel (demos &amp; diagnostics)</summary>
           <p class="muted" data-i18n="threatsNote">Replays fixtures through the engine. Not observation — these buttons prove the rules fire, not that this machine is being watched.</p>
+          <label class="check" id="auto-approve-row">
+            <input type="checkbox" id="auto-approve" />
+            <span data-i18n="autoApprove">Auto-approve critical confirmations (test only)</span>
+          </label>
           <div class="btn-row wrap">
             <button data-threat="payment" data-i18n="payment">Payment confirmation</button>
             <button data-threat="fm" class="secondary" data-i18n="fm">Optional PII</button>
@@ -83,7 +87,7 @@
             <button id="btn-sync-policy" class="secondary" data-i18n="syncPolicy">Sync enterprise policy</button>
           </div>
           <ul id="decisions" class="log"></ul>
-        </div>
+        </details>
       </section>
 
       <section class="card">

@@ -24,7 +24,7 @@ Firefox 那几条"骨架已做、真机未验证"的项——**这些只有在�
 | # | 步骤 | 期望 | 实测 | 证据 |
 |---|------|------|------|------|
 | F1 | 打开含隐藏注入文本(`[AG_INVISIBLE_TEXT]` / "ignore previous instructions")的测试页 | 扩展上报 finding(popup 最近列表出现) | | |
-| F2 | 页面上放一个文案含"确认支付/Confirm Payment"的按钮,点它 | **执行前**弹出 AgentGuard 确认层("允许一次/取消");点取消 → 动作不发生 | | |
+| F2 | 页面上放一个文案含"确认支付/Confirm Payment"的按钮,点它 | **执行前**弹出 AgentGuard 确认层("允许这一次/先不要");点「先不要」 → 动作不发生 | | |
 | F3 | 一个把非必要 PII(手机号)填进陷阱控件的表单,提交 | 提交被 `preventDefault` 拦住,弹确认;取消 → 不提交 | | |
 | F4 | 页面脚本 `fetch("/api/checkout",{method:"POST"})`(在页面控制台执行) | fetch 门弹确认;拒绝 → Promise reject、请求**未发出**(Network 面板无该请求) | | |
 | F5 | 同 F4 但用 `GET` | **不**拦(只读方法不该有副作用) | | |

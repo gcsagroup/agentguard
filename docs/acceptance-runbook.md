@@ -84,9 +84,9 @@ mkdir -p /tmp/ag-evidence/{firefox,windows,macos}
 | 用例 | 打开 / 动作 | PASS 判据(可观察) | 证据 |
 |---|---|---|---|
 | **F1** 隐藏注入 | 开 `http://localhost:8000/injection.html`;点扩展图标看 popup「最近」 | popup 最近列表出现一条 `invisible_injection`/`prompt_injection`;若装了宿主,宿主 stderr / 审计里有对应事件 | popup 截图 |
-| **F2** 付款 CTA 执行前拦 | 开 `payment-cta.html`,点「Confirm Payment」 | 点击后**先**弹出 AgentGuard「执行前拦截」确认层;点**取消**→ 页面**不**显示「已确认支付」;再点一次点**允许一次**→ 才显示 | 两张截图(取消态 / 允许态) |
-| **F3** 陷阱+PII 提交拦 | 开 `trap-pii.html`,点「提交」 | 弹确认层;**取消**→ URL 不变、无 `?phone=`;**允许一次**→ URL 出现 `?phone=13800000000` | 两张截图(URL 栏可见) |
-| **F4** 付款形状 fetch 拦 | 开 `fetch-gate.html`,点「POST /pay/checkout」 | 弹确认层;**取消**→ Network 面板**无** `/pay/checkout` 请求、日志显示"被拒绝/未发出";**允许**→ 出现该请求(404/501 无所谓) | Network 面板截图(取消态) |
+| **F2** 付款 CTA 执行前拦 | 开 `payment-cta.html`,点「Confirm Payment」 | 点击后**先**弹出 AgentGuard 确认层(标题是人话,如「这一步要付款了」);点**「先不要」**→ 页面**不**显示「已确认支付」;再点一次点**「允许这一次」**→ 才显示 | 两张截图(取消态 / 允许态) |
+| **F3** 陷阱+PII 提交拦 | 开 `trap-pii.html`,点「提交」 | 弹确认层;**「先不要」**→ URL 不变、无 `?phone=`;**「允许这一次」**→ URL 出现 `?phone=13800000000` | 两张截图(URL 栏可见) |
+| **F4** 付款形状 fetch 拦 | 开 `fetch-gate.html`,点「POST /pay/checkout」 | 弹确认层;**「先不要」**→ Network 面板**无** `/pay/checkout` 请求、日志显示"被拒绝/未发出";**「允许这一次」**→ 出现该请求(404/501 无所谓) | Network 面板截图(取消态) |
 | **F5** 只读方法不拦 | 同页点「GET /pay/status」和「POST /api/search」 | **不**弹确认层;请求直接发出(Network 出现) | Network 面板截图 |
 | **F6** 恶意域网络层硬拦 | 需要引擎判 `evil.example` 为恶意域(内置情报基线含它)。若走宿主:构造一次 url 为 `https://evil.example/x` 的浏览器事件(或直接在地址栏访问 `http://evil.example/`)后,再在**新请求**里访问该主机 | 该主机的请求被 declarativeNetRequest 在网络层 block(Network 面板显示 blocked / net::ERR_BLOCKED_BY_CLIENT);popup 拦截名单出现 `evil.example · 恶意域`,溯源显示 `INTEL-DOMAIN` | popup 名单截图 + Network 截图 |
 | **F7** 原生消息握手 | 确保宿主已装;触发任意 finding(F1–F3) | 宿主接受了调用方(未因 origin 校验拒启动;stderr 无 "refuse origin");判决进签名审计库(`AGENTGUARD_AUDIT_DB` 指向的库有新行) | 宿主 stderr 截图 / 审计行 |
@@ -119,7 +119,7 @@ npm run tauri dev        # 起托盘壳子(dev)
 (看托盘/日志的能力标志):
 
 - **判决链路类(W1 阻断模态)**:用壳子的仿真注入触发一次 `CRIT-001`(付款文案)。PASS 判据:弹出
-  **阻断式模态**,点取消动作不放行。记 `PASS (sim)` 或(原生接线后)`PASS (native)`。
+  **阻断式模态**,点「先不要,暂停任务」动作不放行。记 `PASS (sim)` 或(原生接线后)`PASS (native)`。
 - **原生观测类(W2 UIA 取树 / W3 GDI 抓帧+隐写 / W4 Windows.Media.Ocr 读屏 / W5 overlay)**:
   只有原生适配器接进壳子后才可真验。未接进 → `BLOCKED (native-not-wired)`。若已接进:
   - W3 需要一张含隐写的图 —— 用 `make frame-digest-demo` 或 guard-vision 的隐写编码器生成一张,
@@ -175,7 +175,7 @@ macOS README 明说 `accessibility` / `screen_capture` 目前是占位,请以**�
 
 ## 6. 判定小抄(什么算 PASS)
 
-- **执行前拦截类(F2/F3/F4)**:动作在**发生前**被拦、出现确认层,且"取消"确实阻止了动作
+- **执行前拦截类(F2/F3/F4)**:动作在**发生前**被拦、出现确认层,且「先不要」确实阻止了动作
   (无导航 / 无请求 / 无处理器副作用)。只弹通知、动作照常发生 = **FAIL**(那是事后通知,不是执行前拦)。
 - **网络层硬拦(F6)**:目标主机的请求在 Network 面板显示被 block,而不是 200。
 - **观测类(F1 / W2 等)**:出现对应 finding / 事件,且**对照的正常内容不误报**。

@@ -8,14 +8,29 @@
   "actionTitle": {
     "message": "AgentGuard 网页防护"
   },
+  "settings": {
+    "message": "设置"
+  },
+  "statusOn": {
+    "message": "正在守护这个页面"
+  },
+  "todaySummary": {
+    "message": "今日:发现 {f} 项 · 拦截 {b} 次"
+  },
   "nativeForward": {
-    "message": "转发到桌面端（Native Messaging）"
+    "message": "连接桌面端,加强防护(可选)"
+  },
+  "nativeForwardHint": {
+    "message": "连接桌面端后,拦截判决会进入本机的签名审计记录,桌面端也能同步拦截恶意网站。"
   },
   "recentDetections": {
-    "message": "最近检测"
+    "message": "最近发现"
   },
   "noRecords": {
     "message": "暂无检测记录"
+  },
+  "allClear": {
+    "message": "一切正常,这个页面上没有发现问题。遇到付款、交个人信息这类动作时,AgentGuard 会先拦下来问你。"
   },
   "readError": {
     "message": "无法读取状态"
@@ -39,21 +54,24 @@
     "message": "繁體中文"
   },
   "blockedHosts": {
-    "message": "已拦截的网络目的地"
+    "message": "已拦截的网站"
   },
   "unblock": {
-    "message": "解除"
+    "message": "解除拦截"
   },
   "kindMalicious": {
-    "message": "恶意域"
+    "message": "恶意网站"
   },
   "kindOutOfScope": {
-    "message": "越出任务范围"
+    "message": "超出任务范围"
   },
   "noBlocked": {
-    "message": "当前没有拦截"
+    "message": "当前没有拦截任何网站"
+  },
+  "whyBlocked": {
+    "message": "为什么被拦?"
   },
   "blockedBy": {
-    "message": "触发规则"
+    "message": "技术标识"
   }
 }

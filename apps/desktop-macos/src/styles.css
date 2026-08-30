@@ -163,3 +163,8 @@ button.danger { background: #c2414b; }
 .modal.hidden { display: none; }
 .modal-card { background: #151d2a; border: 1px solid #273449; border-radius: 14px; padding: 1.25rem; width: min(420px, 92vw); }
 button.danger { background: #b33a3a; }
+
+/* E16 开发者面板:演示/诊断工具默认折叠,不伪装成主界面。 */
+details.dev > summary { cursor: pointer; font-weight: 600; opacity: 0.85; }
+details.dev > summary:hover { opacity: 1; }
+details.dev[open] > summary { margin-bottom: 0.75rem; }

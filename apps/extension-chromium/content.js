@@ -214,11 +214,46 @@ function reportPrevented(reason, kind) {
   }
 }
 
-// 极简的本地确认层。preventDefault 之后 DOM 已经被按住了,所以这个可以是异步的——
+/* 确认层的语言:跟 popup 同一个设置(localeOverride),没设置就看浏览器语言。
+ * 上一版整个弹层硬编码中文 —— 英文用户在最关键的 10 秒里看到的是看不懂的字。 */
+let gateLocale = self.AgentGuardStrings
+  ? self.AgentGuardStrings.pickLocale(null, navigator.language)
+  : "en";
+try {
+  chrome.storage.local.get(["localeOverride"], (data) => {
+    if (self.AgentGuardStrings) {
+      gateLocale = self.AgentGuardStrings.pickLocale(data && data.localeOverride, navigator.language);
+    }
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.localeOverride && self.AgentGuardStrings) {
+      gateLocale = self.AgentGuardStrings.pickLocale(
+        changes.localeOverride.newValue,
+        navigator.language
+      );
+    }
+  });
+} catch (e) {
+  console.debug("AgentGuard locale bootstrap failed", e);
+}
+
+// 本地确认层。preventDefault 之后 DOM 已经被按住了,所以这个可以是异步的——
 // 批准回调里再程序化重放动作。刻意不用 window.confirm(某些页面会覆盖它)。
-function askAllowOnce(reason, onAllow, onCancel) {
+//
+// 消费者化改造(E16)之后的设计原则:
+//   - 标题和正文来自人话词典(guard-strings.js),不再出现「执行前拦截」这类内部术语;
+//   - 两个按钮各自写明后果;「先不要」是视觉主按钮 + 默认焦点 + Esc —— 安全的选择最顺手;
+//   - 「为什么拦住我?」可展开,解释和技术标识收在里面(留给排障),不占第一眼。
+// spec = { kind, reason, host }:kind 查词典;词典不认识时退回 reason 原文,不会哑掉。
+function askAllowOnce(spec, onAllow, onCancel) {
   // 用离散的 style 属性赋值,不用 el.style.cssText(那是"把字符串当 CSS 解析"的 sink,仓库
   // 不变量测试禁掉整个 API)。也不用 innerHTML —— 全程 createElement + textContent。
+  const S = self.AgentGuardStrings || null;
+  const ui = S ? S.ui(gateLocale) : null;
+  const gate = S && spec && spec.kind ? S.gateText(spec.kind, gateLocale, { host: spec.host || "" }) : null;
+  const kindInfo = S && spec && spec.kind ? S.kindText(spec.kind, gateLocale) : null;
+  const reasonText = (spec && spec.reason) || "";
+
   const host = document.createElement("div");
   Object.assign(host.style, {
     position: "fixed",
@@ -232,46 +267,95 @@ function askAllowOnce(reason, onAllow, onCancel) {
   });
   const card = document.createElement("div");
   Object.assign(card.style, {
-    maxWidth: "420px",
+    maxWidth: "440px",
     background: "#fff",
     color: "#111",
     borderRadius: "12px",
     padding: "20px",
     boxShadow: "0 10px 40px rgba(0,0,0,.3)",
   });
+  const brand = document.createElement("div");
+  Object.assign(brand.style, {
+    fontSize: "12px",
+    color: "#8a5a00",
+    background: "#fff7e6",
+    display: "inline-block",
+    padding: "2px 8px",
+    borderRadius: "999px",
+    marginBottom: "10px",
+  });
+  brand.textContent = ui ? ui.brand : "AgentGuard";
   const h = document.createElement("div");
-  Object.assign(h.style, { fontWeight: "600", marginBottom: "8px" });
-  h.textContent = "AgentGuard — 执行前拦截";
+  Object.assign(h.style, { fontWeight: "600", fontSize: "16px", marginBottom: "8px" });
+  h.textContent = (gate && gate.title) || reasonText || "AgentGuard";
   const p = document.createElement("div");
-  p.style.marginBottom = "16px";
-  p.textContent = `${reason}。是否允许这一次?`;
+  p.style.marginBottom = "10px";
+  p.textContent = (gate && gate.body) || reasonText;
+  // 两个按钮各自的后果,先说清楚再让人选。
+  const consequences = document.createElement("div");
+  Object.assign(consequences.style, { fontSize: "12.5px", color: "#555", marginBottom: "12px" });
+  if (gate) {
+    const cancelLine = document.createElement("div");
+    cancelLine.textContent = gate.cancel;
+    const allowLine = document.createElement("div");
+    allowLine.textContent = gate.allow;
+    consequences.append(cancelLine, allowLine);
+  }
+  // 「为什么拦住我?」——解释 + 技术标识收在这里。
+  const why = document.createElement("details");
+  why.style.marginBottom = "14px";
+  const whySummary = document.createElement("summary");
+  Object.assign(whySummary.style, { cursor: "pointer", fontSize: "12.5px", color: "#2f6df6" });
+  whySummary.textContent = ui ? ui.why : "?";
+  const whyBody = document.createElement("div");
+  Object.assign(whyBody.style, { fontSize: "12.5px", color: "#555", marginTop: "6px" });
+  const whyDetail = document.createElement("div");
+  whyDetail.textContent = (kindInfo && kindInfo.detail) || reasonText;
+  const whyTech = document.createElement("div");
+  Object.assign(whyTech.style, { color: "#999", marginTop: "4px" });
+  whyTech.textContent = `${ui ? ui.whyTech : "id"}: ${(spec && spec.kind) || "-"}`;
+  whyBody.append(whyDetail, whyTech);
+  why.append(whySummary, whyBody);
+
   const row = document.createElement("div");
   Object.assign(row.style, {
     display: "flex",
     gap: "8px",
     justifyContent: "flex-end",
   });
+  // 「先不要」是主按钮:深色实心、默认焦点、Esc。放行是危险动作,做成红字描边的次按钮。
   const cancel = document.createElement("button");
-  cancel.textContent = "取消";
+  cancel.textContent = ui ? ui.cancel : "Not now";
   Object.assign(cancel.style, {
-    padding: "8px 14px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    background: "#f5f5f5",
-    cursor: "pointer",
-  });
-  const allow = document.createElement("button");
-  allow.textContent = "允许一次";
-  Object.assign(allow.style, {
-    padding: "8px 14px",
+    padding: "8px 16px",
     borderRadius: "8px",
     border: "0",
-    background: "#b02a2a",
+    background: "#1f2937",
     color: "#fff",
     cursor: "pointer",
+    fontWeight: "600",
   });
-  const close = () => host.remove();
-  cancel.addEventListener("click", () => {
+  const allow = document.createElement("button");
+  allow.textContent = ui ? ui.allow : "Allow once";
+  Object.assign(allow.style, {
+    padding: "8px 16px",
+    borderRadius: "8px",
+    border: "1px solid #d99",
+    background: "#fff",
+    color: "#b02a2a",
+    cursor: "pointer",
+  });
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      e.stopImmediatePropagation();
+      doCancel();
+    }
+  };
+  const close = () => {
+    document.removeEventListener("keydown", onKey, true);
+    host.remove();
+  };
+  const doCancel = () => {
     close();
     if (typeof onCancel === "function") {
       try {
@@ -280,7 +364,9 @@ function askAllowOnce(reason, onAllow, onCancel) {
         console.debug("AgentGuard cancel handler failed", e);
       }
     }
-  });
+  };
+  document.addEventListener("keydown", onKey, true);
+  cancel.addEventListener("click", doCancel);
   allow.addEventListener("click", () => {
     close();
     try {
@@ -289,10 +375,15 @@ function askAllowOnce(reason, onAllow, onCancel) {
       console.debug("AgentGuard allow-once replay failed", e);
     }
   });
-  row.append(cancel, allow);
-  card.append(h, p, row);
+  row.append(allow, cancel);
+  card.append(brand, h, p, consequences, why, row);
   host.append(card);
   (document.body || document.documentElement).append(host);
+  try {
+    cancel.focus();
+  } catch (e) {
+    console.debug("AgentGuard focus failed", e);
+  }
 }
 
 function gateEvent(e, findings, replay) {
@@ -303,7 +394,7 @@ function gateEvent(e, findings, replay) {
   e.preventDefault();
   e.stopImmediatePropagation();
   reportPrevented(d.reason, d.kind);
-  askAllowOnce(d.reason, replay);
+  askAllowOnce({ kind: d.kind, reason: d.reason }, replay);
 }
 
 document.addEventListener(
@@ -376,8 +467,10 @@ window.addEventListener("message", (ev) => {
   if (!d || d.type !== AG_REQ || typeof d.id !== "number") return;
   const reason = d.reason || "这个请求看起来在发起一次付款/转账";
   reportPrevented(reason, "outbound_request");
+  // guard-page 的关卡带来了结构化的门种类(payment_request / out_of_scope_host / no_egress)
+  // 和目的地主机 —— 确认层据此查人话词典;老消息没有 kind 时退回 reason 原文。
   askAllowOnce(
-    reason,
+    { kind: d.kind || "payment_request", reason, host: d.host || "" },
     () => window.postMessage({ type: AG_DECISION, id: d.id, allow: true }, "*"),
     () => window.postMessage({ type: AG_DECISION, id: d.id, allow: false }, "*")
   );

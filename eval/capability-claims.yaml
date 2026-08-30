@@ -232,3 +232,16 @@ claims:
       - { test: 延迟上限_持续通知也会强制抓, file: adapters/mac-adapter/src/ax_push.rs }
       - { test: 去抖_安静够了才抓, file: adapters/mac-adapter/src/ax_push.rs }
     note: 像素捕获仍采样(压小的是树间隙非像素);AXObserver 注册与回调只 macOS 编译,真机未验证
+
+  - id: humane-ui-vocabulary
+    claim: 用户界面不出现无解释的裸术语——finding 种类/规则 ID 都有三语人话词条,技术标识收进详情
+    area: extension
+    source:
+      doc: docs/消费者化界面.md
+      anchor: "人话词典是单一真相源"
+    mechanism: guard-strings.js 单一词表;覆盖率测试从 content.js/events.rs 源码提取标识符对词典点名
+    proven_by:
+      - { test: "content.js 上报的每个 finding kind 在词典里都有三语人话词条", file: apps/extension-chromium/scripts/strings.test.mjs }
+      - { test: "guard-schema events.rs 里的每个规则 ID 在词典里都有三语人话词条", file: apps/extension-chromium/scripts/strings.test.mjs }
+      - { test: "guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)", file: apps/extension-chromium/scripts/strings.test.mjs }
+    note: 覆盖率靠源码字面量提取,动态拼接的标识符看不见;翻译质量测试保证不了(见文档边界节)

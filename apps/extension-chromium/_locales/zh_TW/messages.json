@@ -8,14 +8,29 @@
   "actionTitle": {
     "message": "AgentGuard 網頁防護"
   },
+  "settings": {
+    "message": "設定"
+  },
+  "statusOn": {
+    "message": "正在守護這個頁面"
+  },
+  "todaySummary": {
+    "message": "今日:發現 {f} 項 · 攔截 {b} 次"
+  },
   "nativeForward": {
-    "message": "轉送到桌面端（Native Messaging）"
+    "message": "連接桌面端,加強防護(選用)"
+  },
+  "nativeForwardHint": {
+    "message": "連接桌面端後,攔截判決會進入本機的簽章稽核記錄,桌面端也能同步攔截惡意網站。"
   },
   "recentDetections": {
-    "message": "最近偵測"
+    "message": "最近發現"
   },
   "noRecords": {
     "message": "尚無偵測記錄"
+  },
+  "allClear": {
+    "message": "一切正常,這個頁面上沒有發現問題。遇到付款、交個資這類動作時,AgentGuard 會先攔下來問你。"
   },
   "readError": {
     "message": "無法讀取狀態"
@@ -39,21 +54,24 @@
     "message": "繁體中文"
   },
   "blockedHosts": {
-    "message": "已攔截的網路目的地"
+    "message": "已攔截的網站"
   },
   "unblock": {
-    "message": "解除"
+    "message": "解除攔截"
   },
   "kindMalicious": {
-    "message": "惡意網域"
+    "message": "惡意網站"
   },
   "kindOutOfScope": {
-    "message": "越出任務範圍"
+    "message": "超出任務範圍"
   },
   "noBlocked": {
-    "message": "目前沒有攔截"
+    "message": "目前沒有攔截任何網站"
+  },
+  "whyBlocked": {
+    "message": "為什麼被攔?"
   },
   "blockedBy": {
-    "message": "觸發規則"
+    "message": "技術標識"
   }
 }

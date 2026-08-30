@@ -30,6 +30,7 @@ else
 fi
 cp "$ROOT/background.js" "$STAGE/"
 cp "$ROOT/guard-gate.js" "$STAGE/"
+cp "$ROOT/guard-strings.js" "$STAGE/"
 cp "$ROOT/guard-page.js" "$STAGE/"
 cp "$ROOT/content.js" "$STAGE/"
 cp "$ROOT/popup.html" "$STAGE/"
