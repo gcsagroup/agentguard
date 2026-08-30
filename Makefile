@@ -1,4 +1,4 @@
-.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: ui-preview release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -148,6 +148,11 @@ check-extension-gate:
 	node apps/extension-chromium/scripts/gate.test.mjs
 	node apps/extension-chromium/scripts/manifests.test.mjs
 	node apps/extension-chromium/scripts/strings.test.mjs
+
+## E16 视觉冒烟(开发工具,不进 release-gate:需要 playwright+Chromium)。
+## 真渲染确认弹层与 popup → 截图到 eval/ui-preview/out/ + 行为断言(先不要挡住/允许重放/可见文本无裸术语)。
+ui-preview:
+	node eval/ui-preview/shoot.mjs
 
 ## The desktop shells, compiled rather than parsed. On Linux this needs GTK/WebKit:
 ##   apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev

@@ -65,3 +65,4 @@ _to_delete/
 *.tgz
 *.zip
 docs/.status-dashboard.body.html
+eval/ui-preview/out/
