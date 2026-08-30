@@ -79,19 +79,67 @@ const check = (name, cond, extra) => {
   }
 };
 
-// 1) 确认弹层:付款拦截(zh)——「先不要」挡住 + 展开「为什么」。
+// 1) 确认弹层:付款拦截(zh)——「先不要」挡住 + 展开「为什么」+ 无障碍断言(E17b)。
 {
   const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
   await page.goto(`${base}/gate-preview.html`);
   await page.click("#pay");
   await page.waitForTimeout(250);
+  // a11y:alertdialog 语义 + 默认焦点在「先不要」。
+  const dialog = page.locator('[role="alertdialog"]');
+  check("弹层有 alertdialog 语义", (await dialog.count()) === 1);
+  check(
+    "弹层的可访问名称/描述已填(ARIA 反射)",
+    await page.evaluate(() => {
+      const d = document.querySelector('[role="alertdialog"]');
+      return !!(d.ariaModal === "true" && d.ariaLabel && d.ariaDescription);
+    })
+  );
+  check(
+    "打开时焦点落在「先不要」",
+    await page.evaluate(() => document.activeElement && document.activeElement.textContent === "先不要")
+  );
+  // 焦点圈:按 3 次 Tab 应回到起点,不逃出弹层。
+  const cycle = [];
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press("Tab");
+    cycle.push(await page.evaluate(() => document.activeElement.textContent.slice(0, 12)));
+  }
+  check(
+    "Tab 焦点圈锁在弹层内并循环",
+    cycle.length === 3 && cycle[2] === "先不要" && !cycle.includes("Confirm Payme"),
+    cycle.join(" → ")
+  );
   await page.screenshot({ path: join(OUT, "1-gate-payment-zh.png") });
   await page.click("summary");
   await page.waitForTimeout(150);
   await page.screenshot({ path: join(OUT, "2-gate-payment-zh-why.png") });
-  await page.getByRole("button", { name: "先不要", exact: true }).click();
+  // Esc = 先不要,且焦点还原到打开前的元素(#pay)。
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(100);
   const result = await page.textContent("#result");
-  check("「先不要」挡住页面自己的点击处理器", result === "", `页面处理器运行了:${result}`);
+  check("Esc(=先不要)挡住页面自己的点击处理器", result === "", `页面处理器运行了:${result}`);
+  check(
+    "关闭后焦点还原到触发元素",
+    await page.evaluate(() => document.activeElement && document.activeElement.id === "pay")
+  );
+  await page.close();
+}
+
+// 1b) 确认弹层:深色模式(prefers-color-scheme: dark)。
+{
+  const page = await browser.newPage({
+    viewport: { width: 900, height: 640 },
+    colorScheme: "dark",
+  });
+  await page.goto(`${base}/gate-preview.html`);
+  await page.click("#pay");
+  await page.waitForTimeout(250);
+  const cardBg = await page.evaluate(
+    () => getComputedStyle(document.querySelector('[role="alertdialog"]')).backgroundColor
+  );
+  check("深色模式下弹层卡片不是白底", cardBg !== "rgb(255, 255, 255)", cardBg);
+  await page.screenshot({ path: join(OUT, "8-gate-payment-dark.png") });
   await page.close();
 }
 
@@ -152,6 +200,56 @@ for (const [name, qs, assertClean] of [
     const expanded = await page.evaluate(() => document.body.innerText);
     check(`${name}:展开详情后技术标识可见`, RAW_TERMS.test(expanded));
   }
+  await page.close();
+}
+
+// 4b) 安装引导页(E17a):真页面 + chrome 桩(addInitScript,页面脚本运行前注入);
+//     演示按钮弹的是真渲染器,点「先不要」应显示"拦住了"的结果行。
+{
+  const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
+  await page.addInitScript(() => {
+    window.chrome = {
+      storage: {
+        local: {
+          // 兼容回调式(guard-modal)与 Promise 式(onboarding.js)两种取法。
+          get(keys, cb) {
+            const data = { localeOverride: "zh_CN" };
+            if (typeof cb === "function") {
+              cb(data);
+              return;
+            }
+            return Promise.resolve(data);
+          },
+          set() {
+            return Promise.resolve();
+          },
+        },
+        onChanged: { addListener() {} },
+      },
+      i18n: {
+        getUILanguage() {
+          return "zh-CN";
+        },
+      },
+      runtime: {
+        getURL(p) {
+          return "/apps/extension-chromium/" + p;
+        },
+        sendMessage() {},
+      },
+    };
+  });
+  await page.goto(`${base}/apps/extension-chromium/onboarding.html`);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: join(OUT, "9-onboarding-zh.png"), fullPage: true });
+  await page.click("#demo-pay");
+  await page.waitForTimeout(250);
+  check("引导页演示弹出真弹层", (await page.locator('[role="alertdialog"]').count()) === 1);
+  await page.screenshot({ path: join(OUT, "10-onboarding-demo.png") });
+  await page.getByRole("button", { name: "先不要", exact: true }).click();
+  await page.waitForTimeout(150);
+  const outcome = await page.textContent("#demo-outcome");
+  check("演示的「先不要」给出结果说明", outcome.includes("拦住了"), outcome);
   await page.close();
 }
 

@@ -141,6 +141,21 @@
         detail: "這個網址在威脅情資名單裡,造訪它可能洩露資料或被騙。",
       },
     },
+    /* 引擎关键规则里最常到达浏览器通知的一条:付款/转账确认。 */
+    "CRIT-001": {
+      en: {
+        title: "Payment confirmation",
+        detail: "This action confirms a payment or transfer — a critical step that should be approved by a person.",
+      },
+      zh_CN: {
+        title: "付款/转账确认",
+        detail: "这个操作会确认一笔付款或转账,属于应当由真人批准的关键步骤。",
+      },
+      zh_TW: {
+        title: "付款/轉帳確認",
+        detail: "這個操作會確認一筆付款或轉帳,屬於應當由真人批准的關鍵步驟。",
+      },
+    },
     "SCOPE-HOST": {
       en: {
         title: "Outside what this task is allowed to visit",
@@ -277,6 +292,9 @@
       minutesAgo: "{n} min ago",
       hoursAgo: "{n} h ago",
       daysAgo: "{n} d ago",
+      notifyBlocked: "AgentGuard blocked a critical action",
+      notifyConfirm: "This action should have asked you first",
+      criticalAction: "a critical action",
     },
     zh_CN: {
       brand: "AgentGuard 拦下了这一步",
@@ -288,6 +306,9 @@
       minutesAgo: "{n} 分钟前",
       hoursAgo: "{n} 小时前",
       daysAgo: "{n} 天前",
+      notifyBlocked: "AgentGuard 拦下了一个关键操作",
+      notifyConfirm: "这个操作本应先由你确认",
+      criticalAction: "关键操作",
     },
     zh_TW: {
       brand: "AgentGuard 攔下了這一步",
@@ -299,6 +320,9 @@
       minutesAgo: "{n} 分鐘前",
       hoursAgo: "{n} 小時前",
       daysAgo: "{n} 天前",
+      notifyBlocked: "AgentGuard 攔下了一個關鍵操作",
+      notifyConfirm: "這個操作本應先由你確認",
+      criticalAction: "關鍵操作",
     },
   };
 

@@ -76,5 +76,59 @@
   },
   "blockedPrefix": {
     "message": "Blocked: "
+  },
+  "obTitle": {
+    "message": "Welcome to AgentGuard"
+  },
+  "obHeadline": {
+    "message": "You're protected"
+  },
+  "obLede": {
+    "message": "AgentGuard watches what AI agents do in your browser, and stops risky steps before they happen — then asks you."
+  },
+  "obP1Title": {
+    "message": "Sees what you can't"
+  },
+  "obP1Body": {
+    "message": "Pages can hide instructions meant for AI agents in invisible text. AgentGuard finds them and tells you."
+  },
+  "obP2Title": {
+    "message": "Asks before money or personal info moves"
+  },
+  "obP2Body": {
+    "message": "A payment click, a form fishing for your phone number — the action is paused first, and nothing happens unless you allow it."
+  },
+  "obP3Title": {
+    "message": "Blocks known bad sites at the network level"
+  },
+  "obP3Body": {
+    "message": "Requests to known malicious sites are stopped in the browser itself. You can see and undo every block from the toolbar popup."
+  },
+  "obDemoTitle": {
+    "message": "See it once, so it never surprises you"
+  },
+  "obDemoBody": {
+    "message": "Click the fake payment button below. This is a demo — no payment exists, nothing is sent anywhere. The dialog you'll see is rendered by the exact same code that protects real pages."
+  },
+  "obDemoBtn": {
+    "message": "Confirm Payment (demo)"
+  },
+  "obDemoAllowed": {
+    "message": "You allowed it once — on a real page, the payment would proceed."
+  },
+  "obDemoCancelled": {
+    "message": "Blocked. On a real page, nothing would have happened."
+  },
+  "obMoreTitle": {
+    "message": "Two things worth knowing"
+  },
+  "obMorePopup": {
+    "message": "The toolbar popup shows what was found and blocked today, in plain words. Technical details stay one tap away under \"Why?\"."
+  },
+  "obMoreDesktop": {
+    "message": "Optional: connect the AgentGuard desktop app (popup → Settings) and every blocking decision is also signed into a tamper-evident local audit log."
+  },
+  "obPrivacy": {
+    "message": "Findings stay on your device by default. Nothing is uploaded."
   }
 }

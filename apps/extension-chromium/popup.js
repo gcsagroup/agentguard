@@ -57,6 +57,19 @@ function humanEntryTitle(entry) {
     const what = (gate && gate.title) || (info && info.title) || entry.reason || "";
     return `${t("blockedPrefix")}${what}`;
   }
+  if (entry.kind === "verdict") {
+    // 宿主判决(Critical/Block):第一眼是规则的人话名;认不出就退回「关键操作」。
+    const ui = S && S.ui(vocabLocale);
+    const names = (entry.notify || [])
+      .map((n) => {
+        const rule = S && n.rule_id ? S.ruleText(n.rule_id, vocabLocale) : null;
+        return rule ? rule.title : null;
+      })
+      .filter(Boolean);
+    const what = names[0] || (ui ? ui.criticalAction : "");
+    const extra = (entry.notify || []).length > 1 ? ` ×${entry.notify.length}` : "";
+    return `${t("blockedPrefix")}${what}${extra}`;
+  }
   const sep = vocabLocale === "en" ? "; " : "、";
   const titles = (entry.kinds || [])
     .map((k) => {

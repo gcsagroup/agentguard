@@ -1,9 +1,43 @@
-// 副作用导入:执行 guard-gate.js 的 IIFE,把纯逻辑挂到 self.AgentGuardGate。
-// 内容脚本按 manifest 顺序拿到同一份文件;这里 background(module service worker)靠 import 拿到。
+// 副作用导入:执行 guard-gate.js / guard-strings.js 的 IIFE,把纯逻辑挂到
+// self.AgentGuardGate / self.AgentGuardStrings。内容脚本按 manifest 顺序拿到
+// 同一份文件;这里 background(module service worker)靠 import 拿到。
 import "./guard-gate.js";
+import "./guard-strings.js";
 
 const NATIVE_HOST = "com.agentguard.native";
 const MAX_BUFFER = 50;
+
+/* 通知语言:跟 popup 同一个设置。 */
+let bgLocale = self.AgentGuardStrings
+  ? self.AgentGuardStrings.pickLocale(null, chrome.i18n.getUILanguage())
+  : "en";
+chrome.storage.local.get(["localeOverride"], (data) => {
+  if (self.AgentGuardStrings) {
+    bgLocale = self.AgentGuardStrings.pickLocale(
+      data && data.localeOverride,
+      chrome.i18n.getUILanguage()
+    );
+  }
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.localeOverride && self.AgentGuardStrings) {
+    bgLocale = self.AgentGuardStrings.pickLocale(
+      changes.localeOverride.newValue,
+      chrome.i18n.getUILanguage()
+    );
+  }
+});
+
+/* E17a:首次安装打开引导页——用户装完至少知道它保护什么、被拦时长什么样。
+ * 只在 reason === "install" 时打开;升级/浏览器重启不打扰。 */
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason !== "install") return;
+  try {
+    chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
+  } catch (e) {
+    console.debug("AgentGuard onboarding open failed", e);
+  }
+});
 
 /** @type {object[]} */
 let recent = [];
@@ -64,14 +98,23 @@ function notifyUser(item) {
   // notification, not an interactive approve-then-proceed — native messaging is
   // async and the host observes the event after it happened, so there is nothing
   // to hold. See NotifyItem in guard-nm-host for why.
+  // E17c 人话化:标题走三语词表;正文第一眼是规则的人话名(词典认识的话),
+  // 引擎的 human_message 跟在后面,技术 ID 收进末尾括号——不再是 "[CRIT-001] …" 开头。
   try {
+    const S = self.AgentGuardStrings;
+    const ui = S ? S.ui(bgLocale) : null;
+    const rule = S && item.rule_id ? S.ruleText(item.rule_id, bgLocale) : null;
+    const title = ui
+      ? (item.require_confirm ? ui.notifyConfirm : ui.notifyBlocked)
+      : "AgentGuard";
+    const human = rule ? rule.title : (ui ? ui.criticalAction : "");
+    const engine = item.message || item.action || "";
+    const message = `${human}${engine ? ` — ${engine}` : ""}(${item.rule_id || "?"})`.slice(0, 300);
     chrome.notifications.create("", {
       type: "basic",
       iconUrl: chrome.runtime.getURL("icons/icon128.png"),
-      title: item.require_confirm
-        ? "AgentGuard — 关键操作(本应由你确认)"
-        : "AgentGuard — 拦下一个关键操作",
-      message: `[${item.rule_id || "?"}] ${item.message || item.action || ""}`.slice(0, 300),
+      title,
+      message,
       priority: 2,
     });
   } catch (e) {

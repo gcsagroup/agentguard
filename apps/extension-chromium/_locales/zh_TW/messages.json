@@ -76,5 +76,59 @@
   },
   "blockedPrefix": {
     "message": "已攔截:"
+  },
+  "obTitle": {
+    "message": "歡迎使用 AgentGuard"
+  },
+  "obHeadline": {
+    "message": "防護已開啟"
+  },
+  "obLede": {
+    "message": "AgentGuard 會看著 AI 代理在你瀏覽器裡做什麼,在有風險的一步發生之前先攔下來——然後問你。"
+  },
+  "obP1Title": {
+    "message": "看見你看不見的"
+  },
+  "obP1Body": {
+    "message": "網頁可以把給 AI 的指令藏在人眼看不見的文字裡。AgentGuard 會找出來告訴你。"
+  },
+  "obP2Title": {
+    "message": "錢和個資動之前,先問你"
+  },
+  "obP2Body": {
+    "message": "一次付款點擊、一個套手機號的表單——動作會先被按住,你不允許就什麼都不會發生。"
+  },
+  "obP3Title": {
+    "message": "在網路層攔掉已知的惡意網站"
+  },
+  "obP3Body": {
+    "message": "發往已知惡意網站的請求會在瀏覽器裡被直接攔住。每一條攔截都能在工具列彈窗裡看到、也能解除。"
+  },
+  "obDemoTitle": {
+    "message": "先看一次,真遇到時就不慌"
+  },
+  "obDemoBody": {
+    "message": "點下面這個假付款按鈕。這是示範——沒有任何付款、不會發出任何東西。你將看到的確認層,和真實頁面上保護你的是同一段程式碼。"
+  },
+  "obDemoBtn": {
+    "message": "確認支付(示範)"
+  },
+  "obDemoAllowed": {
+    "message": "你允許了這一次——在真實頁面上,付款會繼續進行。"
+  },
+  "obDemoCancelled": {
+    "message": "攔住了。在真實頁面上,什麼都不會發生。"
+  },
+  "obMoreTitle": {
+    "message": "還有兩件值得知道的事"
+  },
+  "obMorePopup": {
+    "message": "工具列彈窗用白話顯示今天發現和攔截了什麼;技術細節收在「為什麼?」裡,想看再點。"
+  },
+  "obMoreDesktop": {
+    "message": "選用:連接 AgentGuard 桌面端(彈窗 → 設定),每條攔截判決還會進入本機防竄改的簽章稽核記錄。"
+  },
+  "obPrivacy": {
+    "message": "發現預設留在你自己的裝置上,不會上傳任何內容。"
   }
 }
