@@ -73,5 +73,8 @@
   },
   "blockedBy": {
     "message": "Technical id"
+  },
+  "blockedPrefix": {
+    "message": "Blocked: "
   }
 }

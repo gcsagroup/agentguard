@@ -47,20 +47,24 @@ async function initialize() {
   renderBlocklist();
 }
 
-/** 一条最近记录的人话标题:发现类拼各 kind 的词典标题,拦截类用被拦动作的标题。 */
+/** 一条最近记录的人话标题:拦截类读作"已拦截:这一步要付款了",发现类拼各 kind 的词典标题。 */
 function humanEntryTitle(entry) {
   if (entry.kind === "prevented") {
+    // 优先用确认层的动作标题(「这一步要付款了」),它比 finding 标题(「页面上有付款按钮」)
+    // 更贴近"拦下了一次动作"这件事;词典不认识时退回 finding 标题,再退回 reason 原文。
+    const gate = S && S.gateText(entry.prevented_kind, vocabLocale);
     const info = S && S.kindText(entry.prevented_kind, vocabLocale);
-    const prevented = S && S.kindText("prevented", vocabLocale);
-    return info ? info.title : (prevented ? prevented.title : entry.reason || "");
+    const what = (gate && gate.title) || (info && info.title) || entry.reason || "";
+    return `${t("blockedPrefix")}${what}`;
   }
+  const sep = vocabLocale === "en" ? "; " : "、";
   const titles = (entry.kinds || [])
     .map((k) => {
       const info = S && S.kindText(k, vocabLocale);
       return info ? info.title : k;
     })
     .filter(Boolean);
-  return titles.join("; ") || t("findings");
+  return titles.join(sep) || t("findings");
 }
 
 // E10:列出当前拦截名单(恶意域累积 / 越界会话),每条可手动解除。
@@ -148,13 +152,16 @@ function renderRecent() {
     list.replaceChildren();
     for (const r of resp.recent || []) {
       const li = document.createElement("li");
+      // 标题行用 flex:标题占满、可换行,相对时间钉在右上角(float 会在长标题换行时掉下去)。
       const titleLine = document.createElement("div");
       titleLine.className = "item-title";
+      const titleText = document.createElement("span");
+      titleText.className = "item-title-text";
+      titleText.textContent = humanEntryTitle(r);
       const time = document.createElement("span");
       time.className = "item-time";
       time.textContent = r.ts && S ? S.relativeTime(r.ts, now, vocabLocale) : "";
-      titleLine.textContent = humanEntryTitle(r);
-      titleLine.appendChild(time);
+      titleLine.append(titleText, time);
       const page = document.createElement("div");
       page.className = "item-page";
       page.textContent = r.title || r.url || "";

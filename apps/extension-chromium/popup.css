@@ -58,8 +58,9 @@ li {
   margin-bottom: 6px;
   font-size: 12px;
 }
-li .item-title { font-weight: 600; }
-li .item-time { float: right; color: #8fa3bf; font-weight: 400; }
+li .item-title { font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+li .item-title-text { flex: 1 1 auto; min-width: 0; }
+li .item-time { flex: 0 0 auto; color: #8fa3bf; font-weight: 400; }
 li .item-page {
   color: #8fa3bf;
   margin-top: 2px;

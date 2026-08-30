@@ -73,5 +73,8 @@
   },
   "blockedBy": {
     "message": "技術標識"
+  },
+  "blockedPrefix": {
+    "message": "已攔截:"
   }
 }
