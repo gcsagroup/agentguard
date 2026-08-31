@@ -94,7 +94,7 @@ claims:
     area: browser
     source:
       doc: apps/extension-chromium/STORE.md
-      anchor: "notify-after-the-event alert, not a blocking"
+      anchor: "raises a notification after the fact"
     mechanism: guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知
     proven_by:
       - { test: critical判决产生notify供扩展弹通知, file: crates/guard-nm-host/src/main.rs }

@@ -22,7 +22,7 @@ AgentGuard Web Shield protects pages that AI agents use on your behalf.
   outside the current task's declared scope are blocked with
   `declarativeNetRequest` before the request leaves the browser. Every block is
   visible in the popup, explained in plain words, and can be undone.
-- **Detection** — hidden / subliminal prompt-injection text, optional personal
+- **Detection** — Hidden / subliminal prompt-injection text, optional personal
   fields filled without need, privacy-trap widgets, payment CTAs.
 
 **Made for people, not just engineers.** The popup leads with "Protecting this
@@ -32,8 +32,8 @@ language (English, 简体中文, 繁體中文), with technical rule ids one tap 
 of the approval dialog.
 
 **Optional desktop bridge.** With the AgentGuard native host installed, events are
-also judged by the engine's rules and recorded in a **signed, tamper-evident audit
-trail**. Host verdicts arrive asynchronously, so on that path a Critical decision
+also judged by the engine's rules and recorded in a
+**signed, tamper-evident audit trail**. Host verdicts arrive asynchronously, so on that path a Critical decision
 raises a notification after the fact — the *blocking* behaviour above lives in the
 page gate and the network rules, which do not depend on the host.
 

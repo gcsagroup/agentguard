@@ -112,9 +112,3 @@
 
 - **检测隐藏 / 潜意识的提示注入文本**:密度地板:极稀疏的隐写率会低于检测阈值,这是速率检测器的固有限
 
-## 核对问题
-
-- `audit-tamper-evident`: anchor text not found in 'apps/extension-chromium/STORE.md' — the doc no longer makes this claim (or the wording changed): "signed, tamper-evident audit trail"
-- `stego-subliminal-text`: anchor text not found in 'apps/extension-chromium/STORE.md' — the doc no longer makes this claim (or the wording changed): "Hidden / subliminal prompt-injection text"
-- `critical-notify-not-block`: anchor text not found in 'apps/extension-chromium/STORE.md' — the doc no longer makes this claim (or the wording changed): "notify-after-the-event alert, not a blocking"
-
