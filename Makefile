@@ -139,6 +139,9 @@ check-shells:
 	done; \
 	if [ "$$n" -lt 3 ]; then echo "check-shells matched only $$n files - the glob has stopped finding the front ends" >&2; exit 1; fi; \
 	echo "$$n front-end modules parse"
+	@# E18:壳子词表完整性——键三语一致、data-i18n/t() 引用的键都存在、中文无英文残留。
+	@# t(缺键) 会把 key 名渲染到界面上,不报错不崩溃,只有这类测试或肉眼能看见。
+	node eval/shells-i18n.test.mjs
 	@set -e; find . -name '*.sh' -not -path './target/*' -print0 | xargs -0 -n1 bash -n
 	@echo "shell scripts parse"
 

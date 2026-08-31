@@ -43,6 +43,17 @@ async function initialize() {
   document.getElementById("btn-settings").addEventListener("click", () => {
     panel.hidden = !panel.hidden;
   });
+  // E18:错过首装引导页的人从这里回去(引导页里有安全的弹层演示)。
+  const btnOb = document.getElementById("btn-onboarding");
+  if (btnOb) {
+    btnOb.addEventListener("click", () => {
+      try {
+        chrome.tabs.create({ url: chrome.runtime.getURL("onboarding.html") });
+      } catch (e) {
+        console.debug("AgentGuard onboarding open failed", e);
+      }
+    });
+  }
   renderRecent();
   renderBlocklist();
 }

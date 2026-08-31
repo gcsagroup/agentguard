@@ -81,6 +81,9 @@ function findingsToEvents(payload) {
   return events;
 }
 
+/* 引擎是否处于 Critical 暂停:暂停徽章「‖」不因打开 popup 而清除。 */
+let enginePaused = false;
+
 function setBadge(text, color) {
   // action.setBadge* needs no extra permission (the action is declared). Wrapped
   // because the service worker may be torn down between calls.
@@ -134,6 +137,7 @@ function handleVerdict(response) {
   const items = Array.isArray(response.notify) ? response.notify : [];
   for (const item of items) notifyUser(item);
 
+  enginePaused = !!response.paused;
   if (response.paused) {
     // Engine paused by a Critical decision: everything after is refused wholesale.
     setBadge("‖", "#b00020");
@@ -306,6 +310,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "get_recent") {
+    // 打开 popup 就是"看过了":清掉徽章(E18)。此前 "!"/计数一旦点亮就永远挂着,
+    // 用户没有任何办法消掉它。暂停徽章「‖」例外——暂停还在,提醒就还该在。
+    if (!enginePaused) setBadge("", null);
     sendResponse({ recent, nativeEnabled });
     return true;
   }

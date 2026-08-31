@@ -4,31 +4,57 @@
 AgentGuard Web Shield
 
 ## Summary
-Detect prompt injection, optional PII overfill, privacy traps, and payment CTAs on pages used by AI agents. Local-first; optional Native Messaging to the AgentGuard desktop app.
+Stops risky steps by AI agents before they happen: payment clicks and privacy-trap
+submissions are held for your approval, known malicious sites are blocked at the
+network level, and hidden prompt-injection text is surfaced. Local-first.
 
 ## Description
-AgentGuard Web Shield is a companion to the AgentGuard desktop guardian. It scans the active page for:
+AgentGuard Web Shield protects pages that AI agents use on your behalf.
 
-- Hidden / subliminal prompt-injection text
-- Optional personal fields filled without need (FM)
-- Privacy-trap widgets (TR)
-- Payment and transfer confirmation CTAs
+**It blocks before, not after.** Three layers:
 
-By default, findings stay on-device. When the AgentGuard native host is installed, you may forward events to it via Native Messaging. The host judges each event against the engine's rules, records a **signed, tamper-evident audit trail** (its own database — shareable with the desktop app by pointing both at the same `AGENTGUARD_AUDIT_DB`), and returns its verdict. On a **Critical** decision (payment/transfer/permanent-delete and the like) the extension raises a browser notification naming the rule — a notify-after-the-event alert, not a blocking approve-then-proceed gate (the host observes each event after it has already happened; only the desktop app has the blocking modal).
+- **In-page approval gate** — a payment/transfer click, a form submitting personal
+  info into a privacy-trap widget, or a payment-shaped `fetch`/XHR fired by page
+  scripts is held *before it happens*. A plain-language dialog explains what the
+  step does and what "Allow once" / "Not now" each mean. Keyboard and screen-reader
+  accessible (alertdialog semantics, focus trap, Esc = not now), light and dark.
+- **Network-level blocking** — hosts judged malicious (threat intelligence) or
+  outside the current task's declared scope are blocked with
+  `declarativeNetRequest` before the request leaves the browser. Every block is
+  visible in the popup, explained in plain words, and can be undone.
+- **Detection** — hidden / subliminal prompt-injection text, optional personal
+  fields filled without need, privacy-trap widgets, payment CTAs.
 
-Separately, for actions taken **on the page itself** — submitting a payment/transfer confirmation, or submitting personal fields into a privacy-trap widget — the extension now also holds the action *before* it happens: it intercepts the submit/click synchronously and asks you to allow it once before letting it through. This in-page gate covers the page's own DOM actions only; it does not stop a script that talks to a payment API directly, nor anything outside the browser.
+**Made for people, not just engineers.** The popup leads with "Protecting this
+page · Today: N found, M blocked"; every finding and block is described in plain
+language (English, 简体中文, 繁體中文), with technical rule ids one tap away under
+"Why?". A one-page onboarding opens on install, including a safe interactive demo
+of the approval dialog.
+
+**Optional desktop bridge.** With the AgentGuard native host installed, events are
+also judged by the engine's rules and recorded in a **signed, tamper-evident audit
+trail**. Host verdicts arrive asynchronously, so on that path a Critical decision
+raises a notification after the fact — the *blocking* behaviour above lives in the
+page gate and the network rules, which do not depend on the host.
+
+**Honest limits.** The in-page gate covers the page's own DOM actions and wrapped
+`fetch`/XHR; a script that grabbed `fetch` before us can bypass the wrapper
+(network rules still apply). Nothing outside the browser is monitored by the
+extension itself.
 
 ## Privacy
-- No browsing history is uploaded to AgentGuard servers by default.
+- Findings stay on-device by default; no browsing history is uploaded.
 - Threat intel updates are signed (Ed25519) and optional.
 - See `docs/privacy-policy.md`.
 
 ## Permissions justification
 | Permission | Why |
 |------------|-----|
-| storage | Local finding buffer |
+| storage | Local finding buffer, language preference, block list persistence |
 | nativeMessaging | Optional desktop bridge |
-| activeTab / host | Content script probes on pages the user visits while an agent is active |
+| activeTab / host | Content script probes and the pre-execution gate on pages the user visits while an agent is active |
+| declarativeNetRequest | Block requests to judged-malicious / out-of-scope hosts before they leave the browser |
+| notifications | Tell the user when the desktop engine judged a critical action (async path) |
 
 ## Build
 ```bash

@@ -3,6 +3,10 @@
 const messages = {
   en: {
     "subtitle": "Guards what AI agents do on this Mac",
+    "action.block": "Blocked",
+    "action.alert": "Alert",
+    "action.allow": "Allowed",
+    "action.logonly": "Logged",
     "dev.title": "Developer panel (demos & diagnostics)",
     "guard.task": "Task",
     "guard.taskNone": "(any task)",
@@ -77,6 +81,10 @@ const messages = {
   },
   "zh-Hans": {
     "subtitle": "实时守护 AI 智能体在这台 Mac 上的操作",
+    "action.block": "已拦截",
+    "action.alert": "提醒",
+    "action.allow": "已放行",
+    "action.logonly": "已记录",
     "dev.title": "开发者面板（演示与诊断）",
     "guard.task": "本次任务",
     "guard.taskNone": "（不限定任务）",
@@ -151,6 +159,10 @@ const messages = {
   },
   "zh-Hant": {
     "subtitle": "即時守護 AI 代理在這台 Mac 上的操作",
+    "action.block": "已攔截",
+    "action.alert": "提醒",
+    "action.allow": "已放行",
+    "action.logonly": "已記錄",
     "dev.title": "開發者面板（示範與診斷）",
     "guard.task": "本次任務",
     "guard.taskNone": "（不限定任務）",

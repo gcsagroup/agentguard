@@ -419,7 +419,20 @@
   ],
   "report": {
     "distinct_tests": 39,
-    "problems": [],
+    "problems": [
+      {
+        "claim": "audit-tamper-evident",
+        "detail": "anchor text not found in 'apps/extension-chromium/STORE.md' — the doc no longer makes this claim (or the wording changed): \"signed, tamper-evident audit trail\""
+      },
+      {
+        "claim": "stego-subliminal-text",
+        "detail": "anchor text not found in 'apps/extension-chromium/STORE.md' — the doc no longer makes this claim (or the wording changed): \"Hidden / subliminal prompt-injection text\""
+      },
+      {
+        "claim": "critical-notify-not-block",
+        "detail": "anchor text not found in 'apps/extension-chromium/STORE.md' — the doc no longer makes this claim (or the wording changed): \"notify-after-the-event alert, not a blocking\""
+      }
+    ],
     "total_claims": 20
   }
 }

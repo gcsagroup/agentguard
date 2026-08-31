@@ -4,6 +4,7 @@
 const dictionaries = {
   en: {
     subtitle: "Guards what AI agents do on this PC",
+    "action.block": "Blocked", "action.alert": "Alert", "action.allow": "Allowed", "action.logonly": "Logged",
     observing: "Watching", notObserving: "Not watching",
     observation: "Live observation", pollNow: "Observe once now",
     capUiTree: "Read window contents (UI Automation)", capFrame: "Capture the screen (GDI)", capOcr: "Read text on screen (OCR)",
@@ -24,6 +25,7 @@ const dictionaries = {
   },
   "zh-Hans": {
     subtitle: "实时守护 AI 智能体在这台电脑上的操作",
+    "action.block": "已拦截", "action.alert": "提醒", "action.allow": "已放行", "action.logonly": "已记录",
     observing: "观察中", notObserving: "未在观察",
     observation: "实时观察", pollNow: "立即观察一次",
     capUiTree: "读取窗口内容（UI Automation）", capFrame: "捕获屏幕画面（GDI）", capOcr: "识别屏幕文字（OCR）",
@@ -44,6 +46,7 @@ const dictionaries = {
   },
   "zh-Hant": {
     subtitle: "即時守護 AI 代理在這台電腦上的操作",
+    "action.block": "已攔截", "action.alert": "提醒", "action.allow": "已放行", "action.logonly": "已記錄",
     observing: "觀察中", notObserving: "未在觀察",
     observation: "即時觀察", pollNow: "立即觀察一次",
     capUiTree: "讀取視窗內容（UI Automation）", capFrame: "擷取螢幕畫面（GDI）", capOcr: "辨識螢幕文字（OCR）",

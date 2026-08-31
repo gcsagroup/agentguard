@@ -130,5 +130,8 @@
   },
   "obPrivacy": {
     "message": "发现默认留在你自己的设备上,不会上传任何内容。"
+  },
+  "viewIntro": {
+    "message": "查看功能介绍"
   }
 }

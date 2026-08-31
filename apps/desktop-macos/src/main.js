@@ -120,16 +120,17 @@ function auditRow(r) {
 
   const head = document.createElement("div");
   const strong = document.createElement("strong");
-  strong.textContent = r.action ?? "";
+  // E18:第一眼是人话动作词(已拦截/提醒/放行/记录),不是引擎枚举;
+  // rule_id 挪到下面的 meta 行(和 popup 的"技术标识收进详情"同一原则)。
+  strong.textContent = t(`action.${actionClass(r.action)}`);
   head.appendChild(strong);
-  head.appendChild(document.createTextNode(` · ${r.rule_id ?? ""}`));
 
   const msg = document.createElement("div");
   msg.textContent = r.human_message ?? "";
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  let metaText = `${r.source_app ?? ""} · ${r.event_type ?? ""}`;
+  let metaText = `${r.rule_id ?? ""} · ${r.source_app ?? ""} · ${r.event_type ?? ""}`;
   if (r.user_decision) {
     metaText += ` · user=${r.user_decision}`;
   }

@@ -130,5 +130,8 @@
   },
   "obPrivacy": {
     "message": "發現預設留在你自己的裝置上,不會上傳任何內容。"
+  },
+  "viewIntro": {
+    "message": "查看功能介紹"
   }
 }
