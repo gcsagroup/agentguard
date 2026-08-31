@@ -192,6 +192,16 @@ check-msrv:
 # dealias_platform_volumes 那几条测试) —— 否则这类 bug 永远只有 macOS 能发现。
 check-macos-cfg:
 	./scripts/check-macos-paths.sh
+	@# E19(codex 真机报告 2026-08-31):linux-only 代码漏 cfg 门(mountns 无条件 use
+	@# libc_syscall)让 workspace 在 macOS 编译失败,而 Linux CI 永远看不见——上面的脚本
+	@# 只查"macOS 专属代码编不编得过"这个**反方向**。补上正方向:对 aarch64-apple-darwin
+	@# 目标真编译。范围是不经 ring 的那部分 crate(ring 的 C 构建脚本要 Apple 工具链;
+	@# 依赖它的 intel/core/cli/nm-host/mac-adapter 等只能在真 Mac 上编,见真机验收)。
+	rustup target list --installed | grep -q aarch64-apple-darwin || rustup target add aarch64-apple-darwin
+	cargo check --target aarch64-apple-darwin \
+		-p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay \
+		-p guard-privacy -p guard-shell -p guard-netmon -p guard-billing \
+		-p android-adapter -p browser-adapter -p win-adapter
 
 check-macos-path-semantics:
 	cargo test -p guard-schema --lib paths::tests -- --exact \

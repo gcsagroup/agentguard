@@ -24,6 +24,11 @@ pub mod profile;
 
 #[cfg(target_os = "linux")]
 pub mod landlock;
+// mountns 和 landlock 一样是纯 Linux 机制(unshare/mount syscalls),必须同样 cfg 门。
+// 这一行曾经没有门:mountns 无条件 use linux-only 的 libc_syscall,于是整个 workspace
+// 在 macOS 上编译失败——Linux CI 全绿,真机验收(codex 报告 2026-08-31)才暴露。
+// 现在 check-macos-cfg 门对 aarch64-apple-darwin 目标真编译,这类漏门再犯会当场红。
+#[cfg(target_os = "linux")]
 pub mod mountns;
 
 pub use backend::{best_available, probe, Availability, Backend};
@@ -84,6 +89,7 @@ fn effective_uid() -> Option<u32> {
 
 /// mount-ns + root 是不安全组合(见 `RootMountNamespace`)。这个纯函数把判定单独拿出来
 /// 便于测试:确知是 root、后端是 mount-ns、且没有明确放行时才拒。
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))] // 调用点在 linux 门内;逻辑纯、有单测,保留全平台编译
 fn refuse_root_mountns(backend: Backend, euid: Option<u32>, allow_root: bool) -> bool {
     matches!(backend, Backend::MountNamespace) && euid == Some(0) && !allow_root
 }
