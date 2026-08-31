@@ -1,3 +1,6 @@
+# check-macos-cfg 用:能在无 Apple 工具链下对 darwin 目标 cargo check 的 crate(不经 ring)。
+DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
+
 .PHONY: ui-preview release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
@@ -198,10 +201,7 @@ check-macos-cfg:
 	@# 目标真编译。范围是不经 ring 的那部分 crate(ring 的 C 构建脚本要 Apple 工具链;
 	@# 依赖它的 intel/core/cli/nm-host/mac-adapter 等只能在真 Mac 上编,见真机验收)。
 	rustup target list --installed | grep -q aarch64-apple-darwin || rustup target add aarch64-apple-darwin
-	cargo check --target aarch64-apple-darwin \
-		-p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay \
-		-p guard-privacy -p guard-shell -p guard-netmon -p guard-billing \
-		-p android-adapter -p browser-adapter -p win-adapter
+	cargo check --target aarch64-apple-darwin $(DARWIN_CHECK_CRATES)
 
 check-macos-path-semantics:
 	cargo test -p guard-schema --lib paths::tests -- --exact \
