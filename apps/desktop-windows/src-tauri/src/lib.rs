@@ -898,7 +898,7 @@ where
 fn startup_capabilities() -> AdapterCapabilities {
     #[cfg(windows)]
     {
-        return on_dedicated_thread("agentguard-capability-probe", capabilities);
+        on_dedicated_thread("agentguard-capability-probe", capabilities)
     }
     #[cfg(not(windows))]
     {
