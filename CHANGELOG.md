@@ -35,7 +35,7 @@
 - 修复 Landlock 把目录专属权限附到 `/dev/null` 等单文件规则而导致整份规则集 `EINVAL`、子进程未启动的问题；Linux 集成测试现在从已授权目录启动，并直接验证授权读写与真实越界拒绝，不再因未授权的 `/dev/null` 重定向假绿。
 - 修复 Landlock 调用 `prctl(PR_SET_NO_NEW_PRIVS)` 时未显式传入三个必须为零的尾参数而可能收到 `EINVAL` 的问题；现在统一使用完整五参数系统调用，并按 Linux x86_64/aarch64 选择正确的 `prctl` 系统调用号，同时保留现有单文件权限过滤。
 - 修复 aarch64 的 mount-namespace 降级路径误用 x86_64 `getuid`/`getgid` 系统调用号的问题；现在按架构选择正确编号，并用真实系统调用回归测试钉住回退身份。
-- 修复 Windows 默认主线程栈不足时 `guard-cli` 会在进入子命令前溢出的问题；Windows 入口现在以显式 8 MiB 栈运行同一 CLI 调度。发布门禁参数测试也改用 Git Bash 能识别的正斜线仓库路径，确保实际命中脚本的退出码 2 分支；CLI 负向测试同时绑定预期拒绝原因，启动崩溃不能再冒充安全拒绝。
+- 修复 Windows 默认主线程栈不足时 `guard-cli` 会在进入子命令前溢出的问题；Windows 入口现在以显式 8 MiB 栈运行同一 CLI 调度。发布门禁参数测试也改为由原生 `current_dir` 进入仓库、仅把可移植相对路径交给 Git Bash，确保实际命中脚本的退出码 2 分支；CLI 负向测试同时绑定预期拒绝原因，启动崩溃不能再冒充安全拒绝。
 - 修复 Windows `canonicalize` 产生的 `\\?\` verbatim 盘符/UNC 前缀与普通前缀不等价的问题；真实 `C:\Windows`、`C:\ProgramData` 路径重新命中敏感目标，固定的 `\\?\` 命名空间标记也不再被误判为通配符。
 - 保留 Windows 组件级路径归约与现有 home、`ProgramData`、`Program Files (x86)` 敏感路径保护；未采用会把不同路径形状全局折叠并造成保护降级的方案。
 - 修复 Windows 工作区测试仍把 `/bin/*`、`/srv`、`/tmp` 和 `/etc` 当作跨平台夹具的问题；网关改用可控 Rust 子进程验证并发管道、UTF-8 截断与退出码，路径、Shell 和 jail 测试使用目标平台真实的绝对路径，同时保留敏感目录与参数注入覆盖。

@@ -227,16 +227,13 @@ fn manual_acceptance拒绝错误平台清单报告目录和多余参数() {
 
 #[test]
 fn 门禁拒绝未知参数和多余参数() {
-    // Git Bash 能执行 `D:/...`，但会把 Rust Path 传来的 `D:\\...` 当成转义后的
-    // 相对命令名。统一用 `/`，确保 Windows 测到的是脚本自己的参数拒绝分支。
-    let gate = root()
-        .join("scripts/release-gate.sh")
-        .to_string_lossy()
-        .replace('\\', "/");
+    // 让 Windows 自己处理 current_dir 的盘符路径，只把可移植相对路径交给 Git Bash；
+    // 这样不会在 Rust 路径、Git Bash 路径与盘符语法之间做有损转换。
     for arguments in [vec!["--stict"], vec!["--strict", "--unexpected"]] {
         let output = Command::new("bash")
-            .arg(&gate)
+            .arg("scripts/release-gate.sh")
             .args(&arguments)
+            .current_dir(root())
             .output()
             .unwrap();
         assert_eq!(
