@@ -792,7 +792,27 @@ enum Commands {
     },
 }
 
+#[cfg(windows)]
 fn main() -> Result<()> {
+    // Windows 可执行文件的默认主线程栈不足以稳定构建当前规模的 clap 命令树；
+    // CLI 会在进入任何子命令前直接 stack overflow。只在 Windows 把同一入口放到
+    // 显式栈大小的线程中，命令语义、标准输入输出与退出码保持不变。
+    let worker = std::thread::Builder::new()
+        .name("guard-cli".to_string())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(run_cli)
+        .context("启动 guard-cli Windows 工作线程")?;
+    worker
+        .join()
+        .map_err(|_| anyhow::anyhow!("guard-cli Windows 工作线程异常终止"))?
+}
+
+#[cfg(not(windows))]
+fn main() -> Result<()> {
+    run_cli()
+}
+
+fn run_cli() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::TestRule { rules, rule_id } => {

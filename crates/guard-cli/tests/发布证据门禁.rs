@@ -68,6 +68,19 @@ fn run_firefox_manual_acceptance(repo: &std::path::Path) -> std::process::Output
         .unwrap()
 }
 
+fn assert_cli_rejected(output: &std::process::Output, expected: &str, context: &str) {
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{context} 必须失败");
+    assert!(
+        stderr.contains(expected),
+        "{context} 没有命中预期拒绝原因 {expected:?}: {stderr}"
+    );
+    assert!(
+        !stderr.contains("overflowed its stack"),
+        "{context} 不能把 CLI 启动崩溃冒充成安全拒绝: {stderr}"
+    );
+}
+
 #[test]
 fn manual_acceptance真实执行并拒绝不完整报告() {
     let repo = tempfile::tempdir().unwrap();
@@ -90,7 +103,12 @@ fn manual_acceptance真实执行并拒绝不完整报告() {
         .collect::<Vec<_>>()
         .join("\n");
     std::fs::write(repo.path().join("evidence/firefox/report.md"), missing_case).unwrap();
-    assert!(!run_firefox_manual_acceptance(repo.path()).status.success());
+    let missing_case = run_firefox_manual_acceptance(repo.path());
+    assert_cli_rejected(
+        &missing_case,
+        "验收报告缺少必需用例 F8",
+        "缺少 F8 的验收报告",
+    );
 
     let duplicate_reference =
         valid_report.replace("evidence/firefox/F2.txt", "evidence/firefox/F1.txt");
@@ -99,7 +117,12 @@ fn manual_acceptance真实执行并拒绝不完整报告() {
         duplicate_reference,
     )
     .unwrap();
-    assert!(!run_firefox_manual_acceptance(repo.path()).status.success());
+    let duplicate_reference = run_firefox_manual_acceptance(repo.path());
+    assert_cli_rejected(
+        &duplicate_reference,
+        "复用了其他用例的证据路径",
+        "复用逐项证据路径的验收报告",
+    );
 
     let bad_marker = valid_report.replacen(
         "AGENTGUARD_ACCEPTANCE_FIREFOX=PASS",
@@ -107,7 +130,12 @@ fn manual_acceptance真实执行并拒绝不完整报告() {
         1,
     );
     std::fs::write(repo.path().join("evidence/firefox/report.md"), bad_marker).unwrap();
-    assert!(!run_firefox_manual_acceptance(repo.path()).status.success());
+    let bad_marker = run_firefox_manual_acceptance(repo.path());
+    assert_cli_rejected(
+        &bad_marker,
+        "缺少固定成功标记 AGENTGUARD_ACCEPTANCE_FIREFOX=PASS",
+        "伪造成功标记的验收报告",
+    );
 
     std::fs::write(
         repo.path().join("evidence/firefox/report.md"),
@@ -115,7 +143,12 @@ fn manual_acceptance真实执行并拒绝不完整报告() {
     )
     .unwrap();
     std::fs::remove_file(repo.path().join("evidence/firefox/F3.txt")).unwrap();
-    assert!(!run_firefox_manual_acceptance(repo.path()).status.success());
+    let missing_evidence = run_firefox_manual_acceptance(repo.path());
+    assert_cli_rejected(
+        &missing_evidence,
+        "验收逐项证据 \"evidence/firefox/F3.txt\" 不存在",
+        "缺少 F3 逐项证据的验收报告",
+    );
 
     std::fs::write(
         repo.path().join("evidence/firefox/F3.txt"),
@@ -123,7 +156,12 @@ fn manual_acceptance真实执行并拒绝不完整报告() {
     )
     .unwrap();
     std::fs::remove_file(repo.path().join("docs/acceptance-firefox.md")).unwrap();
-    assert!(!run_firefox_manual_acceptance(repo.path()).status.success());
+    let missing_checklist = run_firefox_manual_acceptance(repo.path());
+    assert_cli_rejected(
+        &missing_checklist,
+        "摘要目标 \"docs/acceptance-firefox.md\" 不存在",
+        "缺少固定清单的验收报告",
+    );
 }
 
 #[test]
@@ -131,58 +169,73 @@ fn manual_acceptance拒绝错误平台清单报告目录和多余参数() {
     let repo = tempfile::tempdir().unwrap();
     write_firefox_acceptance_fixture(repo.path());
 
-    for arguments in [
-        vec![
-            "manual-acceptance",
-            "unknown",
-            "docs/acceptance-firefox.md",
-            "evidence/firefox/report.md",
-            "--repo-root",
-            ".",
-        ],
-        vec![
-            "manual-acceptance",
-            "firefox",
-            "docs/acceptance-runbook.md",
-            "evidence/firefox/report.md",
-            "--repo-root",
-            ".",
-        ],
-        vec![
-            "manual-acceptance",
-            "firefox",
-            "docs/acceptance-firefox.md",
-            "evidence/windows/report.md",
-            "--repo-root",
-            ".",
-        ],
-        vec![
-            "manual-acceptance",
-            "firefox",
-            "docs/acceptance-firefox.md",
-            "evidence/firefox/report.md",
-            "--repo-root",
-            ".",
+    for (arguments, expected) in [
+        (
+            vec![
+                "manual-acceptance",
+                "unknown",
+                "docs/acceptance-firefox.md",
+                "evidence/firefox/report.md",
+                "--repo-root",
+                ".",
+            ],
+            "manual-acceptance 平台",
+        ),
+        (
+            vec![
+                "manual-acceptance",
+                "firefox",
+                "docs/acceptance-runbook.md",
+                "evidence/firefox/report.md",
+                "--repo-root",
+                ".",
+            ],
+            "checklist 必须精确为",
+        ),
+        (
+            vec![
+                "manual-acceptance",
+                "firefox",
+                "docs/acceptance-firefox.md",
+                "evidence/windows/report.md",
+                "--repo-root",
+                ".",
+            ],
+            "报告必须位于对应小写 evidence/ 平台目录",
+        ),
+        (
+            vec![
+                "manual-acceptance",
+                "firefox",
+                "docs/acceptance-firefox.md",
+                "evidence/firefox/report.md",
+                "--repo-root",
+                ".",
+                "--unexpected",
+            ],
             "--unexpected",
-        ],
+        ),
     ] {
         let output = Command::new(cli())
             .args(&arguments)
             .current_dir(repo.path())
             .output()
             .unwrap();
-        assert!(
-            !output.status.success(),
-            "非固定验收命令必须失败: {arguments:?}"
-        );
+        assert_cli_rejected(&output, expected, &format!("非固定验收命令 {arguments:?}"));
     }
 }
 
 #[test]
 fn 门禁拒绝未知参数和多余参数() {
+    // Git Bash 能执行 `D:/...`，但会把 Rust Path 传来的 `D:\\...` 当成转义后的
+    // 相对命令名。统一用 `/`，确保 Windows 测到的是脚本自己的参数拒绝分支。
+    let gate = root()
+        .join("scripts/release-gate.sh")
+        .to_string_lossy()
+        .replace('\\', "/");
     for arguments in [vec!["--stict"], vec!["--strict", "--unexpected"]] {
         let output = Command::new("bash")
-            .arg(root().join("scripts/release-gate.sh"))
+            .arg(&gate)
             .args(&arguments)
             .output()
             .unwrap();
@@ -214,10 +267,7 @@ fn 八种模板生成后不修改都不能通过验证() {
             .arg(repo.path())
             .output()
             .unwrap();
-        assert!(
-            !verified.status.success(),
-            "{kind} 原样模板绝不能成为通过凭据"
-        );
+        assert_cli_rejected(&verified, "exit_code 必须为 0", &format!("{kind} 原样模板"));
     }
 }
 
@@ -233,9 +283,10 @@ fn 原攻击把八个变量都指向门禁脚本时逐项被拒() {
             .arg(repo.path())
             .output()
             .unwrap();
-        assert!(
-            !verified.status.success(),
-            "脚本自身不能冒充 {kind} 的 JSON 证据"
+        assert_cli_rejected(
+            &verified,
+            "证据 JSON 无效",
+            &format!("脚本自身冒充 {kind} 的 JSON 证据"),
         );
     }
 }
