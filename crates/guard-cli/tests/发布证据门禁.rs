@@ -21,16 +21,31 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn release_gate_shell() -> &'static str {
+fn release_gate_shell() -> PathBuf {
     #[cfg(windows)]
     {
         // GitHub 的 Windows runner 同时带有 Git Bash 与 WSL 的 bash 启动器；
-        // 明确选择 runner 提供的 Git Bash 别名，避免脚本尚未执行就由 WSL 返回 1。
-        "gitbash.exe"
+        // 使用 runner 的明确绝对路径，避免 PATH 命中 WSL，也避免 C:\shells 未在 PATH
+        // 时把“程序不存在”误报成参数门禁失败。默认 Git 安装路径用于普通 Windows。
+        let runner = PathBuf::from(r"C:\shells\gitbash.exe");
+        if runner.is_file() {
+            return runner;
+        }
+        let installed = std::env::var_os("ProgramFiles")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Program Files"))
+            .join("Git/bin/bash.exe");
+        assert!(
+            installed.is_file(),
+            "找不到 Git Bash；检查了 {} 和 {}",
+            runner.display(),
+            installed.display()
+        );
+        installed
     }
     #[cfg(not(windows))]
     {
-        "bash"
+        PathBuf::from("bash")
     }
 }
 
