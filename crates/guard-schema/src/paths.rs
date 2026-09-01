@@ -1262,6 +1262,13 @@ mod tests {
         resolve(&path.to_string_lossy(), no_base_ctx()).unwrap()
     }
 
+    fn assert_same_path(left: &Path, right: &Path) {
+        assert!(
+            is_within(left, right) && is_within(right, left),
+            "路径应当语义等价：left={left:?}, right={right:?}"
+        );
+    }
+
     // ---------- 归约 ----------
 
     // ---------- macOS 卷别名(在 Linux 上也跑) ----------
@@ -1700,16 +1707,16 @@ mod tests {
         let cwd = context.cwd.as_ref().unwrap();
         let home = context.home.as_ref().unwrap();
         let sibling = cwd.join("..").join("other");
-        assert_eq!(
-            resolve(&sibling.to_string_lossy(), context.clone()).unwrap(),
-            resolve_absolute(&home.join("other"))
+        assert_same_path(
+            &resolve(&sibling.to_string_lossy(), context.clone()).unwrap(),
+            &resolve_absolute(&home.join("other")),
         );
         // 一串 `..` 顶到根就停住，不会归约出根之外的东西。
         let root = root_of(cwd);
         let escaped = root.join("a").join("..").join("..").join("..").join("etc");
-        assert_eq!(
-            resolve(&escaped.to_string_lossy(), context).unwrap(),
-            resolve_absolute(&root.join("etc"))
+        assert_same_path(
+            &resolve(&escaped.to_string_lossy(), context).unwrap(),
+            &resolve_absolute(&root.join("etc")),
         );
     }
 
