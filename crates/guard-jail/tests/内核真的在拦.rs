@@ -219,10 +219,17 @@ fn 矛盾的_profile_下一个进程都不会启动() {
     // 而不是"尽力执行"——部分生效的约束在使用者看来和完全生效没有区别。
     let tmp = Tmp::new("contradiction");
     let plans = tmp.path().join("bad.yaml");
+    let sensitive = if cfg!(target_os = "windows") {
+        r"C:\Windows"
+    } else {
+        "/etc"
+    };
     std::fs::write(
         &plans,
-        "require_plan: false\nplans:\n  - task_profile: bad\n    goal: \"矛盾\"\n\
-         \x20   allow: [app_switch]\n    scope:\n      paths: {write: [\"/etc\"]}\n",
+        format!(
+            "require_plan: false\nplans:\n  - task_profile: bad\n    goal: \"矛盾\"\n\
+             \x20   allow: [app_switch]\n    scope:\n      paths: {{write: ['{sensitive}']}}\n"
+        ),
     )
     .expect("写计划库");
     let marker = tmp.path().join("out/ran.txt");

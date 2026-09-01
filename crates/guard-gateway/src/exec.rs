@@ -240,11 +240,92 @@ fn run_argv(argv: &[String], cwd: Option<&std::path::Path>) -> ExecOutput {
 mod tests {
     use super::*;
 
-    fn sh(script: &str) -> ExecOutput {
-        run_argv(
-            &["bash".to_string(), "-c".to_string(), script.to_string()],
-            None,
-        )
+    /// 用当前测试二进制充当可控的子进程，避免测试本身依赖 `/bin/sh`、`printf` 或
+    /// PowerShell。这样 Unix 和 Windows 跑的是同一条 `Command::new(argv[0]).args(...)`
+    /// 执行路径，也能精确控制 stdout、stderr 和退出码。
+    fn child(mode: &str, count: usize, exit_code: i32) -> ExecOutput {
+        use std::sync::atomic::{AtomicU64, Ordering};
+
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+
+        let dir = std::env::temp_dir().join(format!(
+            "agentguard-exec-test-{}-{}",
+            std::process::id(),
+            NEXT_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&dir).expect("创建子进程测试目录");
+        std::fs::write(dir.join("mode"), format!("{mode}\n{count}\n{exit_code}\n"))
+            .expect("写子进程测试参数");
+
+        let executable = std::env::current_exe().expect("取得当前测试二进制路径");
+        let output = run_argv(
+            &[
+                executable.to_string_lossy().into_owned(),
+                "--exact".to_string(),
+                "exec::tests::可控子进程".to_string(),
+                "--ignored".to_string(),
+                "--nocapture".to_string(),
+                "--quiet".to_string(),
+            ],
+            Some(&dir),
+        );
+
+        std::fs::remove_dir_all(&dir).expect("清理子进程测试目录");
+        output
+    }
+
+    /// 只由 [`child`] 精确点名运行。直接跑 ignored tests 时没有 `mode` 文件，会正常返回，
+    /// 不会用 `process::exit` 提前终止整组测试。
+    #[test]
+    #[ignore]
+    fn 可控子进程() {
+        use std::io::Write;
+
+        let Ok(spec) = std::fs::read_to_string("mode") else {
+            return;
+        };
+        let mut lines = spec.lines();
+        let mode = lines.next().expect("缺少输出模式");
+        let count = lines
+            .next()
+            .expect("缺少输出长度")
+            .parse::<usize>()
+            .expect("输出长度不是整数");
+        let exit_code = lines
+            .next()
+            .expect("缺少退出码")
+            .parse::<i32>()
+            .expect("退出码不是整数");
+
+        match mode {
+            "stdout-ascii" => std::io::stdout()
+                .lock()
+                .write_all(&vec![b'a'; count])
+                .expect("写 stdout"),
+            "stderr-ascii" => std::io::stderr()
+                .lock()
+                .write_all(&vec![b'e'; count])
+                .expect("写 stderr"),
+            "stdout-utf8" => std::io::stdout()
+                .lock()
+                .write_all("中".repeat(count).as_bytes())
+                .expect("写 UTF-8 stdout"),
+            "mixed-boundary" => {
+                std::io::stdout()
+                    .lock()
+                    .write_all(&vec![b'a'; count])
+                    .expect("写边界 stdout");
+                std::io::stderr()
+                    .lock()
+                    .write_all("中".repeat(10_000).as_bytes())
+                    .expect("写边界 stderr");
+            }
+            "none" => {}
+            other => panic!("未知子进程测试模式：{other}"),
+        }
+        std::io::stdout().flush().expect("刷新 stdout");
+        std::io::stderr().flush().expect("刷新 stderr");
+        std::process::exit(exit_code);
     }
 
     /// 在非字符边界上截断输出**不能** panic。
@@ -261,22 +342,25 @@ mod tests {
     /// 批准的 `run_shell` 就能把整个协作式网关关掉,不需要人参与。非 ASCII 的子进程输出
     /// 对本项目是常态(规则、日志、报错本身都是中文),这不是边角情况。
     ///
-    /// 65519 是精确命中的那一个;两侧各取一格,确保修的是这一类而不是这一个数。
+    /// 可控子进程先写 60,000 字节 ASCII，再向 stderr 写足量三字节字符。
+    /// 连续改变三个 ASCII 长度，不管 Unix/Windows 的 libtest 标头和换行多长，
+    /// 都会有一次让 64 KiB 上限落在 UTF-8 字符内部。
     #[test]
     fn 非字符边界上的截断不panic() {
-        for n in [65515usize, 65518, 65519, 65520, 65521, 70000] {
-            let o = sh(&format!("printf 'a%.0s' $(seq 1 {n}); printf '中中' >&2"));
+        for n in 60_000usize..=60_002 {
+            let o = child("mixed-boundary", n, 0);
+            assert!(o.truncated, "n={n} 的混合输出应当触发截断");
             assert!(o.detail.len() <= MAX_OUTPUT_BYTES, "n={n} 截断后仍超过上限");
             // 真正的断言是"没 panic 到这里" —— 加一条内容检查,免得将来有人用
             // `detail.clear()` 让这条测试变成永远通过。
-            assert!(o.detail.starts_with('a'), "n={n} 输出内容不对");
+            assert!(o.detail.contains("aaaa"), "n={n} 输出内容不对");
         }
     }
 
     /// 截断必须落在字符边界上,而且切出来的仍然是合法 UTF-8。
     #[test]
     fn 截断结果是合法utf8() {
-        let o = sh("printf '中%.0s' $(seq 1 40000)");
+        let o = child("stdout-utf8", 40_000, 0);
         assert!(o.truncated, "40000 个三字节字符应当超过上限");
         assert!(o.detail.len() <= MAX_OUTPUT_BYTES);
         // String 本身保证 UTF-8;这里钉住的是"没有在中途丢字符导致内容为空"。
@@ -300,7 +384,7 @@ mod tests {
     #[test]
     fn 输出超过管道容量不死锁() {
         let t = std::time::Instant::now();
-        let o = sh("printf 'a%.0s' $(seq 1 200000)");
+        let o = child("stdout-ascii", 200_000, 0);
         let dt = t.elapsed();
         assert!(o.ok, "一次成功的命令被错报成失败:{}", o.detail);
         assert!(
@@ -319,7 +403,7 @@ mod tests {
     #[test]
     fn stderr超过管道容量也不死锁() {
         let t = std::time::Instant::now();
-        let o = sh("printf 'e%.0s' $(seq 1 200000) >&2");
+        let o = child("stderr-ascii", 200_000, 0);
         assert!(
             t.elapsed() < std::time::Duration::from_secs(10),
             "stderr 没有被并发排空"
@@ -330,8 +414,8 @@ mod tests {
     /// 退出码仍然如实反映 —— 并发读不能把失败读成成功。
     #[test]
     fn 退出码未被并发读改变() {
-        assert!(sh("exit 0").ok);
-        assert!(!sh("exit 1").ok);
-        assert!(!sh("printf 'a%.0s' $(seq 1 200000); exit 3").ok);
+        assert!(child("none", 0, 0).ok);
+        assert!(!child("none", 0, 1).ok);
+        assert!(!child("stdout-ascii", 200_000, 3).ok);
     }
 }

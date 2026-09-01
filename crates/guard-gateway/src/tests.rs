@@ -46,6 +46,15 @@ fn shell_policy_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-shell/policies/default.yaml")
 }
 
+/// 当前平台上一个确实属于系统目录、但这条测试绝不会真的写入的目标。
+fn system_write_target(name: &str) -> PathBuf {
+    if cfg!(target_os = "windows") {
+        PathBuf::from(r"C:\Windows").join(name)
+    } else {
+        PathBuf::from("/etc").join(name)
+    }
+}
+
 /// 一个装好路径天花板的网关，天花板就是那个临时目录。
 fn server_for(tmp: &Tmp, timeout: Duration) -> Server {
     let ws = tmp.path().to_string_lossy().into_owned();
@@ -93,14 +102,16 @@ fn delete_call(path: &std::path::Path) -> (ToolCall, guard_shell::ShellAction) {
 fn needs_confirm_call() -> (ToolCall, guard_shell::ShellAction) {
     (
         ToolCall::RunShell {
-            argv: vec!["/bin/echo".into(), "hello".into()],
+            // 测试本身由 Rust 工具链启动，所以 rustc 在三种 CI 平台上都是一个真实可执行程序。
+            // 不借助 `/bin/*` 或命令解释器，才能让这条确认链测试保持跨平台且不改变语义。
+            argv: vec!["rustc".into(), "--version".into()],
             cwd: None,
         },
         guard_shell::ShellAction {
             tool: "run_terminal".into(),
-            action: Some("/bin/echo".into()),
+            action: Some("rustc".into()),
             target: None,
-            args: vec!["hello".into()],
+            args: vec!["--version".into()],
         },
     )
 }
@@ -110,8 +121,8 @@ fn needs_confirm_call() -> (ToolCall, guard_shell::ShellAction) {
 #[test]
 fn 拒绝写系统目录时文件确实没被创建() {
     let tmp = Tmp::new("sys-write");
-    // 走 /etc 下一个不存在的路径。真被执行了就会留下痕迹（或者至少 create_dir_all 会试）。
-    let target = PathBuf::from("/etc/agentguard-should-never-exist.conf");
+    // 走当前平台的系统目录下一个不存在的路径。真被执行了就会留下痕迹（或者至少会尝试写入）。
+    let target = system_write_target("agentguard-should-never-exist.conf");
     assert!(!target.exists(), "前置条件：目标不该已经存在");
 
     let (call, action) = write_call(&target, "x");
@@ -214,10 +225,14 @@ fn run_shell_走参数向量而不是走_shell() {
     // 消除这一类攻击。这条测试证明元字符被当成**字面参数**传给了程序。
     let tmp = Tmp::new("argv");
     let marker = tmp.path().join("SHOULD-NOT-EXIST");
-    let argv = vec![
-        "/bin/echo".to_string(),
-        format!("a; touch {}", marker.display()),
-    ];
+    // 分别使用宿主 shell 真正会解释的连接/重定向语法。如果执行层把参数重新拼成命令字符串，
+    // marker 就会出现；直接交给 rustc 的 argv 则只会把整段当成一个不存在的源码文件名。
+    let payload = if cfg!(target_os = "windows") {
+        format!("missing.rs & type nul > {}", marker.display())
+    } else {
+        format!("missing.rs; touch {}", marker.display())
+    };
+    let argv = vec!["rustc".to_string(), payload.clone()];
     let (call, action) = (
         ToolCall::RunShell {
             argv: argv.clone(),
@@ -249,11 +264,11 @@ fn run_shell_走参数向量而不是走_shell() {
     match handled {
         Handled::Executed { output } => {
             assert!(
-                output.detail.contains("; touch"),
-                "参数应当被原样输出：{output:?}"
+                output.detail.contains(&payload),
+                "rustc 的诊断应当包含那一个完整字面参数：{output:?}"
             );
         }
-        other => panic!("echo 应当执行，实际 {other:?}"),
+        other => panic!("rustc 应当被作为 argv 程序执行，实际 {other:?}"),
     }
     assert!(
         !marker.exists(),
@@ -267,17 +282,24 @@ fn run_shell_走参数向量而不是走_shell() {
 fn 确认超时按拒绝处理且理由里写明是超时() {
     // 整个网关唯一不能搞错方向的地方。一个"等不到答案就放行"的闸门，被攻击的方法就是等。
     let tmp = Tmp::new("timeout");
-    let marker = tmp.path().join("timeout-marker");
-    // 一条会在被执行时留下痕迹的命令，且没有路径操作数落在天花板里 —— 所以必须逐次确认。
+    let marker = tmp
+        .path()
+        .join(format!("timeout-marker{}", std::env::consts::EXE_SUFFIX));
+    let source = tmp.path().join("timeout-marker.rs");
+    std::fs::write(&source, "fn main() {}\n").expect("写测试源码");
+    // 一条在三种平台上被执行时都会留下二进制的命令；ShellAction 刻意不声明路径操作数，
+    // 所以事前天花板不能替它确认。
     let argv = vec![
-        "/usr/bin/touch".to_string(),
+        "rustc".to_string(),
+        source.to_string_lossy().into_owned(),
+        "-o".to_string(),
         marker.to_string_lossy().into_owned(),
     ];
     let (call, action) = (
         ToolCall::RunShell { argv, cwd: None },
         guard_shell::ShellAction {
             tool: "run_terminal".into(),
-            action: Some("/usr/bin/touch".into()),
+            action: Some("rustc".into()),
             target: None,
             args: vec![],
         },
@@ -301,7 +323,10 @@ fn 有人批准之后才执行() {
     let waiter = std::thread::spawn(move || {
         for _ in 0..200 {
             if let Some(req) = pending.peek() {
-                assert!(req.what.contains("echo"), "确认请求要说清会做什么：{req:?}");
+                assert!(
+                    req.what.contains("rustc") && req.what.contains("--version"),
+                    "确认请求要说清会做什么：{req:?}"
+                );
                 assert!(pending.answer(Answer::Approved));
                 return true;
             }
@@ -316,7 +341,7 @@ fn 有人批准之后才执行() {
     match handled {
         Handled::Executed { output } => {
             assert!(output.ok, "{output:?}");
-            assert!(output.detail.contains("hello"), "{output:?}");
+            assert!(output.detail.contains("rustc"), "{output:?}");
         }
         other => panic!("批准之后应当执行，实际 {other:?}"),
     }
@@ -425,10 +450,16 @@ fn 被拒绝走的是工具级错误而不是传输级错误() {
     // 传输故障去重试，而重试一个判决只会得到同一个判决。
     let tmp = Tmp::new("tool-err");
     let mut server = server_for(&tmp, Duration::from_millis(50));
-    let req: mcp::Request = serde_json::from_str(
-        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":
-            {"name":"write_file","arguments":{"path":"/etc/nope.conf","contents":"x"}}}"#,
-    )
+    let target = system_write_target("agentguard-nope.conf");
+    let req: mcp::Request = serde_json::from_value(serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+            "name": "write_file",
+            "arguments": {"path": target, "contents": "x"}
+        }
+    }))
     .expect("解析");
     let v = server.handle(req).expect("要有响应");
     assert!(v.get("error").is_none(), "不该是 JSON-RPC 错误：{v}");
@@ -550,7 +581,7 @@ fn 边界三_只对_SHELL_CONFIRM_生效不对路径类的_Ask_生效() {
 
 #[test]
 fn 天花板不认领没有路径操作数的命令() {
-    // `git status`、`echo` 这类命令没有可以被事前授权覆盖的东西，所以照旧确认。
+    // `git status`、`rustc --version` 这类命令没有可以被事前授权覆盖的东西，所以照旧确认。
     // 这条防的是把 `claims.is_empty()` 当成"全部都在里面"（`all()` 对空集返回 true）。
     let tmp = Tmp::new("ceiling-nopath");
     let (call, action) = needs_confirm_call();

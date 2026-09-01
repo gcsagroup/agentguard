@@ -32,6 +32,7 @@
 
 - 修复 Landlock 把目录专属权限附到 `/dev/null` 等单文件规则而导致整份规则集 `EINVAL`、子进程未启动的问题；Linux 集成测试现在从已授权目录启动，并直接验证授权读写与真实越界拒绝，不再因未授权的 `/dev/null` 重定向假绿。
 - 修复 Windows `canonicalize` 产生的 `\\?\` verbatim 盘符/UNC 前缀与普通前缀不等价的问题；真实 `C:\Windows`、`C:\ProgramData` 路径重新命中敏感目标，固定的 `\\?\` 命名空间标记也不再被误判为通配符。
+- 修复 Windows 工作区测试仍把 `/bin/*`、`/srv`、`/tmp` 和 `/etc` 当作跨平台夹具的问题；网关改用可控 Rust 子进程验证并发管道、UTF-8 截断与退出码，路径、Shell 和 jail 测试使用目标平台真实的绝对路径，同时保留敏感目录与参数注入覆盖。
 - Firefox MV3 包改用其支持的模块化 `background.scripts` 事件页；结构测试同时钉住 Chromium service worker 与 Firefox event page 的同一 `background.js` 入口。
 - 修复读取拦截名单时丢失规则溯源，以及“允许一次”用 `form.submit()` 绕过表单校验并丢失 submitter 语义的问题；付款按钮的 click→submit 链现在共享一次性批准，不会重复弹出确认。
 - 把 macOS AXObserver 真正接入桌面驱动，绑定持续运行的主 RunLoop，并随前台应用切换重绑；新增产品路径接线测试。

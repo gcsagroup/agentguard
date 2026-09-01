@@ -178,10 +178,26 @@ impl Profile {
 mod tests {
     use super::*;
 
+    fn absolute_test_path(name: &str) -> String {
+        if cfg!(target_os = "windows") {
+            format!(r"C:\AgentGuard-Test\{name}")
+        } else {
+            format!("/srv/{name}")
+        }
+    }
+
+    fn sensitive_system_dir() -> String {
+        if cfg!(target_os = "windows") {
+            r"C:\Windows".into()
+        } else {
+            "/etc".into()
+        }
+    }
+
     #[test]
     fn 没有写授权就是整个文件系统只读() {
         // 不是"允许一切"。这是从 narrow() 继承的方向。
-        let (p, rejected) = Profile::from_ceiling(&["/srv/data".into()], &[]);
+        let (p, rejected) = Profile::from_ceiling(&[absolute_test_path("data")], &[]);
         assert!(rejected.is_empty(), "{rejected:?}");
         assert!(p.is_read_only());
         assert!(p.all_write().is_empty());
@@ -189,8 +205,10 @@ mod tests {
 
     #[test]
     fn 能写必然能读() {
-        let (p, _) = Profile::from_ceiling(&[], &["/srv/out".into()]);
-        assert!(p.all_read().iter().any(|r| *r == Path::new("/srv/out")));
+        let (p, rejected) = Profile::from_ceiling(&[], &[absolute_test_path("out")]);
+        assert!(rejected.is_empty(), "{rejected:?}");
+        let write = p.write.first().expect("应当保留写授权").clone();
+        assert!(p.all_read().iter().any(|r| *r == write));
     }
 
     #[test]
@@ -221,14 +239,20 @@ mod tests {
 
     #[test]
     fn 通配符授权被拒绝() {
-        let (_, rejected) = Profile::from_ceiling(&[], &["/srv/*".into()]);
+        let wildcard = if cfg!(target_os = "windows") {
+            r"C:\AgentGuard-Test\*".into()
+        } else {
+            "/srv/*".into()
+        };
+        let (_, rejected) = Profile::from_ceiling(&[], &[wildcard]);
         assert_eq!(rejected.len(), 1, "{rejected:?}");
     }
 
     #[test]
     fn 写授权落在系统目录上是拒绝启动的理由() {
         // 这不是配置疏忽，是把约束的意义抵消掉。
-        let (p, _) = Profile::from_ceiling(&[], &["/etc".into()]);
+        let (p, rejected) = Profile::from_ceiling(&[], &[sensitive_system_dir()]);
+        assert!(rejected.is_empty(), "{rejected:?}");
         let c = p.contradictions();
         assert!(!c.is_empty(), "写 /etc 应当被判为矛盾");
         assert!(c[0].contains("敏感"), "{c:?}");
@@ -237,7 +261,8 @@ mod tests {
     #[test]
     fn 普通工作区不产生矛盾() {
         // 反面用例。没有这一条，上面那条可能只是"什么都判成矛盾"。
-        let (p, _) = Profile::from_ceiling(&[], &["/tmp/agentguard-work".into()]);
+        let (p, rejected) = Profile::from_ceiling(&[], &[absolute_test_path("ordinary-workspace")]);
+        assert!(rejected.is_empty(), "{rejected:?}");
         assert!(p.contradictions().is_empty(), "{:?}", p.contradictions());
     }
 

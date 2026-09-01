@@ -183,10 +183,20 @@ pub fn launch(profile: &Profile, argv: &[String]) -> Result<Launched, JailError>
 mod tests {
     use super::*;
 
+    fn sensitive_system_dir() -> String {
+        if cfg!(target_os = "windows") {
+            r"C:\Windows".into()
+        } else {
+            "/etc".into()
+        }
+    }
+
     #[test]
     fn 矛盾的_profile_拒绝启动而且不启动任何进程() {
-        let (p, _) = Profile::from_ceiling(&[], &["/etc".into()]);
-        let err = launch(&p, &["/bin/true".into()]).expect_err("应当拒绝");
+        let (p, rejected) = Profile::from_ceiling(&[], &[sensitive_system_dir()]);
+        assert!(rejected.is_empty(), "{rejected:?}");
+        // 矛盾在查找后端和启动程序之前就必须失败，所以这里故意不依赖平台命令。
+        let err = launch(&p, &["agentguard-must-not-start".into()]).expect_err("应当拒绝");
         assert!(matches!(err, JailError::Contradictory(_)), "{err:?}");
     }
 
