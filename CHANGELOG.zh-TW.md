@@ -17,11 +17,13 @@
 - macOS AX 樹狀結構觀測新增 AXObserver 推送、150ms 去抖、800ms 延遲上限與 3s 兜底輪詢；像素擷取仍為取樣路徑。
 - macOS、Windows 與 Chromium 介面完成三語消費者化改造，包括首次引導、易懂風險文案、無障礙確認層、鍵盤焦點、深色模式、通知及詞表完整性檢查。
 - 新增瀏覽器、Windows 與 macOS 真實裝置驗收清單、可執行手冊、瀏覽器測試資料與報告範本；文件與測試資料是待執行流程，不表示已取得真實裝置證據。
+- 新增八類結構化發佈證據範本與校驗：證據綁定目前完整提交號、實際命令、結束碼、時間、判據輸出與產物身分。普通發佈檔案使用標準 SHA-256；macOS `.app` 的 tree-v2 綁定整個 bundle 的路徑、類型、長度、內容及 Unix `0111` 可執行位元遮罩；驗收 closure-v1 則綁定報告 bytes 與每個唯一逐項引用的路徑、長度和內容。四類簽署證據還把 `signer` 綁定至閘門外部提供的 Apple Team ID 或發佈憑證 SHA-256，四類驗收證據固定為 `null`。路徑採用可攜式 ASCII 元件且逐項引用不得重複使用；未填寫範本、空產物、缺失檔案、自我引用、符號連結與摘要不符均不能通過。tree-v2 不綁定其他 mode、xattr／ACL，也不取代隔離機上的 quarantine、Gatekeeper 與首次啟動驗收；驗收 closure 仍是不能證明螢幕截圖來源的未簽署自證。
 
 ### Security
 
 - 網路天花板一經宣告便涵蓋 TCP connect 與 bind；空連接埠表表示全部拒絕，非 Landlock 後端不得靜默降級為網路開放。
 - 惡意主機 DNR 名單跨 service worker 重啟保留，越界主機隨工作階段到期；popup 可檢視、解除並追溯至 `INTEL-DOMAIN` 或 `SCOPE-HOST`。
+- 嚴格閘門不再接受僅含關鍵字的任意檔案；簽署與驗收命令必須採用校驗器認可的完整 fail-closed 成功鏈，任何子命令失敗都不能被後續輸出掩蓋。四類簽署證據還須出現工具輸出與外部預期的 Team ID／憑證 SHA-256，並在執行前後核對同一個 clean 候選提交。結構化 JSON 仍是未簽署自證，只防誤綁定、誤操作與部分機械偽造，不防控制工作區的攻擊者偽造全部欄位。
 
 ### Changed
 
@@ -31,7 +33,10 @@
 ### Fixed
 
 - 修正 Landlock 將目錄專屬權限附加到 `/dev/null` 等單一檔案規則，導致整份規則集回傳 `EINVAL`、子行程未啟動的問題；Linux 整合測試現在從已授權目錄啟動，並直接驗證授權讀寫與真實越界拒絕，不再因未授權的 `/dev/null` 重新導向而假綠。
+- 修正 Landlock 呼叫 `prctl(PR_SET_NO_NEW_PRIVS)` 時未明確傳入三個必須為零的尾端參數而可能收到 `EINVAL` 的問題；現在統一使用完整五參數系統呼叫，並依 Linux x86_64／aarch64 選擇正確的 `prctl` 系統呼叫號，同時保留現有單一檔案權限過濾。
+- 修正 aarch64 的 mount-namespace 降級路徑誤用 x86_64 `getuid`／`getgid` 系統呼叫號的問題；現在依架構選擇正確編號，並以真實系統呼叫回歸測試固定回退身分。
 - 修正 Windows `canonicalize` 產生的 `\\?\` verbatim 磁碟機／UNC 前綴與一般前綴不等價的問題；真實 `C:\Windows`、`C:\ProgramData` 路徑會重新命中敏感目標，固定的 `\\?\` 命名空間標記也不再被誤判為萬用字元。
+- 保留 Windows 元件層級路徑歸約與現有 home、`ProgramData`、`Program Files (x86)` 敏感路徑保護；未採用會把不同路徑形狀全域折疊並造成保護降級的方案。
 - 修正 Windows 工作區測試仍把 `/bin/*`、`/srv`、`/tmp` 與 `/etc` 當作跨平台測試資料的問題；閘道改用可控 Rust 子行程驗證並行管道、UTF-8 截斷與結束碼，路徑、Shell 與 jail 測試使用目標平台真實的絕對路徑，同時保留敏感目錄與參數注入覆蓋。
 - Firefox MV3 套件改用其支援的模組化 `background.scripts` 事件頁；結構測試同時釘住 Chromium service worker 與 Firefox event page 的同一個 `background.js` 入口。
 - 修正讀取阻擋名單時遺失規則溯源，以及「允許一次」使用 `form.submit()` 繞過表單驗證並遺失 submitter 語意的問題；付款按鈕的 click→submit 鏈現在共用一次性批准，不會重複顯示確認。
@@ -43,6 +48,7 @@
 
 - 目前 macOS ad-hoc 候選已在本機完成啟動、TCC 探測與 AXObserver 推送流程檢查，但 Developer ID 簽署/公證後的全新安裝與升級路徑仍未驗收；Chrome、Edge、Firefox 與 Windows 仍缺候選版真機 E2E，Safari 只有設計。
 - 頁面閘門能涵蓋的只是在已安裝擴充功能可觸及的頁面向量；DNR 規則安裝失敗時 fail-open，Native Host 與 Android 通知不能提供不可繞過的執行前控制。
+- 目前尚未設定正式 Apple Team ID、Windows／Android 發佈憑證 SHA-256，四類簽署檢查維持 `UNVERIFIED`；公證、真實裝置、全新安裝、升級與回復證據也仍不完整。結構化證據閘門上線不改變正式環境發佈 **No-Go** 結論。
 
 ## [1.0.0-rc.1] - 2026-08-28
 

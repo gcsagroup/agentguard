@@ -39,6 +39,10 @@ Run every case manually on **real Firefox** and retain evidence (screenshots / a
 | F7 | Observe the native-messaging round trip for F6 | The host accepts the caller (the gecko id matches the origin and `guard-nm-host` does not refuse to start because of the origin); the verdict enters the signed audit trail | | |
 | F8 | Inspect the number of dynamic DNR rules | The number stays within Firefox's dynamic-rule quota (installing rules produces no error; truncate the list at the quota if necessary) | | |
 
+> The table above is only an execution record and cannot be used unchanged as a strict artifact. A strict-gate report
+> must use the [central real-device acceptance report template](acceptance-report-template.en.md), preserve `ID | Result | Evidence`
+> as its first three columns, and transcribe the F1–F8 results and evidence into it.
+
 ## Which “Pending Validation” Item in docs/跨浏览器.md Each Case Covers
 
 - F2/F3 → the DOM gate works in Firefox
@@ -64,5 +68,32 @@ apps/extension-chromium/native-host/install-host.sh --browser firefox agentguard
 ## Sign-off
 
 - Tester: ____________  Version / commit: ____________  Date: ____________
-- After all cases PASS, export the evidence-directory path as `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`, then run
-  `scripts/release-gate.sh --strict` to move this item from "unvalidated" to validated.
+- After all required cases pass, save the completed report as a repository-relative regular file such as
+  `evidence/firefox/report.md`, then actually validate it, compute its closure digest, and complete JSON with the
+  commands below. JSON `output` must use the exact success marker `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`, and the
+  evidence must bind the full current commit and `agentguard-acceptance-closure-sha256-v1`. F1–F8 must each appear
+  in exactly one report row with result `PASS (native)`. The evidence column must identify a unique existing nonempty
+  repository-relative regular file under `evidence/firefox/`; it cannot be the report itself or the current evidence
+  JSON source file, traverse a symbolic link, or resolve outside the repository. Paths use only `/`; every component
+  must match `[A-Za-z0-9._-]+` with no whitespace or shell glob/expansion character. The closure binds the report and
+  every unique reference's path, length, and content, but remains unsigned self-attestation and cannot prove provenance.
+  ```bash
+  mkdir -p evidence/firefox
+  commit="$(git rev-parse HEAD)"
+  commit_time="$(git show -s --format=%ct HEAD)"
+  cargo build --release -p guard-cli
+  target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
+    evidence/firefox/report.md --repo-root .
+  # Sole success output: AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
+  cargo run -p guard-cli -- evidence-digest \
+    --repo-root . --path evidence/firefox/report.md
+  cargo run -p guard-cli -- evidence-template --kind acceptance_firefox \
+    --commit "$commit" > evidence/firefox/evidence.json
+  # Put the exact manual-acceptance command, marker, and closure digest into JSON, then verify
+  cargo run -p guard-cli -- evidence-verify --kind acceptance_firefox \
+    --file evidence/firefox/evidence.json --commit "$commit" \
+    --commit-time "$commit_time" --repo-root .
+  ```
+- Then export the **JSON file** path as `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`. A directory, untouched template,
+  or file containing only a `PASS` keyword is not evidence. See
+  [Structured Release Evidence](release-evidence.en.md).

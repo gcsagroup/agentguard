@@ -86,9 +86,8 @@ https://releases.example.com/agentguard/{{target}}/{{current_version}}
 
 ```bash
 export APPLE_ID="you@example.com"
-export TEAM_ID="XXXXXXXXXX"
-export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
-export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Org (${TEAM_ID})"
+export AGENTGUARD_EXPECTED_MACOS_TEAM_ID="XXXXXXXXXX"
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Org (${AGENTGUARD_EXPECTED_MACOS_TEAM_ID})"
 ```
 
 Tauri 在 `APPLE_SIGNING_IDENTITY` 或 `tauri.conf.json > bundle.macOS.signingIdentity` 存在时会尝试签名；也可在 bundler 产出后手动签名：
@@ -99,27 +98,32 @@ codesign --force --options runtime \
   --entitlements src-tauri/entitlements.plist \
   --sign "$APPLE_SIGNING_IDENTITY" \
   "$APP"
-codesign --verify --deep --strict --verbose=2 "$APP"
+codesign --verify --deep --strict --verbose=4 "$APP" && \
+  codesign -dv --verbose=4 "$APP"
 ```
 
 ## 公证（Notarization）与 Staple
 
-使用 App-Specific Password：
+在仓库外创建 `AgentGuard-Notary` 钥匙串 profile；以下命令会安全提示输入 App-Specific Password，
+不要把密码放进命令参数、仓库或日志：
 
 ```bash
+xcrun notarytool store-credentials AgentGuard-Notary \
+  --apple-id "$APPLE_ID" \
+  --team-id "$AGENTGUARD_EXPECTED_MACOS_TEAM_ID"
+
 DMG="src-tauri/target/release/bundle/dmg/AgentGuard_1.0.0-rc.1_aarch64.dmg"
 xcrun notarytool submit "$DMG" \
-  --apple-id "$APPLE_ID" \
-  --team-id "$TEAM_ID" \
-  --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-  --wait
-xcrun stapler staple "$DMG"
-xcrun stapler validate "$DMG"
+  --wait \
+  --team-id "$AGENTGUARD_EXPECTED_MACOS_TEAM_ID" \
+  --keychain-profile AgentGuard-Notary && \
+  xcrun stapler staple "$DMG" && \
+  xcrun stapler validate "$DMG"
 ```
 
-或使用 API Key（推荐 CI）：设置 `APPLE_API_ISSUER`、`APPLE_API_KEY`、`APPLE_API_KEY_PATH`（见 [Tauri 环境变量](https://v2.tauri.app/reference/environment-variables/)）。
+严格证据必须记录上述 Team ID、keychain profile、staple 与 validate 的完整 fail-closed 成功链。构建工具可以有其他认证配置，但不能用较弱或不同形状的命令冒充严格证据。
 
-用户首次打开未 staple 的 app 可能触发 Gatekeeper；staple 后离线校验通过。
+staple 与 validate 成功仍不能证明 quarantine、Gatekeeper 或首次启动行为；下载后的正式候选必须在隔离机上完成首次启动验收。
 
 ## Tauri Updater vs Sparkle
 
@@ -154,7 +158,7 @@ tauri::Builder::default().plugin(tauri_plugin_updater::Builder::new().build())
 - [ ] `tauri.conf.json` 版本号与 release notes 一致
 - [ ] `entitlements.plist` 与实际上架渠道（直装 / MAS）匹配
 - [ ] Developer ID 签名 + Hardened Runtime
-- [ ] `notarytool submit` 成功 + `stapler staple`
+- [ ] `notarytool submit --team-id … --keychain-profile AgentGuard-Notary` 成功 + `stapler staple` + `stapler validate`
 - [ ] DMG 在干净 macOS VM 上双击安装、首次启动无恶意软件拦截
 - [ ] TCC 文案与 [`store-listing-macos.md`](store-listing-macos.md) 隐私说明一致
 - [ ] ScreenCaptureKit / 辅助功能权限引导可理解（Menu Bar onboarding）

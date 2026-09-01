@@ -34,10 +34,14 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 | W1 | In an ordinary application, open a window containing a payment CTA ("Confirm Payment / 确认支付") | The shell opens a **blocking modal** (Critical Confirm); canceling prevents the action. This is the real interactive confirmation available only on Windows/macOS | | |
 | W2 | UI Automation observation: switch to a window containing a form | The engine receives `UiTreeDelta` (the tree was traversed); nonessential PII in the form triggers an FM/TR verdict | | |
 | W3 | GDI `BitBlt` pixel capture + steganography | An image containing chroma/luma steganography appears in the target window → `guard-vision` captures it (the same `guard-vision` stack used on macOS) | | |
-| W4 | `Windows.Media.Ocr` screen reading | Payment text that exists only in pixels → OCR extracts it → `OVL-009/010` fires (a recognition language pack must be installed; otherwise those two cases are skipped and the shell must report the capability with a reason) | | |
+| W4 | `Windows.Media.Ocr` screen reading | Payment text that exists only in pixels → OCR extracts it → `OVL-009/010` fires. Install the matching recognition language pack before strict acceptance. If it is absent, record this case as BLOCKED; the shell must still report the capability with a reason, but the row cannot say `PASS (native)` | | |
 | W5 | overlay coverage (the note 1 limitation) | Suspicious content **drawn by the target window itself** is captured; a phishing window drawn over it by **another process** is **not** present in the pixels captured by GDI (an accurate narrow-coverage limitation, not a bug) | | |
 | W6 | Runtime capability probe | The shell reports whether UI Automation / capture / OCR are available, each with a reason string (rather than silently assuming availability) | | |
-| W7 | Browser extension → native-messaging host (optional) | Chrome/Edge extension events are decided by the registry-registered `guard-nm-host.exe` and enter the signed audit trail; the host's origin validation matches | | |
+| W7 | Browser extension → native-messaging host | Chrome/Edge extension events are decided by the registry-registered `guard-nm-host.exe` and enter the signed audit trail; the host's origin validation matches. This is required for strict Windows candidate acceptance | | |
+
+> The table above is only an execution record and cannot be used unchanged as a strict artifact. A strict-gate report
+> must use the [central real-device acceptance report template](acceptance-report-template.en.md), preserve `ID | Result | Evidence`
+> as its first three columns, and transcribe the W1–W7 results and evidence into it.
 
 ## Which “Pending Validation” Item in platform-matrix Each Case Covers
 
@@ -51,5 +55,32 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 ## Sign-off
 
 - Tester: ____________  Version / commit: ____________  Date: ____________
-- After all cases PASS, export the evidence-directory path as `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS`, then run
-  `scripts/release-gate.sh --strict` to move this item from "unvalidated" to validated.
+- After all required cases pass, save the completed report as a repository-relative regular file such as
+  `evidence/windows/report.md`, then actually validate it, compute its closure digest, and complete JSON with the
+  commands below. JSON `output` must use the exact success marker `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`, and the
+  evidence must bind the full current commit and `agentguard-acceptance-closure-sha256-v1`. W1–W7 must each appear
+  in exactly one report row with result `PASS (native)`. The evidence column must identify a unique existing nonempty
+  repository-relative regular file under `evidence/windows/`; it cannot be the report itself or the current evidence
+  JSON source file, traverse a symbolic link, or resolve outside the repository. Paths use only `/`; every component
+  must match `[A-Za-z0-9._-]+` with no whitespace or shell glob/expansion character. The closure binds the report and
+  every unique reference's path, length, and content, but remains unsigned self-attestation and cannot prove provenance.
+  ```bash
+  mkdir -p evidence/windows
+  commit="$(git rev-parse HEAD)"
+  commit_time="$(git show -s --format=%ct HEAD)"
+  cargo build --release -p guard-cli
+  target/release/guard-cli manual-acceptance windows docs/acceptance-windows.md \
+    evidence/windows/report.md --repo-root .
+  # Sole success output: AGENTGUARD_ACCEPTANCE_WINDOWS=PASS
+  cargo run -p guard-cli -- evidence-digest \
+    --repo-root . --path evidence/windows/report.md
+  cargo run -p guard-cli -- evidence-template --kind acceptance_windows \
+    --commit "$commit" > evidence/windows/evidence.json
+  # Put the exact manual-acceptance command, marker, and closure digest into JSON, then verify
+  cargo run -p guard-cli -- evidence-verify --kind acceptance_windows \
+    --file evidence/windows/evidence.json --commit "$commit" \
+    --commit-time "$commit_time" --repo-root .
+  ```
+- Then export the **JSON file** path as `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS`. A directory, untouched template,
+  or file containing only a `PASS` keyword is not evidence. See
+  [Structured Release Evidence](release-evidence.en.md).

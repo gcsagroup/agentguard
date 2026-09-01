@@ -30,10 +30,13 @@
 | W1 | 在一般應用程式中開啟含付款 CTA（"Confirm Payment / 確認支付"）的視窗 | 殼程式彈出**阻斷式模態**（Critical Confirm），點取消後動作不發生——這是 Windows/macOS 才有的真實互動確認 | | |
 | W2 | UI Automation 觀測：切換至一個含表單的視窗 | 引擎收到 `UiTreeDelta`（樹已走訪）；表單中的非必要 PII 觸發 FM/TR 判決 | | |
 | W3 | GDI `BitBlt` 像素擷取 + 隱寫 | 一張含 chroma/luma 隱寫的影像出現在目標視窗 → `guard-vision` 擷取到（與 macOS 使用同一套 `guard-vision`） | | |
-| W4 | `Windows.Media.Ocr` 讀屏 | 一段只存在於像素中的付款文字 → OCR 讀出 → `OVL-009/010` 觸發（需已安裝辨識語言套件；若未安裝則不執行這兩項，殼程式應提供含原因的能力報告） | | |
+| W4 | `Windows.Media.Ocr` 讀屏 | 一段只存在於像素中的付款文字 → OCR 讀出 → `OVL-009/010` 觸發。嚴格驗收前必須安裝對應辨識語言套件；缺少時本項記為 BLOCKED，殼程式仍應提供含原因的能力報告，但不能寫成 `PASS (native)` | | |
 | W5 | overlay 覆蓋（note 1 的限制） | 目標視窗**自行繪製**的可疑覆蓋會被擷取；**另一個處理程序**繪製在其上的網路釣魚視窗**不會**出現在 GDI 擷取的像素中（如實反映較窄的覆蓋範圍，不是 bug） | | |
 | W6 | 執行階段能力探針 | 殼程式報告 UI Automation / 擷取 / OCR 各自是否可用，並附原因字串（不是靜默假設可用） | | |
-| W7 | 瀏覽器擴充功能 → 原生訊息 host（選用） | Chrome/Edge 擴充功能的事件透過登錄檔登記的 `guard-nm-host.exe` 判決並進入簽章稽核；host 的 origin 驗證相符 | | |
+| W7 | 瀏覽器擴充功能 → 原生訊息 host | Chrome/Edge 擴充功能的事件透過登錄檔登記的 `guard-nm-host.exe` 判決並進入簽章稽核；host 的 origin 驗證相符。它是嚴格 Windows 候選驗收的必要項目 | | |
+
+> 上表只用於逐項執行記錄，不能原樣作為 strict artifact。嚴格閘門報告必須使用[中央真實裝置驗收報告範本](acceptance-report-template.zh-TW.md)，
+> 並維持 `ID | 結果 | 證據` 為前三欄，再將 W1–W7 的結果與證據逐項轉錄進去。
 
 ## 這些案例分別驗證 platform-matrix 的哪一項「未驗證」
 
@@ -47,5 +50,30 @@
 ## 簽署
 
 - 驗收人：____________  版本 / commit：____________  日期：____________
-- 全部案例 PASS 後，把證據目錄路徑匯出至 `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS`，再執行
-  `scripts/release-gate.sh --strict`，讓這一項從「未驗證」轉為已驗證。
+- 全部必要案例 PASS 後，將完成的報告儲存為儲存庫相對普通檔案（例如 `evidence/windows/report.md`），用
+  下列命令實際校驗、計算閉包摘要並填寫 JSON。`output` 必須使用命令成功時列印的精確標記
+  `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`，JSON 還須綁定目前完整 commit 與
+  `agentguard-acceptance-closure-sha256-v1`。
+  W1–W7 在報告中必須各恰好一列，結果精確為 `PASS (native)`，證據欄須指向 `evidence/windows/` 下真實存在的
+  儲存庫相對非空普通檔案；路徑不得重複使用，不能引用報告本身或目前證據 JSON 來源檔案，也不能經過符號連結或超出儲存庫。
+  路徑只使用 `/`，每個元件須符合 `[A-Za-z0-9._-]+`，不能包含空白或 shell glob／展開字元。閉包綁定報告與每個唯一引用的路徑、長度與內容，
+  但仍是未簽署自證，不能證明螢幕截圖或記錄的真實來源。
+  ```bash
+  mkdir -p evidence/windows
+  commit="$(git rev-parse HEAD)"
+  commit_time="$(git show -s --format=%ct HEAD)"
+  cargo build --release -p guard-cli
+  target/release/guard-cli manual-acceptance windows docs/acceptance-windows.md \
+    evidence/windows/report.md --repo-root .
+  # 成功時唯一輸出：AGENTGUARD_ACCEPTANCE_WINDOWS=PASS
+  cargo run -p guard-cli -- evidence-digest \
+    --repo-root . --path evidence/windows/report.md
+  cargo run -p guard-cli -- evidence-template --kind acceptance_windows \
+    --commit "$commit" > evidence/windows/evidence.json
+  # 將精確 manual-acceptance 命令、marker 與 closure 摘要填入 JSON 後
+  cargo run -p guard-cli -- evidence-verify --kind acceptance_windows \
+    --file evidence/windows/evidence.json --commit "$commit" \
+    --commit-time "$commit_time" --repo-root .
+  ```
+- 再把 **JSON 檔案**路徑匯出至 `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS`。目錄、未填寫範本或僅含 `PASS`
+  關鍵字的檔案都不能作為證據。詳見[結構化發佈證據](release-evidence.zh-TW.md)。

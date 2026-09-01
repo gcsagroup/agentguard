@@ -62,7 +62,8 @@ npm run tauri dev
 - [主張與測試映射](docs/主张与测试映射.zh-TW.md)
 - [瀏覽器執行前阻擋](docs/浏览器执行前阻断.zh-TW.md)
 - [真實裝置驗收執行手冊](docs/acceptance-runbook.zh-TW.md)
-- [發佈安全與證據閘門](docs/release-security.md)
+- [結構化發佈證據](docs/release-evidence.zh-TW.md)
+- [歷史發佈閘門設計說明](docs/release-security.md)
 - [產生的攻擊面覆蓋矩陣](eval/coverage-matrix.md)
 
 本輪新增的關鍵技術與驗收文件提供簡體中文、繁體中文與英文版本；其餘深層文件仍保留原始語言。入口會標明語言、用途與狀態，避免把設計、離線測試或歷史複核記錄當作目前真實裝置與發佈結論。

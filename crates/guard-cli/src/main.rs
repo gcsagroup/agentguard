@@ -1,5 +1,6 @@
 //! AgentGuard CLI: rules, scoring, eval, replay, audit export.
 
+mod evidence;
 mod preflight;
 
 use std::path::PathBuf;
@@ -11,6 +12,7 @@ use android_adapter::{
 use anyhow::{Context, Result};
 use browser_adapter::BrowserAdapter;
 use clap::{Parser, Subcommand};
+use evidence::EvidenceKind;
 use guard_audit::{
     sqlcipher_enabled, AuditSigner, AuditStore, AuditVerifyKey, FileDeviceKey, HeadWitness,
     SessionReport,
@@ -448,6 +450,57 @@ enum Commands {
         /// body 的格式标签。
         #[arg(long, default_value = guard_schema::ANDROID_ENVELOPE_FORMAT)]
         format: String,
+    },
+    /// 校验一份固定平台验收报告及其逐项证据，成功时输出唯一机器标记。
+    ManualAcceptance {
+        /// 固定平台名：macos、android、firefox 或 windows。
+        platform: String,
+        /// 对应平台的仓库内固定验收清单路径。
+        checklist: String,
+        /// 对应平台 evidence/ 目录下的验收报告。
+        report: String,
+        /// 仓库根目录；报告和每个逐项证据都必须位于其中。
+        #[arg(long)]
+        repo_root: PathBuf,
+    },
+    /// 生成一份故意不能直接通过门禁的结构化发布证据模板。
+    ///
+    /// 填写实际命令、退出码、时间、输出，以及仓库内产物路径和 SHA-256 后，
+    /// 再用 `evidence-verify` 现场复核。模板本身永远不是发布凭据。
+    EvidenceTemplate {
+        #[arg(long)]
+        kind: EvidenceKind,
+        /// 要绑定的完整 40 位 HEAD；省略时模板保留明确占位值。
+        #[arg(long)]
+        commit: Option<String>,
+    },
+    /// 计算发布证据使用的摘要：普通文件为 SHA-256，`.app` 为确定性 tree-v2 SHA-256。
+    EvidenceDigest {
+        /// 仓库根目录；摘要目标必须位于其中且使用仓库相对路径。
+        #[arg(long)]
+        repo_root: PathBuf,
+        #[arg(long)]
+        path: String,
+    },
+    /// 复核一份结构化发布证据，并现场重算仓库内产物的 SHA-256。
+    EvidenceVerify {
+        #[arg(long)]
+        kind: EvidenceKind,
+        #[arg(long)]
+        file: PathBuf,
+        /// 门禁当前所在仓库的根目录。产物只能使用这个目录下的相对路径。
+        #[arg(long)]
+        repo_root: PathBuf,
+        /// 门禁当前完整 HEAD；证据里的 commit 必须与它精确相等。
+        #[arg(long)]
+        commit: String,
+        /// 当前 HEAD 的提交时间（Unix epoch 秒）；证据不得早于它。
+        #[arg(long)]
+        commit_time: i64,
+        /// 仓库外受控的预期签名者：macOS Team ID，或 Windows/Android 证书 SHA-256。
+        /// 四类签名证据必填；四类验收证据不得填写。
+        #[arg(long)]
+        expected_signer: Option<String>,
     },
     /// 部署自检:把已记录的限制变成上线之前会看到的东西。
     ///
@@ -1726,6 +1779,47 @@ fn main() -> Result<()> {
             if scan.is_empty() {
                 println!("clean");
             }
+        }
+        Commands::ManualAcceptance {
+            platform,
+            checklist,
+            report,
+            repo_root,
+        } => {
+            println!(
+                "{}",
+                evidence::manual_acceptance(&platform, &checklist, &report, &repo_root)?
+            );
+        }
+        Commands::EvidenceTemplate { kind, commit } => {
+            let template = evidence::evidence_template(kind, commit.as_deref());
+            println!("{}", serde_json::to_string_pretty(&template)?);
+        }
+        Commands::EvidenceDigest { repo_root, path } => {
+            println!("{}", evidence::artifact_digest(&repo_root, &path)?);
+        }
+        Commands::EvidenceVerify {
+            kind,
+            file,
+            repo_root,
+            commit,
+            commit_time,
+            expected_signer,
+        } => {
+            let proof = evidence::read_evidence_file(&file)?;
+            evidence::verify_evidence(
+                &proof,
+                kind,
+                &commit,
+                commit_time,
+                expected_signer.as_deref().filter(|value| !value.is_empty()),
+                &repo_root,
+                &file,
+            )?;
+            println!(
+                "VERIFIED kind={} commit={} artifact={} sha256={}",
+                kind, proof.commit, proof.artifact.path, proof.artifact.sha256
+            );
         }
         Commands::Preflight {
             rules,

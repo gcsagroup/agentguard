@@ -3,11 +3,11 @@
 # 真机验收执行手册（给自动化 agent / computer-use）
 
 这份手册把三份验收清单(`acceptance-firefox.md` / `acceptance-macos.md` / `acceptance-windows.md`)
-从"人读的检查表"补成"可照着执行的操作步骤":每条用例的**准备、精确动作、可观察的判据、要截的证据**,
-以及最后**怎么记录结果并更新仪表盘**。执行者可以是 Codex / computer-use 之类能驱动真实浏览器和桌面的
-agent。
+从"人读的检查表"补成"可照着执行的操作步骤",并补充 Android 伴生应用的签名信封真机路径。它给出每条
+用例的**准备、精确动作、可观察的判据、要截的证据**,以及最后**怎么记录结果并生成结构化证据**。执行者
+可以是 Codex / computer-use 之类能驱动真实浏览器、桌面与设备的 agent。
 
-> 每条用例的"期望"以三份 `acceptance-*.md` 为准;本手册补的是"怎么让它发生、怎么看出成没成"。
+> 浏览器、macOS 与 Windows 的"期望"以三份 `acceptance-*.md` 为准;Android 以本手册第 5 节和伴生应用 README 为准。
 
 ---
 
@@ -56,10 +56,10 @@ cd eval/acceptance-fixtures && python3 -m http.server 8000
 # 夹具首页:http://localhost:8000/
 ```
 
-准备一个证据目录:
+在仓库内准备证据工作目录。它必须保持为候选提交之外的本地文件；先去除敏感信息，不要误提交原始截图、账号或设备标识:
 
 ```bash
-mkdir -p /tmp/ag-evidence/{firefox,windows,macos}
+mkdir -p evidence/{firefox,windows,macos,android}
 ```
 
 ---
@@ -152,34 +152,81 @@ Screen Recording 权限,再以 capability 报告、真实 AX 事件、捕获帧�
 
 ---
 
-## 5. 记录结果 → 更新仪表盘
+## 5. 平台 D:Android 伴生应用
 
-对每条用例:
+按 [Android 伴生应用 README](../apps/android-companion/README.md) 构建并安装候选,在真实设备上启用通知与
+AccessibilityService,通过 `adb reverse tcp:8788 tcp:8788` 连接桌面本地 API。把设备显示的 P-256 公钥注册到
+`policies/adapter-registry.yaml`,重启桌面 API 后触发至少一个有明确预期判决的真实无障碍事件。
 
-1. **填清单表**:在对应 `docs/acceptance-{firefox,windows,macos}.md` 的用例行,把「实测」列填
-   `PASS` / `PASS (sim)` / `FAIL` / `BLOCKED (原因)`,「证据」列填证据文件相对路径
-   (如 `/tmp/ag-evidence/firefox/F2-cancel.png`,或拷进仓库某目录后的相对路径)。
-   —— 仪表盘反映进度靠的正是这两列非空,它会据此数 `X/N`。
-
-2. **归档证据**:把截图 / 日志放进证据目录,并(可选)导出到门禁认的证据变量:
-   ```bash
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=/tmp/ag-evidence/firefox
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS=/tmp/ag-evidence/windows
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS=/tmp/ag-evidence/macos
-   ```
-
-3. **重算门禁 + 仪表盘**:
-   ```bash
-   make dashboard                        # 重生成 docs/status-dashboard.html,进度条据填好的表更新
-   bash scripts/release-gate.sh --strict # 严格模式:证据变量都设了,对应"未验证"项才转绿
-   ```
-
-4. **出报告**:按 `docs/acceptance-report-template.md` 填一份报告(每条 PASS/FAIL/BLOCKED + 证据 + 备注 +
-   环境信息),连同证据目录一起交回。
+PASS 需要同时证明:事件来自目标真机、HTTP body 的签名信封由桌面端使用已注册公钥验证成功、引擎判决符合预期,
+且设备收到相应风险结果。Debug 构建、JVM 单测、未注册公钥的中继或只离线回放 JSON 都不能替代这条真机 E2E；
+任一环节无法判定时记 `BLOCKED (具体原因)`。
 
 ---
 
-## 6. 判定小抄(什么算 PASS)
+## 6. 记录结果 → 生成结构化证据
+
+对每条用例:
+
+1. **填写独立报告**:把 `docs/acceptance-report-template.md` 复制到对应 `evidence/<平台>/report.md`,逐条写
+   `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (原因)` 和仓库相对证据路径。作为严格门禁 artifact 时，
+   Firefox 的 F1–F8、Windows 的 W1–W7、Android 的 A1–A4，以及 macOS 的 1、2、3、4、5、5b、5c、6–14
+   必须各自恰好一行；第二列必须精确为 `PASS (native)`，第三列必须指向对应 `evidence/<平台>/` 下真实存在的
+   仓库相对非空普通文件，且每个用例必须使用唯一证据路径。引用不能是报告自身或当前证据 JSON 源文件，路径不能含符号链接或越出仓库；
+   路径只用 `/`，每个组件必须匹配可移植 ASCII `[A-Za-z0-9._-]+`，不能含空白或 shell glob／展开字符。`PASS (sim)`、FAIL、BLOCKED、N/A、
+   缺失、重复、复用路径或引用文件不存在都不能冒充真机 PASS。
+
+2. **冻结候选提交**:如需让状态仪表盘显示进度,先更新清单并执行 `make dashboard`,提交这些变更,然后再从新的
+   `HEAD` 重跑验收。开门禁前索引和所有非 ignored 文件必须 clean；门禁运行期间不要改代码或受版本控制的文档。
+   结束时仍存在的 `HEAD` 或非 ignored 漂移会让起止快照不一致并失败；起止快照不防瞬时修改后恢复的并发对手。
+   ignored 的 `evidence/` 可继续写入。
+
+3. **生成并填写 JSON**:模板故意不能直接通过。把 `command`、`timestamp`、`output`、`exit_code` 和验收闭包
+   SHA-256 换成实测值；验收证据的顶层 `signer` 必须保持 `null`，复核时不要传 `--expected-signer`。
+   `timestamp` 在校验时须位于过去 30 天至未来 10 分钟内，且不能早于 HEAD 提交时间
+   （允许 10 分钟时钟误差）。`command` 必须是实际成功执行的单段
+   `guard-cli manual-acceptance <平台> <清单> <artifact.path> --repo-root .`（已按下方构建时，实际命令为
+   `target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md evidence/firefox/report.md --repo-root .`）。报告正文与 JSON `output`
+   都必须有一整行精确标记 `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`、
+   `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`、`AGENTGUARD_ACCEPTANCE_MACOS=PASS` 或
+   `AGENTGUARD_ACCEPTANCE_ANDROID=PASS`,而且只有全部必需原生用例 PASS 后才能写入该标记。验收 artifact
+   仅接受对应 `evidence/<平台>/` 下的 `.md` 普通文件。`artifact.sha256` 使用
+   `agentguard-acceptance-closure-sha256-v1`，绑定报告 bytes 以及按路径排序的每个唯一逐项引用的相对路径、长度与内容；
+   它仍是未签名自证，不能证明截图或日志来自其声称的设备。
+   ```bash
+   commit="$(git rev-parse HEAD)"
+   commit_time="$(git show -s --format=%ct HEAD)"
+
+   cargo build --release -p guard-cli
+   target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
+     evidence/firefox/report.md --repo-root .
+   # 成功时唯一输出：AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
+
+   cargo run -p guard-cli -- evidence-digest \
+     --repo-root . --path evidence/firefox/report.md
+
+   cargo run -p guard-cli -- evidence-template \
+     --kind acceptance_firefox --commit "$commit" > evidence/firefox/evidence.json
+
+   # 将上面的精确 manual-acceptance 命令、marker 与 closure 摘要填入 JSON 后显式复核
+   cargo run -p guard-cli -- evidence-verify \
+     --kind acceptance_firefox --file evidence/firefox/evidence.json \
+     --commit "$commit" --commit-time "$commit_time" --repo-root .
+   ```
+
+4. **把 JSON 交给严格门禁**；环境变量指向 JSON 文件,不能再指向目录:
+   ```bash
+   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=evidence/firefox/evidence.json
+   bash scripts/release-gate.sh --strict
+   ```
+
+   Windows、macOS 与 Android 按同样步骤替换 kind、目录和环境变量。字段与八类变量的完整说明见
+   [结构化发布证据](release-evidence.md)。目录、未填写模板、旧提交报告或只有关键词的任意文件都会被拒绝。
+   严格门禁通过后把本地证据只读归档到受控位置，不要把含敏感信息的原始证据默认推送到 GitHub。
+
+---
+
+## 7. 判定小抄(什么算 PASS)
 
 - **执行前拦截类(F2/F3/F4)**:动作在**发生前**被拦、出现确认层,且「先不要」确实阻止了动作
   (无导航 / 无请求 / 无处理器副作用)。只弹通知、动作照常发生 = **FAIL**(那是事后通知,不是执行前拦)。

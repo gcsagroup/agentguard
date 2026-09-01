@@ -2,6 +2,10 @@
 
 Free / non-billing launch checklist for secure defaults.
 
+> 本页保留早期发布安全设计背景。当前发布证据的结构、八类 `kind`、生成与复核命令以
+> [结构化发布证据](./release-evidence.md)（[繁體](./release-evidence.zh-TW.md) ·
+> [English](./release-evidence.en.md)）为准；任意文件路径或关键词不再构成有效证据。
+
 ## Desktop macOS
 
 | Control | Debug (`tauri dev`) | Release |
@@ -78,7 +82,7 @@ cargo run -p guard-cli -- api-serve --token "$AGENTGUARD_API_TOKEN" \
 
 ```bash
 make release-gate          # 软模式:跑完能自动验的,列出验不了的
-make release-gate-strict   # 发布时用:验不了的必须有证据文件
+make release-gate-strict   # 发布时用:八份结构化证据 + production preflight 零 FAIL
 ```
 
 ### 软模式**从不**说"可以发布"
@@ -87,19 +91,27 @@ make release-gate-strict   # 发布时用:验不了的必须有证据文件
 这句话的措辞是刻意的。一个把"没验"说成"通过"的门禁,比没有门禁更糟 ——
 后者只是缺一道防线,前者是给了一个假答案。
 
-### 需要凭据或真机的那六项
+### 需要凭据或真机的八项
 
-每一项都带三样东西:做不了的原因、**怎么才算验过**、验过之后把证据路径放进哪个
-环境变量。第二样是关键 —— 一条说不出判据的"待办"永远不会被完成。
+每一项都带三样东西:做不了的原因、**怎么才算验过**、验过之后把结构化 JSON 路径放进哪个
+环境变量。JSON 必须绑定当前完整提交、检查种类、实际成功执行的命令、退出码、合理时间窗、
+成功判据和仓库内候选产物身份：普通发布文件使用标准 SHA-256，macOS `.app` 使用整个 bundle 的
+tree-v2，验收报告使用绑定报告与每个唯一逐项引用的 acceptance-closure-v1。模板原样、目录、符号链接、
+错类型产物、缺失文件和摘要不符都会被拒；详细 schema 与精确 fail-closed 命令见[结构化发布证据](./release-evidence.md)。
 
 | 项 | 判据 | 证据变量 |
 |---|---|---|
-| macOS 代码签名 | `codesign --verify --deep --strict` 通过 | `AGENTGUARD_EVIDENCE_MACOS_CODESIGN` |
-| macOS 公证 + staple | `notarytool submit --wait` 返回 Accepted 且 `stapler validate` 通过 | `AGENTGUARD_EVIDENCE_MACOS_NOTARIZE` |
-| Windows 代码签名 | `signtool verify /pa /v` 通过 | `AGENTGUARD_EVIDENCE_WINDOWS_SIGN` |
-| Android release 签名 | `apksigner verify --print-certs` 打出的是发布证书,不是 debug 证书 | `AGENTGUARD_EVIDENCE_ANDROID_SIGN` |
+| macOS 代码签名 | `codesign --verify --deep --strict --verbose=4` 与同产物 `codesign -dv --verbose=4` 成功 | `AGENTGUARD_EVIDENCE_MACOS_CODESIGN` |
+| macOS 公证 + staple | 以 Team ID 与 `AgentGuard-Notary` keychain profile 提交后返回 Accepted，且 `stapler staple`、`stapler validate` 都成功 | `AGENTGUARD_EVIDENCE_MACOS_NOTARIZE` |
+| Windows 代码签名 | `signtool verify /pa /v` 成功，检查 `$?`/`$LASTEXITCODE` 后同文件 Authenticode 状态与证书有效 | `AGENTGUARD_EVIDENCE_WINDOWS_SIGN` |
+| Android release 签名 | `apksigner verify --print-certs` 对 `.apk` 打出发布证书而非 debug 证书 | `AGENTGUARD_EVIDENCE_ANDROID_SIGN` |
 | macOS 真机验收 | [acceptance-macos.md](./acceptance-macos.md) 逐条走完 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS` |
 | Android 真机验收 | 伴生应用签名的信封被桌面验过(适配器公钥已进注册表) | `AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID` |
+| Firefox 真机验收 | [acceptance-firefox.md](./acceptance-firefox.md) 的 F1-F8 逐条走完 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX` |
+| Windows 真机验收 | [acceptance-windows.md](./acceptance-windows.md) 的 W1-W7 逐条走完 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS` |
+
+这些 JSON 仍是未签名的本地自证：它们防止误绑定、误操作和部分机械伪造，但不能抵抗能控制工作区并
+伪造全部字段的攻击者；验收闭包也不能证明截图、日志或设备记录的真实来源。要覆盖该威胁，需要后续由可信执行器签发的证据签名。
 
 ### 门禁自己带一条自检
 
@@ -108,7 +120,7 @@ make release-gate-strict   # 发布时用:验不了的必须有证据文件
 
 这条自检不是多余的洁癖 —— 这个脚本第一版就栽在这上面:局部变量名用了中文,
 而 bash 的 `local` 不接受非 ASCII 标识符,于是登记函数整体失效,
-六项"未验证"一条都没登记上,脚本最后打印的是**"全部通过"**。
+当时的六项"未验证"一条都没登记上,脚本最后打印的是**"全部通过"**。
 `bash -n` 是过的(语法合法),错误去了 stderr,退出码 0。
 
 教训不是"别用中文变量名",是**一个门禁必须能发现自己失效了**。
@@ -123,5 +135,6 @@ make release-gate-strict   # 发布时用:验不了的必须有证据文件
 而不是 `Verified`,所以它们眼下没被授予任何东西 —— 但真发布之前必须用
 `agentguard agent-keygen` 换掉。
 
-preflight 的基线机制盯着这条结论:它**消失**了也会拦(见
-[上线评估.md](./上线评估.md))。
+软模式的 preflight 基线机制盯着这条结论:它**消失**了也会拦(见
+[上线评估.md](./上线评估.md))。严格模式还会额外运行不带基线的 production preflight；
+只要这条 `FAIL` 仍存在，即使八份证据 JSON 都通过，发布门禁也必须失败。

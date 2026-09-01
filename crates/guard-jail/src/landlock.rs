@@ -198,14 +198,17 @@ pub fn build_net_plan(net: &crate::profile::NetCeiling) -> NetPlan {
 #[cfg(target_os = "linux")]
 mod sys {
     use super::*;
-    use crate::backend::libc_syscall::{syscall3, syscall4};
+    use crate::backend::libc_syscall::{syscall3, syscall4, syscall5};
     use std::os::unix::fs::OpenOptionsExt;
     use std::os::unix::io::AsRawFd;
 
     const SYS_LANDLOCK_CREATE_RULESET: i64 = 444;
     const SYS_LANDLOCK_ADD_RULE: i64 = 445;
     const SYS_LANDLOCK_RESTRICT_SELF: i64 = 446;
+    #[cfg(target_arch = "x86_64")]
     const SYS_PRCTL: i64 = 157;
+    #[cfg(target_arch = "aarch64")]
+    const SYS_PRCTL: i64 = 167;
 
     const LANDLOCK_RULE_PATH_BENEATH: isize = 1;
     const LANDLOCK_RULE_NET_PORT: isize = 2;
@@ -277,6 +280,18 @@ mod sys {
             }
         }
         Ok(())
+    }
+
+    /// 用内核要求的完整参数设置 `PR_SET_NO_NEW_PRIVS`。
+    pub(super) fn set_no_new_privs() -> Result<(), String> {
+        // prctl(PR_SET_NO_NEW_PRIVS) 明确要求后三个未使用参数全为零。用完整五参数调用，
+        // 避免寄存器残值被内核判成 EINVAL。
+        let r = unsafe { syscall5(SYS_PRCTL, PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
+        if r < 0 {
+            Err(format!("prctl(PR_SET_NO_NEW_PRIVS) errno {}", -r))
+        } else {
+            Ok(())
+        }
     }
 
     /// 装上规则集并 `restrict_self`。任何一步失败都返回 `Err`(fail-closed)。
@@ -377,15 +392,25 @@ mod sys {
         }
 
         // restrict_self 的前提:PR_SET_NO_NEW_PRIVS。它本身也该设。
-        let r = unsafe { syscall3(SYS_PRCTL, PR_SET_NO_NEW_PRIVS, 1, 0) };
-        if r < 0 {
-            return Err(format!("prctl(PR_SET_NO_NEW_PRIVS) errno {}", -r));
-        }
+        set_no_new_privs()?;
         let r = unsafe { syscall3(SYS_LANDLOCK_RESTRICT_SELF, rs_fd as isize, 0, 0) };
         if r < 0 {
             return Err(format!("landlock_restrict_self errno {}", -r));
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod arch_tests {
+        use super::SYS_PRCTL;
+
+        #[test]
+        fn prctl_syscall_号与linux架构一致() {
+            #[cfg(target_arch = "x86_64")]
+            assert_eq!(SYS_PRCTL, 157);
+            #[cfg(target_arch = "aarch64")]
+            assert_eq!(SYS_PRCTL, 167);
+        }
     }
 }
 
@@ -454,6 +479,16 @@ mod tests {
             READ_SET | WRITE_SET,
             "目录规则必须保留向下授予的全部权限"
         );
+    }
+
+    /// 真正进入内核，钉住 `prctl` 未使用参数必须显式清零的回归。
+    ///
+    /// 这条测试验证的是项目 CI 所支持的 Linux 环境；部署环境仍可能由上层 seccomp 拒绝
+    /// `prctl`，生产路径会按 fail-closed 返回错误，不能据此宣称所有 Linux 环境都可用。
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn 设置_no_new_privs_使用完整五参数调用() {
+        sys::set_no_new_privs().expect("测试环境应允许 PR_SET_NO_NEW_PRIVS");
     }
 
     fn net_bits_for(plan: &NetPlan, port: u16) -> Option<u64> {

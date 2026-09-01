@@ -36,6 +36,9 @@ Firefox 那几条"骨架已做、真机未验证"的项——**这些只有在�
 | F7 | 观察 F6 的原生消息往返 | 宿主接受调用方(gecko id 作为 origin 对上,`guard-nm-host` 未因 origin 拒启动),判决进签名审计 | | |
 | F8 | DNR 动态规则数量 | 未超 Firefox 的动态规则配额(装规则不报错;必要时按配额上限截断名单) | | |
 
+> 上表只用于逐项执行记录，不能原样作为 strict artifact。严格门禁报告必须使用[中央真机验收报告模板](acceptance-report-template.md)，
+> 并保持 `ID | 结果 | 证据` 为前三列，再把 F1–F8 的结果与证据逐项转录进去。
+
 ## 这些用例分别验证 docs/跨浏览器.md 的哪条"未验证"
 
 - F2/F3 → DOM 门在 Firefox 成立
@@ -60,5 +63,30 @@ apps/extension-chromium/native-host/install-host.sh --browser firefox agentguard
 ## 签署
 
 - 验收人:____________  版本 / commit:____________  日期:____________
-- 全部用例 PASS 后,把证据目录路径导出到 `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`,再跑
-  `scripts/release-gate.sh --strict` 让这条从"未验证"转为已验证。
+- 全部必需用例 PASS 后,把完成的报告保存为仓库相对普通文件(例如 `evidence/firefox/report.md`),用
+  下列命令实际校验、计算闭包摘要并填写 JSON。`output` 必须使用命令成功时打印的精确标记
+  `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`,JSON 还须绑定当前完整 commit 和
+  `agentguard-acceptance-closure-sha256-v1`。
+  F1–F8 在报告中必须各恰好一行,结果精确为 `PASS (native)`,证据列须指向 `evidence/firefox/` 下真实存在的
+  仓库相对非空普通文件；路径不得复用,不能引用报告自身或当前证据 JSON 源文件,也不能经过符号链接或越出仓库。
+  路径只用 `/`,每个组件须匹配 `[A-Za-z0-9._-]+`,不能含空白或 shell glob／展开字符。闭包绑定报告与每个唯一引用的路径、长度和内容,
+  但仍是未签名自证,不能证明截图或日志的真实来源。
+  ```bash
+  mkdir -p evidence/firefox
+  commit="$(git rev-parse HEAD)"
+  commit_time="$(git show -s --format=%ct HEAD)"
+  cargo build --release -p guard-cli
+  target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
+    evidence/firefox/report.md --repo-root .
+  # 成功时唯一输出：AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
+  cargo run -p guard-cli -- evidence-digest \
+    --repo-root . --path evidence/firefox/report.md
+  cargo run -p guard-cli -- evidence-template --kind acceptance_firefox \
+    --commit "$commit" > evidence/firefox/evidence.json
+  # 将精确 manual-acceptance 命令、marker 与 closure 摘要填入 JSON 后
+  cargo run -p guard-cli -- evidence-verify --kind acceptance_firefox \
+    --file evidence/firefox/evidence.json --commit "$commit" \
+    --commit-time "$commit_time" --repo-root .
+  ```
+- 再把 **JSON 文件**路径导出到 `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`。目录、未填写模板或仅含 `PASS`
+  关键词的文件都不能作为证据。详见[结构化发布证据](release-evidence.md)。

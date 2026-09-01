@@ -36,6 +36,9 @@ Firefox 那幾項「骨架已完成、真機未驗證」的項目——**這些�
 | F7 | 觀察 F6 的原生訊息往返 | host 接受呼叫端（gecko id 與 origin 對上，`guard-nm-host` 未因 origin 拒絕啟動），判決進入簽章稽核 | | |
 | F8 | DNR 動態規則數量 | 未超過 Firefox 的動態規則配額（安裝規則不報錯；必要時依配額上限截斷清單） | | |
 
+> 上表只用於逐項執行記錄，不能原樣作為 strict artifact。嚴格閘門報告必須使用[中央真實裝置驗收報告範本](acceptance-report-template.zh-TW.md)，
+> 並維持 `ID | 結果 | 證據` 為前三欄，再將 F1–F8 的結果與證據逐項轉錄進去。
+
 ## 這些案例分別驗證 docs/跨浏览器.md 的哪一項「未驗證」
 
 - F2/F3 → DOM 門在 Firefox 成立
@@ -60,5 +63,30 @@ apps/extension-chromium/native-host/install-host.sh --browser firefox agentguard
 ## 簽署
 
 - 驗收人：____________  版本 / commit：____________  日期：____________
-- 全部案例 PASS 後，把證據目錄路徑匯出至 `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`，再執行
-  `scripts/release-gate.sh --strict`，讓這一項從「未驗證」轉為已驗證。
+- 全部必要案例 PASS 後，將完成的報告儲存為儲存庫相對普通檔案（例如 `evidence/firefox/report.md`），用
+  下列命令實際校驗、計算閉包摘要並填寫 JSON。`output` 必須使用命令成功時列印的精確標記
+  `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`，JSON 還須綁定目前完整 commit 與
+  `agentguard-acceptance-closure-sha256-v1`。
+  F1–F8 在報告中必須各恰好一列，結果精確為 `PASS (native)`，證據欄須指向 `evidence/firefox/` 下真實存在的
+  儲存庫相對非空普通檔案；路徑不得重複使用，不能引用報告本身或目前證據 JSON 來源檔案，也不能經過符號連結或超出儲存庫。
+  路徑只使用 `/`，每個元件須符合 `[A-Za-z0-9._-]+`，不能包含空白或 shell glob／展開字元。閉包綁定報告與每個唯一引用的路徑、長度與內容，
+  但仍是未簽署自證，不能證明螢幕截圖或記錄的真實來源。
+  ```bash
+  mkdir -p evidence/firefox
+  commit="$(git rev-parse HEAD)"
+  commit_time="$(git show -s --format=%ct HEAD)"
+  cargo build --release -p guard-cli
+  target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
+    evidence/firefox/report.md --repo-root .
+  # 成功時唯一輸出：AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
+  cargo run -p guard-cli -- evidence-digest \
+    --repo-root . --path evidence/firefox/report.md
+  cargo run -p guard-cli -- evidence-template --kind acceptance_firefox \
+    --commit "$commit" > evidence/firefox/evidence.json
+  # 將精確 manual-acceptance 命令、marker 與 closure 摘要填入 JSON 後
+  cargo run -p guard-cli -- evidence-verify --kind acceptance_firefox \
+    --file evidence/firefox/evidence.json --commit "$commit" \
+    --commit-time "$commit_time" --repo-root .
+  ```
+- 再把 **JSON 檔案**路徑匯出至 `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`。目錄、未填寫範本或僅含 `PASS`
+  關鍵字的檔案都不能作為證據。詳見[結構化發佈證據](release-evidence.zh-TW.md)。

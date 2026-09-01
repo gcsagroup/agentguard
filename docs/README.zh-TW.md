@@ -6,7 +6,7 @@
 
 # AgentGuard 文件入口
 
-本入口提供三語導覽。目前三語覆蓋根 README、本入口、`1.0.0-rc.1` 發佈說明、CHANGELOG、隱私說明、各元件 README、主要商店文案，以及本輪新增的六份技術說明與四份驗收文件；其餘深層技術與稽核文件保留原始語言，並在下方標明用途與狀態。
+本入口提供三語導覽。目前三語覆蓋根 README、本入口、`1.0.0-rc.1` 發佈說明、CHANGELOG、隱私說明、各元件 README、主要商店文案，以及本輪維護的七份技術說明與五份驗收文件；其餘深層技術與稽核文件保留原始語言，並在下方標明用途與狀態。
 
 > `1.0.0-rc.1` 是原始碼候選版。程式碼簽署、公證、商店發佈與真實裝置端對端驗收證據尚未完成，正式環境發佈判斷仍為 **No-Go**。
 
@@ -23,11 +23,11 @@
 
 - [專案 README（簡體）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 發佈說明（簡體）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
-- [2026-09-01 真實裝置驗收報告（簡體）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 區分 `bd7bb2f` 歷史基線與目前未提交整合候選；發佈結論仍為 No-Go。
+- [2026-09-01 真實裝置驗收報告（簡體）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 歷史快照，區分 `bd7bb2f` 與當時未提交的整合候選；不代表本次提交已完成真實裝置驗收，發佈結論仍為 No-Go。
 - [CHANGELOG（簡體）](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [隱私說明（簡體）](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
-## 本輪新增的三語技術與驗收文件
+## 本輪維護的三語技術與驗收文件
 
 - [入站信任（簡體）](入站信任.md) · [繁體](入站信任.zh-TW.md) · [English](入站信任.en.md) — 六類入站面的統一信任原則、共用詞彙與清冊測試。
 - [主張與測試映射（簡體）](主张与测试映射.md) · [繁體](主张与测试映射.zh-TW.md) · [English](主张与测试映射.en.md) — 首批能力聲明、證明測試與產生的狀態儀表板；不取代真實裝置證據。
@@ -35,17 +35,18 @@
 - [跨瀏覽器（簡體）](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — Firefox 移植、Edge 相容與 Safari 設計邊界。
 - [消費者化介面（簡體）](消费者化界面.md) · [繁體](消费者化界面.zh-TW.md) · [English](消费者化界面.en.md) — 三語易懂介面、首次引導、無障礙、鍵盤與深色模式。
 - [macOS 即時觀測（簡體）](macos实时观测.md) · [繁體](macos实时观测.zh-TW.md) · [English](macos实时观测.en.md) — AXObserver 推送與合併；像素取樣、兜底輪詢與真實裝置未驗邊界。
+- [結構化發佈證據（簡體）](release-evidence.md) · [繁體](release-evidence.zh-TW.md) · [English](release-evidence.en.md) — 八類證據的提交與產物綁定、範本和校驗命令，以及未簽署自證邊界。
 - [真實裝置驗收執行手冊（簡體）](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — 可執行步驟與證據規範，不是已完成驗收。
 - [真實裝置驗收報告範本（簡體）](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — 按平台記錄 PASS、FAIL 與 BLOCKED。
 - [Firefox 驗收清單（簡體）](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+、DNR 配額與 gecko-id Native Messaging 真實裝置項目。
 - [Windows 驗收清單（簡體）](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA、GDI、OCR、能力探針與 Native Messaging 真實裝置項目。
+- [macOS 驗收清單（簡體）](acceptance-macos.md) · [繁體](acceptance-macos.zh-TW.md) · [English](acceptance-macos.en.md) — SCK、AX、TCC 與原生案例的嚴格 PASS/BLOCKED 邊界。
 
 ## 發佈、平台與維運
 
-- [release-security.md](release-security.md) — 原始語言：中英混合；狀態：發佈證據閘門參考。
+- [release-security.md](release-security.md) — 原始語言：中英混合；狀態：歷史發佈閘門設計說明；目前結構化格式以三語《結構化發佈證據》為準。
 - [platform-matrix.md](platform-matrix.md) — 原始語言：英文為主；狀態：平台能力參考，真實裝置狀態須結合發佈說明。
 - [status-dashboard.html](status-dashboard.html) — 從能力聲明、閘門與狀態資料產生的簡體中文機器頁面；本繁體入口已翻譯其結論，該頁必須在目前提交上重新產生，且不能取代真實裝置證據。
-- [acceptance-macos.md](acceptance-macos.md) — 原始語言：簡體中文；狀態：驗收清單，不是已完成證據。
 - [macos-release.md](macos-release.md) — 原始語言：簡體中文；狀態：簽署、公證與封裝指南，不是已執行證明。
 - [roadmap-status.md](roadmap-status.md) — 原始語言：英文為主；狀態：需對齊，部分指標與完成勾選是歷史快照。
 - [privacy-policy.md](privacy-policy.md) — 三語技術揭露草稿；公開前仍需法務複核並補真實聯絡資訊。

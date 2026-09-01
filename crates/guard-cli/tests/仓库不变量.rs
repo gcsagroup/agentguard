@@ -1134,6 +1134,11 @@ fn 公开文档三语成组() {
             "docs/RELEASE-1.0.0-rc.1.en.md",
         ],
         &[
+            "docs/release-evidence.md",
+            "docs/release-evidence.zh-TW.md",
+            "docs/release-evidence.en.md",
+        ],
+        &[
             "docs/privacy-policy.md",
             "docs/privacy-policy.zh-TW.md",
             "docs/privacy-policy.en.md",
@@ -1147,6 +1152,11 @@ fn 公开文档三语成组() {
             "docs/acceptance-windows.md",
             "docs/acceptance-windows.zh-TW.md",
             "docs/acceptance-windows.en.md",
+        ],
+        &[
+            "docs/acceptance-macos.md",
+            "docs/acceptance-macos.zh-TW.md",
+            "docs/acceptance-macos.en.md",
         ],
         &[
             "docs/acceptance-runbook.md",

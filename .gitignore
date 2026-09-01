@@ -42,6 +42,7 @@ policies/device-cache.yaml
 policies/entitlement.json
 
 # Generated eval / acceptance artifacts (regenerate via make)
+/evidence/
 eval/leaderboard.json
 eval/leaderboard.html
 eval/scoreboard.json

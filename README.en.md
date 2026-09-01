@@ -62,7 +62,8 @@ npm run tauri dev
 - [Capability claim-to-test mapping](docs/主张与测试映射.en.md)
 - [Browser pre-execution gates](docs/浏览器执行前阻断.en.md)
 - [Real-device acceptance runbook](docs/acceptance-runbook.en.md)
-- [Release security and evidence gate](docs/release-security.md)
+- [Structured release evidence](docs/release-evidence.en.md)
+- [Historical release-gate design note](docs/release-security.md)
 - [Generated attack-surface coverage matrix](eval/coverage-matrix.md)
 
 The key technical and acceptance documents added in this update are available in Simplified Chinese, Traditional Chinese, and English. Other deep technical documents remain in their original languages. The portal labels language, purpose, and status so designs, offline tests, and historical reviews are not mistaken for current real-device or release evidence.

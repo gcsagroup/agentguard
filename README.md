@@ -62,7 +62,8 @@ npm run tauri dev
 - [主张与测试映射](docs/主张与测试映射.md)
 - [浏览器执行前阻断](docs/浏览器执行前阻断.md)
 - [真机验收执行手册](docs/acceptance-runbook.md)
-- [发布安全与证据门禁](docs/release-security.md)
+- [结构化发布证据](docs/release-evidence.md)
+- [历史发布门禁设计说明](docs/release-security.md)
 - [生成的攻击面覆盖矩阵](eval/coverage-matrix.md)
 
 本轮新增的关键技术与验收文档提供简体中文、繁體中文和英文版本；其余深层文档仍保留原始语言。门户会标明语言、用途和状态，避免把设计、离线测试或历史复核记录当作当前真机与发布结论。

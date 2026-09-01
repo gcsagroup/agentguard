@@ -3,13 +3,13 @@
 # Real-Device Acceptance Runbook (for Automation Agents / computer-use)
 
 This runbook turns the three acceptance checklists (`acceptance-firefox.md` / `acceptance-macos.md` /
-`acceptance-windows.md`) from human-readable checklists into executable procedures. It gives the
-**preparation, exact action, observable criterion, and evidence to capture** for every case, followed by
-**how to record the results and update the dashboard**. The executor can be Codex, computer-use, or another
-agent capable of driving real browsers and desktops.
+`acceptance-windows.md`) from human-readable checklists into executable procedures and adds the Android
+companion's signed-envelope real-device path. It gives the **preparation, exact action, observable criterion,
+and evidence to capture** for every case, followed by **how to record results and produce structured evidence**.
+The executor can be Codex, computer-use, or another agent capable of driving real browsers, desktops, and devices.
 
-> The expected result for each case is defined by the three `acceptance-*.md` files. This runbook adds how
-> to cause the event and how to determine whether it succeeded.
+> The three `acceptance-*.md` files define browser, macOS, and Windows expectations. For Android, use section 5
+> of this runbook together with the companion README.
 
 ---
 
@@ -62,10 +62,11 @@ cd eval/acceptance-fixtures && python3 -m http.server 8000
 # Fixture index: http://localhost:8000/
 ```
 
-Prepare an evidence directory:
+Prepare an evidence work directory inside the repository. Keep it as local material outside the candidate
+commit, redact sensitive data, and do not accidentally commit raw screenshots, account data, or device identifiers:
 
 ```bash
-mkdir -p /tmp/ag-evidence/{firefox,windows,macos}
+mkdir -p evidence/{firefox,windows,macos,android}
 ```
 
 ---
@@ -170,36 +171,93 @@ for the macOS path).
 
 ---
 
-## 5. Record Results → Update the Dashboard
+## 5. Platform D: Android Companion
 
-For each case:
+Follow the [Android companion README](../apps/android-companion/README.en.md) to build and install the candidate.
+On a real device, enable notifications and the AccessibilityService, then connect to the desktop local API with
+`adb reverse tcp:8788 tcp:8788`. Register the P-256 public key shown by the device in
+`policies/adapter-registry.yaml`, restart the desktop API, and trigger at least one real accessibility event with
+a clearly defined expected verdict.
 
-1. **Fill the checklist table:** in the case row of the corresponding
-   `docs/acceptance-{firefox,windows,macos}.md`, enter `PASS` / `PASS (sim)` / `FAIL` /
-   `BLOCKED (reason)` in the Actual column, and put the relative evidence-file path in Evidence (for example,
-   `/tmp/ag-evidence/firefox/F2-cancel.png`, or a repository-relative path after copying the file into the
-   repository). The dashboard derives `X/N` progress from these two nonempty columns.
-
-2. **Archive the evidence:** place screenshots / logs in the evidence directory and optionally export the
-   evidence variables recognized by the gate:
-   ```bash
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=/tmp/ag-evidence/firefox
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS=/tmp/ag-evidence/windows
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS=/tmp/ag-evidence/macos
-   ```
-
-3. **Recalculate the gate + dashboard:**
-   ```bash
-   make dashboard                        # Regenerate docs/status-dashboard.html from the completed tables
-   bash scripts/release-gate.sh --strict # Strict mode turns an "unvalidated" item green only when its evidence variable is set
-   ```
-
-4. **Produce the report:** fill out `docs/acceptance-report-template.md` with PASS/FAIL/BLOCKED, evidence,
-   notes, and environment information for every case, then return it with the evidence directory.
+PASS requires evidence that the event came from the target physical device, the desktop verified the signed HTTP
+body envelope with the registered public key, the engine returned the expected verdict, and the device received
+the corresponding risk result. A debug build, JVM unit test, relay with an unregistered key, or offline-only JSON
+replay does not replace this real-device E2E. Record `BLOCKED (specific reason)` if any link cannot be determined.
 
 ---
 
-## 6. Quick Result Criteria (What Counts as PASS)
+## 6. Record Results → Produce Structured Evidence
+
+For each case:
+
+1. **Complete a separate report:** copy `docs/acceptance-report-template.en.md` to the corresponding
+   `evidence/<platform>/report.md`. Record `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (reason)` and a
+   repository-relative evidence path for every case. As a strict-gate artifact, Firefox F1–F8, Windows W1–W7,
+   Android A1–A4, and macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–14 must each appear exactly once. Column two must be
+   exactly `PASS (native)`, and column three must identify an existing repository-relative nonempty regular file under the
+   matching `evidence/<platform>/` directory. Every case must use a unique evidence path. It cannot reference the report
+   itself or the current evidence JSON source file, contain a symbolic-link path, or resolve outside the repository.
+   Paths use only `/`; every component must match portable ASCII `[A-Za-z0-9._-]+` and contain no whitespace or shell
+   glob/expansion character. `PASS (sim)`, FAIL, BLOCKED, N/A, missing or duplicate cases, reused paths, and missing
+   referenced files are not real-device PASS.
+
+2. **Freeze the candidate commit:** if the status dashboard needs to show progress, first update the checklists,
+   run `make dashboard`, commit those changes, and then rerun acceptance from the new `HEAD`. Before opening the
+   gate, the index and every non-ignored file must be clean. Do not change code or version-controlled documentation
+   while it runs. Any `HEAD` or non-ignored drift still present at the end makes the start/end snapshots differ and
+   fails the run; these snapshots do not defend against a concurrent adversary that makes and then restores a
+   transient change. The ignored `evidence/` workspace may continue to receive evidence files.
+
+3. **Generate and complete the JSON:** the template is deliberately invalid until filled. Replace `command`,
+   `timestamp`, `output`, `exit_code`, and the acceptance-closure SHA-256 with measured values. The top-level `signer` for
+   acceptance evidence must remain `null`; do not pass `--expected-signer` during verification. At verification time,
+   `timestamp` must be between 30 days in the past and 10 minutes in the future and must not predate the HEAD
+   commit time, with a 10-minute clock-skew allowance. `command` must be the successfully executed single segment
+   `guard-cli manual-acceptance <platform> <checklist> <artifact.path> --repo-root .` (after the build below, the actual command is
+   `target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md evidence/firefox/report.md --repo-root .`). Both the report body
+   and the JSON `output` must contain an entire line equal to the exact
+   `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`, `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`,
+   `AGENTGUARD_ACCEPTANCE_MACOS=PASS`, or `AGENTGUARD_ACCEPTANCE_ANDROID=PASS` marker, and only after every
+   required native case passes. Acceptance artifacts are limited to regular `.md` files under the corresponding
+   `evidence/<platform>/` directory. `artifact.sha256` uses `agentguard-acceptance-closure-sha256-v1` and binds the
+   report bytes plus every unique per-case reference's relative path, length, and content in path order. It remains
+   unsigned self-attestation and cannot prove that a screenshot or log came from the claimed device.
+   ```bash
+   commit="$(git rev-parse HEAD)"
+   commit_time="$(git show -s --format=%ct HEAD)"
+
+   cargo build --release -p guard-cli
+   target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
+     evidence/firefox/report.md --repo-root .
+   # Sole success output: AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
+
+   cargo run -p guard-cli -- evidence-digest \
+     --repo-root . --path evidence/firefox/report.md
+
+   cargo run -p guard-cli -- evidence-template \
+     --kind acceptance_firefox --commit "$commit" > evidence/firefox/evidence.json
+
+   # Put the exact manual-acceptance command, marker, and closure digest above into JSON, then verify
+   cargo run -p guard-cli -- evidence-verify \
+     --kind acceptance_firefox --file evidence/firefox/evidence.json \
+     --commit "$commit" --commit-time "$commit_time" --repo-root .
+   ```
+
+4. **Pass the JSON to the strict gate.** The environment variable points to the JSON file, not a directory:
+   ```bash
+   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=evidence/firefox/evidence.json
+   bash scripts/release-gate.sh --strict
+   ```
+
+   Repeat for Windows, macOS, and Android with the corresponding kind, directory, and environment variable. See
+   [Structured Release Evidence](release-evidence.en.md) for every field and all eight variables. A directory,
+   untouched template, old-commit report, or arbitrary keyword-bearing file is rejected.
+   After the strict gate passes, archive the local evidence read-only in a controlled location. Do not push raw
+   evidence containing sensitive information to GitHub by default.
+
+---
+
+## 7. Quick Result Criteria (What Counts as PASS)
 
 - **Pre-execution gates (F2/F3/F4):** the action is intercepted **before it occurs**, a confirmation layer
   appears, and “Not now” actually prevents the action (no navigation / no request / no handler side effect).
