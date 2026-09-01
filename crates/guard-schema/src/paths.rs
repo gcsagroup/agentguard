@@ -1237,8 +1237,11 @@ mod tests {
     fn ctx() -> ResolveContext {
         // 用真实的 Windows 绝对路径。`/home/agent` 在 Windows 上只有根分隔符、没有盘符，
         // 并不是绝对路径；拿它做夹具会测到当前盘符拼接，而不是家目录/工作目录语义。
-        let home = std::env::temp_dir()
-            .join("agentguard-path-tests")
+        // 只取系统临时目录的盘符根，再接一个本进程唯一且不创建的目录。
+        // 这避免 Windows 对已存在的 `%TEMP%` 前缀有时返回 `RUNNER~1`、有时返回
+        // `\\?\C:\Users\runneradmin` 的表示差异，让测试只聚焦 `~`、相对路径和 `..` 语义。
+        let home = root_of(&std::env::temp_dir())
+            .join(format!("agentguard-path-tests-{}", std::process::id()))
             .join("home")
             .join("agent");
         let cwd = home.join("proj");
