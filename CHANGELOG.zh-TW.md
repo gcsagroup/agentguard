@@ -35,7 +35,7 @@
 - 修正 Landlock 將目錄專屬權限附加到 `/dev/null` 等單一檔案規則，導致整份規則集回傳 `EINVAL`、子行程未啟動的問題；Linux 整合測試現在從已授權目錄啟動，並直接驗證授權讀寫與真實越界拒絕，不再因未授權的 `/dev/null` 重新導向而假綠。
 - 修正 Landlock 呼叫 `prctl(PR_SET_NO_NEW_PRIVS)` 時未明確傳入三個必須為零的尾端參數而可能收到 `EINVAL` 的問題；現在統一使用完整五參數系統呼叫，並依 Linux x86_64／aarch64 選擇正確的 `prctl` 系統呼叫號，同時保留現有單一檔案權限過濾。
 - 修正 aarch64 的 mount-namespace 降級路徑誤用 x86_64 `getuid`／`getgid` 系統呼叫號的問題；現在依架構選擇正確編號，並以真實系統呼叫回歸測試固定回退身分。
-- 修正 Windows 預設主執行緒堆疊不足時 `guard-cli` 會在進入子命令前溢出的問題；Windows 入口現在以明確的 8 MiB 堆疊執行同一 CLI 調度。發佈閘門參數測試也改為由原生 `current_dir` 進入儲存庫、僅把可攜式相對路徑交給 Git Bash，確保實際命中腳本的結束碼 2 分支；CLI 負向測試同時綁定預期拒絕原因，啟動崩潰不能再冒充安全拒絕。
+- 修正 Windows 預設主執行緒堆疊不足時 `guard-cli` 會在進入子命令前溢出的問題；Windows 入口現在以明確的 8 MiB 堆疊執行同一 CLI 調度。發佈閘門參數測試在 Windows 上明確呼叫 GitHub Runner 的 `gitbash.exe`，再由原生 `current_dir` 進入儲存庫並傳入可攜式相對路徑，同時綁定腳本自己的結束碼 2 與拒絕文字；WSL、路徑或 CLI 啟動失敗都不能再冒充安全拒絕。
 - 修正 Windows `canonicalize` 產生的 `\\?\` verbatim 磁碟機／UNC 前綴與一般前綴不等價的問題；真實 `C:\Windows`、`C:\ProgramData` 路徑會重新命中敏感目標，固定的 `\\?\` 命名空間標記也不再被誤判為萬用字元。
 - 保留 Windows 元件層級路徑歸約與現有 home、`ProgramData`、`Program Files (x86)` 敏感路徑保護；未採用會把不同路徑形狀全域折疊並造成保護降級的方案。
 - 修正 Windows 工作區測試仍把 `/bin/*`、`/srv`、`/tmp` 與 `/etc` 當作跨平台測試資料的問題；閘道改用可控 Rust 子行程驗證並行管道、UTF-8 截斷與結束碼，路徑、Shell 與 jail 測試使用目標平台真實的絕對路徑，同時保留敏感目錄與參數注入覆蓋。

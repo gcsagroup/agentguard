@@ -21,6 +21,19 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+fn release_gate_shell() -> &'static str {
+    #[cfg(windows)]
+    {
+        // GitHub 的 Windows runner 同时带有 Git Bash 与 WSL 的 bash 启动器；
+        // 明确选择 runner 提供的 Git Bash 别名，避免脚本尚未执行就由 WSL 返回 1。
+        "gitbash.exe"
+    }
+    #[cfg(not(windows))]
+    {
+        "bash"
+    }
+}
+
 fn firefox_acceptance_report() -> String {
     let mut report = String::from(
         "AGENTGUARD_ACCEPTANCE_FIREFOX=PASS\n\n| 用例 | 结果 | 证据 | 备注 |\n|---|---|---|---|\n",
@@ -227,19 +240,31 @@ fn manual_acceptance拒绝错误平台清单报告目录和多余参数() {
 
 #[test]
 fn 门禁拒绝未知参数和多余参数() {
-    // 让 Windows 自己处理 current_dir 的盘符路径，只把可移植相对路径交给 Git Bash；
-    // 这样不会在 Rust 路径、Git Bash 路径与盘符语法之间做有损转换。
-    for arguments in [vec!["--stict"], vec!["--strict", "--unexpected"]] {
-        let output = Command::new("bash")
-            .arg("scripts/release-gate.sh")
+    // 让 Windows 自己处理 current_dir 的盘符路径，只把可移植相对路径交给 Git Bash。
+    // 除退出码外还绑定脚本自己的错误文本，bash/WSL/路径启动失败都不能冒充门禁拒绝。
+    let root = root().canonicalize().unwrap();
+    for (arguments, expected) in [
+        (vec!["--stict"], "不认识的参数:--stict(只支持 --strict)"),
+        (
+            vec!["--strict", "--unexpected"],
+            "参数过多；只支持无参数或单个 --strict",
+        ),
+    ] {
+        let output = Command::new(release_gate_shell())
+            .args(["--noprofile", "--norc", "scripts/release-gate.sh"])
             .args(&arguments)
-            .current_dir(root())
+            .current_dir(&root)
             .output()
             .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr);
         assert_eq!(
             output.status.code(),
             Some(2),
-            "参数 {arguments:?} 必须在执行任何门禁前被拒绝"
+            "参数 {arguments:?} 必须在执行任何门禁前被拒绝；stderr: {stderr}"
+        );
+        assert!(
+            stderr.contains(expected),
+            "参数 {arguments:?} 没有命中脚本自己的拒绝原因 {expected:?}: {stderr}"
         );
     }
 }
