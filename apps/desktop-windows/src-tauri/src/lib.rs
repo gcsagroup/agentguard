@@ -901,10 +901,51 @@ where
         .unwrap_or_else(|_| panic!("{name} panicked"))
 }
 
+/// Keep the process-wide multithreaded apartment alive for cached WinRT factories.
+///
+/// `windows-core` caches an agile OCR activation factory for the process. The exact Windows
+/// host crashed in that cache after the short-lived startup probe thread exited and a later
+/// observation thread reused it. `CoIncrementMTAUsage` exists for this case: the cookie keeps
+/// MTA support alive even when no MTA-initialised worker is currently running. The cookie stays
+/// in a static for the process lifetime and Windows releases it when the process terminates.
+#[cfg(windows)]
+fn retain_process_mta() -> Result<(), String> {
+    use std::ffi::c_void;
+    use std::sync::OnceLock;
+
+    #[link(name = "ole32")]
+    extern "system" {
+        fn CoIncrementMTAUsage(cookie: *mut *mut c_void) -> i32;
+    }
+
+    static MTA_USAGE: OnceLock<Result<usize, String>> = OnceLock::new();
+    MTA_USAGE
+        .get_or_init(|| {
+            let mut cookie = std::ptr::null_mut();
+            let result = unsafe { CoIncrementMTAUsage(&mut cookie) };
+            if result < 0 {
+                Err(format!(
+                    "CoIncrementMTAUsage failed: HRESULT 0x{:08X}",
+                    result as u32
+                ))
+            } else if cookie.is_null() {
+                Err("CoIncrementMTAUsage returned a null cookie".into())
+            } else {
+                Ok(cookie as usize)
+            }
+        })
+        .as_ref()
+        .map(|_| ())
+        .map_err(Clone::clone)
+}
+
 fn startup_capabilities() -> AdapterCapabilities {
     #[cfg(windows)]
     {
-        on_dedicated_thread("agentguard-capability-probe", capabilities)
+        on_dedicated_thread("agentguard-capability-probe", || {
+            retain_process_mta().unwrap_or_else(|e| panic!("cannot retain the Windows MTA: {e}"));
+            capabilities()
+        })
     }
     #[cfg(not(windows))]
     {
@@ -1058,5 +1099,15 @@ mod packaging_tests {
             result as u32
         );
         unsafe { OleUninitialize() };
+    }
+
+    /// A process-wide WinRT factory cached by the startup worker must remain valid when a
+    /// later observation worker uses it. The old lifetime crashed here with `0xC0000005`.
+    #[cfg(windows)]
+    #[test]
+    fn winrt_factory_survives_the_startup_probe_thread() {
+        let _ = super::startup_capabilities();
+        let later = super::on_dedicated_thread("agentguard-later-probe", super::capabilities);
+        assert!(later.simulation);
     }
 }
