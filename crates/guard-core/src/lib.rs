@@ -10457,8 +10457,12 @@ mod b1_文件系统判决 {
 
     #[test]
     fn 写系统目录被拦() {
+        #[cfg(target_os = "windows")]
+        let sensitive_path = r"C:\Windows\System32\config\SAM";
+        #[cfg(not(target_os = "windows"))]
+        let sensitive_path = "/etc/passwd";
         let d = engine()
-            .process(&fs_event(EventType::FileWrite, "/etc/passwd"))
+            .process(&fs_event(EventType::FileWrite, sensitive_path))
             .expect("判决");
         assert_eq!(d.rule_id, "FS-SENSITIVE", "{d:?}");
     }

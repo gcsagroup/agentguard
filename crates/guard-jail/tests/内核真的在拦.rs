@@ -74,11 +74,21 @@ fn jailed_sh(tmp: &Tmp, script: &str) -> i32 {
         // /dev 仍可写、只读约束可绕)。测试是明确接受这个前提来验证**约束本身**是否生效的,
         // 所以显式放行;真实部署不设它就会被拦(单元测试 root跑mountns默认被拒 守着默认)。
         .env("AGENTGUARD_JAIL_ALLOW_ROOT", "1")
+        // 目标进程从 profile 明确允许读取的目录启动；不让测试结果依赖 CI checkout 是否恰好
+        // 落在天花板内。
+        .current_dir(tmp.path())
         .args(["--plans"])
         .arg(tmp.plans())
         .args(["--task", "jailed", "--", "/bin/sh", "-c", script])
         .output()
         .expect("起 jail");
+    if !out.status.success() {
+        eprintln!(
+            "jail 命令失败：{script}\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
     out.status.code().unwrap_or(-1)
 }
 
@@ -108,7 +118,7 @@ fn 写授权外被内核拒绝() {
     let tmp = Tmp::new("outside");
     // 授权是 <tmp>/out，这里写 <tmp> 本身——只读。
     let escape = tmp.path().join("escape.txt");
-    let code = jailed_sh(&tmp, &format!("echo x > {} 2>/dev/null", escape.display()));
+    let code = jailed_sh(&tmp, &format!("echo x > {}", escape.display()));
     assert_ne!(code, 0, "越界写应当失败");
     assert!(!escape.exists(), "越界文件被创建了 —— 内核没有在拦");
 }
@@ -120,7 +130,7 @@ fn 写系统目录被内核拒绝() {
     }
     let tmp = Tmp::new("etc");
     let marker = "/etc/ag-jail-it-marker";
-    let code = jailed_sh(&tmp, &format!("echo x > {marker} 2>/dev/null"));
+    let code = jailed_sh(&tmp, &format!("echo x > {marker}"));
     assert_ne!(code, 0, "写 /etc 应当失败");
     assert!(!Path::new(marker).exists(), "/etc 被写了");
 }
@@ -136,7 +146,7 @@ fn 删系统文件被内核拒绝() {
         Path::new("/etc/hosts").exists(),
         "前置条件：/etc/hosts 应当存在"
     );
-    let code = jailed_sh(&tmp, "rm -f /etc/hosts 2>/dev/null");
+    let code = jailed_sh(&tmp, "rm -f /etc/hosts");
     assert_ne!(code, 0, "删 /etc/hosts 应当失败");
     assert!(
         Path::new("/etc/hosts").exists(),
@@ -158,7 +168,7 @@ fn 写家目录下的凭据目录被内核拒绝() {
     let code = jailed_sh(
         &tmp,
         &format!(
-            "mkdir -p {} 2>/dev/null && echo k > {} 2>/dev/null",
+            "mkdir -p {} && echo k > {}",
             home.join(".ssh").display(),
             marker.display()
         ),
@@ -175,11 +185,15 @@ fn 读仍然是允许的() {
     }
     let tmp = Tmp::new("read");
     assert_eq!(
-        jailed_sh(&tmp, "head -c 1 /etc/hosts > /dev/null"),
+        jailed_sh(&tmp, "head -c 1 /etc/hosts"),
         0,
         "读 /etc/hosts 应当允许"
     );
-    assert_eq!(jailed_sh(&tmp, "/bin/ls / > /dev/null"), 0, "ls / 应当能跑");
+    assert_eq!(
+        jailed_sh(&tmp, "/bin/ls /usr"),
+        0,
+        "已授权运行时目录 /usr 应当能列出"
+    );
 }
 
 #[test]
@@ -192,7 +206,7 @@ fn 没有天花板时是整个文件系统只读而不是不约束() {
     let marker = tmp.path().join("out/should-not-exist.txt");
     let out = Command::new(JAIL)
         .args(["--", "/bin/sh", "-c"])
-        .arg(format!("echo x > {} 2>/dev/null", marker.display()))
+        .arg(format!("echo x > {}", marker.display()))
         .output()
         .expect("起 jail");
     assert_ne!(out.status.code().unwrap_or(-1), 0, "没有天花板时应当是只读");

@@ -259,7 +259,8 @@ pub fn resolve_with_aliases(
         // 这正是 scope-and-non-goals 表里第四行那个 `$id` 为空的场景。
         return Err("操作数为空；命令会退化成对当前目录操作".into());
     }
-    if raw.chars().any(|c| GLOB_CHARS.contains(&c)) {
+    let glob_input = glob_input(raw)?;
+    if glob_input.chars().any(|c| GLOB_CHARS.contains(&c)) {
         return Err(format!(
             "含通配符 {raw:?}；一个通配符可以展开到授权之外，无法证明包含关系"
         ));
@@ -344,6 +345,38 @@ pub fn resolve_with_aliases(
     // **只在 macOS 上折。** 见 `VolumeAliases`:在别的平台上这是改写而不是归一化,
     // 而改写会让守卫判决的路径和执行方写入的路径分家。
     Ok(dealias_with(&out, aliases))
+}
+
+/// 返回需要扫描通配符的部分，并验证 Windows verbatim 命名空间。
+///
+/// Windows verbatim 路径固定以 `\\?\` 开头；这里的 `?` 是路径命名空间标记，不是 glob。
+/// 只接受能与普通路径做语义等价比较的盘符和 UNC 形态。`GLOBALROOT`、卷 GUID、PIPE 等其它
+/// 命名空间无法由当前敏感目录与工作区规则证明，必须 fail-closed。
+fn glob_input(raw: &str) -> Result<&str, String> {
+    #[cfg(target_os = "windows")]
+    if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        let drive = bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && bytes[2] == b'\\';
+        let unc = bytes
+            .get(..4)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"UNC\\"))
+            && {
+                let mut parts = rest[4..].split('\\');
+                parts.next().is_some_and(|part| !part.is_empty())
+                    && parts.next().is_some_and(|part| !part.is_empty())
+            };
+        if drive || unc {
+            return Ok(rest);
+        }
+        return Err(format!(
+            "不支持的 Windows verbatim 命名空间 {raw:?}；无法证明它属于已授权或敏感路径"
+        ));
+    }
+
+    Ok(raw)
 }
 
 /// 去掉 macOS 的 firmlink / synthetic 卷别名前缀,把路径归一到**逻辑**形式。
@@ -619,6 +652,30 @@ pub fn is_within(grant: &Path, candidate: &Path) -> bool {
 }
 
 fn components_eq(a: &Component<'_>, b: &Component<'_>) -> bool {
+    #[cfg(target_os = "windows")]
+    if let (Component::Prefix(a), Component::Prefix(b)) = (a, b) {
+        use std::path::Prefix;
+
+        let os_eq = |x: &std::ffi::OsStr, y: &std::ffi::OsStr| {
+            x.to_string_lossy().to_lowercase() == y.to_string_lossy().to_lowercase()
+        };
+        return match (a.kind(), b.kind()) {
+            (Prefix::Disk(x), Prefix::Disk(y))
+            | (Prefix::Disk(x), Prefix::VerbatimDisk(y))
+            | (Prefix::VerbatimDisk(x), Prefix::Disk(y))
+            | (Prefix::VerbatimDisk(x), Prefix::VerbatimDisk(y)) => x.eq_ignore_ascii_case(&y),
+            (Prefix::UNC(xs, xh), Prefix::UNC(ys, yh))
+            | (Prefix::UNC(xs, xh), Prefix::VerbatimUNC(ys, yh))
+            | (Prefix::VerbatimUNC(xs, xh), Prefix::UNC(ys, yh))
+            | (Prefix::VerbatimUNC(xs, xh), Prefix::VerbatimUNC(ys, yh)) => {
+                os_eq(xs, ys) && os_eq(xh, yh)
+            }
+            // DeviceNS / Verbatim 等其它命名空间不能与盘符或 UNC 混为一谈；同形态仍沿用
+            // Windows 的大小写不敏感比较。
+            _ => os_eq(a.as_os_str(), b.as_os_str()),
+        };
+    }
+
     let (x, y) = (a.as_os_str(), b.as_os_str());
     if cfg!(any(target_os = "macos", target_os = "windows")) {
         x.to_string_lossy().to_lowercase() == y.to_string_lossy().to_lowercase()
@@ -1589,6 +1646,32 @@ mod tests {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_verbatim_前缀不是通配符而后续通配仍拒绝() {
+        let no_base = ResolveContext::with(None::<&str>, None::<&str>);
+        assert!(
+            resolve(r"\\?\C:\AgentGuard\out.txt", no_base.clone()).is_ok(),
+            "固定的 \\?\\ 前缀不应被当成 glob"
+        );
+        assert!(resolve(r"\\?\C:\AgentGuard\?.txt", no_base.clone()).is_err());
+        assert!(resolve(r"\\?\C:\AgentGuard\*.txt", no_base.clone()).is_err());
+        assert!(
+            resolve(r"\\?\UNC\server\share\out.txt", no_base.clone()).is_ok(),
+            "verbatim UNC 应当可归约"
+        );
+        for unsupported in [
+            r"\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32",
+            r"\\?\Volume{00000000-0000-0000-0000-000000000000}\Windows",
+            r"\\?\PIPE\agentguard",
+        ] {
+            assert!(
+                resolve(unsupported, no_base.clone()).is_err(),
+                "其它 verbatim 命名空间必须 fail-closed：{unsupported}"
+            );
+        }
+    }
+
     #[test]
     fn 另一个用户的家目录不猜() {
         assert!(resolve("~root/.ssh", ctx()).is_err());
@@ -1616,6 +1699,27 @@ mod tests {
         assert!(!is_within(
             Path::new("/home/user/a"),
             Path::new("/home/user")
+        ));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_普通与_verbatim_前缀按真实位置比较() {
+        assert!(is_within(
+            Path::new(r"C:\Windows"),
+            Path::new(r"\\?\C:\Windows\System32")
+        ));
+        assert!(!is_within(
+            Path::new(r"C:\Windows"),
+            Path::new(r"\\?\D:\Windows\System32")
+        ));
+        assert!(is_within(
+            Path::new(r"\\server\share\root"),
+            Path::new(r"\\?\UNC\SERVER\SHARE\root\child")
+        ));
+        assert!(!is_within(
+            Path::new(r"\\server\share\root"),
+            Path::new(r"\\?\UNC\server\other\root\child")
         ));
     }
 
@@ -1678,6 +1782,26 @@ mod tests {
         assert!(sensitive_target(Path::new("/etc/hosts"), PathIntent::Write).is_some());
         // 读 /etc/hosts 是正常操作，拒了它会让工具没法用。
         assert!(sensitive_target(Path::new("/etc/hosts"), PathIntent::Read).is_none());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_verbatim_系统目录仍然敏感() {
+        assert!(sensitive_target(
+            Path::new(r"\\?\C:\Windows\System32\config\SAM"),
+            PathIntent::Write
+        )
+        .is_some());
+        assert!(sensitive_target(
+            Path::new(r"\\?\C:\ProgramData\AgentGuard\state.db"),
+            PathIntent::Delete
+        )
+        .is_some());
+        assert!(sensitive_target(
+            Path::new(r"\\?\C:\Users\agent\Documents\notes.txt"),
+            PathIntent::Write
+        )
+        .is_none());
     }
 
     #[test]
