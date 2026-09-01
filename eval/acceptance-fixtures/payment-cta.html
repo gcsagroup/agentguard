@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F2 · 付款 CTA</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px}
+  button{font-size:16px;padding:10px 18px;border:0;border-radius:8px;background:#b02a2a;color:#fff;cursor:pointer}
+  #result{margin-top:16px;color:#0a0}
+</style>
+</head>
+<body>
+<h1>F2 · 付款 CTA(执行前拦点击)</h1>
+<p>点下面的按钮。<b>期望</b>:AgentGuard 内容脚本在捕获阶段同步拦住这次点击,弹出「执行前拦截」确认层
+(允许一次 / 取消)。点「取消」→ 下方不出现「已确认支付」;点「允许一次」→ 才出现。</p>
+
+<button id="pay">Confirm Payment</button>
+<div id="result"></div>
+
+<script>
+  // 页面自己的点击处理器:只有当扩展**放行**、点击真正到达时才运行。
+  document.getElementById("pay").addEventListener("click", function () {
+    document.getElementById("result").textContent = "已确认支付(页面处理器已运行)";
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F4/F5 · fetch 门</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px}
+  button{font-size:15px;padding:9px 14px;margin:6px 8px 6px 0;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer}
+  #log{margin-top:16px;white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:13px;background:#f0f0f0;padding:12px;border-radius:8px;min-height:60px}
+</style>
+</head>
+<body>
+<h1>F4 / F5 · 页面直发 fetch 的门</h1>
+<p>每个按钮发一个**同源**请求到假路径(本地服务器会 404/501,不会真付款)。看 DevTools Network 面板 +
+下方日志判定:请求发出**之前**是否被 AgentGuard 拦住等确认。</p>
+
+<button data-url="/pay/checkout" data-method="POST">POST /pay/checkout(付款形状 → 应拦)</button>
+<button data-url="/pay/status" data-method="GET">GET /pay/status(只读 → 不应拦)</button>
+<button data-url="/api/search" data-method="POST">POST /api/search(普通 → 不应拦)</button>
+
+<div id="log">日志:</div>
+
+<script>
+  const log = (m) => { document.getElementById("log").textContent += "\n" + m; };
+  document.querySelectorAll("button[data-url]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const url = b.dataset.url, method = b.dataset.method;
+      log(`发起 ${method} ${url} …`);
+      try {
+        const r = await fetch(url, { method });
+        log(`  → 完成:HTTP ${r.status}(请求确实发出去了)`);
+      } catch (e) {
+        // 被门拒绝会 reject(AbortError);网络失败也会 reject —— 看 Network 面板区分。
+        log(`  → 被拒绝 / 未发出:${e && e.name}: ${e && e.message}`);
+      }
+    });
+  });
+</script>
+</body>
+</html>

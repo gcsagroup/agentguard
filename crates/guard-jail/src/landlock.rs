@@ -130,6 +130,53 @@ pub fn build_rule_plan(profile: &Profile, program: &Path) -> RulePlan {
     }
 }
 
+// ---- 网络出口(Landlock ABI v4,内核 ≥6.7) ----
+
+/// TCP 绑定(监听)权限位。
+pub const ACCESS_NET_BIND_TCP: u64 = 1 << 0;
+/// TCP 出站连接权限位。
+pub const ACCESS_NET_CONNECT_TCP: u64 = 1 << 1;
+/// 网络维治理的全部权限。**不在**某条端口规则里被授予的 bind/connect 一律拒。
+pub const HANDLED_NET_ALL: u64 = ACCESS_NET_BIND_TCP | ACCESS_NET_CONNECT_TCP;
+/// Landlock 需要网络约束的最低 ABI 版本。
+pub const NET_MIN_ABI: i32 = 4;
+
+/// 网络约束的落地计划:每条 = (端口, 允许的访问位)。
+///
+/// 纯数据,不碰内核——和 [`RulePlan`] 一样在没有 Landlock 的机器上就能完整测试。`handled` 恒为
+/// [`HANDLED_NET_ALL`]:一旦声明网络天花板,bind 和 connect **两类都被治理**,只有 `port_rules`
+/// 里明确放行的 (端口, 动作) 组合才通过,其余拒——包括没在任何规则里出现的端口。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NetPlan {
+    pub handled_net: u64,
+    /// (端口, 访问位),按端口去重合并、排序,行为可复现。
+    pub port_rules: Vec<(u16, u64)>,
+}
+
+/// 从网络天花板构造端口规则计划。
+///
+/// * `connect_tcp` 里每个端口 → `ACCESS_NET_CONNECT_TCP`
+/// * `bind_tcp` 里每个端口 → `ACCESS_NET_BIND_TCP`
+/// * 同一端口同时在两张表里 → 两个位**按位或**合并成一条规则
+///
+/// 空天花板(两张表都空)得到一个 `handled = HANDLED_NET_ALL`、`port_rules` 为空的计划:
+/// 那是"治理 bind+connect,但一个端口都不放行" = **拒绝一切出站/监听 TCP**。这是明确的"不给",
+/// 不是"不管"——"不管"是上层根本不构造 `NetPlan`(`Profile::net == None`)。
+pub fn build_net_plan(net: &crate::profile::NetCeiling) -> NetPlan {
+    use std::collections::BTreeMap;
+    let mut acc: BTreeMap<u16, u64> = BTreeMap::new();
+    for p in &net.connect_tcp {
+        *acc.entry(*p).or_insert(0) |= ACCESS_NET_CONNECT_TCP;
+    }
+    for p in &net.bind_tcp {
+        *acc.entry(*p).or_insert(0) |= ACCESS_NET_BIND_TCP;
+    }
+    NetPlan {
+        handled_net: HANDLED_NET_ALL,
+        port_rules: acc.into_iter().collect(),
+    }
+}
+
 // ---- 系统调用落地。fail-closed。 ----
 
 #[cfg(target_os = "linux")]
@@ -145,6 +192,8 @@ mod sys {
     const SYS_PRCTL: i64 = 157;
 
     const LANDLOCK_RULE_PATH_BENEATH: isize = 1;
+    const LANDLOCK_RULE_NET_PORT: isize = 2;
+    const LANDLOCK_CREATE_RULESET_VERSION: isize = 1 << 0;
     const PR_SET_NO_NEW_PRIVS: isize = 38;
 
     // `O_PATH | O_CLOEXEC | O_DIRECTORY` 不用:O_PATH 打开一个只用于命名的 fd,不需要对
@@ -152,9 +201,18 @@ mod sys {
     const O_PATH: i32 = 0x0020_0000;
     const O_CLOEXEC: i32 = 0x0008_0000;
 
+    // ABI v1 只有 handled_access_fs;v4(内核 6.7)加了 handled_access_net。两个 `#[repr(C)]`
+    // 结构体分开,因为传给 create_ruleset 的 size 必须和内核认得的版本对上:在 v1–v3 内核上传
+    // v4 结构体的大小会 EINVAL。只有确认 ABI≥4 才用带 net 的那个。
     #[repr(C)]
-    struct RulesetAttr {
+    struct RulesetAttrFs {
         handled_access_fs: u64,
+    }
+
+    #[repr(C)]
+    struct RulesetAttrFsNet {
+        handled_access_fs: u64,
+        handled_access_net: u64,
     }
 
     #[repr(C)]
@@ -163,20 +221,89 @@ mod sys {
         parent_fd: i32,
     }
 
-    /// 装上规则集并 `restrict_self`。任何一步失败都返回 `Err`(fail-closed)。
-    ///
-    /// 在 `pre_exec` 里跑:此时子进程单线程,只做 syscall,不分配不加锁。
-    pub fn enter(plan: &RulePlan) -> Result<(), String> {
-        let attr = RulesetAttr {
-            handled_access_fs: plan.handled,
-        };
-        let rs_fd = unsafe {
+    #[repr(C)]
+    struct NetPortAttr {
+        allowed_access: u64,
+        port: u64,
+    }
+
+    /// 查 Landlock ABI 版本。`landlock_create_ruleset(NULL, 0, VERSION)` 返回版本号(>0),
+    /// 不可用时返回 `-errno`。这是官方推荐、探"现在能不能用"而非"内核版本号"的方式。
+    fn abi_version() -> isize {
+        unsafe {
             syscall3(
                 SYS_LANDLOCK_CREATE_RULESET,
-                &attr as *const RulesetAttr as isize,
-                std::mem::size_of::<RulesetAttr>() as isize,
                 0,
+                0,
+                LANDLOCK_CREATE_RULESET_VERSION,
             )
+        }
+    }
+
+    /// 把端口规则加进 ruleset。任何一步失败返回 `Err`(fail-closed)。
+    fn add_net_rules(rs_fd: i32, net: &NetPlan) -> Result<(), String> {
+        for (port, bits) in &net.port_rules {
+            let attr = NetPortAttr {
+                allowed_access: *bits,
+                port: *port as u64,
+            };
+            let r = unsafe {
+                syscall4(
+                    SYS_LANDLOCK_ADD_RULE,
+                    rs_fd as isize,
+                    LANDLOCK_RULE_NET_PORT,
+                    &attr as *const NetPortAttr as isize,
+                    0,
+                )
+            };
+            if r < 0 {
+                return Err(format!("landlock_add_rule(NET_PORT {port}) errno {}", -r));
+            }
+        }
+        Ok(())
+    }
+
+    /// 装上规则集并 `restrict_self`。任何一步失败都返回 `Err`(fail-closed)。
+    ///
+    /// `net` 为 `Some` 时,先要求 ABI≥4;内核给不了网络约束就**拒绝启动**,绝不静默降级成
+    /// "文件系统约束住了、网络其实没约束"——那正是一份读起来像保护、实则漏一半的 profile。
+    ///
+    /// 在 `pre_exec` 里跑:此时子进程单线程,只做 syscall,不分配不加锁。
+    pub fn enter(plan: &RulePlan, net: Option<&NetPlan>) -> Result<(), String> {
+        // 创建 ruleset:声明了网络天花板就走 v4(带 handled_access_net)并先验证 ABI。
+        let rs_fd = if let Some(net) = net {
+            let abi = abi_version();
+            if abi < NET_MIN_ABI as isize {
+                return Err(format!(
+                    "任务声明了网络出口天花板,但这台机器的 Landlock ABI 是 v{abi}(需要 ≥v{NET_MIN_ABI},\
+                     即内核 ≥6.7)。拒绝启动——不会退化成'文件系统约束住了、网络没约束'。\
+                     升级内核,或从任务里去掉 scope.net。"
+                ));
+            }
+            let attr = RulesetAttrFsNet {
+                handled_access_fs: plan.handled,
+                handled_access_net: net.handled_net,
+            };
+            unsafe {
+                syscall3(
+                    SYS_LANDLOCK_CREATE_RULESET,
+                    &attr as *const RulesetAttrFsNet as isize,
+                    std::mem::size_of::<RulesetAttrFsNet>() as isize,
+                    0,
+                )
+            }
+        } else {
+            let attr = RulesetAttrFs {
+                handled_access_fs: plan.handled,
+            };
+            unsafe {
+                syscall3(
+                    SYS_LANDLOCK_CREATE_RULESET,
+                    &attr as *const RulesetAttrFs as isize,
+                    std::mem::size_of::<RulesetAttrFs>() as isize,
+                    0,
+                )
+            }
         };
         if rs_fd < 0 {
             return Err(format!(
@@ -186,6 +313,10 @@ mod sys {
             ));
         }
         let rs_fd = rs_fd as i32;
+
+        if let Some(net) = net {
+            add_net_rules(rs_fd, net)?;
+        }
 
         for (path, bits) in &plan.rules {
             // 路径不存在就跳过 —— 不能对不存在的路径下规则。这只影响**授予**:少授予
@@ -240,7 +371,8 @@ mod sys {
 #[cfg(target_os = "linux")]
 pub fn enter(profile: &Profile, program: &Path) -> Result<(), String> {
     let plan = build_rule_plan(profile, program);
-    sys::enter(&plan)
+    let net = profile.net.as_ref().map(build_net_plan);
+    sys::enter(&plan, net.as_ref())
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -285,6 +417,86 @@ mod tests {
         let b = bits_for(&plan, "/data/out").expect("写授权应当有规则");
         assert_eq!(b & WRITE_SET, WRITE_SET, "写授权应当有全部写位");
         assert_eq!(b & READ_SET, READ_SET, "写授权也要能读");
+    }
+
+    fn net_bits_for(plan: &NetPlan, port: u16) -> Option<u64> {
+        plan.port_rules
+            .iter()
+            .find(|(p, _)| *p == port)
+            .map(|(_, b)| *b)
+    }
+
+    /// 空网络天花板 = 治理 bind+connect,但一个端口都不放行 = 拒绝一切 TCP。
+    #[test]
+    fn 空网络天花板拒绝一切tcp() {
+        let plan = build_net_plan(&crate::profile::NetCeiling::default());
+        assert_eq!(
+            plan.handled_net, HANDLED_NET_ALL,
+            "空天花板也必须治理 bind+connect 两类,否则没治理的那类是敞开的"
+        );
+        assert!(
+            plan.port_rules.is_empty(),
+            "一个端口都不该放行,实际:{:?}",
+            plan.port_rules
+        );
+    }
+
+    /// connect 端口只拿到 connect 位,不拿到 bind。
+    #[test]
+    fn connect端口只给connect位() {
+        let net = crate::profile::NetCeiling {
+            connect_tcp: vec![443],
+            bind_tcp: vec![],
+        };
+        let plan = build_net_plan(&net);
+        let b = net_bits_for(&plan, 443).expect("443 应当有规则");
+        assert_eq!(b & ACCESS_NET_CONNECT_TCP, ACCESS_NET_CONNECT_TCP);
+        assert_eq!(b & ACCESS_NET_BIND_TCP, 0, "connect 授权不该带 bind 位");
+    }
+
+    /// bind 端口只拿到 bind 位。
+    #[test]
+    fn bind端口只给bind位() {
+        let net = crate::profile::NetCeiling {
+            connect_tcp: vec![],
+            bind_tcp: vec![8080],
+        };
+        let plan = build_net_plan(&net);
+        let b = net_bits_for(&plan, 8080).expect("8080 应当有规则");
+        assert_eq!(b & ACCESS_NET_BIND_TCP, ACCESS_NET_BIND_TCP);
+        assert_eq!(b & ACCESS_NET_CONNECT_TCP, 0, "bind 授权不该带 connect 位");
+    }
+
+    /// 同一端口既允许 connect 又允许 bind → 两个位按位或合并成一条规则。
+    #[test]
+    fn 同端口connect与bind合并() {
+        let net = crate::profile::NetCeiling {
+            connect_tcp: vec![9000],
+            bind_tcp: vec![9000],
+        };
+        let plan = build_net_plan(&net);
+        assert_eq!(
+            plan.port_rules.len(),
+            1,
+            "同端口应合并成一条:{:?}",
+            plan.port_rules
+        );
+        let b = net_bits_for(&plan, 9000).unwrap();
+        assert_eq!(b, ACCESS_NET_CONNECT_TCP | ACCESS_NET_BIND_TCP);
+    }
+
+    /// 一个不在天花板里的端口没有任何规则 = 被拒(不是被放行)。
+    #[test]
+    fn 天花板外的端口没有规则() {
+        let net = crate::profile::NetCeiling {
+            connect_tcp: vec![443],
+            bind_tcp: vec![],
+        };
+        let plan = build_net_plan(&net);
+        assert!(
+            net_bits_for(&plan, 80).is_none(),
+            "80 不在天花板里,不该有规则"
+        );
     }
 
     /// essential_write(进程私有临时目录)也必须可读可写。

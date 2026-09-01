@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>确认弹层预览</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;background:#fff}
+  button{font-size:16px;padding:10px 18px;border:0;border-radius:8px;background:#b02a2a;color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<h1>一个普通的购物页面</h1>
+<p>下面是站方自己的付款按钮。AgentGuard 内容脚本应在点击时拦下并弹确认层。</p>
+<button id="pay">Confirm Payment</button>
+<div id="result"></div>
+
+<script>
+// —— chrome.* 最小桩:只为让 content.js 在普通页面里跑起来(预览用,不进仓库)。
+window.chrome = {
+  storage: {
+    local: {
+      get(keys, cb) {
+        const data = { localeOverride: window.__previewLocale || "zh_CN" };
+        if (typeof cb === "function") { cb(data); return; }
+        return Promise.resolve(data);
+      },
+      set() { return Promise.resolve(); },
+    },
+    onChanged: { addListener() {} },
+  },
+  runtime: { sendMessage() {}, getURL(p) { return "/apps/extension-chromium/" + p; } },
+  i18n: { getUILanguage() { return "zh-CN"; } },
+};
+document.getElementById("pay").addEventListener("click", () => {
+  document.getElementById("result").textContent = "已确认支付(页面处理器已运行)";
+});
+</script>
+<script src="/apps/extension-chromium/guard-gate.js"></script>
+<script src="/apps/extension-chromium/guard-strings.js"></script>
+<script src="/apps/extension-chromium/guard-modal.js"></script>
+<script src="/apps/extension-chromium/content.js"></script>
+</body>
+</html>

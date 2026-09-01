@@ -36,6 +36,58 @@ mod ffi {
         pub fn agentguard_ax_frontmost_json(out_json: *mut *mut c_char) -> c_int;
         pub fn agentguard_ax_string_free(s: *mut c_char);
         pub fn agentguard_ax_last_error() -> *const c_char;
+        // AXObserver 推送(E3)。start 注册前台应用的树变化通知;take 取走并清零自上次以来
+        // 收到的通知计数(轮询这个计数比把 Rust 回调传过 FFI 简单也更安全——和 SCK 的
+        // drain_sck_frames 同一个"由内核/系统线程累积、Rust 定时取走"的模式)。
+        pub fn agentguard_ax_observe_start() -> c_int;
+        pub fn agentguard_ax_observe_take() -> u64;
+        pub fn agentguard_ax_observe_stop();
+    }
+}
+
+/// 开始接收前台应用的 AXObserver 树变化通知(E3)。
+///
+/// fail 语义与其余 AX 一致:非 macOS 或桥不可用返回 `Err`。调用方(驱动循环)据此决定是继续
+/// 靠推送+合并器,还是退回纯兜底轮询——**不**静默假装推送在工作。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn start_ax_observer() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let code = unsafe { ffi::agentguard_ax_observe_start() };
+        if code == AxStatus::OK {
+            Ok(())
+        } else {
+            Err(format!(
+                "AXObserver start failed: {} ({code})",
+                last_error()
+            ))
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("Accessibility bridge only available on macOS".into())
+    }
+}
+
+/// 取走并清零自上次调用以来累积的 AXObserver 通知计数。非 macOS 恒为 0。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn take_ax_notifications() -> u64 {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe { ffi::agentguard_ax_observe_take() }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        0
+    }
+}
+
+/// 停止接收(卸载 observer)。非 macOS 是空操作。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn stop_ax_observer() {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe { ffi::agentguard_ax_observe_stop() }
     }
 }
 

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title data-i18n="obTitle">Welcome to AgentGuard</title>
+    <link rel="stylesheet" href="onboarding.css" />
+  </head>
+  <body>
+    <!-- 安装引导(E17a):装完扩展用户看到的第一页。三件事:它保护什么(人话)、
+         被拦时长什么样(真词典+真弹层渲染器的交互演示,不是截图)、怎么加强。 -->
+    <main class="wrap">
+      <header>
+        <span class="badge">AgentGuard</span>
+        <h1 data-i18n="obHeadline">You're protected</h1>
+        <p class="lede" data-i18n="obLede">
+          AgentGuard watches what AI agents do in your browser, and stops risky steps before they
+          happen — then asks you.
+        </p>
+      </header>
+
+      <section class="cards">
+        <div class="card">
+          <h2 data-i18n="obP1Title">Sees what you can't</h2>
+          <p data-i18n="obP1Body">
+            Pages can hide instructions meant for AI agents in invisible text. AgentGuard finds
+            them and tells you.
+          </p>
+        </div>
+        <div class="card">
+          <h2 data-i18n="obP2Title">Asks before money or personal info moves</h2>
+          <p data-i18n="obP2Body">
+            A payment click, a form fishing for your phone number — the action is paused first,
+            and nothing happens unless you allow it.
+          </p>
+        </div>
+        <div class="card">
+          <h2 data-i18n="obP3Title">Blocks known bad sites at the network level</h2>
+          <p data-i18n="obP3Body">
+            Requests to known malicious sites are stopped in the browser itself. You can see and
+            undo every block from the toolbar popup.
+          </p>
+        </div>
+      </section>
+
+      <section class="demo">
+        <h2 data-i18n="obDemoTitle">See it once, so it never surprises you</h2>
+        <p data-i18n="obDemoBody">
+          Click the fake payment button below. This is a demo — no payment exists, nothing is
+          sent anywhere. The dialog you'll see is rendered by the exact same code that protects
+          real pages.
+        </p>
+        <button id="demo-pay" class="danger" data-i18n="obDemoBtn">Confirm Payment (demo)</button>
+        <p id="demo-outcome" class="outcome" aria-live="polite"></p>
+      </section>
+
+      <section class="foot">
+        <h2 data-i18n="obMoreTitle">Two things worth knowing</h2>
+        <p data-i18n="obMorePopup">
+          The toolbar popup shows what was found and blocked today, in plain words. Technical
+          details stay one tap away under "Why?".
+        </p>
+        <p data-i18n="obMoreDesktop">
+          Optional: connect the AgentGuard desktop app (popup → Settings) and every blocking
+          decision is also signed into a tamper-evident local audit log.
+        </p>
+        <p class="privacy" data-i18n="obPrivacy">
+          Findings stay on your device by default. Nothing is uploaded.
+        </p>
+      </section>
+    </main>
+    <script src="guard-strings.js"></script>
+    <script src="guard-modal.js"></script>
+    <script src="onboarding.js"></script>
+  </body>
+</html>

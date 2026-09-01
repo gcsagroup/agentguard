@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AgentGuard 验收测试夹具</title>
+<style>
+  body{font:16px/1.6 system-ui,"PingFang SC","Microsoft YaHei",sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#111}
+  h1{font-size:22px} li{margin:8px 0} code{background:#f0f0f0;padding:1px 5px;border-radius:4px}
+  .warn{color:#a33;font-size:14px}
+</style>
+</head>
+<body>
+<h1>AgentGuard 验收测试夹具</h1>
+<p>这些是**测试页**,只用于验收 AgentGuard 浏览器扩展。每页触发一类检测,对应 <code>acceptance-firefox.md</code>
+里的一条用例。请用本地静态服务器打开(见 <code>acceptance-runbook.md</code>),不要用 <code>file://</code>——
+<code>fetch</code> 门的用例需要同源路径解析。</p>
+<ul>
+  <li><a href="injection.html">injection.html</a> — 隐藏的提示注入文本(F1)</li>
+  <li><a href="payment-cta.html">payment-cta.html</a> — 付款 CTA 按钮(F2 · 执行前拦点击)</li>
+  <li><a href="trap-pii.html">trap-pii.html</a> — 陷阱控件 + 非必要 PII 表单(F3 · 执行前拦提交)</li>
+  <li><a href="fetch-gate.html">fetch-gate.html</a> — 页面直发 fetch:付款形状拦、只读放行、普通放行(F4/F5)</li>
+</ul>
+<p class="warn">注意:fetch 用例发往**本机同源**的假路径(如 <code>/pay/checkout</code>),被本地服务器 404/501 挡下——
+不会真的付款。要验证的是"请求在发出**之前**是否被门拦住",不是请求本身。</p>
+</body>
+</html>

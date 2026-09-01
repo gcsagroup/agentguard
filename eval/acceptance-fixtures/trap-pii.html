@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F3 · 陷阱 + PII 表单</title>
+<style>
+  body{font:16px/1.6 system-ui,sans-serif;max-width:720px;margin:40px auto;padding:0 20px}
+  label{display:block;margin:12px 0 4px} input{font-size:16px;padding:8px;width:280px}
+  button{margin-top:16px;font-size:16px;padding:10px 18px;border:0;border-radius:8px;background:#2f6df6;color:#fff;cursor:pointer}
+  #result{margin-top:16px;color:#0a0}
+</style>
+</head>
+<body>
+<h1>F3 · 隐私陷阱下的 PII 提交(执行前拦提交)</h1>
+<!-- 陷阱文案:TRAP_LABELS 命中 "VIP express";手机字段:PII_NAME_HINTS 命中 phone/手机,且非必填 -->
+<p>VIP express 优先通道:填手机号可加速处理。</p>
+<!-- method=GET:提交会导航到本页并带上 ?phone=... 的查询串。这就是可观察的判据:
+     门「取消」→ URL 不变、留在本页;门「允许一次」→ URL 出现 ?phone=13800000000。 -->
+<form id="f" method="get" action="trap-pii.html">
+  <label for="phone">手机号(mobile phone)</label>
+  <!-- 预填 + 非必填 + 陷阱语境 → scanFormOverfill 判 privacy_trap;提交时 E2 门应拦住 -->
+  <input id="phone" name="phone" autocomplete="tel" value="13800000000">
+  <button type="submit">提交(Submit)</button>
+</form>
+<p>当前 URL 查询串:<code id="q"></code></p>
+<script>
+  // 只读地回显当前查询串,方便肉眼/截图判定提交是否真的发生(不拦截任何东西)。
+  document.getElementById("q").textContent = location.search || "(空)";
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@ publish.workspace = true
 description = "Local Pro/Enterprise entitlement activation for AgentGuard"
 
 [dependencies]
+guard-trust = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }

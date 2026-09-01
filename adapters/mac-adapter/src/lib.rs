@@ -2,6 +2,7 @@
 //! native AX / ScreenCaptureKit attach points live behind `cfg(target_os = "macos")`.
 
 mod ax_native;
+mod ax_push;
 mod ax_tree;
 mod native;
 mod sck_native;
@@ -13,6 +14,7 @@ pub mod screencapture;
 pub use guard_vision::{framehash, stego, subliminal, viewtree};
 
 pub use ax_native::{ax_probe, live_ax_snapshot};
+pub use ax_push::{PushCoalescer, DEBOUNCE_MS, FALLBACK_FLOOR_MS, MAX_LATENCY_MS};
 pub use ax_tree::{
     flatten_text, form_fills_from_snapshot, snapshot_to_event, snapshot_to_event_with_viewport,
     AxNode, AxSnapshot,

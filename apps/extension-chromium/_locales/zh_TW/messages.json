@@ -1,15 +1,137 @@
 {
-  "extensionName": { "message": "AgentGuard 網頁防護" },
-  "extensionDescription": { "message": "偵測 AI 代理程式使用頁面中的提示詞注入、非必要個資填寫和隱私陷阱。" },
-  "actionTitle": { "message": "AgentGuard 網頁防護" },
-  "nativeForward": { "message": "轉送到桌面端（Native Messaging）" },
-  "recentDetections": { "message": "最近偵測" },
-  "noRecords": { "message": "尚無偵測記錄" },
-  "readError": { "message": "無法讀取狀態" },
-  "findings": { "message": "偵測結果" },
-  "language": { "message": "語言" },
-  "system": { "message": "跟隨系統" },
-  "english": { "message": "English" },
-  "simplifiedChinese": { "message": "简体中文" },
-  "traditionalChinese": { "message": "繁體中文" }
+  "extensionName": {
+    "message": "AgentGuard 網頁防護"
+  },
+  "extensionDescription": {
+    "message": "偵測 AI 代理程式使用頁面中的提示詞注入、非必要個資填寫和隱私陷阱。"
+  },
+  "actionTitle": {
+    "message": "AgentGuard 網頁防護"
+  },
+  "settings": {
+    "message": "設定"
+  },
+  "statusOn": {
+    "message": "正在守護這個頁面"
+  },
+  "todaySummary": {
+    "message": "今日:發現 {f} 項 · 攔截 {b} 次"
+  },
+  "nativeForward": {
+    "message": "連接桌面端,加強防護(選用)"
+  },
+  "nativeForwardHint": {
+    "message": "連接桌面端後,攔截判決會進入本機的簽章稽核記錄,桌面端也能同步攔截惡意網站。"
+  },
+  "recentDetections": {
+    "message": "最近發現"
+  },
+  "noRecords": {
+    "message": "尚無偵測記錄"
+  },
+  "allClear": {
+    "message": "一切正常,這個頁面上沒有發現問題。遇到付款、交個資這類動作時,AgentGuard 會先攔下來問你。"
+  },
+  "readError": {
+    "message": "無法讀取狀態"
+  },
+  "findings": {
+    "message": "偵測結果"
+  },
+  "language": {
+    "message": "語言"
+  },
+  "system": {
+    "message": "跟隨系統"
+  },
+  "english": {
+    "message": "English"
+  },
+  "simplifiedChinese": {
+    "message": "简体中文"
+  },
+  "traditionalChinese": {
+    "message": "繁體中文"
+  },
+  "blockedHosts": {
+    "message": "已攔截的網站"
+  },
+  "unblock": {
+    "message": "解除攔截"
+  },
+  "kindMalicious": {
+    "message": "惡意網站"
+  },
+  "kindOutOfScope": {
+    "message": "超出任務範圍"
+  },
+  "noBlocked": {
+    "message": "目前沒有攔截任何網站"
+  },
+  "whyBlocked": {
+    "message": "為什麼被攔?"
+  },
+  "blockedBy": {
+    "message": "技術標識"
+  },
+  "blockedPrefix": {
+    "message": "已攔截:"
+  },
+  "obTitle": {
+    "message": "歡迎使用 AgentGuard"
+  },
+  "obHeadline": {
+    "message": "防護已開啟"
+  },
+  "obLede": {
+    "message": "AgentGuard 會看著 AI 代理在你瀏覽器裡做什麼,在有風險的一步發生之前先攔下來——然後問你。"
+  },
+  "obP1Title": {
+    "message": "看見你看不見的"
+  },
+  "obP1Body": {
+    "message": "網頁可以把給 AI 的指令藏在人眼看不見的文字裡。AgentGuard 會找出來告訴你。"
+  },
+  "obP2Title": {
+    "message": "錢和個資動之前,先問你"
+  },
+  "obP2Body": {
+    "message": "一次付款點擊、一個套手機號的表單——動作會先被按住,你不允許就什麼都不會發生。"
+  },
+  "obP3Title": {
+    "message": "在網路層攔掉已知的惡意網站"
+  },
+  "obP3Body": {
+    "message": "發往已知惡意網站的請求會在瀏覽器裡被直接攔住。每一條攔截都能在工具列彈窗裡看到、也能解除。"
+  },
+  "obDemoTitle": {
+    "message": "先看一次,真遇到時就不慌"
+  },
+  "obDemoBody": {
+    "message": "點下面這個假付款按鈕。這是示範——沒有任何付款、不會發出任何東西。你將看到的確認層,和真實頁面上保護你的是同一段程式碼。"
+  },
+  "obDemoBtn": {
+    "message": "確認支付(示範)"
+  },
+  "obDemoAllowed": {
+    "message": "你允許了這一次——在真實頁面上,付款會繼續進行。"
+  },
+  "obDemoCancelled": {
+    "message": "攔住了。在真實頁面上,什麼都不會發生。"
+  },
+  "obMoreTitle": {
+    "message": "還有兩件值得知道的事"
+  },
+  "obMorePopup": {
+    "message": "工具列彈窗用白話顯示今天發現和攔截了什麼;技術細節收在「為什麼?」裡,想看再點。"
+  },
+  "obMoreDesktop": {
+    "message": "選用:連接 AgentGuard 桌面端(彈窗 → 設定),每條攔截判決還會進入本機防竄改的簽章稽核記錄。"
+  },
+  "obPrivacy": {
+    "message": "發現預設留在你自己的裝置上,不會上傳任何內容。"
+  },
+  "viewIntro": {
+    "message": "查看功能介紹"
+  }
 }

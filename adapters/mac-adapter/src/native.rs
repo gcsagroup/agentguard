@@ -42,6 +42,8 @@ pub struct MacAdapter {
     /// the next captured frame (AgentScan Viewtree Interference).
     last_ax_text: Option<String>,
     last_ax_ms: i64,
+    /// AXObserver 推送的合并器(E3):把"变了就抓"和"兜底轮询"合成一个"现在该不该抓"的判定。
+    ax_coalescer: crate::ax_push::PushCoalescer,
 }
 
 /// How stale an AX snapshot may be and still be compared against a frame.
@@ -169,6 +171,37 @@ impl MacAdapter {
             self.ingest_capture_frame(stats, source_app);
         }
         n
+    }
+
+    /// 开始接收 AXObserver 推送(E3)。驱动循环在会话开始时调一次;返回 `Err` 说明推送不可用
+    /// (非 macOS、桥失败),此时应退回纯兜底轮询——而不是以为推送在工作。
+    pub fn start_ax_push(&mut self) -> Result<(), String> {
+        crate::ax_native::start_ax_observer()
+    }
+
+    /// 停止接收 AXObserver 推送(会话结束时调)。
+    pub fn stop_ax_push(&mut self) {
+        crate::ax_native::stop_ax_observer();
+    }
+
+    /// 驱动循环每 tick 调一次:把自上次以来的 AXObserver 通知喂进合并器,若合并器判定"该抓",
+    /// 就抓一次实时 AX 快照并入队。返回是否真的抓了(供调用方决定要不要顺带抓一帧像素配对)。
+    ///
+    /// 这就是"实时化"的落点:一次树变化通常在 `DEBOUNCE_MS` 内被抓到,而不是最坏等一整个轮询
+    /// 周期;持续变化至少每 `MAX_LATENCY_MS` 抓一次;完全没有推送时,退化成 `FALLBACK_FLOOR_MS`
+    /// 的兜底轮询——推送那条命断了也不会漏抓。
+    pub fn maybe_capture_ax(&mut self, now_ms: i64) -> Result<bool, String> {
+        if crate::ax_native::take_ax_notifications() > 0 {
+            self.ax_coalescer.note(now_ms);
+        }
+        if !self.ax_coalescer.due(now_ms) {
+            return Ok(false);
+        }
+        let r = self.capture_live_ax();
+        // 抓过就 mark(无论快照成功与否):失败也不该让合并器把这次"该抓"一直挂着空转;
+        // 下一次变化或兜底周期会再触发。
+        self.ax_coalescer.mark_captured(now_ms);
+        r.map(|_| true)
     }
 
     /// Live AXUIElement capture of the frontmost app into the adapter queue.

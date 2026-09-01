@@ -1297,6 +1297,9 @@ impl Engine {
                     read: path_read,
                     write: path_write,
                 }),
+                // net 是**内核**维(guard-jail 从任务计划的天花板直接读),不参与引擎这套
+                // 协作式 narrow —— 引擎的 granted_scope 不承载它。
+                net: None,
             };
             self.scope_over_request = over;
             // `task_allowlist` is left **exactly** as declared. The first version reassigned it to
@@ -1512,8 +1515,10 @@ impl Engine {
                 return Ok(Decision {
                     action: DecisionAction::Block,
                     severity: Severity::Critical,
-                    rule_id: "INTEL-DOMAIN".into(),
-                    human_message: format!("Malicious domain blocked: {host}"),
+                    rule_id: guard_schema::INTEL_DOMAIN_RULE_ID.into(),
+                    // 前缀是共享契约(见 guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX):nm-host 靠它把
+                    // 主机名抠出来喂浏览器 DNR 名单。改措辞两端一起改。
+                    human_message: format!("{}{host}", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX),
                     require_confirm: true,
                 });
             }
@@ -3276,9 +3281,12 @@ impl Engine {
         Some(Decision {
             action: DecisionAction::Block,
             severity: Severity::High,
-            rule_id: "SCOPE-HOST".into(),
+            rule_id: guard_schema::SCOPE_HOST_RULE_ID.into(),
+            // 前缀 `destination '` 是共享契约(guard_schema::SCOPE_HOST_MSG_PREFIX):nm-host 靠
+            // 两个 `'` 之间那段把越界主机抠进浏览器 DNR 名单。改这句要连那个常量一起改。
             human_message: format!(
-                "destination '{}' is not in this session's host grant ({}){}",
+                "{}{}' is not in this session's host grant ({}){}",
+                guard_schema::SCOPE_HOST_MSG_PREFIX,
                 host.as_deref().unwrap_or("<unnameable>"),
                 Self::describe_grant(allowed),
                 if host.is_none() {
@@ -4156,6 +4164,15 @@ impl Engine {
             intel_version: self.intel.version.clone(),
         }
     }
+
+    /// 当前会话的**主机允许表**(`scope.hosts` 经 narrow 后的授权),没声明则 `None`。
+    ///
+    /// 这是**策略**、不是浏览历史——把它下发给浏览器扩展,扩展就能在**本地**判一个出站目的地
+    /// 在不在允许表里(E9),而不必把访问过的 URL 回传给宿主。`None` = 没声明 → 扩展不做本地
+    /// 越界拦截(和引擎 `check_scope_host` 的"没声明不拦"一致);`Some([])` = 明确"不许出网"。
+    pub fn granted_hosts(&self) -> Option<&[String]> {
+        self.granted_scope.hosts.as_deref()
+    }
 }
 
 /// Longest case-insensitive `match_any_text` hit for one rule, if any.
@@ -4426,8 +4443,15 @@ rules:
             metadata: meta,
         };
         let d = engine.process(&event).unwrap();
-        assert_eq!(d.rule_id, "INTEL-DOMAIN");
+        assert_eq!(d.rule_id, guard_schema::INTEL_DOMAIN_RULE_ID);
         assert_eq!(d.action, DecisionAction::Block);
+        // E5 契约:消息必须能用共享前缀把主机名抠回来(nm-host 靠这个喂浏览器 DNR 名单)。
+        // 前缀一改,这条红——生产端不能悄悄改措辞让下游解析出空。
+        let host = d
+            .human_message
+            .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            .expect("恶意域判决消息必须带共享前缀");
+        assert_eq!(host, "evil.example");
     }
 
     #[test]
@@ -5351,6 +5375,26 @@ rules:
                 assert_ne!(d.rule_id, "SCOPE-HOST", "{url} is in scope: {d:?}");
             }
         }
+        // E7 契约:一个纯粹越界(非情报命中)的目的地,其 SCOPE-HOST 消息必须能用共享前缀 +
+        // 收尾 `'` 把主机抠回来(nm-host 靠这个把越界主机喂进浏览器 DNR 名单)。
+        let mut e = scoped_engine("book_hotel", &[]);
+        let d = e
+            .process(&event(
+                EventType::NetworkFlow,
+                "Booking",
+                &[
+                    ("url", "https://collector.unknown.example/upload"),
+                    ("bytes", "9"),
+                ],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, guard_schema::SCOPE_HOST_RULE_ID);
+        let host = d
+            .human_message
+            .strip_prefix(guard_schema::SCOPE_HOST_MSG_PREFIX)
+            .and_then(|r| r.split('\'').next())
+            .expect("SCOPE-HOST 消息必须带共享前缀且主机以 ' 收尾");
+        assert_eq!(host, "collector.unknown.example");
         // `hosts: []` is an explicit "never egresses", and must block rather than allow.
         let mut e = scoped_engine("navigation_jump", &[]);
         let d = e

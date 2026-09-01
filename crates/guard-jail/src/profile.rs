@@ -21,6 +21,34 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+/// 网络出口天花板:允许的 TCP 端口。空 `Vec` = 一个都不许(明确的"不给")。
+///
+/// 只有当 [`Profile::net`] 是 `Some` 时才被强制。语义与覆盖范围见 `guard_schema::TaskNet`。
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetCeiling {
+    /// 允许发起出站连接的 TCP 端口。
+    pub connect_tcp: Vec<u16>,
+    /// 允许监听/绑定的 TCP 端口。
+    pub bind_tcp: Vec<u16>,
+}
+
+impl NetCeiling {
+    /// 从任务计划的 `scope.net` 构造。缺的一维当作空(那一维一个端口都不放行),因为
+    /// 一旦声明了 `net` 整节,语义就是"只许列出的,其余拒"——缺一维不等于那一维放开。
+    pub fn from_task_net(net: &guard_schema::TaskNet) -> Self {
+        let mut connect_tcp = net.connect_tcp.clone().unwrap_or_default();
+        let mut bind_tcp = net.bind_tcp.clone().unwrap_or_default();
+        connect_tcp.sort_unstable();
+        connect_tcp.dedup();
+        bind_tcp.sort_unstable();
+        bind_tcp.dedup();
+        Self {
+            connect_tcp,
+            bind_tcp,
+        }
+    }
+}
+
 /// 一份约束规则。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Profile {
@@ -36,6 +64,10 @@ pub struct Profile {
     pub essential_read: Vec<PathBuf>,
     /// 无论天花板怎么写都必须可写的路径。只有临时目录，而且是进程私有的那个。
     pub essential_write: Vec<PathBuf>,
+    /// 网络出口天花板。`None` = **不约束网络**(jail 只管文件系统,现状);`Some` = 内核强制
+    /// "只许列出的 TCP 端口,其余拒"。**opt-in**:见 `guard_schema::TaskNet` 为什么默认不是拒网。
+    #[serde(default)]
+    pub net: Option<NetCeiling>,
 }
 
 /// 每个 Linux 进程都需要能读的最小集合。
@@ -94,6 +126,7 @@ impl Profile {
                     .filter(|p| p.exists())
                     .collect(),
                 essential_write: Vec::new(),
+                net: None,
             },
             rejected,
         )
@@ -206,5 +239,24 @@ mod tests {
         // 反面用例。没有这一条，上面那条可能只是"什么都判成矛盾"。
         let (p, _) = Profile::from_ceiling(&[], &["/tmp/agentguard-work".into()]);
         assert!(p.contradictions().is_empty(), "{:?}", p.contradictions());
+    }
+
+    #[test]
+    fn from_ceiling_默认不约束网络() {
+        // 现状不变:不碰 net 的 profile 网络维是 None(不管),不是"拒一切"。
+        let (p, _) = Profile::from_ceiling(&["/data".into()], &[]);
+        assert!(p.net.is_none());
+    }
+
+    #[test]
+    fn 网络天花板去重并排序() {
+        let net = guard_schema::TaskNet {
+            connect_tcp: Some(vec![443, 80, 443]),
+            bind_tcp: None,
+        };
+        let c = NetCeiling::from_task_net(&net);
+        assert_eq!(c.connect_tcp, vec![80, 443], "应去重并排序");
+        // 缺的 bind 维当作空:声明了 net 就是"只许列出的",缺一维不等于放开那一维。
+        assert!(c.bind_tcp.is_empty(), "缺的一维必须是空(拒),不是放开");
     }
 }

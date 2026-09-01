@@ -1,0 +1,74 @@
+/* 安装引导页(E17a)。浅色为主、跟随系统深色;不用任何框架,和 popup 一致的朴素风格。 */
+:root {
+  --bg: #f7f8fa;
+  --panel: #ffffff;
+  --ink: #1a1d22;
+  --muted: #5b6672;
+  --line: #e4e8ec;
+  --accent: #2f6df6;
+  --danger: #b02a2a;
+  --brand-ink: #8a5a00;
+  --brand-bg: #fff7e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --panel: #171b21;
+    --ink: #e6eaf0;
+    --muted: #9aa6b2;
+    --line: #262c34;
+    --accent: #6ea8ff;
+    --danger: #ff9d9d;
+    --brand-ink: #e0b566;
+    --brand-bg: #3a2f14;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 72px; }
+.badge {
+  display: inline-block;
+  background: var(--brand-bg);
+  color: var(--brand-ink);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.01em; }
+.lede { color: var(--muted); font-size: 17px; margin: 0 0 32px; max-width: 56ch; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px;
+}
+.card h2 { font-size: 15px; margin: 0 0 8px; }
+.card p { color: var(--muted); font-size: 13.5px; margin: 0; }
+.demo, .foot { margin-top: 36px; }
+.demo h2, .foot h2 { font-size: 18px; margin: 0 0 8px; }
+.demo p, .foot p { color: var(--muted); font-size: 14.5px; max-width: 60ch; }
+button.danger {
+  font-size: 16px;
+  padding: 11px 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--danger);
+  color: #fff;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.outcome { min-height: 1.4em; font-weight: 600; }
+.privacy {
+  margin-top: 18px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  border-radius: 0 8px 8px 0;
+}

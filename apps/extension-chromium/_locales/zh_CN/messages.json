@@ -1,15 +1,137 @@
 {
-  "extensionName": { "message": "AgentGuard 网页防护" },
-  "extensionDescription": { "message": "检测 AI 智能体使用页面中的提示词注入、非必要个人信息填写和隐私陷阱。" },
-  "actionTitle": { "message": "AgentGuard 网页防护" },
-  "nativeForward": { "message": "转发到桌面端（Native Messaging）" },
-  "recentDetections": { "message": "最近检测" },
-  "noRecords": { "message": "暂无检测记录" },
-  "readError": { "message": "无法读取状态" },
-  "findings": { "message": "检测结果" },
-  "language": { "message": "语言" },
-  "system": { "message": "跟随系统" },
-  "english": { "message": "English" },
-  "simplifiedChinese": { "message": "简体中文" },
-  "traditionalChinese": { "message": "繁體中文" }
+  "extensionName": {
+    "message": "AgentGuard 网页防护"
+  },
+  "extensionDescription": {
+    "message": "检测 AI 智能体使用页面中的提示词注入、非必要个人信息填写和隐私陷阱。"
+  },
+  "actionTitle": {
+    "message": "AgentGuard 网页防护"
+  },
+  "settings": {
+    "message": "设置"
+  },
+  "statusOn": {
+    "message": "正在守护这个页面"
+  },
+  "todaySummary": {
+    "message": "今日:发现 {f} 项 · 拦截 {b} 次"
+  },
+  "nativeForward": {
+    "message": "连接桌面端,加强防护(可选)"
+  },
+  "nativeForwardHint": {
+    "message": "连接桌面端后,拦截判决会进入本机的签名审计记录,桌面端也能同步拦截恶意网站。"
+  },
+  "recentDetections": {
+    "message": "最近发现"
+  },
+  "noRecords": {
+    "message": "暂无检测记录"
+  },
+  "allClear": {
+    "message": "一切正常,这个页面上没有发现问题。遇到付款、交个人信息这类动作时,AgentGuard 会先拦下来问你。"
+  },
+  "readError": {
+    "message": "无法读取状态"
+  },
+  "findings": {
+    "message": "检测结果"
+  },
+  "language": {
+    "message": "语言"
+  },
+  "system": {
+    "message": "跟随系统"
+  },
+  "english": {
+    "message": "English"
+  },
+  "simplifiedChinese": {
+    "message": "简体中文"
+  },
+  "traditionalChinese": {
+    "message": "繁體中文"
+  },
+  "blockedHosts": {
+    "message": "已拦截的网站"
+  },
+  "unblock": {
+    "message": "解除拦截"
+  },
+  "kindMalicious": {
+    "message": "恶意网站"
+  },
+  "kindOutOfScope": {
+    "message": "超出任务范围"
+  },
+  "noBlocked": {
+    "message": "当前没有拦截任何网站"
+  },
+  "whyBlocked": {
+    "message": "为什么被拦?"
+  },
+  "blockedBy": {
+    "message": "技术标识"
+  },
+  "blockedPrefix": {
+    "message": "已拦截:"
+  },
+  "obTitle": {
+    "message": "欢迎使用 AgentGuard"
+  },
+  "obHeadline": {
+    "message": "防护已开启"
+  },
+  "obLede": {
+    "message": "AgentGuard 会看着 AI 智能体在你浏览器里做什么,在有风险的一步发生之前先拦下来——然后问你。"
+  },
+  "obP1Title": {
+    "message": "看见你看不见的"
+  },
+  "obP1Body": {
+    "message": "网页可以把给 AI 的指令藏在人眼看不见的文字里。AgentGuard 会找出来告诉你。"
+  },
+  "obP2Title": {
+    "message": "钱和个人信息动之前,先问你"
+  },
+  "obP2Body": {
+    "message": "一次付款点击、一个套手机号的表单——动作会先被按住,你不允许就什么都不会发生。"
+  },
+  "obP3Title": {
+    "message": "在网络层拦掉已知的恶意网站"
+  },
+  "obP3Body": {
+    "message": "发往已知恶意网站的请求会在浏览器里被直接拦住。每一条拦截都能在工具栏弹窗里看到、也能解除。"
+  },
+  "obDemoTitle": {
+    "message": "先看一次,真遇到时就不慌"
+  },
+  "obDemoBody": {
+    "message": "点下面这个假付款按钮。这是演示——没有任何付款、不会发出任何东西。你将看到的确认层,和真实页面上保护你的是同一段代码。"
+  },
+  "obDemoBtn": {
+    "message": "确认支付(演示)"
+  },
+  "obDemoAllowed": {
+    "message": "你允许了这一次——在真实页面上,付款会继续进行。"
+  },
+  "obDemoCancelled": {
+    "message": "拦住了。在真实页面上,什么都不会发生。"
+  },
+  "obMoreTitle": {
+    "message": "还有两件值得知道的事"
+  },
+  "obMorePopup": {
+    "message": "工具栏弹窗用人话显示今天发现和拦截了什么;技术细节收在「为什么?」里,想看再点。"
+  },
+  "obMoreDesktop": {
+    "message": "可选:连接 AgentGuard 桌面端(弹窗 → 设置),每条拦截判决还会进入本机防篡改的签名审计记录。"
+  },
+  "obPrivacy": {
+    "message": "发现默认留在你自己的设备上,不会上传任何内容。"
+  },
+  "viewIntro": {
+    "message": "查看功能介绍"
+  }
 }

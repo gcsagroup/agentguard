@@ -1,0 +1,18 @@
+{
+  "_comment": "host_in_scope 的单一真相源(E11)。Rust(guard_schema::host_in_scope)与 JS(guard-gate.js 的 hostInScope,浏览器 E9 用它本地判越界)必须对同一批向量给出同一答案——两端各有一条测试跑这个文件,任一端语义漂移就红。安全攸关的是后缀伪造那几条:stripe.com.evil.example 绝不能算作 stripe.com 的子域,否则允许表变成允许一切。",
+  "vectors": [
+    { "observed": "stripe.com", "entry": "stripe.com", "in_scope": true, "note": "精确相等" },
+    { "observed": "checkout.stripe.com", "entry": "stripe.com", "in_scope": true, "note": "子域" },
+    { "observed": "a.b.stripe.com", "entry": "stripe.com", "in_scope": true, "note": "多级子域" },
+    { "observed": "stripe.com.evil.example", "entry": "stripe.com", "in_scope": false, "note": "后缀伪造:必须拒" },
+    { "observed": "notstripe.com", "entry": "stripe.com", "in_scope": false, "note": "无点边界:必须拒" },
+    { "observed": "xstripe.com", "entry": "stripe.com", "in_scope": false, "note": "无点边界:必须拒" },
+    { "observed": "Stripe.COM", "entry": "stripe.com", "in_scope": true, "note": "大小写不敏感" },
+    { "observed": "stripe.com.", "entry": "stripe.com", "in_scope": true, "note": "尾点归一" },
+    { "observed": "stripe.com:443", "entry": "stripe.com", "in_scope": true, "note": "端口剥离" },
+    { "observed": "user@stripe.com", "entry": "stripe.com", "in_scope": true, "note": "userinfo 剥离" },
+    { "observed": "", "entry": "stripe.com", "in_scope": false, "note": "空 observed" },
+    { "observed": "stripe.com", "entry": "", "in_scope": false, "note": "空 entry" },
+    { "observed": "evil.example", "entry": "stripe.com", "in_scope": false, "note": "完全不同" }
+  ]
+}

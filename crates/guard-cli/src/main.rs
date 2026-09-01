@@ -685,6 +685,22 @@ enum Commands {
         #[arg(long, default_value = "eval/coverage-matrix.json")]
         out: PathBuf,
     },
+    /// Verify the user-facing capability-claims → tests map against the repo (X-2).
+    ///
+    /// Fails when a claim's anchor text is no longer present in the user-facing doc
+    /// it cites, when a proving test it names does not exist, or when a claim has no
+    /// proving test at all. The map is hand-maintained: it pins the tests behind
+    /// claims already listed, it does not discover new claims (see
+    /// docs/主张与测试映射.md).
+    CapabilityClaims {
+        #[arg(long, default_value = "eval/capability-claims.yaml")]
+        registry: PathBuf,
+        /// Repo root that doc/test paths in the registry are resolved against.
+        #[arg(long, default_value = ".")]
+        repo_root: PathBuf,
+        #[arg(long, default_value = "eval/capability-claims.md")]
+        md: PathBuf,
+    },
     /// Run macOS release acceptance manifest (offline gate).
     AcceptanceRun {
         #[arg(long, default_value = "eval/acceptance/manifest.yaml")]
@@ -2386,6 +2402,47 @@ fn main() -> Result<()> {
                     "coverage matrix makes {} unbacked claim(s) and leaves {} scenario(s) unclaimed",
                     cov.problems.len(),
                     cov.scenarios_unreferenced.len()
+                );
+            }
+        }
+        Commands::CapabilityClaims {
+            registry,
+            repo_root,
+            md,
+        } => {
+            let reg = guard_eval::ClaimsRegistry::from_path(&registry)?;
+            let root = repo_root.clone();
+            let report =
+                guard_eval::verify_claims(&reg, |rel| std::fs::read_to_string(root.join(rel)).ok());
+            let markdown = guard_eval::claims_markdown(&reg, &report);
+            if let Some(parent) = md.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)?;
+                }
+            }
+            std::fs::write(&md, &markdown)?;
+            // 同时写一份 JSON,给状态仪表盘生成器(scripts/gen-dashboard.py)当结构化数据源——
+            // 仪表盘不手写、不漂移,和 md 一样从注册表生成。
+            let json_path = md.with_extension("json");
+            let json = serde_json::json!({
+                "claims": reg.claims,
+                "report": report,
+            });
+            std::fs::write(&json_path, serde_json::to_string_pretty(&json)?)?;
+            println!(
+                "capability-claims: {} claim(s), {} distinct proving test(s) → {} / {}",
+                report.total_claims,
+                report.distinct_tests,
+                md.display(),
+                json_path.display()
+            );
+            for p in &report.problems {
+                println!("  PROBLEM {}: {}", p.claim, p.detail);
+            }
+            if !report.ok() {
+                anyhow::bail!(
+                    "capability-claims map makes {} unbacked/stale claim(s)",
+                    report.problems.len()
                 );
             }
         }

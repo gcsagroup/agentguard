@@ -1,0 +1,12 @@
+[package]
+name = "guard-trust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "入站信任的共用词汇:单一常数时间比较、处置类型、入站面清册(见 docs/入站信任.md)"
+
+# 刻意零依赖。这个 crate 是全工作区的信任原语底座 —— guard-billing(本来无任何
+# guard-* 依赖)也要能用它,所以它不能拖进任何传递依赖。
+[dependencies]

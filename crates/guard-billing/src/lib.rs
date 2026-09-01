@@ -196,18 +196,6 @@ fn hmac_sha256(key: &[u8], msg: &[u8]) -> [u8; 32] {
     out
 }
 
-/// 常数时间比较,避免定时侧信道。
-fn ct_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut d = 0u8;
-    for (x, y) in a.iter().zip(b.iter()) {
-        d |= x ^ y;
-    }
-    d == 0
-}
-
 /// 给一个 body 算出 webhook 签名头值:`sha256=<hex>`。测试和签发方用它。
 pub fn sign_webhook_body(secret: &str, body: &str) -> String {
     format!(
@@ -220,6 +208,10 @@ pub fn sign_webhook_body(secret: &str, body: &str) -> String {
 ///
 /// 缺头、格式错、对不上都返回 false。**没有签名就不是合法 webhook** —— 这条守卫存在的
 /// 全部意义就是:一个匿名 POST 不能自铸 Enterprise 授权。
+///
+/// 入站面 #2(见 `docs/入站信任.md` §一)。处置 = [`OnUnverified::Refuse`](guard_trust::OnUnverified::Refuse):
+/// webhook 一旦被接受就**放宽**行为(可授予 Enterprise),所以验不过必须拒(`http.rs` 里返回 503),
+/// 不能降级。相等比较走[唯一的常数时间实现](guard_trust::constant_time_eq)。
 pub fn verify_webhook_signature(secret: &str, body: &str, header: Option<&str>) -> bool {
     let Some(h) = header else {
         return false;
@@ -229,7 +221,7 @@ pub fn verify_webhook_signature(secret: &str, body: &str, header: Option<&str>) 
         return false;
     };
     let expected = hmac_sha256(secret.as_bytes(), body.as_bytes());
-    ct_eq(&expected, &provided)
+    guard_trust::constant_time_eq(&expected, &provided)
 }
 
 pub fn default_dev_secret() -> &'static str {

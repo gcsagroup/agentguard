@@ -80,6 +80,63 @@ struct HostResponse {
     /// 判决做出来了但没能落盘。判决仍然返回 —— 丢掉审计行不能连答案一起丢掉。
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     audit_degraded: bool,
+    /// 引擎判为要浏览器在**网络层**硬拦的主机(E5/E7)。每条带 `kind`,扩展 background.js 据此
+    /// 决定累积语义(E8):`malicious` 累积保留、`out_of_scope` 随会话过期。空则不出现。
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    block_hosts: Vec<BlockedHost>,
+    /// 当前会话的**主机允许表**(`scope.hosts` 授权,E9)。扩展在**本地**用它判出站目的地在不在
+    /// 允许表里——是**策略**、不是浏览历史,不回传任何 URL。`None`(字段不出现)= 没声明 → 扩展
+    /// 不做本地越界拦截;`Some([])` = 明确"不许出网"。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scope_hosts: Option<Vec<String>>,
+}
+
+/// 一个要浏览器拦的主机,以及它**为什么**被拦——决定累积语义,并给 popup 溯源(E12)。
+#[derive(Serialize, Debug, PartialEq, Eq)]
+struct BlockedHost {
+    host: String,
+    /// `"malicious"`(已知恶意域,累积保留)或 `"out_of_scope"`(越出任务 hosts,随会话过期)。
+    kind: &'static str,
+    /// 触发这次拦截的判决 rule_id(`INTEL-DOMAIN` / `SCOPE-HOST`)——popup 溯源用(E12)。
+    rule_id: String,
+}
+
+/// 从一条判决里抠出"要浏览器网络层拦的主机"(含类别),没有则 `None`。
+///
+/// 纯函数,便于单测。两类会拦主机的判决,各用自己的**结构化 rule_id + 共享前缀**(都在
+/// `guard_schema` 里,生产端改了措辞这里编译期就跟着改)——不在自由文本里瞎猜:
+///
+/// * `INTEL-DOMAIN` → `kind="malicious"`:已知恶意域。主机在前缀后,取第一个空白词(门会追加
+///   " (user denied…)"后缀,主机名不含空白,所以第一个词就是主机)。
+/// * `SCOPE-HOST`(E7)→ `kind="out_of_scope"`:目的地越出任务 `scope.hosts` 天花板。主机在两个
+///   `'` 之间。引擎的 `check_scope_host` **只在任务声明了 hosts 时**才发这条(没声明就不发),
+///   所以这里天然不会因为"没配 scope"而拦掉一切。哨兵 `<unnameable>`(主机解析不出)不进名单。
+fn block_host_from_decision(rule_id: &str, human_message: &str) -> Option<BlockedHost> {
+    if rule_id == guard_schema::INTEL_DOMAIN_RULE_ID {
+        return human_message
+            .strip_prefix(guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            .and_then(|rest| rest.split_whitespace().next())
+            .map(|h| h.to_string())
+            .filter(|h| !h.is_empty())
+            .map(|host| BlockedHost {
+                host,
+                kind: "malicious",
+                rule_id: rule_id.to_string(),
+            });
+    }
+    if rule_id == guard_schema::SCOPE_HOST_RULE_ID {
+        return human_message
+            .strip_prefix(guard_schema::SCOPE_HOST_MSG_PREFIX)
+            .and_then(|rest| rest.split('\'').next()) // 主机 = 到下一个 `'` 为止
+            .map(|h| h.trim().to_string())
+            .filter(|h| !h.is_empty() && h != "<unnameable>")
+            .map(|host| BlockedHost {
+                host,
+                kind: "out_of_scope",
+                rule_id: rule_id.to_string(),
+            });
+    }
+    None
 }
 
 impl HostResponse {
@@ -94,6 +151,8 @@ impl HostResponse {
             notify: None,
             paused: false,
             audit_degraded: false,
+            block_hosts: Vec::new(),
+            scope_hosts: None,
         }
     }
 
@@ -108,6 +167,8 @@ impl HostResponse {
             notify: None,
             paused: false,
             audit_degraded: false,
+            block_hosts: Vec::new(),
+            scope_hosts: None,
         }
     }
 }
@@ -390,6 +451,10 @@ enum OriginCheck {
 /// manifest 的 `allowed_origins` 是 **Chrome 侧**强制的,对"由别的东西直接 exec 的进程"什么都
 /// 不说明。所以宿主必须自己有一份该接受的 origin(装机时由 `install-host.sh` 写在二进制旁边,
 /// 或用 `AGENTGUARD_ALLOWED_ORIGIN` 指定);两者都没有就拒绝跑。
+///
+/// 入站面 #4(见 `docs/入站信任.md` §一)。处置 = `OnUnverified::Refuse`:接受一个调用者就等于
+/// 让它把自编的 `source_app` 写进签名审计(放宽方向),所以没配期望 origin / origin 对不上都
+/// 拒绝启动,不降级。fail-closed 回归测试:`调用方origin默认拒绝且要对上`。
 fn decide_caller_origin(expected: Option<&str>, got: Option<&str>) -> OriginCheck {
     let Some(want) = expected.map(|w| w.trim().trim_end_matches('/')) else {
         return OriginCheck::Refuse(
@@ -460,11 +525,17 @@ fn process_payload(
     }
     let mut decisions = Vec::new();
     let mut notify: Vec<NotifyItem> = Vec::new();
+    let mut block_hosts: Vec<BlockedHost> = Vec::new();
     let mut audit_degraded = false;
     for event in &events {
         match engine.process_gated(event, &AutoDeny) {
             Ok(d) => {
                 decisions.push(format!("{}:{:?}", d.rule_id, d.action));
+                if let Some(h) = block_host_from_decision(&d.rule_id, &d.human_message) {
+                    if !block_hosts.contains(&h) {
+                        block_hosts.push(h);
+                    }
+                }
                 // 要让**用户看见**的:被拦下的、Critical/High 的、或本应人工确认的判决。
                 // 这些就是商店文案说的 "Critical Confirm" 该触发的地方 —— 以前扩展把它们
                 // 连同整个判决一起丢进 console.debug,用户什么都收不到。
@@ -501,6 +572,9 @@ fn process_payload(
     if !notify.is_empty() {
         resp.notify = Some(notify);
     }
+    resp.block_hosts = block_hosts;
+    // E9:把当前会话的主机允许表快照给扩展,让它在本地判越界(不回传 URL)。没声明则不带。
+    resp.scope_hosts = engine.granted_hosts().map(|h| h.to_vec());
     if !skipped.is_empty() {
         eprintln!(
             "agentguard: {} of {} events in this batch could not be converted and were NOT judged",
@@ -991,6 +1065,113 @@ mod tests {
                     || n.get("require_confirm").and_then(|r| r.as_bool()) == Some(true)
             }),
             "notify 里应有一条 block/critical/require_confirm:{notify:?}"
+        );
+    }
+
+    /// 提取器只认结构化的 INTEL-DOMAIN + 共享前缀,别的判决一律不产生 block_host。
+    #[test]
+    fn 只从恶意域判决抠出要拦的主机() {
+        // 命中:INTEL-DOMAIN + 正确前缀 → 抠出主机。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::INTEL_DOMAIN_RULE_ID,
+                &format!("{}evil.example", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            ),
+            Some(BlockedHost {
+                host: "evil.example".to_string(),
+                kind: "malicious",
+                rule_id: guard_schema::INTEL_DOMAIN_RULE_ID.to_string(),
+            })
+        );
+        // 反面:别的 rule_id 不抠(哪怕消息碰巧带前缀)——避免从自由文本里瞎猜。
+        assert_eq!(
+            block_host_from_decision(
+                "CRIT-001",
+                &format!("{}evil.example", guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX)
+            ),
+            None
+        );
+        // 反面:是 INTEL-DOMAIN 但消息没前缀(措辞漂移)→ None,而不是塞一个空主机进名单。
+        assert_eq!(
+            block_host_from_decision(guard_schema::INTEL_DOMAIN_RULE_ID, "something else"),
+            None
+        );
+        // 门(AutoDeny 等)会在消息后追加后缀。抠出来的主机不能带上那条尾巴 —— 只取第一个词。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::INTEL_DOMAIN_RULE_ID,
+                &format!(
+                    "{}evil.example (user denied; session paused)",
+                    guard_schema::MALICIOUS_DOMAIN_MSG_PREFIX
+                )
+            ),
+            Some(BlockedHost {
+                host: "evil.example".to_string(),
+                kind: "malicious",
+                rule_id: guard_schema::INTEL_DOMAIN_RULE_ID.to_string(),
+            })
+        );
+    }
+
+    /// E7:越出 scope.hosts 的目的地(SCOPE-HOST)也抠进要拦的主机,主机取两个 `'` 之间那段。
+    #[test]
+    fn 越界目的地也抠出要拦的主机() {
+        // 命中:SCOPE-HOST,主机在引号之间。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::SCOPE_HOST_RULE_ID,
+                &format!(
+                    "{}collector.unknown.example' is not in this session's host grant (…)",
+                    guard_schema::SCOPE_HOST_MSG_PREFIX
+                )
+            ),
+            Some(BlockedHost {
+                host: "collector.unknown.example".to_string(),
+                kind: "out_of_scope",
+                rule_id: guard_schema::SCOPE_HOST_RULE_ID.to_string(),
+            })
+        );
+        // 哨兵 <unnameable>(主机解析不出)不进名单 —— 拦一个拦不了的"主机"没有意义。
+        assert_eq!(
+            block_host_from_decision(
+                guard_schema::SCOPE_HOST_RULE_ID,
+                &format!(
+                    "{}<unnameable>' is not in this session's host grant (…)",
+                    guard_schema::SCOPE_HOST_MSG_PREFIX
+                )
+            ),
+            None
+        );
+    }
+
+    /// 端到端:一个到恶意域的浏览器事件 → 响应里带 block_hosts,扩展据此装 DNR 网络层拦截(E5)。
+    #[test]
+    fn 恶意域判决在响应里带上block_hosts() {
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let mut engine = Engine::from_paths(&rules, None::<PathBuf>)
+            .expect("加载 p0 规则")
+            .with_intel(guard_intel::ThreatBundle::default());
+        let mut adapter = BrowserAdapter::new();
+        let msg: Value = serde_json::from_str(
+            r#"{"type":"browser_events","events":[
+                {"type":"ui_text","text":"x","app":"Safari","url":"https://evil.example/phish"}
+            ]}"#,
+        )
+        .unwrap();
+        let resp = process_payload(&mut engine, &mut adapter, &msg).unwrap();
+        let j = serde_json::to_value(&resp).unwrap();
+        let hosts = j
+            .get("block_hosts")
+            .and_then(|h| h.as_array())
+            .expect("恶意域判决应在响应里带 block_hosts");
+        // 现在每条带 kind:恶意域是 "malicious"(background.js 据此累积保留)。
+        assert!(
+            hosts.iter().any(|h| {
+                h.get("host").and_then(|x| x.as_str()) == Some("evil.example")
+                    && h.get("kind").and_then(|x| x.as_str()) == Some("malicious")
+            }),
+            "block_hosts 应含 {{evil.example, malicious}}:{hosts:?}"
         );
     }
 }

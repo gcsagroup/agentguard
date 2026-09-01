@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/guard-schema",
+    "crates/guard-trust",
     "crates/guard-vision",
     "crates/guard-privacy",
     "crates/guard-core",
@@ -65,6 +66,7 @@ anyhow = "1"
 rusqlite = { version = "0.32", default-features = false }
 uuid = { version = "1", features = ["v4"] }
 guard-schema = { path = "crates/guard-schema" }
+guard-trust = { path = "crates/guard-trust" }
 guard-privacy = { path = "crates/guard-privacy" }
 guard-core = { path = "crates/guard-core" }
 guard-audit = { path = "crates/guard-audit" }

@@ -197,3 +197,78 @@ int agentguard_ax_frontmost_json(char **out_json) {
   ag_ax_set_error(@"");
   return AG_AX_OK;
 }
+
+// ---- AXObserver 推送(E3)。变化时推通知,Rust 侧轮询计数(agentguard_ax_observe_take)。 ----
+
+#include <stdatomic.h>
+
+static AXObserverRef gAxObserver = NULL;
+static AXUIElementRef gAxObservedApp = NULL;
+static _Atomic(unsigned long long) gAxNotifyCount = 0;
+
+static void ag_ax_observer_cb(AXObserverRef observer, AXUIElementRef element,
+                              CFStringRef notification, void *refcon) {
+  (void)observer;
+  (void)element;
+  (void)notification;
+  (void)refcon;
+  // 只累加计数:Rust 侧的合并器(ax_push.rs)负责去抖与延迟上限。这里保持尽量薄。
+  atomic_fetch_add(&gAxNotifyCount, 1ULL);
+}
+
+void agentguard_ax_observe_stop(void) {
+  if (gAxObserver != NULL) {
+    CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
+                          AXObserverGetRunLoopSource(gAxObserver),
+                          kCFRunLoopDefaultMode);
+    CFRelease(gAxObserver);
+    gAxObserver = NULL;
+  }
+  if (gAxObservedApp != NULL) {
+    CFRelease(gAxObservedApp);
+    gAxObservedApp = NULL;
+  }
+}
+
+int agentguard_ax_observe_start(void) {
+  if (!AXIsProcessTrusted()) {
+    ag_ax_set_error(@"Accessibility permission not granted");
+    return AG_AX_DENIED;
+  }
+  agentguard_ax_observe_stop(); // 幂等重启:先卸掉旧的。
+
+  NSRunningApplication *front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+  if (front == nil) {
+    ag_ax_set_error(@"no frontmost application");
+    return AG_AX_ERROR;
+  }
+  pid_t pid = front.processIdentifier;
+
+  AXObserverRef obs = NULL;
+  if (AXObserverCreate(pid, ag_ax_observer_cb, &obs) != kAXErrorSuccess || obs == NULL) {
+    ag_ax_set_error(@"AXObserverCreate failed");
+    return AG_AX_ERROR;
+  }
+  AXUIElementRef app = AXUIElementCreateApplication(pid);
+  CFStringRef notes[] = {
+      kAXValueChangedNotification,          kAXFocusedUIElementChangedNotification,
+      kAXWindowCreatedNotification,         kAXTitleChangedNotification,
+      kAXUIElementDestroyedNotification,    kAXMainWindowChangedNotification,
+  };
+  for (size_t i = 0; i < sizeof(notes) / sizeof(notes[0]); i++) {
+    // best-effort:某些元素不支持某些通知,逐条失败忽略——少注册一类只会更保守(那类变化
+    // 靠兜底轮询兜),不会漏成"以为在推其实没推"。
+    AXObserverAddNotification(obs, app, notes[i], NULL);
+  }
+  CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(obs),
+                     kCFRunLoopDefaultMode);
+  gAxObserver = obs;
+  gAxObservedApp = app;
+  atomic_store(&gAxNotifyCount, 0ULL);
+  ag_ax_set_error(@"");
+  return AG_AX_OK;
+}
+
+unsigned long long agentguard_ax_observe_take(void) {
+  return atomic_exchange(&gAxNotifyCount, 0ULL);
+}
