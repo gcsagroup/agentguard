@@ -6,7 +6,7 @@
 
 # AgentGuard documentation portal
 
-This portal is the trilingual entry point. Trilingual coverage includes the root README, this portal, the `1.0.0-rc.1` release notes, the changelog, privacy disclosures, component READMEs, primary store copy, and the seven technical and five acceptance documents maintained in this update. Other deep technical and audit documents remain in their original languages and are labeled below by purpose and status.
+This portal is the trilingual entry point. Trilingual coverage includes the root README, this portal, the `1.0.0-rc.1` release notes, the changelog, privacy disclosures, component READMEs, primary store copy, and the technical and acceptance documents maintained in this update. Other deep technical and audit documents remain in their original languages and are labeled below by purpose and status.
 
 > `1.0.0-rc.1` is a source release candidate. Code signing, notarization, store publication, and real-device end-to-end acceptance evidence are incomplete. The production release decision remains **No-Go**.
 
@@ -24,6 +24,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [Project README (Simplified Chinese)](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 release notes (Simplified Chinese)](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 real-device acceptance report (Simplified Chinese)](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — Historical snapshot separating `bd7bb2f` from the integration candidate that was uncommitted at the time. It does not prove real-device acceptance for this commit; the release decision remains No-Go.
+- [2026-09-02 Windows partial real-device acceptance report (Simplified Chinese)](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — Automation, Release-artifact, and independent RDP interaction evidence for candidate `89dadf9`. W1–W7 are incomplete, and production release remains No-Go.
 - [Changelog (Simplified Chinese)](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [Privacy disclosure (Simplified Chinese)](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -60,7 +61,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [architecture.md](architecture.md) — Original language: mixed Chinese and English; status: technical reference.
 - [android-completeness.md](android-completeness.md) — Original language: primarily English; status: Android capability and gap reference.
 - [android-env-survey.md](android-env-survey.md) — Original language: English; status: Android environment-survey reference.
-- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with no real-device end-to-end acceptance.
+- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with partial real-device evidence for startup, continuous observation, and the blocking modal; full W1–W7 end-to-end acceptance remains open.
 - [ios-limited-sku.md](ios-limited-sku.md) — Original language: primarily English; status: limited scaffold description, not a complete product.
 - [local-api.md](local-api.md) — Original language: mixed Chinese and English; status: local API reference.
 - [billing.md](billing.md) — Original language: mixed Chinese and English; status: billing and entitlement reference.

@@ -6,7 +6,7 @@
 
 # AgentGuard 文档门户
 
-本门户是三语入口。当前三语覆盖根 README、本门户、`1.0.0-rc.1` 发布说明、CHANGELOG、隐私说明、各组件 README、主要商店文案，以及本轮维护的七份技术说明和五份验收文档；其余深层技术与审计文档继续保留原始语言，并在下方标明用途与状态。
+本门户是三语入口。当前三语覆盖根 README、本门户、`1.0.0-rc.1` 发布说明、CHANGELOG、隐私说明、各组件 README、主要商店文案，以及本轮维护的技术说明和验收文档；其余深层技术与审计文档继续保留原始语言，并在下方标明用途与状态。
 
 > `1.0.0-rc.1` 是源码候选版。代码签名、公证、商店发布和真实设备端到端验收证据尚未完成，生产发布判断仍为 **No-Go**。
 
@@ -24,6 +24,7 @@
 - [项目 README（简体）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 发布说明（简体）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 真机验收报告（简体）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 历史快照，区分 `bd7bb2f` 与当时未提交的整合候选；不代表本次提交已完成真机验收，发布结论仍为 No-Go。
+- [2026-09-02 Windows 部分真机验收报告（简体）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候选 `89dadf9` 的自动化、Release 产物与独立 RDP 交互证据；W1–W7 未完整执行，生产发布仍为 No-Go。
 - [CHANGELOG（简体）](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [隐私说明（简体）](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -60,7 +61,7 @@
 - [architecture.md](architecture.md) — 原始语言：中英混合；状态：技术参考。
 - [android-completeness.md](android-completeness.md) — 原始语言：英文为主；状态：Android 能力与缺口参考。
 - [android-env-survey.md](android-env-survey.md) — 原始语言：英文；状态：Android 环境调查技术参考。
-- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，尚无真实设备端到端验收。
+- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与阻断模态的部分真机证据；完整 W1–W7 端到端验收仍未完成。
 - [ios-limited-sku.md](ios-limited-sku.md) — 原始语言：英文为主；状态：有限脚手架说明，不是完整产品。
 - [local-api.md](local-api.md) — 原始语言：中英混合；状态：本地 API 技术参考。
 - [billing.md](billing.md) — 原始语言：中英混合；状态：计费与授权技术参考。

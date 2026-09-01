@@ -17,6 +17,7 @@
 - macOS AX 樹狀結構觀測新增 AXObserver 推送、150ms 去抖、800ms 延遲上限與 3s 兜底輪詢；像素擷取仍為取樣路徑。
 - macOS、Windows 與 Chromium 介面完成三語消費者化改造，包括首次引導、易懂風險文案、無障礙確認層、鍵盤焦點、深色模式、通知及詞表完整性檢查。
 - 新增瀏覽器、Windows 與 macOS 真實裝置驗收清單、可執行手冊、瀏覽器測試資料與報告範本；文件與測試資料是待執行流程，不表示已取得真實裝置證據。
+- 記錄 Windows 候選 `89dadf9` 的部分真機驗收：Windows 11 build 26200 上桌面測試 5/5、Clippy `-D warnings` 與 Release 建置通過；未簽署 EXE 的 SHA-256 為 `47A420C6A5FA88C406C18DD7F8A189B6D21183143A2DA69578FA02C559AB5119`。獨立 RDP 互動證據涵蓋兩輪各超過 30 秒的啟動與連續觀測、UIA/GDI/OCR 可用狀態、真實 `OVL-010` 阻斷模態及拒絕後第二輪穩定性，且未出現新的 Event 1000；這不是 W1–W7 全量驗收。
 - 新增八類結構化發佈證據範本與校驗：證據綁定目前完整提交號、實際命令、結束碼、時間、判據輸出與產物身分。普通發佈檔案使用標準 SHA-256；macOS `.app` 的 tree-v2 綁定整個 bundle 的路徑、類型、長度、內容及 Unix `0111` 可執行位元遮罩；驗收 closure-v1 則綁定報告 bytes 與每個唯一逐項引用的路徑、長度和內容。四類簽署證據還把 `signer` 綁定至閘門外部提供的 Apple Team ID 或發佈憑證 SHA-256，四類驗收證據固定為 `null`。路徑採用可攜式 ASCII 元件且逐項引用不得重複使用；未填寫範本、空產物、缺失檔案、自我引用、符號連結與摘要不符均不能通過。tree-v2 不綁定其他 mode、xattr／ACL，也不取代隔離機上的 quarantine、Gatekeeper 與首次啟動驗收；驗收 closure 仍是不能證明螢幕截圖來源的未簽署自證。
 
 ### Security
@@ -29,6 +30,7 @@
 
 - Chromium 不再籠統描述為「只能事後通知」：頁面閘門與 DNR 對其涵蓋的向量提供執行前控制；Native Messaging 判決仍為非同步，不能回溯阻止觸發事件，且頁面閘門/DNR 都有明確繞過與 fail-open 邊界。Android 仍為事件後提示。
 - 桌面觀測不再籠統描述為「僅輪詢」：macOS AX 樹狀結構變化已有推送；像素擷取、其他桌面路徑與兜底仍包含取樣或輪詢，因此不是零間隙即時監控。
+- Windows CI 在既有工作區測試、介接器建置/Clippy 與桌面測試之後新增真實視窗啟動 smoke；候選對應的 GitHub Actions run `33551495621` 全綠。該 smoke 只防止視窗啟動後立即退出，不能取代 W1–W7 的人工互動證據。
 
 ### Fixed
 
@@ -39,6 +41,8 @@
 - 修正 Windows `canonicalize` 產生的 `\\?\` verbatim 磁碟機／UNC 前綴與一般前綴不等價的問題；真實 `C:\Windows`、`C:\ProgramData` 路徑會重新命中敏感目標，固定的 `\\?\` 命名空間標記也不再被誤判為萬用字元。
 - 保留 Windows 元件層級路徑歸約與現有 home、`ProgramData`、`Program Files (x86)` 敏感路徑保護；未採用會把不同路徑形狀全域折疊並造成保護降級的方案。
 - 修正 Windows 工作區測試仍把 `/bin/*`、`/srv`、`/tmp` 與 `/etc` 當作跨平台測試資料的問題；閘道改用可控 Rust 子行程驗證並行管道、UTF-8 截斷與結束碼，路徑、Shell 與 jail 測試使用目標平台真實的絕對路徑，同時保留敏感目錄與參數注入覆蓋。
+- 修正 Windows 桌面啟動時先在主執行緒以 MTA 初始化 UI Automation，隨後 `OleInitialize` 需要 STA 而觸發 `RPC_E_CHANGED_MODE` 並退出的問題；啟動能力探測現在使用專用執行緒並快取結果，視窗主執行緒不再被預先改為 MTA。
+- 修正短命能力探測執行緒結束後重用 WinRT OCR `FactoryCache` 可能觸發 `0xC0000005` 的問題；處理程序期 `CoIncrementMTAUsage` cookie 維持 COM MTA 可用，並新增 COM/OCR 跨執行緒回歸測試。
 - Firefox MV3 套件改用其支援的模組化 `background.scripts` 事件頁；結構測試同時釘住 Chromium service worker 與 Firefox event page 的同一個 `background.js` 入口。
 - 修正讀取阻擋名單時遺失規則溯源，以及「允許一次」使用 `form.submit()` 繞過表單驗證並遺失 submitter 語意的問題；付款按鈕的 click→submit 鏈現在共用一次性批准，不會重複顯示確認。
 - 把 macOS AXObserver 真正接入桌面驅動，繫結持續運作的主 RunLoop，並隨最上層應用程式切換重新繫結；新增產品路徑接線測試。
@@ -47,9 +51,9 @@
 
 ### Known limitations
 
-- 目前 macOS ad-hoc 候選已在本機完成啟動、TCC 探測與 AXObserver 推送流程檢查，但 Developer ID 簽署/公證後的全新安裝與升級路徑仍未驗收；Chrome、Edge、Firefox 與 Windows 仍缺候選版真機 E2E，Safari 只有設計。
+- 目前 macOS ad-hoc 候選已在本機完成啟動、TCC 探測與 AXObserver 推送流程檢查，但 Developer ID 簽署/公證後的全新安裝與升級路徑仍未驗收；Chrome、Edge 與 Firefox 仍缺候選版真機 E2E，Safari 只有設計。Windows 只有啟動、連續觀測與阻斷模態的部分真機證據；付款 CTA、第三方表單與像素 OCR、隱寫、overlay 邊界、能力失敗分支與 Native Messaging 等 W1–W7 項目尚未完整執行。
 - 頁面閘門能涵蓋的只是在已安裝擴充功能可觸及的頁面向量；DNR 規則安裝失敗時 fail-open，Native Host 與 Android 通知不能提供不可繞過的執行前控制。
-- 目前尚未設定正式 Apple Team ID、Windows／Android 發佈憑證 SHA-256，四類簽署檢查維持 `UNVERIFIED`；公證、真實裝置、全新安裝、升級與回復證據也仍不完整。結構化證據閘門上線不改變正式環境發佈 **No-Go** 結論。
+- 目前尚未設定正式 Apple Team ID、Windows／Android 發佈憑證 SHA-256，四類簽署檢查維持 `UNVERIFIED`；Windows EXE 為 `NotSigned`，預設 Release 未啟用 SQLCipher，也沒有安裝套件及全新安裝、升級、解除安裝證據。公證、真實裝置與回復證據仍不完整；結構化證據閘門上線不改變正式環境發佈 **No-Go** 結論。
 
 ## [1.0.0-rc.1] - 2026-08-28
 

@@ -2,19 +2,26 @@
 
 # Windows 真機驗收清單（Launch Readiness）
 
-本文件用於在**真實 Windows 裝置**上對 AgentGuard 桌面殼程式進行發佈前人工驗收。它對應 platform-matrix
-中 Windows 欄位那些「程式碼已進 CI，但真機端到端未驗證」的項目——只有在真 Windows 上跑過一次才算數；
-`windows` CI 作業只編譯 `win-adapter`，不會驅動真實的 UI Automation / GDI / OCR。
+本文件用於在**真實 Windows 裝置**上對 AgentGuard 桌面殼程式進行發佈前人工驗收，並定義尚待完成的 W1–W7。
+`windows` CI 作業目前已涵蓋 Windows 工作區、`win-adapter`、桌面測試與真實視窗啟動 smoke，但不會驅動
+真實 UI Automation / GDI / OCR 互動，也不能取代 W1–W7 的逐項人工證據。
 
 > 本清單全綠只是發佈的必要非充分條件；它不能取代 Authenticode 簽章、安裝套件身分、其餘平台證據或完整發佈門禁。
 
-> **前置的離線門禁**：先在儲存庫根目錄執行 `make acceptance`（離線情境），並在 Windows 上執行
-> `cargo build -p win-adapter` + `clippy -D warnings`。全綠是必要非充分條件——它證明「Windows 專屬
-> 程式碼路徑能編譯、判決邏輯正確」，不證明「真 Windows 上 UI Automation 確實取得樹、GDI 確實擷取到影格」。
+> **前置的自動化門禁**：先在儲存庫根目錄執行 `make acceptance` 與 `cargo test --workspace`；在 Windows 上還要建置
+> `win-adapter`、以 `-D warnings` 執行 Clippy，並執行桌面測試、桌面 Clippy 與 Release 建置。CI 的視窗啟動
+> smoke 會確認處理程序未立即退出且已建立原生視窗。全綠是必要非充分條件：它不證明 W1–W7 的真實互動結果。
+
+## 目前執行狀態（2026-09-02）
+
+- 候選 `89dadf960a558d35dc3c6c557eadbc19d3a162d0` 已在 Windows 11 build 26200 上完成桌面測試 5/5、桌面 Clippy `-D warnings` 與 Release 建置；GitHub Actions run `33551495621` 全綠。
+- Release EXE 的 SHA-256 為 `47A420C6A5FA88C406C18DD7F8A189B6D21183143A2DA69578FA02C559AB5119`，Authenticode 狀態為 `NotSigned`。
+- 獨立 RDP 互動測試中，視窗閒置超過 30 秒並持續更新；兩輪工作階段各跨過 OCR 週期執行超過 30 秒，UIA/GDI/OCR 均顯示可用，真實觸發 `OVL-010` 阻斷模態，拒絕後執行 End/Resume/Start 的第二輪仍穩定，且未出現新的 Event 1000。
+- 本輪結論是**部分真機驗收**。付款 CTA、第三方表單與像素 OCR、隱寫、overlay 邊界、能力失敗分支與 Native Messaging 未依 W1–W7 的規定情境執行，因此下表不標記 PASS。WinRM 自動化只屬於前置門禁；本輪另有獨立 RDP 互動證據。詳見[補充報告](acceptance-report-windows-2026-09-02.zh-TW.md)。
 
 ## 前置條件
 
-- [ ] AgentGuard Windows 桌面殼程式已安裝並執行（系統匣應用程式）
+- [ ] AgentGuard Windows 桌面殼程式已安裝並執行
 - [ ] 規則集為 `crates/guard-schema/rules/p0_rules.yaml`（或發佈套件內等價路徑）
 - [ ] 威脅情報 bundle 已載入
 - [ ] 若驗收瀏覽器擴充功能路徑：`install-host.sh` 的 Windows 等價操作（原生訊息 host manifest 寫入登錄檔
@@ -34,6 +41,8 @@
 | W5 | overlay 覆蓋（note 1 的限制） | 目標視窗**自行繪製**的可疑覆蓋會被擷取；**另一個處理程序**繪製在其上的網路釣魚視窗**不會**出現在 GDI 擷取的像素中（如實反映較窄的覆蓋範圍，不是 bug） | | |
 | W6 | 執行階段能力探針 | 殼程式報告 UI Automation / 擷取 / OCR 各自是否可用，並附原因字串（不是靜默假設可用） | | |
 | W7 | 瀏覽器擴充功能 → 原生訊息 host | Chrome/Edge 擴充功能的事件透過登錄檔登記的 `guard-nm-host.exe` 判決並進入簽章稽核；host 的 origin 驗證相符。它是嚴格 Windows 候選驗收的必要項目 | | |
+
+> 補充報告中的阻斷模態、能力狀態與 OCR 週期是 W1/W3/W4/W6 的相鄰證據，但沒有依各列規定的付款 CTA、隱寫、第三方純像素文字或能力失敗情境執行，不能據此將這些列寫成 `PASS (native)`。
 
 > 上表只用於逐項執行記錄，不能原樣作為 strict artifact。嚴格閘門報告必須使用[中央真實裝置驗收報告範本](acceptance-report-template.zh-TW.md)，
 > 並維持 `ID | 結果 | 證據` 為前三欄，再將 W1–W7 的結果與證據逐項轉錄進去。

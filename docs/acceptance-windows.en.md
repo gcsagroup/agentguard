@@ -3,21 +3,28 @@
 # Windows Real-Device Acceptance Checklist (Launch Readiness)
 
 This document covers pre-release manual acceptance testing of the AgentGuard desktop shell on a
-**real Windows device**. It corresponds to the Windows items in platform-matrix marked "code is in CI,
-but real-device end-to-end validation is pending." They count only after being exercised on real Windows.
-The `windows` CI job only compiles `win-adapter`; it does not drive real UI Automation / GDI / OCR.
+**real Windows device** and defines the remaining W1–W7 work. The `windows` CI job now covers the Windows
+workspace, `win-adapter`, desktop tests, and a real-window startup smoke, but it does not drive real
+UI Automation / GDI / OCR interactions and cannot replace per-case manual evidence for W1–W7.
 
 > A fully green checklist is necessary but not sufficient for release. It does not replace Authenticode
 > signing, installer identity, evidence for the other platforms, or the complete release gate.
 
-> **Offline prerequisite gate:** first run `make acceptance` (offline scenarios) at the repository root and,
-> on Windows, run `cargo build -p win-adapter` + `clippy -D warnings`. A green result is necessary but not
-> sufficient: it proves that the Windows-specific code path compiles and the verdict logic is correct, but
-> it does not prove that UI Automation really obtains a tree or GDI really captures a frame on real Windows.
+> **Automated prerequisite gate:** first run `make acceptance` and `cargo test --workspace` at the repository
+> root. On Windows, also build `win-adapter`, run Clippy with `-D warnings`, and run desktop tests, desktop
+> Clippy, and the Release build. CI's window-startup smoke confirms that the process does not exit immediately
+> and creates a native window. A green result is necessary but not sufficient: it does not prove W1–W7 interactions.
+
+## Current Execution Status (2026-09-02)
+
+- Candidate `89dadf960a558d35dc3c6c557eadbc19d3a162d0` completed desktop tests 5/5, desktop Clippy with `-D warnings`, and a Release build on Windows 11 build 26200. GitHub Actions run `33551495621` was fully green.
+- The Release EXE has SHA-256 `47A420C6A5FA88C406C18DD7F8A189B6D21183143A2DA69578FA02C559AB5119` and Authenticode status `NotSigned`.
+- During independent RDP interaction testing, the window remained idle for more than 30 seconds and continued refreshing. Two sessions each ran for more than 30 seconds across OCR cycles; UIA/GDI/OCR all reported available; a real `OVL-010` blocking modal fired; and a second End/Resume/Start cycle remained stable after rejection. No new Event 1000 appeared.
+- This run is **partial real-device acceptance**. Payment CTA, third-party form and pixel OCR, steganography, overlay-boundary, capability-failure, and Native Messaging scenarios were not executed as specified by W1–W7, so the table below remains unmarked. WinRM automation is prerequisite-gate evidence only; this run also has separate RDP interaction evidence. See the [supplemental report](acceptance-report-windows-2026-09-02.en.md).
 
 ## Prerequisites
 
-- [ ] The AgentGuard Windows desktop shell is installed and running (system-tray application)
+- [ ] The AgentGuard Windows desktop shell is installed and running
 - [ ] The rule set is `crates/guard-schema/rules/p0_rules.yaml` (or an equivalent path in the release package)
 - [ ] The threat-intelligence bundle is loaded
 - [ ] If testing the browser-extension path: perform the Windows equivalent of `install-host.sh` (write the
@@ -38,6 +45,8 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 | W5 | overlay coverage (the note 1 limitation) | Suspicious content **drawn by the target window itself** is captured; a phishing window drawn over it by **another process** is **not** present in the pixels captured by GDI (an accurate narrow-coverage limitation, not a bug) | | |
 | W6 | Runtime capability probe | The shell reports whether UI Automation / capture / OCR are available, each with a reason string (rather than silently assuming availability) | | |
 | W7 | Browser extension → native-messaging host | Chrome/Edge extension events are decided by the registry-registered `guard-nm-host.exe` and enter the signed audit trail; the host's origin validation matches. This is required for strict Windows candidate acceptance | | |
+
+> The supplemental report's blocking modal, capability status, and OCR cycles are adjacent evidence for W1/W3/W4/W6, but the payment CTA, steganography, third-party pixel-only text, and capability-failure scenarios specified by those rows were not executed. They therefore cannot be recorded as `PASS (native)`.
 
 > The table above is only an execution record and cannot be used unchanged as a strict artifact. A strict-gate report
 > must use the [central real-device acceptance report template](acceptance-report-template.en.md), preserve `ID | Result | Evidence`

@@ -2,19 +2,26 @@
 
 # Windows 真机验收清单（Launch Readiness）
 
-本文档用于在**真实 Windows 设备**上对 AgentGuard 桌面壳子做发布前人工验收。它对应 platform-matrix
-里 Windows 列那几条"代码已进 CI、但真机端到端未验证"的项——只有在真 Windows 上跑一遍才算数,
-`windows` CI 作业只编译 `win-adapter`、不驱动真实的 UI Automation / GDI / OCR。
+本文档用于在**真实 Windows 设备**上对 AgentGuard 桌面壳子做发布前人工验收，并定义尚待完成的 W1–W7。
+`windows` CI 作业现已覆盖 Windows 工作区、`win-adapter`、桌面测试和真实窗口启动 smoke，但不会驱动
+真实 UI Automation / GDI / OCR 交互，也不能替代 W1–W7 的逐项人工证据。
 
 > 本清单全绿只是发布的必要非充分条件；它不能替代 Authenticode 签名、安装包身份、其余平台证据或完整发布门禁。
 
-> **前置的离线门禁**:先在仓库根跑 `make acceptance`(离线场景)与(在 Windows 上)
-> `cargo build -p win-adapter` + `clippy -D warnings`。全绿是必要非充分条件——它证明"Windows 专属
-> 代码路径能编译、判决逻辑正确",不证明"真 Windows 上 UI Automation 真的取到了树、GDI 真的抓到了帧"。
+> **前置的自动化门禁**：先在仓库根运行 `make acceptance` 与 `cargo test --workspace`；在 Windows 上还要构建
+> `win-adapter`、以 `-D warnings` 运行 Clippy，并运行桌面测试、桌面 Clippy 和 Release 构建。CI 的窗口启动
+> smoke 会确认进程未立即退出且建立了原生窗口。全绿是必要非充分条件：它不证明 W1–W7 的真实交互结果。
+
+## 当前执行状态（2026-09-02）
+
+- 候选 `89dadf960a558d35dc3c6c557eadbc19d3a162d0` 已在 Windows 11 build 26200 上完成桌面测试 5/5、桌面 Clippy `-D warnings` 与 Release 构建；GitHub Actions run `33551495621` 全绿。
+- Release EXE 的 SHA-256 为 `47A420C6A5FA88C406C18DD7F8A189B6D21183143A2DA69578FA02C559AB5119`，Authenticode 状态为 `NotSigned`。
+- 独立 RDP 交互测试中，窗口空闲超过 30 秒并连续刷新；两轮会话各跨过 OCR 周期运行超过 30 秒，UIA/GDI/OCR 均显示可用，真实触发 `OVL-010` 阻断模态，拒绝后执行 End/Resume/Start 的第二轮仍稳定，且未出现新的 Event 1000。
+- 本轮结论是**部分真机验收**。付款 CTA、第三方表单与像素 OCR、隐写、overlay 边界、能力失败分支与 Native Messaging 未按 W1–W7 的规定场景执行，因此下表不标记 PASS。WinRM 自动化只属于前置门禁；本轮另有独立 RDP 交互证据。详见[补充报告](acceptance-report-windows-2026-09-02.md)。
 
 ## 前置条件
 
-- [ ] AgentGuard Windows 桌面壳子已安装并运行(托盘应用)
+- [ ] AgentGuard Windows 桌面壳子已安装并运行
 - [ ] 规则集为 `crates/guard-schema/rules/p0_rules.yaml`(或发布包内等价路径)
 - [ ] 威胁情报 bundle 已加载
 - [ ] 若验收浏览器扩展路径:`install-host.sh` 的 Windows 等价(原生消息 host manifest 写进注册表
@@ -34,6 +41,8 @@
 | W5 | overlay 覆盖(note 1 的限制) | 目标窗口**自绘**的可疑覆盖被抓到;**另一进程**绘在其上的钓鱼窗口**不**在 GDI 抓到的像素里(如实的窄覆盖,不是 bug) | | |
 | W6 | 运行时能力探针 | 壳子报告 UI Automation / 捕获 / OCR 各自可用与否,带原因串(不是静默假设可用) | | |
 | W7 | 浏览器扩展 → 原生消息 host | Chrome/Edge 扩展的事件经注册表登记的 `guard-nm-host.exe` 判决并进签名审计；host 的 origin 校验对上。它是严格 Windows 候选验收的必需项 | | |
+
+> 补充报告中的阻断模态、能力状态和 OCR 周期是 W1/W3/W4/W6 的相邻证据，但没有按各行规定的付款 CTA、隐写、第三方纯像素文本或能力失败场景执行，不能据此把这些行写成 `PASS (native)`。
 
 > 上表只用于逐项执行记录，不能原样作为 strict artifact。严格门禁报告必须使用[中央真机验收报告模板](acceptance-report-template.md)，
 > 并保持 `ID | 结果 | 证据` 为前三列，再把 W1–W7 的结果与证据逐项转录进去。
