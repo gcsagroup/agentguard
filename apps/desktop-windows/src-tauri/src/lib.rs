@@ -39,6 +39,12 @@ struct AppState {
     adapter: Mutex<WinAdapter>,
     auto_approve: Mutex<bool>,
     pending: Mutex<Option<PendingConfirm>>,
+    /// Startup snapshot from the dedicated native-probe thread.
+    ///
+    /// Re-probing from a Tauri command would re-enter the WinRT OCR factory cache from the
+    /// UI/IPC thread. The exact Windows host crashed there with `0xC0000005`; observation
+    /// failures are still reported by the poller through `observe_error`.
+    capabilities: AdapterCapabilities,
     /// The real observer. `None` on a non-Windows build, or when UI Automation could not
     /// be created — and [`AppState::observe_error`] then says which.
     #[cfg(windows)]
@@ -379,7 +385,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
     let st = engine.status();
-    let caps = capabilities();
+    let caps = &state.capabilities;
     let score = engine.privacy_score();
     let ent = load_or_free(entitlement_path());
     let device_policy = DevicePolicy::from_path(device_policy_path()).unwrap_or_default();
@@ -568,7 +574,7 @@ fn start_guard_session(
     // record a user's screen with no agent to attribute it to, which is the opposite of what
     // a session-scoped guard is for.
     drop(adapter);
-    if capabilities().can_observe() {
+    if state.capabilities.can_observe() {
         start_auto_poller(app, state.polling.clone());
     }
     Ok(sid)
@@ -924,6 +930,7 @@ pub fn run() {
         adapter: Mutex::new(WinAdapter::new()),
         auto_approve: Mutex::new(false),
         pending: Mutex::new(None),
+        capabilities: caps.clone(),
         #[cfg(windows)]
         observer: Mutex::new(if caps.uia_native.available || caps.frame_capture.available {
             Some(NativeObserver::new().with_schemas(load_form_schemas()))
