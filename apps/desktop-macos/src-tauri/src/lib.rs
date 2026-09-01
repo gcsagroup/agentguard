@@ -10,6 +10,7 @@ use guard_audit::{
     AuditRecord, AuditStore, SessionReport, UserDecision,
 };
 use guard_billing::load_or_free;
+use guard_core::confirm_queue::{ConfirmQueue, ResolveOutcome};
 use guard_core::{AutoApprove, ConfirmRequest, Engine};
 use guard_intel::load_release;
 use guard_netmon::{evaluate_flow, FlowSummary};
@@ -25,16 +26,14 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, State};
 use win_adapter::{PlatformAdapter, SimObservation};
 
-struct PendingConfirm {
-    audit_id: Option<String>,
-    request: ConfirmRequest,
-}
-
 struct AppState {
     engine: Mutex<Engine>,
     adapter: Mutex<MacAdapter>,
     auto_approve: Mutex<bool>,
-    pending: Mutex<Option<PendingConfirm>>,
+    // P0-5:待确认改成带不可变 request_id 的有界队列(guard_core::ConfirmQueue)。
+    // 后台 AX/SCK 事件只能**入队**,不再覆盖用户正在看的那一条;确认按 request_id 做
+    // compare-and-swap。逻辑在 guard-core 里纯函数实现并有并发测试。
+    pending: Mutex<ConfirmQueue>,
     tcc_acknowledged: Mutex<bool>,
     sck_streaming: Mutex<bool>,
     sck_native_ok: Mutex<bool>,
@@ -85,6 +84,8 @@ struct DecisionDto {
 
 #[derive(Serialize)]
 struct ConfirmDto {
+    /// P0-5:不可变的请求 id。UI 显示它、resolve 时原样回传,后端据此 compare-and-swap。
+    request_id: u64,
     rule_id: String,
     severity: String,
     human_message: String,
@@ -370,7 +371,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         accessibility: caps.accessibility,
         screen_capture: caps.screen_capture,
         privacy_composite: score.composite,
-        pending_confirm: pending.is_some(),
+        pending_confirm: !pending.is_empty(),
         intel_version: st.intel_version,
         tcc_acknowledged: tcc,
         plan: format!("{:?}", ent.plan),
@@ -425,10 +426,21 @@ fn acknowledge_tcc(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
+/// 把一条 require_confirm 判决入队,返回它不可变的 request_id(供日志/测试)。
+///
+/// 唯一的入队路径。以前是散落各处的 `*state.pending.lock() = Some(...)`,新事件直接覆盖
+/// 旧的 —— 那正是 P0-5 的成因。集中到这里之后,后台事件只会**排在后面**,不会顶替。
+fn enqueue_confirm(state: &AppState, req: ConfirmRequest) -> Result<u64, String> {
+    let mut q = state.pending.lock().map_err(|e| e.to_string())?;
+    Ok(q.enqueue(req))
+}
+
 #[tauri::command]
 fn get_pending_confirm(state: State<'_, AppState>) -> Result<Option<ConfirmDto>, String> {
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
-    Ok(pending.as_ref().map(|p| ConfirmDto {
+    // 永远显示队首(最旧)那一条。它稳定不变,直到被 resolve 移除 —— UI 不再"内容一直在跳"。
+    Ok(pending.front().map(|p| ConfirmDto {
+        request_id: p.request_id,
         rule_id: p.request.rule_id.clone(),
         severity: p.request.severity.clone(),
         human_message: p.request.human_message.clone(),
@@ -437,29 +449,59 @@ fn get_pending_confirm(state: State<'_, AppState>) -> Result<Option<ConfirmDto>,
     }))
 }
 
+/// resolve_confirm 的结果,回给前端。`stale` 时前端应刷新 pending 而不是当作成功。
+#[derive(Serialize)]
+struct ResolveDto {
+    /// 是否真的解析了这条 request_id(false = 它已过期/被别的会话清掉,未触碰任何请求)。
+    resolved: bool,
+    /// 解析后队列里是否还有下一条待确认(前端据此决定是否继续弹)。
+    has_next: bool,
+}
+
 #[tauri::command]
-fn resolve_confirm(state: State<'_, AppState>, approve: bool) -> Result<(), String> {
-    let mut pending_guard = state.pending.lock().map_err(|e| e.to_string())?;
-    let Some(pending) = pending_guard.take() else {
-        return Ok(());
+fn resolve_confirm(
+    state: State<'_, AppState>,
+    request_id: u64,
+    approve: bool,
+) -> Result<ResolveDto, String> {
+    // P0-5 的核心:按 request_id compare-and-swap,只解析用户确实看到的那一条。
+    let (outcome, has_next) = {
+        let mut q = state.pending.lock().map_err(|e| e.to_string())?;
+        let outcome = q.resolve(request_id, approve);
+        (outcome, !q.is_empty())
     };
-    drop(pending_guard);
+    let ResolveOutcome::Resolved { approve, audit_id } = outcome else {
+        // Stale:用户看到的请求已经不在了(新会话清掉 / 被挤出 / 已解析过)。不改引擎状态,
+        // 让前端重新拉 pending —— 绝不把一个过期的"同意"当作对当前请求的同意。
+        return Ok(ResolveDto {
+            resolved: false,
+            has_next,
+        });
+    };
 
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-    if let (Some(store), Some(id)) = (engine.audit(), pending.audit_id.as_ref()) {
+    // 审计落库失败 = 确认失败。以前这里是 `let _ = ...`(报告 P0-5 点名):回执没写进签名
+    // 审计,却照样告诉调用方成功了。现在写不进就报错、不动引擎状态 —— 一次没有留痕的高危
+    // 确认,和没确认没有区别。
+    if let (Some(store), Some(id)) = (engine.audit(), audit_id.as_ref()) {
         let ud = if approve {
             UserDecision::Approve
         } else {
             UserDecision::Deny
         };
-        let _ = store.set_user_decision(id, ud);
+        store
+            .set_user_decision(id, ud)
+            .map_err(|e| format!("确认回执写入签名审计失败,确认未生效:{e}"))?;
     }
     if approve {
         engine.resume();
     } else {
         engine.pause();
     }
-    Ok(())
+    Ok(ResolveDto {
+        resolved: true,
+        has_next,
+    })
 }
 
 #[tauri::command]
@@ -555,6 +597,13 @@ fn start_guard_session(
         ..Default::default()
     };
     adapter.start_task_session(sid.clone(), "Claude", &task);
+    // P0-3/P0-5:新会话推进 generation 并清空上一会话遗留的待确认。一个新会话不继承
+    // 悬空的确认;上一会话的 request_id 从此解析为 Stale。
+    state
+        .pending
+        .lock()
+        .map_err(|e| e.to_string())?
+        .bump_generation();
     drain_and_process(state.inner(), &mut adapter)?;
     Ok(sid)
 }
@@ -563,6 +612,19 @@ fn start_guard_session(
 fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     adapter.end_session("Claude");
+    // P0-3:会话结束停掉后台观察器(不再"结束了还在采集"),并清空待确认队列。
+    // 观察器由这两个 AtomicBool 驱动,置 false 让 SCK/AX 轮询线程在下一拍退出。
+    state.sck_auto_poll.store(false, Ordering::SeqCst);
+    state.ax_auto_poll.store(false, Ordering::SeqCst);
+    if let Ok(mut s) = state.sck_streaming.lock() {
+        *s = false;
+    }
+    let _ = stop_capture_session();
+    state
+        .pending
+        .lock()
+        .map_err(|e| e.to_string())?
+        .bump_generation();
     drain_and_process(state.inner(), &mut adapter)?;
     Ok(())
 }
@@ -984,10 +1046,7 @@ fn process_one(
                         engine.last_audit_id().map(|s| s.to_string()),
                         marked.metadata.get("ui_text").cloned(),
                     );
-                    *state.pending.lock().map_err(|e| e.to_string())? = Some(PendingConfirm {
-                        audit_id: engine.last_audit_id().map(|s| s.to_string()),
-                        request: req,
-                    });
+                    enqueue_confirm(state, req)?;
                 }
                 return Ok(to_dto(&d));
             }
@@ -1010,10 +1069,7 @@ fn process_one(
             engine.last_audit_id().map(|s| s.to_string()),
             event.metadata.get("ui_text").cloned(),
         );
-        *state.pending.lock().map_err(|e| e.to_string())? = Some(PendingConfirm {
-            audit_id: engine.last_audit_id().map(|s| s.to_string()),
-            request: req,
-        });
+        enqueue_confirm(state, req)?;
     }
     Ok(to_dto(&d))
 }
@@ -1047,7 +1103,9 @@ pub fn run() {
         engine: Mutex::new(build_engine()),
         adapter: Mutex::new(MacAdapter::new()),
         auto_approve: Mutex::new(false),
-        pending: Mutex::new(None),
+        // cap 64:同时在等的高危确认上限。真正防止风暴撑爆它的是上层的事件聚合(P2-3);
+        // 满了则挤出最旧的并把它判成 Stale(fail-safe:过期确认按未放行处理)。
+        pending: Mutex::new(ConfirmQueue::new(64)),
         tcc_acknowledged: Mutex::new(false),
         sck_streaming: Mutex::new(false),
         sck_native_ok: Mutex::new(false),

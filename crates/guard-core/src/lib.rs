@@ -1,6 +1,7 @@
 //! Core event pipeline: ingest GuardEvent → Decision → optional AuditStore.
 
 pub mod confirm;
+pub mod confirm_queue;
 pub mod trajectory;
 
 pub use trajectory::{DriftKind, Step, Trajectory};

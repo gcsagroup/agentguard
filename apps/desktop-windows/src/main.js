@@ -19,12 +19,17 @@ function actionClass(action) {
   return "logonly";
 }
 
+// P0-5:记住当前弹层展示的确切 request_id,resolve 时原样回传做 compare-and-swap。
+let shownRequestId = null;
+
 async function maybeShowConfirm() {
   const pending = await invoke("get_pending_confirm");
   if (!pending) {
+    shownRequestId = null;
     modal().classList.add("hidden");
     return;
   }
+  shownRequestId = pending.request_id;
   document.getElementById("confirm-msg").textContent = pending.human_message;
   document.getElementById("confirm-meta").textContent =
     `${pending.rule_id} · ${pending.severity} · ${pending.source_app}` +
@@ -245,19 +250,22 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (_) {}
 
-  document.getElementById("confirm-deny").onclick = async () => {
-    await invoke("resolve_confirm", { approve: false });
+  // P0-5:回传 shownRequestId;resolved:false = 已过期,重看当前那条。
+  const resolvePending = async (approve) => {
+    if (shownRequestId == null) {
+      modal().classList.add("hidden");
+      return;
+    }
+    const res = await invoke("resolve_confirm", { requestId: shownRequestId, approve });
     modal().classList.add("hidden");
     await refreshStatus();
     await refreshAudit();
+    if (res && (res.has_next || !res.resolved)) {
+      await maybeShowConfirm();
+    }
   };
-
-  document.getElementById("confirm-approve").onclick = async () => {
-    await invoke("resolve_confirm", { approve: true });
-    modal().classList.add("hidden");
-    await refreshStatus();
-    await refreshAudit();
-  };
+  document.getElementById("confirm-deny").onclick = () => resolvePending(false);
+  document.getElementById("confirm-approve").onclick = () => resolvePending(true);
 
   document.querySelectorAll("[data-threat]").forEach((btn) => {
     btn.onclick = async () => {

@@ -81,7 +81,7 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
   </div>
   <div class="tiles">
     <div class="tile done"><div class="n">已完成</div><div class="l">阶段 0 · 源码树合流</div></div>
-    <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(1 项已修)</div></div>
+    <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(3 项已修)</div></div>
     <div class="tile"><div class="n">9</div><div class="l">P1 · 生产前必修</div></div>
     <div class="tile"><div class="n">7</div><div class="l">P2 · 质量改进</div></div>
   </div>
@@ -99,22 +99,26 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     </div>
   </div>
 
-  <div class="phase">
+  <div class="phase done">
     <div class="dot">A</div>
-    <h2>发布可信度</h2>
-    <div class="meta">1–2 天 · 门禁不可信,则后面一切"通过"都无意义</div>
+    <h2>发布可信度 <span class="chip done">云端部分已完成</span></h2>
+    <div class="meta">云端修复已落地 · 剩余:推上 GitHub 看 11/11 + 设 required check(你侧)</div>
     <div class="item">
-      <div class="head"><b>严格门禁伪证漏洞</b><span class="chip p0">P0-1</span><span class="chip cloud">云端可完成</span></div>
-      <p>已在云端树复现:证据检查只看"文件存在 + 含关键词",把门禁脚本自己喂给它就能拿到"全部通过,退出 0"。
-      改成结构化 JSON 证据(绑定 commit SHA、产物 SHA-256、命令、退出码、时间),codesign/spctl/apksigner
-      这类本机可验的由门禁直接验产物;strict 下 <code>agent.keys.publicly_known</code> 不放行;
-      报告列的六种伪造姿势逐一写成"必须非 0 退出"的反向回归测试,进仓库不变量。</p>
+      <div class="head"><b>严格门禁伪证漏洞</b><span class="chip p0">P0-1</span><span class="chip done">已修</span></div>
+      <p>证据换形态:结构化 JSON 绑定 commit、产物 SHA-256、命令、退出码、时间(<code>guard-cli
+      evidence-verify / evidence-template</code>);本机有产物则复核哈希;strict 增设 production
+      preflight 零 FAIL 门(夹具密钥在生产语义里是阻塞不是豁免)。报告的六种伪造姿势各有一条
+      反向测试;重放原始攻击命令:8 份伪证逐一被拒,strict 退出 1。诚实边界:防手滑与懒,
+      不防全字段伪造——签名证据属阶段 D。</p>
     </div>
     <div class="item">
-      <div class="head"><b>CI 转绿:Windows 路径 + Linux jail</b><span class="chip p0">P0-2</span><span class="chip cloud">云端可完成</span></div>
-      <p>Windows <code>\\?\</code> 扩展路径把 <code>\etc\passwd</code> 判成一般告警而非敏感目标——路径归一化补
-      UNC/extended-length/盘符大小写,红-绿修复;Linux jail 两个 fail-closed 误伤(授权内写、读 /etc/hosts 都退出 1)
-      先在本容器复现再修根因。完成标准:11/11 CI 任务连续两次全绿,并设为 main/tag 的 required check。</p>
+      <div class="head"><b>CI 转绿:Windows 路径 + Linux jail</b><span class="chip p0">P0-2</span><span class="chip done">已修,待 CI 复测</span></div>
+      <p>Windows:<code>fold_windows_shapes</code> 把 verbatim 盘符路径折成 unix 形状(仅喂无条件
+      拒绝表,deny 方向),<code>\\?\D:\etc\passwd</code> 恢复 FS-SENSITIVE,Linux 上以字面量红-绿。
+      Linux jail:根因是 landlock 的 <code>prctl(PR_SET_NO_NEW_PRIVS)</code> 用三参数 syscall 发,
+      arg4/5 寄存器残值在真内核 EINVAL → enter() 整体 fail-closed;拒绝类测试因"全拒也算拒"假通过,
+      放行类才暴露。syscall5 共享化 + 显式置零 + 真调一次的内核回归测试。最终判据在你侧:
+      推上 GitHub 看 11/11,连续两次全绿后设 required check。</p>
     </div>
   </div>
 

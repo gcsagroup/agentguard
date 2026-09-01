@@ -10,6 +10,7 @@ use guard_audit::{
     AuditRecord, AuditStore, SessionReport, UserDecision,
 };
 use guard_billing::load_or_free;
+use guard_core::confirm_queue::{ConfirmQueue, ResolveOutcome};
 use guard_core::{AutoApprove, ConfirmRequest, Engine};
 use guard_intel::load_release;
 use guard_netmon::{evaluate_flow, FlowSummary};
@@ -29,16 +30,13 @@ use win_adapter::{capabilities, AdapterCapabilities, PlatformAdapter, SimObserva
 #[cfg(windows)]
 type NativeObserver = win_adapter::NativeWinAdapter;
 
-struct PendingConfirm {
-    audit_id: Option<String>,
-    request: ConfirmRequest,
-}
-
 struct AppState {
     engine: Mutex<Engine>,
     adapter: Mutex<WinAdapter>,
     auto_approve: Mutex<bool>,
-    pending: Mutex<Option<PendingConfirm>>,
+    // P0-5:带不可变 request_id 的有界确认队列(与 macOS 壳子共用 guard_core::ConfirmQueue)。
+    // 后台观察事件只能入队,不覆盖用户正在看的那条;确认按 request_id compare-and-swap。
+    pending: Mutex<ConfirmQueue>,
     /// The real observer. `None` on a non-Windows build, or when UI Automation could not
     /// be created — and [`AppState::observe_error`] then says which.
     #[cfg(windows)]
@@ -92,6 +90,8 @@ struct DecisionDto {
 
 #[derive(Serialize)]
 struct ConfirmDto {
+    /// P0-5:不可变请求 id,UI 回传给 resolve 做 compare-and-swap。
+    request_id: u64,
     rule_id: String,
     severity: String,
     human_message: String,
@@ -406,7 +406,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
             .clone()
             .unwrap_or_default(),
         privacy_composite: score.composite,
-        pending_confirm: pending.is_some(),
+        pending_confirm: !pending.is_empty(),
         intel_version: st.intel_version,
         plan: format!("{:?}", ent.plan),
         pro_active: ent.is_active(),
@@ -419,7 +419,8 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
 #[tauri::command]
 fn get_pending_confirm(state: State<'_, AppState>) -> Result<Option<ConfirmDto>, String> {
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
-    Ok(pending.as_ref().map(|p| ConfirmDto {
+    Ok(pending.front().map(|p| ConfirmDto {
+        request_id: p.request_id,
         rule_id: p.request.rule_id.clone(),
         severity: p.request.severity.clone(),
         human_message: p.request.human_message.clone(),
@@ -428,36 +429,56 @@ fn get_pending_confirm(state: State<'_, AppState>) -> Result<Option<ConfirmDto>,
     }))
 }
 
-#[tauri::command]
-fn resolve_confirm(state: State<'_, AppState>, approve: bool) -> Result<(), String> {
-    let mut pending_guard = state.pending.lock().map_err(|e| e.to_string())?;
-    let Some(pending) = pending_guard.take() else {
-        return Ok(());
-    };
-    drop(pending_guard);
+/// resolve_confirm 的结果(与 macOS 壳子同形)。`resolved:false` = 这条已过期,前端应重看。
+#[derive(Serialize)]
+struct ResolveDto {
+    resolved: bool,
+    has_next: bool,
+}
 
-    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-    if let (Some(store), Some(id)) = (engine.audit(), pending.audit_id.as_ref()) {
-        let ud = if approve {
-            UserDecision::Approve
-        } else {
-            UserDecision::Deny
-        };
-        let _ = store.set_user_decision(id, ud);
+#[tauri::command]
+fn resolve_confirm(
+    state: State<'_, AppState>,
+    request_id: u64,
+    approve: bool,
+) -> Result<ResolveDto, String> {
+    // P0-5:按 request_id compare-and-swap,只解析用户看到的那条。
+    let (outcome, has_next) = {
+        let mut q = state.pending.lock().map_err(|e| e.to_string())?;
+        let outcome = q.resolve(request_id, approve);
+        (outcome, !q.is_empty())
+    };
+    let ResolveOutcome::Resolved { approve, audit_id } = outcome else {
+        return Ok(ResolveDto {
+            resolved: false,
+            has_next,
+        });
+    };
+
+    {
+        let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+        // 审计落库失败 = 确认失败(报告 P0-5:以前是 `let _ = ...`,回执没写却报成功)。
+        if let (Some(store), Some(id)) = (engine.audit(), audit_id.as_ref()) {
+            let ud = if approve {
+                UserDecision::Approve
+            } else {
+                UserDecision::Deny
+            };
+            store
+                .set_user_decision(id, ud)
+                .map_err(|e| format!("确认回执写入签名审计失败,确认未生效:{e}"))?;
+        }
+        if approve {
+            engine.resume();
+        }
     }
-    if approve {
-        // Allow once: stay unpaused.
-        engine.resume();
-    } else {
-        // Mirror AutoDeny: pause session.
-        // process_gated would set paused; we expose via a follow-up event.
-        // Use a tiny synthetic path: process_gated with AutoDeny already paused —
-        // here we set pause by processing a no-op through deny semantics.
-        // Engine::paused is private via resume only — add force_pause via public API.
-        drop(engine);
+    if !approve {
         force_pause(&state)?;
     }
-    Ok(())
+    Ok(ResolveDto {
+        resolved: true,
+        has_next,
+    })
 }
 
 fn force_pause(state: &State<'_, AppState>) -> Result<(), String> {
@@ -563,6 +584,12 @@ fn start_guard_session(
         ..Default::default()
     };
     adapter.start_task_session(sid.clone(), "Claude", &task);
+    // P0-3/P0-5:新会话推进 generation 并清空上一会话遗留的待确认。
+    state
+        .pending
+        .lock()
+        .map_err(|e| e.to_string())?
+        .bump_generation();
     drain_and_process(&state, &mut adapter)?;
     // Observation begins with the session and ends with it. Polling outside a session would
     // record a user's screen with no agent to attribute it to, which is the opposite of what
@@ -579,6 +606,12 @@ fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
     state.polling.store(false, Ordering::Relaxed);
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     adapter.end_session("Claude");
+    // P0-3:会话结束清空待确认队列(观察器已由 polling=false 停掉)。
+    state
+        .pending
+        .lock()
+        .map_err(|e| e.to_string())?
+        .bump_generation();
     drain_and_process(&state, &mut adapter)?;
     Ok(())
 }
@@ -740,10 +773,11 @@ fn process_one(
             engine.last_audit_id().map(|s| s.to_string()),
             event.metadata.get("ui_text").cloned(),
         );
-        *state.pending.lock().map_err(|e| e.to_string())? = Some(PendingConfirm {
-            audit_id: engine.last_audit_id().map(|s| s.to_string()),
-            request: req,
-        });
+        state
+            .pending
+            .lock()
+            .map_err(|e| e.to_string())?
+            .enqueue(req);
     }
     Ok(to_dto(&d))
 }
@@ -892,7 +926,7 @@ pub fn run() {
         engine: Mutex::new(build_engine()),
         adapter: Mutex::new(WinAdapter::new()),
         auto_approve: Mutex::new(false),
-        pending: Mutex::new(None),
+        pending: Mutex::new(ConfirmQueue::new(64)),
         #[cfg(windows)]
         observer: Mutex::new(if caps.uia_native.available || caps.frame_capture.available {
             Some(NativeObserver::new().with_schemas(load_form_schemas()))

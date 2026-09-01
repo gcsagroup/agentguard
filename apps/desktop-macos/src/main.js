@@ -19,12 +19,18 @@ function actionClass(action) {
   return "logonly";
 }
 
+// P0-5:记住当前弹层展示的确切 request_id。resolve 时原样回传,后端据此 compare-and-swap
+// ——用户拒绝的是他看到的那一条,不是"此刻队首碰巧是哪条"。
+let shownRequestId = null;
+
 async function maybeShowConfirm() {
   const pending = await invoke("get_pending_confirm");
   if (!pending) {
+    shownRequestId = null;
     modal().classList.add("hidden");
     return;
   }
+  shownRequestId = pending.request_id;
   document.getElementById("confirm-msg").textContent = pending.human_message;
   document.getElementById("confirm-meta").textContent =
     `${pending.rule_id} · ${pending.severity} · ${pending.source_app}` +
@@ -375,19 +381,24 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (_) {}
 
-  document.getElementById("confirm-deny").onclick = async () => {
-    await invoke("resolve_confirm", { approve: false });
+  // P0-5:两个按钮都回传 shownRequestId(用户看到的那条)。后端若返回 resolved:false,
+  // 说明这条已过期(新会话清了 / 被挤出)——不当作成功,重新拉 pending 让用户看当前那条。
+  const resolvePending = async (approve) => {
+    if (shownRequestId == null) {
+      modal().classList.add("hidden");
+      return;
+    }
+    const res = await invoke("resolve_confirm", { requestId: shownRequestId, approve });
     modal().classList.add("hidden");
     await refreshStatus();
     await refreshAudit();
+    // 队列里还有下一条(或这条已过期需要重看),再弹一次。
+    if (res && (res.has_next || !res.resolved)) {
+      await maybeShowConfirm();
+    }
   };
-
-  document.getElementById("confirm-approve").onclick = async () => {
-    await invoke("resolve_confirm", { approve: true });
-    modal().classList.add("hidden");
-    await refreshStatus();
-    await refreshAudit();
-  };
+  document.getElementById("confirm-deny").onclick = () => resolvePending(false);
+  document.getElementById("confirm-approve").onclick = () => resolvePending(true);
 
   document.querySelectorAll("[data-threat]").forEach((btn) => {
     btn.onclick = async () => {

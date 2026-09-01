@@ -1641,6 +1641,7 @@ name = "guard-billing"
 version = "1.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "guard-trust",
  "hex",
  "serde",
  "serde_json",
@@ -1729,6 +1730,10 @@ dependencies = [
  "sha2",
  "ureq",
 ]
+
+[[package]]
+name = "guard-trust"
+version = "1.0.0-rc.1"
 
 [[package]]
 name = "guard-vision"
