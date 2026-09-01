@@ -27,7 +27,7 @@
 use std::io::Write;
 use std::path::Path;
 
-use crate::backend::libc_syscall::syscall3;
+use crate::backend::libc_syscall::{syscall3, syscall5};
 
 const CLONE_NEWNS: isize = 0x00020000;
 const CLONE_NEWUSER: isize = 0x10000000;
@@ -49,29 +49,6 @@ const MS_REMOUNT: usize = 32;
 const MS_BIND: usize = 4096;
 const MS_REC: usize = 16384;
 const MS_PRIVATE: usize = 1 << 18;
-
-/// 五参数 syscall，mount 需要。
-#[inline]
-unsafe fn syscall5(nr: i64, a: isize, b: isize, c: isize, d: isize, e: isize) -> isize {
-    let ret: isize;
-    #[cfg(target_arch = "x86_64")]
-    std::arch::asm!(
-        "syscall",
-        inlateout("rax") nr as isize => ret,
-        in("rdi") a, in("rsi") b, in("rdx") c, in("r10") d, in("r8") e,
-        out("rcx") _, out("r11") _,
-        options(nostack, preserves_flags)
-    );
-    #[cfg(target_arch = "aarch64")]
-    std::arch::asm!(
-        "svc 0",
-        in("x8") nr as isize,
-        inlateout("x0") a => ret,
-        in("x1") b, in("x2") c, in("x3") d, in("x4") e,
-        options(nostack, preserves_flags)
-    );
-    ret
-}
 
 fn cstr(s: &str) -> Vec<u8> {
     let mut v = s.as_bytes().to_vec();

@@ -436,6 +436,39 @@ impl VolumeAliases {
     }
 }
 
+/// Windows 路径形状折叠:verbatim 盘符前缀(`\\?\C:\...`)与盘符根(`C:\...`)
+/// 折成 unix 形状(`/...`),反斜杠统一为正斜杠。
+///
+/// # 为什么存在(报告 P0-2,CI 真实失败)
+///
+/// Windows 上 `canonicalize` 会把路径变成 `\\?\D:\etc\passwd` 这种 verbatim 形状,
+/// 于是 `写系统目录被拦` 期望的 FS-SENSITIVE 被判成 FS-UNSCOPED —— 系统敏感路径被
+/// **降级**成一般告警。组件比较对 `Prefix(VerbatimDisk)` 和反斜杠无能为力,归一是唯一解。
+///
+/// # 为什么可以无条件生效(对照 [`VolumeAliases`] 的教训)
+///
+/// 卷别名折叠曾因无条件生效酿出判决/执行分家的越界 —— 但那是发生在 **allow 方向**
+/// (天花板成员判定)。这个函数只喂给 [`sensitive_target_full`] 里的**无条件拒绝表**:
+/// 折叠只可能把更多输入判成敏感(deny 方向),永远不会把敏感判成不敏感。最坏情况是
+/// Linux 上一个字面叫 `C:\etc\x` 的怪文件被误拒 —— 误拒吵但安全,和本文件其它
+/// 折叠的方向准则一致。**不要**把它用进 resolve/天花板判定,那边是 allow 方向。
+///
+/// 刻意不折的形状(都有测试钉住):`\\.\` 设备命名空间(RAW_DEVICE_PREFIXES 按原样
+/// 比前缀)、verbatim UNC(SYSTEM_DIRS 不含 UNC 形状,留给真机验收)、真 unix 路径(恒等)。
+pub fn fold_windows_shapes(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    // verbatim 前缀只在后面跟盘符时剥掉;`\\?\UNC\...` 剥完不是盘符,走不进下面的分支。
+    let rest = s.strip_prefix(r"\\?\").unwrap_or(&s);
+    let b = rest.as_bytes();
+    if b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/')
+    {
+        // 统一小写:Windows 文件系统大小写不敏感,`\ETC\` 就是 `\etc\`。只对盘符形状
+        // 生效(确定是 Windows 来源的路径),不碰大小写敏感的 unix 输入。
+        return PathBuf::from(format!("/{}", rest[3..].replace('\\', "/").to_lowercase()));
+    }
+    path.to_path_buf()
+}
+
 fn dealias_with(path: &Path, mode: VolumeAliases) -> PathBuf {
     if mode == VolumeAliases::Keep {
         return path.to_path_buf();
@@ -666,6 +699,8 @@ pub fn sensitive_target_full(
     //   - 它是真正做出安全判决的那个函数,而判决函数应该自己保证输入空间。
     //
     // 折叠是幂等的,所以做两次和做一次结果一样。
+    // Windows 形状先归一(verbatim 盘符 / 盘符根 → unix 形状;deny 方向,见函数文档)。
+    let path = &fold_windows_shapes(path);
     let path = &dealias_with(path, aliases);
     let s = path.to_string_lossy();
     let lower = s.to_lowercase();
@@ -828,6 +863,10 @@ const SYSTEM_DIRS: &[&str] = &[
     "/private/var",
     "C:\\Windows",
     "C:\\Program Files",
+    // fold_windows_shapes 之后的形状:`C:\\Windows\\...` → `/Windows/...`。
+    // 上面两条原生形状保留给未折叠的直接调用方。
+    "/windows",
+    "/program files",
     "C:\\Program Files (x86)",
     "C:\\ProgramData",
 ];
@@ -1775,5 +1814,69 @@ mod tests {
         for w in ["pattern", "hello", "TODO"] {
             assert!(!looks_like_path(w), "{w} 不该被当成路径");
         }
+    }
+}
+
+#[cfg(test)]
+mod windows_shape_tests {
+    use super::*;
+    use std::path::Path;
+
+    /// CI 真实失败(报告 P0-2):Windows 上 canonicalize 出 `\\?\D:\etc\passwd`,
+    /// `写系统目录被拦` 期望 FS-SENSITIVE,实判 FS-UNSCOPED。这里在 Linux 上用
+    /// 字面量复现同一形状 —— 修好前这条是红的。
+    #[test]
+    fn windows_verbatim扩展路径下的系统目录仍然敏感() {
+        let got = sensitive_target(Path::new(r"\\?\D:\etc\passwd"), PathIntent::Write);
+        assert!(got.is_some(), "verbatim 扩展路径绕过了系统目录判定");
+    }
+
+    #[test]
+    fn windows_盘符路径下的系统目录仍然敏感() {
+        for p in [r"D:\etc\passwd", "C:/etc/passwd", r"c:\ETC\shadow"] {
+            let got = sensitive_target(Path::new(p), PathIntent::Write);
+            assert!(got.is_some(), "{p} 绕过了系统目录判定");
+        }
+    }
+
+    #[test]
+    fn windows形状折叠_只动verbatim与盘符_不碰设备命名空间与unix路径() {
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"\\?\D:\etc\passwd")),
+            Path::new("/etc/passwd")
+        );
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"C:\Windows\System32")),
+            Path::new("/windows/system32")
+        ); // 盘符形状折叠时统一小写(Windows 大小写不敏感)
+        assert_eq!(
+            fold_windows_shapes(Path::new("C:/tmp/x")),
+            Path::new("/tmp/x")
+        );
+        // `\\.\` 设备命名空间原样保留 —— RAW_DEVICE_PREFIXES 按这个形状比前缀。
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"\\.\PhysicalDrive0")),
+            Path::new(r"\\.\PhysicalDrive0")
+        );
+        // UNC(含 verbatim UNC)不折:SYSTEM_DIRS 不含 UNC 形状,留给真机验收。
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"\\?\UNC\srv\share\x")),
+            Path::new(r"\\?\UNC\srv\share\x")
+        );
+        // 真正的 unix 路径恒等 —— 折叠不能改写正常输入。
+        assert_eq!(
+            fold_windows_shapes(Path::new("/etc/passwd")),
+            Path::new("/etc/passwd")
+        );
+        assert_eq!(
+            fold_windows_shapes(Path::new("/home/u/notes.txt")),
+            Path::new("/home/u/notes.txt")
+        );
+    }
+
+    #[test]
+    fn windows形状折叠是幂等的() {
+        let once = fold_windows_shapes(Path::new(r"\\?\C:\var\log"));
+        assert_eq!(fold_windows_shapes(&once), once);
     }
 }

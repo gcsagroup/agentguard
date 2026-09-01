@@ -183,6 +183,38 @@ pub(crate) mod libc_syscall {
         ret
     }
 
+    /// 五参数 syscall(`mount` 需要;`prctl` 也**必须**用它 —— 见下)。返回值 < 0 时是 `-errno`。
+    ///
+    /// # 为什么 prctl 不能用 syscall3
+    ///
+    /// `prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)` 的 arg3–arg5 被内核**显式校验必须为 0**。
+    /// 用 syscall3 发的话 arg4/arg5 寄存器里是调用点的残值,真内核上会 EINVAL。
+    /// landlock::enter 曾经就是这么写的:在本容器里(landlock 被 seccomp 挡掉)这条路径
+    /// 从没真正执行过,直到 CI 的真 Landlock 内核上 enter() 整体 fail-closed ——
+    /// 授权内的写和读 /etc/hosts 全部退出 1(报告 P0-2)。mountns 一侧从一开始就用
+    /// 五参数版本,这正是"同一形状的调用只该有一个实现"的理由。
+    #[inline]
+    pub unsafe fn syscall5(nr: Nr, a: isize, b: isize, c: isize, d: isize, e: isize) -> isize {
+        let ret: isize;
+        #[cfg(target_arch = "x86_64")]
+        std::arch::asm!(
+            "syscall",
+            inlateout("rax") nr as isize => ret,
+            in("rdi") a, in("rsi") b, in("rdx") c, in("r10") d, in("r8") e,
+            out("rcx") _, out("r11") _,
+            options(nostack, preserves_flags)
+        );
+        #[cfg(target_arch = "aarch64")]
+        std::arch::asm!(
+            "svc 0",
+            in("x8") nr as isize,
+            inlateout("x0") a => ret,
+            in("x1") b, in("x2") c, in("x3") d, in("x4") e,
+            options(nostack, preserves_flags)
+        );
+        ret
+    }
+
     /// 四参数 syscall(`landlock_add_rule` 需要)。返回值 < 0 时是 `-errno`。
     #[inline]
     pub unsafe fn syscall4(nr: Nr, a: isize, b: isize, c: isize, d: isize) -> isize {

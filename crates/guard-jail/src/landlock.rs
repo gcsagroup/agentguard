@@ -182,7 +182,7 @@ pub fn build_net_plan(net: &crate::profile::NetCeiling) -> NetPlan {
 #[cfg(target_os = "linux")]
 mod sys {
     use super::*;
-    use crate::backend::libc_syscall::{syscall3, syscall4};
+    use crate::backend::libc_syscall::{syscall3, syscall4, syscall5};
     use std::os::unix::fs::OpenOptionsExt;
     use std::os::unix::io::AsRawFd;
 
@@ -259,6 +259,23 @@ mod sys {
             if r < 0 {
                 return Err(format!("landlock_add_rule(NET_PORT {port}) errno {}", -r));
             }
+        }
+        Ok(())
+    }
+
+    /// `prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)` —— **必须**五参数、后三个显式置零。
+    ///
+    /// 内核对这条 prctl 显式校验 arg3–arg5 为 0。上一版用 syscall3 发,arg4/arg5 是
+    /// 调用点的寄存器残值:本容器里 landlock 被 seccomp 挡掉、这条路径从没跑过,
+    /// 直到 CI 的真 Landlock 内核上 EINVAL → enter() 整体 fail-closed →「授权内的写」
+    /// 「读 /etc/hosts」全部退出 1(报告 P0-2 的 jail 半边)。拒绝类测试因"全拒也算拒"
+    /// 而假通过 —— 这正是 fail-closed 系统的测试必须有放行用例的原因。
+    ///
+    /// 抽成独立函数是为了可测:prctl 不需要 Landlock,任何 Linux 进程都能真调一次。
+    pub fn set_no_new_privs() -> Result<(), String> {
+        let r = unsafe { syscall5(SYS_PRCTL, PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) };
+        if r < 0 {
+            return Err(format!("prctl(PR_SET_NO_NEW_PRIVS) errno {}", -r));
         }
         Ok(())
     }
@@ -353,10 +370,7 @@ mod sys {
         }
 
         // restrict_self 的前提:PR_SET_NO_NEW_PRIVS。它本身也该设。
-        let r = unsafe { syscall3(SYS_PRCTL, PR_SET_NO_NEW_PRIVS, 1, 0) };
-        if r < 0 {
-            return Err(format!("prctl(PR_SET_NO_NEW_PRIVS) errno {}", -r));
-        }
+        set_no_new_privs()?;
         let r = unsafe { syscall3(SYS_LANDLOCK_RESTRICT_SELF, rs_fd as isize, 0, 0) };
         if r < 0 {
             return Err(format!("landlock_restrict_self errno {}", -r));
@@ -383,6 +397,17 @@ pub fn enter(_profile: &Profile, _program: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// enter() 用的那次 prctl 必须在真内核上成功 —— 这条测试**真调**一次。
+    ///
+    /// prctl(PR_SET_NO_NEW_PRIVS) 不需要 Landlock、不可逆但对测试进程无害
+    /// (只是不能再经 setuid 提权),所以任何 Linux 上都能验。CI 的 P0-2 失败
+    /// 正是这条调用 EINVAL(syscall3 残值),而本容器此前验不到它。
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn 设置no_new_privs的那次prctl在真内核上成功() {
+        sys::set_no_new_privs().expect("prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) 应当成功");
+    }
 
     fn profile(read: &[&str], write: &[&str]) -> Profile {
         Profile {
