@@ -875,9 +875,40 @@ fn start_auto_poller(app: tauri::AppHandle, flag: Arc<AtomicBool>) {
     });
 }
 
+/// Run a probe away from the caller's thread.
+///
+/// On Windows, `capabilities()` creates a UI Automation client and therefore initialises COM
+/// as MTA on the calling thread. Tauri/tao later calls `OleInitialize` (STA) on its main thread
+/// while creating the native file-drop handler; doing both on the same thread panics with
+/// `RPC_E_CHANGED_MODE` before the first window appears.
+#[cfg(any(windows, test))]
+fn on_dedicated_thread<T, F>(name: &str, probe: F) -> T
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .spawn(probe)
+        .unwrap_or_else(|e| panic!("failed to start {name}: {e}"))
+        .join()
+        .unwrap_or_else(|_| panic!("{name} panicked"))
+}
+
+fn startup_capabilities() -> AdapterCapabilities {
+    #[cfg(windows)]
+    {
+        return on_dedicated_thread("agentguard-capability-probe", capabilities);
+    }
+    #[cfg(not(windows))]
+    {
+        capabilities()
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let caps = capabilities();
+    let caps = startup_capabilities();
     // Construct the observer once. Its absence is recorded with a reason, because a shell
     // that silently falls back to simulation is the failure this whole iteration is about.
     let observe_error = if caps.can_observe() {
@@ -985,5 +1016,40 @@ mod packaging_tests {
             src.contains("state.polling.store(false"),
             "the observation loop is never stopped, so it would outlive the session"
         );
+    }
+
+    /// The startup capability probe must not initialise COM on Tauri's main thread.
+    #[test]
+    fn startup_probe_uses_a_different_thread() {
+        let caller = std::thread::current().id();
+        let worker = super::on_dedicated_thread("agentguard-test-probe", || {
+            std::thread::current().id()
+        });
+        assert_ne!(
+            caller, worker,
+            "running the probe on Tauri's main thread reintroduces RPC_E_CHANGED_MODE"
+        );
+    }
+
+    /// The real capability probe must leave Tauri's thread free for OLE's STA setup.
+    #[cfg(windows)]
+    #[test]
+    fn startup_probe_does_not_change_the_callers_com_apartment() {
+        use std::ffi::c_void;
+
+        #[link(name = "ole32")]
+        extern "system" {
+            fn OleInitialize(reserved: *mut c_void) -> i32;
+            fn OleUninitialize();
+        }
+
+        let _ = super::startup_capabilities();
+        let result = unsafe { OleInitialize(std::ptr::null_mut()) };
+        assert!(
+            result >= 0,
+            "OleInitialize failed after the startup probe: HRESULT 0x{:08X}",
+            result as u32
+        );
+        unsafe { OleUninitialize() };
     }
 }
