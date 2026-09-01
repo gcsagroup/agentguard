@@ -42,8 +42,8 @@ struct AppState {
     /// Startup snapshot from the dedicated native-probe thread.
     ///
     /// Re-probing from a Tauri command would re-enter the WinRT OCR factory cache from the
-    /// UI/IPC thread. The exact Windows host crashed there with `0xC0000005`; observation
-    /// failures are still reported by the poller through `observe_error`.
+    /// UI/IPC thread. The exact Windows host crashed there with `0xC0000005`; later native
+    /// observation still reports warnings through poll events and terminal errors in state.
     capabilities: AdapterCapabilities,
     /// The real observer. `None` on a non-Windows build, or when UI Automation could not
     /// be created — and [`AppState::observe_error`] then says which.
@@ -390,7 +390,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let ent = load_or_free(entitlement_path());
     let device_policy = DevicePolicy::from_path(device_policy_path()).unwrap_or_default();
     let observing = state.polling.load(Ordering::Relaxed);
-    let (protection_mode, protection_summary) = protection_coverage(&caps, observing);
+    let (protection_mode, protection_summary) = protection_coverage(caps, observing);
     Ok(StatusDto {
         rules_loaded: st.rules_loaded,
         policy_id: st.policy_id,
