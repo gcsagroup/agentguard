@@ -88,33 +88,25 @@ gate() {
 # 所以下面还有一条自检:登记数不对就直接报脚本自身的 bug。
 EVIDENCE_SEEN=0
 need_evidence() {
-  local name="$1" why="$2" criterion="$3" var="$4" expect="$5"
+  local name="$1" why="$2" criterion="$3" var="$4" kind="$5"
   EVIDENCE_SEEN=$((EVIDENCE_SEEN+1))
   local path="${!var:-}"
   if [ -n "$path" ]; then
-    # `-e` 是不够的。上一版用的就是 `-e`,于是
-    #   export AGENTGUARD_EVIDENCE_MACOS_CODESIGN=/tmp
-    # 就能让 `--strict` 打印"自动检查与证据检查全部通过"并退出 0 ——
-    # 这个脚本里**唯一**有权说"可发布"的那条路,被一个目录满足了。
-    # 脚本自己的开头写着"一个把未验证说成通过的门禁,比没有门禁更糟"。
-    #
-    # 现在三条都要过:普通文件、非空、内容里出现该项的判据关键字。
-    # 关键字不是防伪 —— 有心人当然能造一个文件。它防的是**手滑**:
-    # 指错路径、指到空文件、指到上一次别的命令的输出。
-    if [ ! -f "$path" ]; then
-      UNVERIFIED+=("$name|证据路径 $path 不是一个普通文件($why)|$criterion|$var")
-      return
+    # 第五参曾经是"文件里该出现的关键词",而关键词就写在这个脚本里 ——
+    # 真机测试(报告 P0-1)用六个指向本脚本自身的变量拿到了"全部通过,退出 0"。
+    # 现在证据必须是结构化 JSON(绑定 commit、产物 SHA-256、命令、退出码、时间),
+    # 校验逻辑在 guard-cli 的 evidence.rs:纯函数、六种伪造姿势各有反向测试,
+    # 不再由本脚本 grep 自己知道的词。骨架用 `guard-cli evidence-template --kind <种类>` 生成。
+    # 防伪边界(见 evidence.rs 模块文档):防手滑与懒,不防全字段伪造 —— 那需要签名证据(阶段 D)。
+    local verdict
+    if verdict=$(cargo run -q -p guard-cli -- evidence-verify --kind "$kind" --file "$path" 2>&1); then
+      printf '  %-46s%s\n' "$name" "PASS(结构化证据:$path)"
+      echo "$verdict" | sed -n 's/^  备注/      备注/p'
+      PASS=$((PASS+1))
+    else
+      UNVERIFIED+=("$name|证据未通过结构化校验($why):
+$(echo "$verdict" | sed 's/^/        /')|$criterion|$var")
     fi
-    if [ ! -s "$path" ]; then
-      UNVERIFIED+=("$name|证据文件 $path 是空的($why)|$criterion|$var")
-      return
-    fi
-    if ! grep -qi -- "$expect" "$path"; then
-      UNVERIFIED+=("$name|证据文件 $path 里找不到 '$expect' —— 像是指错了文件($why)|$criterion|$var")
-      return
-    fi
-    printf '  %-46s%s\n' "$name" "PASS(证据:$path)"
-    PASS=$((PASS+1))
     return
   fi
   UNVERIFIED+=("$name|$why|$criterion|$var")
@@ -138,6 +130,12 @@ gate "macOS 专属代码路径能编译"             make check-macos-cfg
 gate "macOS 路径判决语义"                    make check-macos-path-semantics
 gate "部署自检结论与基线一致"                make preflight
 gate "MSRV 1.87"                            make check-msrv
+if [ $STRICT -eq 1 ]; then
+  # 严格模式是生产姿态:preflight 的任何 FAIL 都不放行 —— 包括"已知的夹具密钥"。
+  # 真机测试(报告 P0-1)指出:strict 曾在 agent.keys.publicly_known 为 FAIL 时
+  # 仍打印"全部通过"。不带 --baseline 的 preflight 本来就按"有没有 FAIL"退出,直接用。
+  gate "production preflight(严格模式:零 FAIL)" cargo run -q -p guard-cli -- preflight
+fi
 
 head2 "二、需要凭据或真机(这个环境做不了)"
 need_evidence \
@@ -145,49 +143,49 @@ need_evidence \
   "需要 Apple Developer ID 证书,仓库里没有也不该有" \
   "codesign --verify --deep --strict 对已签名的 .app 通过;把它的输出存成文件" \
   AGENTGUARD_EVIDENCE_MACOS_CODESIGN \
-  "satisfies its Designated Requirement"
+  "macos_codesign"
 need_evidence \
   "macOS 公证 + staple" \
   "需要 App Store Connect API Key 或 app-specific password" \
   "xcrun notarytool submit --wait 返回 Accepted,且 stapler validate 通过;存下 submission log" \
   AGENTGUARD_EVIDENCE_MACOS_NOTARIZE \
-  "Accepted"
+  "macos_notarize"
 need_evidence \
   "Windows 代码签名 (Authenticode)" \
   "需要 EV 或 OV 代码签名证书" \
   "signtool verify /pa /v 对 .exe/.msi 通过;存下输出" \
   AGENTGUARD_EVIDENCE_WINDOWS_SIGN \
-  "Successfully verified"
+  "windows_sign"
 need_evidence \
   "Android release 签名 (非 debug keystore)" \
   "需要发布用 keystore;仓库只出 debug APK" \
   "apksigner verify --print-certs 打出的是发布证书,不是 Android debug 证书" \
   AGENTGUARD_EVIDENCE_ANDROID_SIGN \
-  "Signer #1 certificate"
+  "android_sign"
 need_evidence \
   "真机端到端验收(macOS)" \
   "需要一台开了辅助功能与屏幕录制权限的真 Mac" \
   "docs/acceptance-macos.md 的清单逐条走完并留记录" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS \
-  "acceptance"
+  "acceptance_macos"
 need_evidence \
   "真机端到端验收(Android)" \
   "需要一台开了无障碍服务的真机" \
   "伴生应用签名的信封被桌面验过(适配器公钥已进注册表),且判决与预期一致" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID \
-  "adapter"
+  "acceptance_android"
 need_evidence \
   "真机端到端验收(Firefox 扩展)" \
   "需要一台装了 Firefox ≥128 的真机(world:MAIN fetch 门、DNR 配额、native host 的 gecko-id origin 只有真 Firefox 能验)" \
   "docs/acceptance-firefox.md 的 F1–F8 逐条走完并留记录" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX \
-  "acceptance"
+  "acceptance_firefox"
 need_evidence \
   "真机端到端验收(Windows 桌面)" \
   "需要一台真 Windows(UI Automation 取树、GDI 抓帧、Windows.Media.Ocr 读屏、阻断式模态只有真机能验)" \
   "docs/acceptance-windows.md 的 W1–W7 逐条走完并留记录" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS \
-  "acceptance"
+  "acceptance_windows"
 
 # 自检:上面应该恰好登记 8 项需要证据的东西。
 #
@@ -207,9 +205,9 @@ fi
 # 精确相等,不是下限。上一版用 `-lt`,于是"新增一道门禁"就买到了"静默删掉一道门禁"
 # 的额度:11+6 仍然 >= 17。检查总数是一个已知的数,就该按已知的数核对。
 EXPECTED_GATES=13
-if [ $((PASS + FAIL + ${#UNVERIFIED[@]})) -ne $((EXPECTED_GATES + EXPECTED_EVIDENCE)) ]; then
+if [ $((PASS + FAIL + ${#UNVERIFIED[@]})) -ne $((EXPECTED_GATES + EXPECTED_EVIDENCE + STRICT)) ]; then
   say ""
-  say "脚本自身有 bug:通过 $PASS + 失败 $FAIL + 未验证 ${#UNVERIFIED[@]} 不等于应有的 $((EXPECTED_GATES + EXPECTED_EVIDENCE)) 项。"
+  say "脚本自身有 bug:通过 $PASS + 失败 $FAIL + 未验证 ${#UNVERIFIED[@]} 不等于应有的 $((EXPECTED_GATES + EXPECTED_EVIDENCE + STRICT)) 项(严格模式含 production preflight)。"
   say "加了或删了检查?把 EXPECTED_GATES / EXPECTED_EVIDENCE 一起改 —— 那一改会出现在 diff 里。"
   exit 2
 fi
@@ -219,6 +217,8 @@ say "  preflight 报 agent.keys.publicly_known(FAIL)。"
 say "  这**不是**遗漏:发布注册表钉的是仓库夹具密钥,私钥是公开的。判决层已经把这些"
 say "  会话判成 AGENT-KEY-PUBLICLY-KNOWN 而不是 Verified,所以它们没被授予任何东西。"
 say "  真发布之前必须 agent-keygen 换掉。基线机制盯着这条结论不变 —— 它消失了会拦。"
+say "  注意:--strict(生产姿态)下这条 FAIL 会让 production preflight 门直接失败 ——"
+say "  已知的开发夹具在生产语义里不是豁免,是阻塞。"
 
 head2 "结果"
 say "自动检查:$PASS 通过 / $FAIL 失败"

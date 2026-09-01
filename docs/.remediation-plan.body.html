@@ -1,0 +1,191 @@
+<title>AgentGuard 整改路线</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f5f7f6; --panel:#ffffff; --ink:#1c2126; --muted:#5c6870; --line:#dde4e4;
+  --accent:#0a7fae; --accent-ink:#08668c; --p0:#b45309; --p0-bg:#fdf3e3;
+  --ok:#1f7a4d; --ok-bg:#e8f4ec; --chip:#eef2f2; --rail:#c9d4d4;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#10151a; --panel:#171e24; --ink:#e4eaee; --muted:#93a1ab; --line:#28323a;
+    --accent:#3fc1f0; --accent-ink:#6fd0f5; --p0:#e8a33d; --p0-bg:#2e2413;
+    --ok:#4cc587; --ok-bg:#15291e; --chip:#1e262d; --rail:#33404a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10151a; --panel:#171e24; --ink:#e4eaee; --muted:#93a1ab; --line:#28323a;
+  --accent:#3fc1f0; --accent-ink:#6fd0f5; --p0:#e8a33d; --p0-bg:#2e2413;
+  --ok:#4cc587; --ok-bg:#15291e; --chip:#1e262d; --rail:#33404a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15.5px/1.75 -apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:52px 22px 80px}
+.eyebrow{font-size:12.5px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+.eyebrow code{letter-spacing:0}
+h1{font-family:"Noto Serif SC",serif;font-weight:700;font-size:34px;line-height:1.25;margin:0 0 10px;text-wrap:balance}
+.lede{color:var(--muted);max-width:60ch;margin:0 0 26px}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+  background:var(--chip);padding:1px 6px;border-radius:5px}
+.verdict{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);
+  border:1px solid var(--line);border-left:4px solid var(--p0);border-radius:10px;padding:14px 18px;margin-bottom:14px}
+.verdict b{font-size:16px}
+.verdict .to-go{color:var(--muted);font-size:13.5px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 40px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+.tile .n{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;font-family:"Noto Serif SC",serif}
+.tile .l{color:var(--muted);font-size:12.5px;margin-top:2px}
+.tile.done .n{color:var(--ok)}
+h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4px;text-wrap:balance}
+.phase{position:relative;padding-left:34px;margin-bottom:38px}
+.phase::before{content:"";position:absolute;left:9px;top:8px;bottom:-30px;width:2px;background:var(--rail)}
+.phase:last-of-type::before{bottom:8px}
+.phase .dot{position:absolute;left:0;top:6px;width:20px;height:20px;border-radius:50%;
+  background:var(--panel);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:700;color:var(--accent-ink)}
+.phase.done .dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.phase .meta{color:var(--muted);font-size:13px;margin-bottom:12px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin-bottom:9px}
+.item .head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:4px}
+.item .head b{font-size:15px}
+.item p{margin:0;color:var(--muted);font-size:14px}
+.item p code{font-size:.85em}
+.chip{flex:none;display:inline-block;font-size:11px;font-weight:600;letter-spacing:.05em;
+  border-radius:999px;padding:1.5px 9px;vertical-align:2px}
+.chip.p0{background:var(--p0-bg);color:var(--p0)}
+.chip.p1{background:var(--chip);color:var(--muted)}
+.chip.cloud{background:var(--chip);color:var(--accent-ink)}
+.chip.device{background:var(--chip);color:var(--muted)}
+.chip.done{background:var(--ok-bg);color:var(--ok)}
+.crit{margin:14px 0 0;padding:10px 14px;border-left:3px solid var(--accent);background:var(--panel);
+  border-radius:0 8px 8px 0;font-size:13.5px;color:var(--muted)}
+.crit b{color:var(--ink)}
+.gate-list{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 18px;margin:14px 0 0}
+.gate-list div{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.gate-list div:first-child{border-top:none}
+.gate-list .k{flex:none;width:86px;color:var(--muted);font-size:12.5px;letter-spacing:.05em;padding-top:2px}
+.foot{color:var(--muted);font-size:13px;margin-top:44px;padding-top:16px;border-top:1px solid var(--line)}
+@media (max-width:560px){h1{font-size:27px}.wrap{padding-top:36px}}
+</style>
+<div class="wrap">
+  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 · canonical <code>a795631</code> · 合流后 <code>64c47bb</code></div>
+  <h1>从 No-Go 到 Go:AgentGuard 整改路线</h1>
+  <p class="lede">codex 在真 Mac 上完整跑了构建、UI E2E、审计验签和门禁攻击,结论是发布 No-Go——理由成立。
+  这页把报告的 5 项 P0、9 项 P1 排成五个阶段:每项标注严重级和"云端可完成 / 需真机或证书",
+  完成标准直接沿用报告的复测判据。</p>
+
+  <div class="verdict">
+    <b>当前:No-Go</b>
+    <span class="to-go">转 Go 的条件 = 下方五阶段完成标准全部满足,以报告 §11 七条门槛为准</span>
+  </div>
+  <div class="tiles">
+    <div class="tile done"><div class="n">已完成</div><div class="l">阶段 0 · 源码树合流</div></div>
+    <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(1 项已修)</div></div>
+    <div class="tile"><div class="n">9</div><div class="l">P1 · 生产前必修</div></div>
+    <div class="tile"><div class="n">7</div><div class="l">P2 · 质量改进</div></div>
+  </div>
+
+  <div class="phase done">
+    <div class="dot">0</div>
+    <h2>源码树合流 <span class="chip done">已完成</span></h2>
+    <div class="meta">报告 P0-4 · 一切修复的前提——否则修在错的树上</div>
+    <div class="item">
+      <p>三份树(GitHub canonical、本地散文件、云端工作树)已在 <code>64c47bb</code> 会合:
+      以 canonical 为基合入 X-1…E19 共 29 个提交,9 处冲突逐一裁决(品牌 Logo + 人话界面两者都保留),
+      13 项自动门禁先验后合。顺带修掉:mountns 漏 cfg 门(两线各自修过,取全平台可编译形态)、
+      扩展占位图标换 D 方案官方图、清除树里遗留的 intel 签发私钥。
+      剩余动作在你侧:把 bundle 的 <code>main</code> 推上 GitHub,打签名 tag,外层目录改成只读入口。</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">A</div>
+    <h2>发布可信度</h2>
+    <div class="meta">1–2 天 · 门禁不可信,则后面一切"通过"都无意义</div>
+    <div class="item">
+      <div class="head"><b>严格门禁伪证漏洞</b><span class="chip p0">P0-1</span><span class="chip cloud">云端可完成</span></div>
+      <p>已在云端树复现:证据检查只看"文件存在 + 含关键词",把门禁脚本自己喂给它就能拿到"全部通过,退出 0"。
+      改成结构化 JSON 证据(绑定 commit SHA、产物 SHA-256、命令、退出码、时间),codesign/spctl/apksigner
+      这类本机可验的由门禁直接验产物;strict 下 <code>agent.keys.publicly_known</code> 不放行;
+      报告列的六种伪造姿势逐一写成"必须非 0 退出"的反向回归测试,进仓库不变量。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>CI 转绿:Windows 路径 + Linux jail</b><span class="chip p0">P0-2</span><span class="chip cloud">云端可完成</span></div>
+      <p>Windows <code>\\?\</code> 扩展路径把 <code>\etc\passwd</code> 判成一般告警而非敏感目标——路径归一化补
+      UNC/extended-length/盘符大小写,红-绿修复;Linux jail 两个 fail-closed 误伤(授权内写、读 /etc/hosts 都退出 1)
+      先在本容器复现再修根因。完成标准:11/11 CI 任务连续两次全绿,并设为 main/tag 的 required check。</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">B</div>
+    <h2>确认语义与状态真实性</h2>
+    <div class="meta">3–5 天 · 报告里最伤产品灵魂的两条</div>
+    <div class="item">
+      <div class="head"><b>确认竞态:同意 A 可能放行 B</b><span class="chip p0">P0-5</span><span class="chip cloud">云端改码</span><span class="chip device">真机复测</span></div>
+      <p>macOS 真机已复现:弹窗显示 UI-REVALIDATE、截图已是 OVL-007、拒绝写进 PRIV-XAPP。
+      修法:单值 <code>pending</code> 改有界队列,每项带不可变 <code>request_id</code> + <code>audit_id</code> + 会话
+      generation;确认接口按 request_id 做 compare-and-swap;审计落库失败则确认失败(删掉 <code>let&nbsp;_</code>);
+      超时默认拒。回归测试:并发注入 100 条事件,展示、ID、回执、放行/拒绝一一对应。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>"守护中"必须等于真在守护</b><span class="chip p0">P0-3</span><span class="chip cloud">云端改码</span><span class="chip device">真机复测</span></div>
+      <p>End session 不停 AX/SCK、Android 服务未绑定也显示已启动。三端统一显式状态机,
+      <code>active</code> 收紧为"会话在 + 观察器真跑 + 心跳新鲜 + 审计可写",任一丢失即降级;
+      结束会话必须停掉全部观察线程。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>告警风暴(106 秒 75 条)</b><span class="chip p1">P2-3 提前</span><span class="chip cloud">云端可完成</span></div>
+      <p>按 {会话, 来源, 规则, 证据指纹} 聚合:首次 + 持续摘要 + 状态变化。它本身就在加剧确认覆盖,和 P0-5 一起做。</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">C</div>
+    <h2>浏览器与本地边界</h2>
+    <div class="meta">约 1 周 · 隐私默认值与状态连续性</div>
+    <div class="item">
+      <div class="head"><b>隐私默认翻转</b><span class="chip p1">P1-1</span><span class="chip cloud">云端可完成</span></div>
+      <p><code>nativeEnabled</code> 默认 false;storage 加载完成前 fail-closed;URL 去 fragment/userinfo、
+      query 白名单化;popup 明示当前扫描站点与转发去向。STORE.md 与 X-2 声明锚同步改。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>宿主状态连续性 + 调用方认证</b><span class="chip p1">P1-2/3</span><span class="chip cloud">云端可完成</span></div>
+      <p><code>connectNative</code> 长连接替代一次性消息,pause/taint 状态跨请求延续,断线 fail-closed;
+      argv origin 不再当身份凭据——先诚实化文档,再加会话 nonce 与单调计数防重放。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>后台 Critical 可见性、Local API 与 webhook 硬化</b><span class="chip p1">P1-4/7</span><span class="chip cloud">云端可完成</span></div>
+      <p>系统通知 + 托盘红点 + 可恢复待确认队列,超时默认拒;Local API 改私有目录与安全创建语义、
+      body/limit 上限、token 不再打 stderr;billing webhook 幂等 + 重放防护;企业策略验签后真正注入引擎(P1-9)。</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="dot">D</div>
+    <h2>发布工程与真机验收</h2>
+    <div class="meta">2–4 周 · 受证书与商店账号周期影响</div>
+    <div class="item">
+      <div class="head"><b>签名链与真机矩阵</b><span class="chip device">需你 / codex / 证书</span></div>
+      <p>Developer ID + 公证 + staple、Windows Authenticode、Android release key、Chrome 真装 E2E——
+      证书和账号在你侧;阶段 A 的结构化证据工具会让每份真产物"一验即录"。真机矩阵与判据直接沿用报告 §11。</p>
+    </div>
+    <div class="crit"><b>诚实边界:</b>云端沙箱验不了 ring 系 crate 的 darwin 编译、真机行为与签名——这些永远以真机复测为准。
+    云端能做的,是让每一项修复带着红-绿-突变测试落地,并把"再犯会当场红"的门装好。</div>
+  </div>
+
+  <h2 style="margin-top:6px">发布复测门槛(报告 §11,全满足才转 Go)</h2>
+  <div class="gate-list">
+    <div><span class="k">仓库与 CI</span><span>唯一 canonical 仓库、干净签名 tag、required CI 全绿、构建可复现</span></div>
+    <div><span class="k">门禁</span><span>伪造/过期/错制品证据一律拒;production preflight 零 FAIL;发布密钥非公开夹具</span></div>
+    <div><span class="k">有效性</span><span>1 个攻击漏检与 1 个 uncovered surface 关闭;Windows/Linux jail 回归通过</span></div>
+    <div><span class="k">产品状态</span><span>会话/观察器/UI 三者一致;撤权、崩溃、睡眠恢复有明确结果;后台 Critical 可达且超时默认拒</span></div>
+    <div><span class="k">正式产物</span><span>三端正式签名 + 每份证据绑定 commit 与产物 SHA-256</span></div>
+    <div><span class="k">真机</span><span>macOS/Windows/Android/Chrome 矩阵逐条走完并留证据</span></div>
+    <div><span class="k">体验</span><span>三语无 key 泄漏;读屏、键盘、高对比、大字体验收通过</span></div>
+  </div>
+
+  <p class="foot">分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
+  真机复测与证书流程在你侧,判据以报告原文为准。本页随进度更新——阶段完成即标绿。</p>
+</div>

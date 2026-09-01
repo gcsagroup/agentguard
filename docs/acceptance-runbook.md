@@ -155,12 +155,18 @@ macOS README 明说 `accessibility` / `screen_capture` 目前是占位,请以**�
    (如 `/tmp/ag-evidence/firefox/F2-cancel.png`,或拷进仓库某目录后的相对路径)。
    —— 仪表盘反映进度靠的正是这两列非空,它会据此数 `X/N`。
 
-2. **归档证据**:把截图 / 日志放进证据目录,并(可选)导出到门禁认的证据变量:
+2. **归档证据**:把截图 / 日志放进证据目录。门禁认的证据是**结构化 JSON**(A1 之后
+   不再接受任意文本/目录):先用模板生成骨架,如实填入命令、退出码和输出,再把
+   变量指向 JSON 文件:
    ```bash
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=/tmp/ag-evidence/firefox
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS=/tmp/ag-evidence/windows
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS=/tmp/ag-evidence/macos
+   cargo run -q -p guard-cli -- evidence-template --kind acceptance_firefox > /tmp/ag-evidence/firefox.json
+   # 编辑 firefox.json:填 command / exit_code / recorded_at / output(证据会绑定当前 commit)
+   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=/tmp/ag-evidence/firefox.json
+   export AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS=/tmp/ag-evidence/windows.json
+   export AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS=/tmp/ag-evidence/macos.json
    ```
+   注意:证据绑定生成时的 commit;换了提交要重新生成。签名类证据(codesign 等)
+   还必须带产物的 sha256,格式见 `guard-cli evidence-template --kind macos_codesign`。
 
 3. **重算门禁 + 仪表盘**:
    ```bash

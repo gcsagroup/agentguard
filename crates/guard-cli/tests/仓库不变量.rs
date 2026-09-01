@@ -1185,3 +1185,29 @@ fn 公开文档三语成组() {
         );
     }
 }
+
+/// release-gate 的证据检查必须走结构化校验(guard-cli evidence-verify),
+/// 不许退回"grep 关键词"。
+///
+/// 真机测试(报告 P0-1)用六个指向 release-gate.sh 自身的环境变量拿到了
+/// "17/17 PASS,退出 0"——因为当时的证据检查是「普通文件 + 非空 + 含关键词」,
+/// 而关键词就写在同一个脚本里。修复把校验挪进了 evidence.rs(纯函数,六种伪造
+/// 姿势各有反向测试)。这条不变量盯住脚本侧:哪天有人图省事把 grep 加回去,
+/// 或者把 evidence-verify 调用删掉,这里会红。
+#[test]
+fn 发布门禁的证据检查走结构化校验而不是关键词() {
+    let gate = read("scripts/release-gate.sh");
+    assert!(
+        gate.contains("evidence-verify"),
+        "release-gate.sh 不再调用 evidence-verify —— 证据检查退化了"
+    );
+    assert!(
+        !gate.contains(r#"grep -qi -- "$expect""#),
+        "release-gate.sh 又出现了关键词式证据检查 —— 这正是报告 P0-1 击穿的形态"
+    );
+    // 严格模式必须登记 production preflight 门(生产姿态零 FAIL)。
+    assert!(
+        gate.contains("production preflight"),
+        "release-gate.sh 丢了严格模式的 production preflight 门"
+    );
+}

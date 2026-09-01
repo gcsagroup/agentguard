@@ -30,6 +30,7 @@ guard-localapi = { workspace = true }
 guard-jail = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = "0.10"
 serde_yaml = { workspace = true }
 anyhow = { workspace = true }
 clap = { version = "4", features = ["derive"] }
