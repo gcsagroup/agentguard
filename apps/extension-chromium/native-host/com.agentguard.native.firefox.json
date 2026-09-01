@@ -1,0 +1,9 @@
+{
+  "name": "com.agentguard.native",
+  "description": "AgentGuard Native Messaging Host",
+  "path": "HOST_PATH_PLACEHOLDER",
+  "type": "stdio",
+  "allowed_extensions": [
+    "GECKO_ID_PLACEHOLDER"
+  ]
+}

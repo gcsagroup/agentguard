@@ -1,0 +1,249 @@
+# 面向用户的能力声明 → 兑现代码 + 证明测试(X-2)
+#
+# 见 crates/guard-eval/src/capability_claims.rs 的模块文档,以及 docs/主张与测试映射.md。
+#
+# 被机器核对的两件硬事实:
+#   1. source.anchor 必须作为子串出现在 source.doc 里(声明真的印在那份用户可见文档里);
+#   2. proven_by 里每条 `fn <test>(` 必须出现在 file 里(证明测试真的存在)。
+# mechanism 是描述性的,不被机器核对——钉住"能力还在"的是那条测试。
+#
+# 这张表是**人工维护**的,不能自动发现新的用户声明(那要 NLP 抽取,见模块文档的"边界")。
+# 覆盖的是最能被单条声明直接兑现、且有强证明测试的能力;尚未映射的用户声明是显式残余,
+# 见 docs/主张与测试映射.md §残余。
+
+version: 1
+claims:
+  - id: audit-tamper-evident
+    claim: 签名、防篡改的审计轨迹——改一行并重算哈希链,签名仍然戳穿它
+    area: audit
+    source:
+      doc: apps/extension-chromium/STORE.en.md
+      anchor: "signed, tamper-evident audit chain"
+    mechanism: guard-audit 每行 Ed25519 签名 + 哈希链;verify 从行重算哈希而非信列里的值
+    proven_by:
+      - { test: rehashed_tamper_passes_chain_but_fails_signatures, file: crates/guard-audit/src/store.rs }
+    note: 见 scripts/audit-signing-demo.sh 的六条篡改路径;截尾要靠带外头见证(check_inclusion)
+
+  - id: intel-signed-ed25519
+    claim: 威胁情报更新是签名的(Ed25519),给了公钥就拒未签名 / sha256 降级
+    area: intel
+    source:
+      doc: apps/extension-chromium/STORE.en.md
+      anchor: "Threat intel updates are signed (Ed25519)"
+    mechanism: guard-intel::verify;给公钥即要求真实性,sha256/未签名一律拒
+    proven_by:
+      - { test: 有公钥时拒绝未签名, file: crates/guard-intel/src/lib.rs }
+      - { test: 有公钥时拒绝sha256冒充签名, file: crates/guard-intel/src/lib.rs }
+    note: 残余:发布注册表私钥是仓库夹具(公开),发布前必须 intel-keygen 换掉(preflight 盯着)
+
+  - id: stego-subliminal-text
+    claim: 检测隐藏 / 潜意识的提示注入文本
+    area: vision
+    source:
+      doc: apps/extension-chromium/STORE.en.md
+      anchor: "hidden / subliminal prompt-injection text"
+    mechanism: guard-vision::stego 全行扫描 LSB / chroma+luma 隐写
+    proven_by:
+      - { test: 真正的lsb隐写仍然被抓到, file: crates/guard-vision/src/stego.rs }
+      - { test: 避开采样行的隐写仍被抓到, file: crates/guard-vision/src/stego.rs }
+    note: 密度地板:极稀疏的隐写率会低于检测阈值,这是速率检测器的固有限
+
+  - id: frame-repaint-vs-tamper
+    claim: 逐帧摘要区分整屏重绘与局部篡改
+    area: vision
+    source:
+      doc: docs/platform-matrix.md
+      anchor: "subliminal bands, chroma+luma stego, frame digest"
+    mechanism: guard-vision::framehash 残差聚类,减去每平面中位偏移后再判
+    proven_by:
+      - { test: app_switch_is_a_global_repaint_not_a_tamper, file: crates/guard-vision/src/framehash.rs }
+
+  - id: android-app-attestation
+    claim: Android 借 PackageManager 收集签名者 SHA-256 做应用鉴真
+    area: android
+    source:
+      doc: docs/platform-matrix.md
+      anchor: "`PackageManager` signer SHA-256"
+    mechanism: android-adapter 转发 signer_sha256 / attest_error;引擎按签名者钉扎判决
+    proven_by:
+      - { test: attest_error_is_forwarded_and_blanks_are_not, file: adapters/android-adapter/src/lib.rs }
+
+  - id: android-lookalike
+    claim: Android 冒名检测:标签 + 图标 dHash
+    area: android
+    source:
+      doc: docs/platform-matrix.md
+      anchor: "label + icon dHash"
+    mechanism: guard-core APP-LOOKALIKE;标签折叠 + icon_dhash 近似匹配即 Block
+    proven_by:
+      - { test: a_cloned_label_and_icon_blocks, file: crates/guard-core/src/lib.rs }
+      - { test: folded_labels_are_caught, file: crates/guard-core/src/lib.rs }
+
+  - id: android-env-survey
+    claim: Android 环境勘察:a11y 服务、广播接收、日志读取
+    area: android
+    source:
+      doc: docs/platform-matrix.md
+      anchor: "a11y services, broadcast sinks, log readers"
+    mechanism: android-adapter env_survey → 引擎逐项标记(日志读取者本身即一条发现)
+    proven_by:
+      - { test: hostile_env_survey_emits_both_markers, file: adapters/android-adapter/src/lib.rs }
+
+  - id: critical-notify-not-block
+    claim: Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行
+    area: browser
+    source:
+      doc: apps/extension-chromium/STORE.en.md
+      anchor: "raises a notification after the fact"
+    mechanism: guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知
+    proven_by:
+      - { test: critical判决产生notify供扩展弹通知, file: crates/guard-nm-host/src/main.rs }
+    note: 这条 claim 说的是**宿主 native-messaging 路径**——异步观测,只能事后通知;但页面内的付款/陷阱动作已由 E2 内容脚本同步门在执行前拦(见 browser-preexec-block)。桌面壳子仍是唯一的阻断式模态
+
+  - id: session-scope
+    claim: 会话作用域(Aura §4.4):授权在会话开始记录、不越过会话存活
+    area: core
+    source:
+      doc: docs/platform-matrix.md
+      anchor: "Session scope (Aura §4.4)"
+    mechanism: guard-core 会话开始记 SESSION-START 授权,会话结束授权失效
+    proven_by:
+      - { test: the_session_grant_is_recorded_at_session_start, file: crates/guard-core/src/lib.rs }
+      - { test: the_grant_does_not_outlive_its_session, file: crates/guard-core/src/lib.rs }
+
+  - id: shell-path-sensitive
+    claim: 路径模型:对根 / 系统目录的删除(rm -rf / 等)无条件拒绝
+    area: shell
+    source:
+      doc: docs/路径模型.md
+      anchor: "SHELL-PATH-SENSITIVE"
+    mechanism: guard-shell 无条件敏感目标(/、/etc、~/.ssh …),不依赖任何策略配置即拒
+    proven_by:
+      - { test: 三_rm_rf_根目录_无条件拒绝, file: crates/guard-shell/src/lib.rs }
+      - { test: 二_删根目录_无条件拒绝, file: crates/guard-shell/src/lib.rs }
+
+  - id: fs-scope-engine
+    claim: 文件系统天花板由引擎自己执行(授权内放行、授权外 Block、未声明 unscoped 告警)
+    area: core
+    source:
+      doc: docs/路径模型.md
+      anchor: "check_filesystem_scope"
+    mechanism: guard-core::check_filesystem_scope 区分 FS-OUTSIDE(Block)与 FS-UNSCOPED(Alert)
+    proven_by:
+      - { test: 声明的写授权内放行授权外拒绝, file: crates/guard-core/src/lib.rs }
+      - { test: 未声明paths时仍是unscoped告警, file: crates/guard-core/src/lib.rs }
+
+  - id: localapi-bearer
+    claim: 回环 API 要 bearer 令牌,弱令牌 / 示例令牌拒绝启动
+    area: localapi
+    source:
+      doc: docs/local-api.md
+      anchor: "AGENTGUARD_API_TOKEN"
+    mechanism: guard-localapi 启动期令牌强度检查;非回环绑定默认拒;常数时间比对
+    proven_by:
+      - { test: 弱令牌不让服务器起来, file: crates/guard-localapi/src/lib.rs }
+      - { test: 文档里的示例令牌被点名拒绝, file: crates/guard-localapi/src/lib.rs }
+
+  # ---- E 系列:实时化 / 执行前阻断 / 跨浏览器(本轮新增) ----
+
+  - id: jail-net-egress
+    claim: Linux jail 可在内核里强制 TCP 出口天花板(声明才强制、fail-closed)
+    area: jail
+    source:
+      doc: docs/内核约束.md
+      anchor: "网络出口天花板"
+    mechanism: guard-jail Landlock ABI v4 端口规则;空天花板治理 bind+connect 两类;后端非 Landlock 拒启动
+    proven_by:
+      - { test: 空网络天花板拒绝一切tcp, file: crates/guard-jail/src/landlock.rs }
+      - { test: 声明网络但后端非landlock被拒, file: crates/guard-jail/src/lib.rs }
+    note: 只到 TCP 端口、不按主机/IP、不含 UDP;syscall 路径本容器测不到(真机 E2E 未验证)
+
+  - id: browser-preexec-block
+    claim: 浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "执行前阻断"
+    mechanism: content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js
+    proven_by:
+      - { test: 付款 CTA 要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: 隐私陷阱 PII 提交要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: 付款按钮允许一次只产生一次确认并提交一次, file: apps/extension-chromium/scripts/content-event.test.mjs }
+    note: 只覆盖页面自身 DOM 动作;click→submit 接线有模拟 DOM 事件链测试;MAIN world 的 postMessage 通道可被页面观察/伪造,不能抵抗主动对抗页面;真 Chrome/Firefox E2E 仍未验证
+
+  - id: browser-fetch-gate
+    claim: 拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "页面直发的"
+    mechanism: guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发
+    proven_by:
+      - { test: 付款形状的 POST 请求要在发出前拦, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: 只读方法不拦(GET/HEAD 不该有副作用), file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
+
+  - id: cross-browser-consistency
+    claim: Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移
+    area: browser
+    source:
+      doc: docs/跨浏览器.md
+      anchor: "manifests.test.mjs"
+    mechanism: manifest.json 与 manifest.firefox.json 由结构测试钉住一致
+    proven_by:
+      - { test: 两份 manifest 装的是同一套内容脚本文件, file: apps/extension-chromium/scripts/manifests.test.mjs }
+    note: Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
+
+  - id: engine-to-browser-dnr
+    claim: 引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "block_hosts"
+    mechanism: guard-nm-host 从 INTEL-DOMAIN / SCOPE-HOST 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则
+    proven_by:
+      - { test: 恶意域判决在响应里带上block_hosts, file: crates/guard-nm-host/src/main.rs }
+      - { test: 只从恶意域判决抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
+      - { test: 越界目的地也抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
+      - { test: "恶意域累积保留:下一批 benign 判决不会把它清掉", file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: "越界目的地随会话过期,不永久拦掉用户对该主机的正常访问", file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;此 DNR 桥的越界只对网络流事件成立,但浏览器侧的越界已由 E9 本地允许表门覆盖(见 browser-local-scope-gate),不再是残余;DNR fail-open;真 Chrome/Firefox E2E 未验证
+
+  - id: browser-local-scope-gate
+    claim: 任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)
+    area: browser
+    source:
+      doc: docs/浏览器执行前阻断.md
+      anchor: "scope_hosts"
+    mechanism: nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像)
+    proven_by:
+      - { test: host_in_scope向量表_rust与js同源, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: "scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: host_scope_向量表是rust与js的单一真相源, file: crates/guard-schema/src/plan.rs }
+    note: 下发的是策略(允许表)不是浏览历史;host_in_scope 由共享向量表(eval/host-scope-vectors.json)钉住 Rust/JS 同源;MAIN world 客户端检查尽力而为;真机未验证
+
+  - id: macos-realtime-tree
+    claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)
+    area: macos
+    source:
+      doc: docs/macos实时观测.md
+      anchor: "AXObserver"
+    mechanism: 桌面驱动 50ms tick → AXObserver FFI 推送 → ax_push.rs 合并器(去抖 150ms + 延迟上限 800ms + 3s 兜底)
+    proven_by:
+      - { test: 延迟上限_持续通知也会强制抓, file: adapters/mac-adapter/src/ax_push.rs }
+      - { test: 去抖_安静够了才抓, file: adapters/mac-adapter/src/ax_push.rs }
+      - { test: ax_observer_is_wired_into_desktop_driver, file: apps/desktop-macos/src-tauri/src/lib.rs }
+    note: 像素捕获仍采样(压小的是树间隙非像素);本机 ad-hoc 候选已验证回调到产品驱动连通,但未做 150ms/800ms 真机延迟分布、签名/公证安装或长时间稳定性验收
+
+  - id: humane-ui-vocabulary
+    claim: 用户界面不出现无解释的裸术语——finding 种类/规则 ID 都有三语人话词条,技术标识收进详情
+    area: extension
+    source:
+      doc: docs/消费者化界面.md
+      anchor: "人话词典是单一真相源"
+    mechanism: guard-strings.js 单一词表;覆盖率测试从 content.js/events.rs 源码提取标识符对词典点名
+    proven_by:
+      - { test: "content.js 上报的每个 finding kind 在词典里都有三语人话词条", file: apps/extension-chromium/scripts/strings.test.mjs }
+      - { test: "guard-schema events.rs 里的每个规则 ID 在词典里都有三语人话词条", file: apps/extension-chromium/scripts/strings.test.mjs }
+      - { test: "guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)", file: apps/extension-chromium/scripts/strings.test.mjs }
+    note: 覆盖率靠源码字面量提取,动态拼接的标识符看不见;翻译质量测试保证不了(见文档边界节)

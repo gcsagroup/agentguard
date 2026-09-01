@@ -175,3 +175,8 @@ button.danger { background: #c2414b; }
 .cap-ok{border-color:#2f7d5b40;background:#2f7d5b14}
 .cap-no{border-color:#a3382f40;background:#a3382f14}
 .cap-mode{font-size:.82rem;opacity:.85;line-height:1.5;padding:.35rem .5rem}
+
+/* E16 开发者面板:演示/诊断工具默认折叠,不伪装成主界面。 */
+details.dev > summary { cursor: pointer; font-weight: 600; opacity: 0.85; }
+details.dev > summary:hover { opacity: 1; }
+details.dev[open] > summary { margin-bottom: 0.75rem; }

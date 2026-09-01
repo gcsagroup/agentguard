@@ -64,3 +64,5 @@ _to_delete/
 *.tar.gz
 *.tgz
 *.zip
+docs/.status-dashboard.body.html
+eval/ui-preview/out/

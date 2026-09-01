@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use guard_audit::{
     auto_approve_allowed, default_audit_key_path, ensure_audit_key_file, sqlcipher_enabled,
@@ -41,7 +41,8 @@ struct AppState {
     sck_message: Mutex<String>,
     /// Background Menu Bar SCK poller (1.5s). Cleared on stop.
     sck_auto_poll: Arc<AtomicBool>,
-    /// Background live-AX poller (2.5s). Cleared on disable/quit.
+    /// Background AXObserver driver. A 50ms tick drains notifications; the adapter
+    /// coalesces captures to 150ms debounce / 800ms max latency / 3s fallback.
     ax_auto_poll: Arc<AtomicBool>,
     /// Last UiTreeDelta for pop-up / TOCTOU revalidation.
     last_ui_event: Mutex<Option<GuardEvent>>,
@@ -179,6 +180,31 @@ fn audit_db_path() -> PathBuf {
     dir
 }
 
+/// A release build must not try to open a legacy plaintext SQLite audit DB with a
+/// SQLCipher key: SQLCipher correctly reports "file is not a database" and the app
+/// would crash before showing a window. Keep the legacy file untouched and start a
+/// sibling encrypted store. Existing encrypted stores keep their original path.
+fn sqlcipher_audit_db_path(path: &std::path::Path) -> PathBuf {
+    const SQLITE_HEADER: &[u8; 16] = b"SQLite format 3\0";
+    let mut header = [0_u8; 16];
+    let is_plaintext = std::fs::File::open(path)
+        .and_then(|mut file| {
+            use std::io::Read;
+            file.read_exact(&mut header)
+        })
+        .map(|_| &header == SQLITE_HEADER)
+        .unwrap_or(false);
+    if !is_plaintext {
+        return path.to_path_buf();
+    }
+
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("audit-macos");
+    path.with_file_name(format!("{stem}.sqlcipher.db"))
+}
+
 fn dirs_next_data() -> PathBuf {
     if let Some(home) = std::env::var_os("HOME") {
         return PathBuf::from(home).join("Library/Application Support");
@@ -292,7 +318,15 @@ fn open_audit_store_unsigned() -> AuditStore {
     let path = audit_db_path();
     if sqlcipher_enabled() {
         let key = ensure_audit_key_file(default_audit_key_path()).expect("audit key");
-        AuditStore::open_with_key(&path, Some(&key)).expect("open encrypted audit db")
+        let encrypted_path = sqlcipher_audit_db_path(&path);
+        if encrypted_path != path {
+            eprintln!(
+                "legacy plaintext audit db retained at {}; using encrypted store {}",
+                path.display(),
+                encrypted_path.display()
+            );
+        }
+        AuditStore::open_with_key(&encrypted_path, Some(&key)).expect("open encrypted audit db")
     } else {
         if !cfg!(debug_assertions) {
             eprintln!(
@@ -827,6 +861,30 @@ fn poll_ax_once(state: &AppState) -> Result<AxPollDto, String> {
     }
 }
 
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
+/// Drain AXObserver notifications through the adapter coalescer. `None` means the
+/// current tick was inside the debounce window and intentionally did not capture.
+fn poll_ax_push_once(state: &AppState) -> Result<Option<AxPollDto>, String> {
+    let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
+    if !adapter.maybe_capture_ax(now_ms())? {
+        return Ok(None);
+    }
+    let decisions = drain_and_process(state, &mut adapter)?;
+    let msg = format!("live AX ingested · {} decision(s)", decisions.len());
+    *state.ax_message.lock().map_err(|e| e.to_string())? = msg.clone();
+    Ok(Some(AxPollDto {
+        decisions,
+        source_app: "frontmost".into(),
+        message: msg,
+    }))
+}
+
 #[tauri::command]
 fn ax_auto_cmd(
     app: AppHandle,
@@ -834,18 +892,40 @@ fn ax_auto_cmd(
     enable: bool,
 ) -> Result<AxAutoDto, String> {
     if enable {
-        // Pre-flight once so permission errors surface immediately.
-        poll_ax_once(state.inner())?;
+        // Start the real observer before the driver. If registration itself is unavailable,
+        // keep the 3s fallback alive; capture permission errors still surface immediately.
+        let push_result = state
+            .adapter
+            .lock()
+            .map_err(|e| e.to_string())?
+            .start_ax_push();
+        if let Err(e) = poll_ax_push_once(state.inner()) {
+            state
+                .adapter
+                .lock()
+                .map_err(|lock_err| lock_err.to_string())?
+                .stop_ax_push();
+            return Err(e);
+        }
         start_ax_auto_poller(app, &state);
+        *state.ax_message.lock().map_err(|e| e.to_string())? = match &push_result {
+            Ok(()) => "AXObserver push on (150ms debounce, 800ms ceiling, 3s fallback)".into(),
+            Err(e) => format!("AXObserver unavailable ({e}); 3s fallback polling on"),
+        };
     } else {
         state.ax_auto_poll.store(false, Ordering::Relaxed);
+        state
+            .adapter
+            .lock()
+            .map_err(|e| e.to_string())?
+            .stop_ax_push();
     }
     Ok(AxAutoDto {
         enabled: enable,
         message: if enable {
-            "AX auto-poll on (2.5s)".into()
+            state.ax_message.lock().map_err(|e| e.to_string())?.clone()
         } else {
-            "AX auto-poll off".into()
+            "AX realtime observation off".into()
         },
     })
 }
@@ -857,30 +937,37 @@ struct AxAutoDto {
 }
 
 fn start_ax_auto_poller(app: AppHandle, state: &AppState) {
-    state.ax_auto_poll.store(false, Ordering::Relaxed);
     let flag = state.ax_auto_poll.clone();
-    flag.store(true, Ordering::Relaxed);
+    if flag.swap(true, Ordering::Relaxed) {
+        return;
+    }
     std::thread::spawn(move || {
         while flag.load(Ordering::Relaxed) {
-            std::thread::sleep(Duration::from_millis(2500));
+            std::thread::sleep(Duration::from_millis(50));
             if !flag.load(Ordering::Relaxed) {
                 break;
             }
             let Some(st) = app.try_state::<AppState>() else {
                 break;
             };
-            match poll_ax_once(st.inner()) {
-                Ok(dto) => {
+            match poll_ax_push_once(st.inner()) {
+                Ok(Some(dto)) => {
                     let _ = app.emit("ax-poll", &dto);
                     if dto.decisions.iter().any(|d| d.require_confirm) {
                         let _ = app.emit("sck-confirm-needed", ());
                     }
                 }
+                Ok(None) => {}
                 Err(e) => {
                     let _ = app.emit("ax-poll-error", serde_json::json!({ "error": e }));
                     // Permission lost mid-run: stop the loop instead of spamming.
                     flag.store(false, Ordering::Relaxed);
                 }
+            }
+        }
+        if let Some(st) = app.try_state::<AppState>() {
+            if let Ok(mut adapter) = st.adapter.lock() {
+                adapter.stop_ax_push();
             }
         }
     });
@@ -908,9 +995,9 @@ fn sync_device_policy(source: Option<String>) -> Result<String, String> {
 #[tauri::command]
 fn set_tray_locale(app: AppHandle, locale: String) -> Result<(), String> {
     let labels = match locale.as_str() {
-        "zh-Hans" => ["打开仪表盘", "抓取前台 AX 树", "AX 自动轮询：开/关", "SCK 开始捕获", "SCK 停止", "退出 AgentGuard"],
-        "zh-Hant" => ["開啟儀表板", "擷取最上層 AX 樹", "AX 自動輪詢：開/關", "SCK 開始擷取", "SCK 停止", "結束 AgentGuard"],
-        _ => ["Open dashboard", "Capture frontmost AX tree", "AX auto-poll: on/off", "Start SCK capture", "Stop SCK", "Quit AgentGuard"],
+        "zh-Hans" => ["打开仪表盘", "抓取前台 AX 树", "AX 实时观测：开/关", "SCK 开始捕获", "SCK 停止", "退出 AgentGuard"],
+        "zh-Hant" => ["開啟儀表板", "擷取最上層 AX 樹", "AX 即時觀測：開/關", "SCK 開始擷取", "SCK 停止", "結束 AgentGuard"],
+        _ => ["Open dashboard", "Capture frontmost AX tree", "AX realtime observation: on/off", "Start SCK capture", "Stop SCK", "Quit AgentGuard"],
     };
     let show = MenuItem::with_id(&app, "show", labels[0], true, None::<&str>)
         .map_err(|e| e.to_string())?;
@@ -1066,7 +1153,7 @@ pub fn run() {
                 tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
             let show = MenuItem::with_id(app, "show", "Open dashboard", true, None::<&str>)?;
             let ax_poll = MenuItem::with_id(app, "ax_poll", "Capture frontmost AX tree", true, None::<&str>)?;
-            let ax_auto = MenuItem::with_id(app, "ax_auto", "AX auto-poll: on/off", true, None::<&str>)?;
+            let ax_auto = MenuItem::with_id(app, "ax_auto", "AX realtime observation: on/off", true, None::<&str>)?;
             let sck_start = MenuItem::with_id(app, "sck_start", "Start SCK capture", true, None::<&str>)?;
             let sck_stop = MenuItem::with_id(app, "sck_stop", "Stop SCK", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit AgentGuard", true, None::<&str>)?;
@@ -1122,6 +1209,9 @@ pub fn run() {
                         if let Some(st) = app.try_state::<AppState>() {
                             st.sck_auto_poll.store(false, Ordering::Relaxed);
                             st.ax_auto_poll.store(false, Ordering::Relaxed);
+                            if let Ok(mut adapter) = st.adapter.lock() {
+                                adapter.stop_ax_push();
+                            }
                         }
                         let _ = stop_capture_session();
                         app.exit(0);
@@ -1163,6 +1253,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod packaging_tests {
+    use super::sqlcipher_audit_db_path;
+
     /// The signing script's bundle identifier must equal `tauri.conf.json`'s.
     ///
     /// macOS keys Accessibility and Screen Recording grants to the signed identifier. If the
@@ -1235,5 +1327,69 @@ mod packaging_tests {
         let source = include_str!("lib.rs");
         assert!(source.contains(".icon(tray_icon)"));
         assert!(source.contains(".icon_as_template(true)"));
+    }
+
+    /// AXObserver 不能只停在适配器方法定义里；桌面产品路径必须实际启动、驱动并停止它。
+    #[test]
+    fn ax_observer_is_wired_into_desktop_driver() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let source = include_str!("lib.rs");
+        assert!(source.contains(".start_ax_push()"), "启用时没有启动 AXObserver");
+        assert!(
+            source.contains("adapter.maybe_capture_ax(now_ms())"),
+            "后台驱动没有经过去抖/延迟上限合并器"
+        );
+        assert!(source.contains("adapter.stop_ax_push()"), "停用/退出没有卸载 AXObserver");
+        assert!(source.contains("Duration::from_millis(50)"), "驱动 tick 太慢，兑现不了 150ms 去抖");
+        assert!(
+            !source.lines().any(|line| {
+                line.trim_start()
+                    .starts_with("std::thread::sleep(Duration::from_millis(2500))")
+            }),
+            "旧的 2.5s AX 纯轮询仍在产品路径"
+        );
+
+        let bridge = std::fs::read_to_string(
+            root.join("../../../adapters/mac-adapter/native/AgentGuardAX.m"),
+        )
+        .expect("读取 AX 原生桥");
+        assert!(
+            bridge.contains("CFRunLoopAddSource(CFRunLoopGetMain()"),
+            "AXObserver source 必须挂到持续运行的主 run loop"
+        );
+        assert!(
+            !bridge.contains("CFRunLoopAddSource(CFRunLoopGetCurrent()"),
+            "后台线程的 current run loop 不会自动运行"
+        );
+    }
+
+    #[test]
+    fn sqlcipher_upgrade_preserves_a_legacy_plaintext_database() {
+        let dir = std::env::temp_dir().join(format!("agentguard-audit-path-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let legacy = dir.join("audit-macos.db");
+        std::fs::write(&legacy, b"SQLite format 3\0legacy-audit-data").unwrap();
+
+        let encrypted = sqlcipher_audit_db_path(&legacy);
+        assert_eq!(encrypted, dir.join("audit-macos.sqlcipher.db"));
+        assert_eq!(
+            std::fs::read(&legacy).unwrap(),
+            b"SQLite format 3\0legacy-audit-data",
+            "不得改写或删除旧审计库"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn sqlcipher_upgrade_keeps_an_existing_encrypted_path() {
+        let dir = std::env::temp_dir().join(format!("agentguard-audit-path-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let encrypted = dir.join("audit-macos.db");
+        std::fs::write(&encrypted, b"encrypted-bytes-without-sqlite-header").unwrap();
+
+        assert_eq!(sqlcipher_audit_db_path(&encrypted), encrypted);
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

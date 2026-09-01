@@ -5,7 +5,13 @@
   "version_name": "1.0.0-rc.1",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
-  "permissions": ["storage", "nativeMessaging", "activeTab", "notifications"],
+  "permissions": [
+    "storage",
+    "nativeMessaging",
+    "activeTab",
+    "notifications",
+    "declarativeNetRequest"
+  ],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js",
@@ -14,8 +20,15 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "js": ["content.js"],
+      "js": ["guard-gate.js", "guard-strings.js", "guard-modal.js", "content.js"],
       "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["guard-gate.js", "guard-page.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
       "all_frames": false
     }
   ],

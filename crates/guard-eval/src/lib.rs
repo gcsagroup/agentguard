@@ -1,6 +1,7 @@
 //! Scenario evaluation: load YAML fixtures and drive the Engine offline.
 
 mod acceptance;
+mod capability_claims;
 mod coverage;
 mod leaderboard;
 mod runner;
@@ -10,6 +11,10 @@ mod scoreboard;
 pub use acceptance::{
     default_scenarios_dir, write_acceptance_json, write_acceptance_markdown, AcceptanceManifest,
     AcceptanceReport, MacCapabilitiesSummary,
+};
+pub use capability_claims::{
+    to_markdown as claims_markdown, verify as verify_claims, CapabilityClaim, ClaimProblem,
+    ClaimSource, ClaimsRegistry, ClaimsReport, ProvingTest,
 };
 pub use coverage::{
     to_markdown as coverage_markdown, verify as verify_coverage, CoverageMatrix, CoverageProblem,

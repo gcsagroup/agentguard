@@ -6,24 +6,48 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <div class="row">
+    <!-- 第一眼呈现守护状态与当日摘要；语言和桌面端连接收进设置面板。 -->
+    <div class="row header">
       <div class="brand">
         <img class="brand-mark" src="assets/agentguard-mark-white.png" alt="" />
+        <span class="dot on" id="status-dot"></span>
         <h1 data-i18n="extensionName">AgentGuard Web Shield</h1>
       </div>
-      <select id="locale">
-        <option value="system" data-i18n="system">System</option>
-        <option value="en" data-i18n="english">English</option>
-        <option value="zh_CN" data-i18n="simplifiedChinese">简体中文</option>
-        <option value="zh_TW" data-i18n="traditionalChinese">繁體中文</option>
-      </select>
+      <button id="btn-settings" class="ghost" data-i18n="settings">Settings</button>
     </div>
-    <div class="row">
-      <input type="checkbox" id="native" />
-      <label for="native" data-i18n="nativeForward">Forward to desktop (Native Messaging)</label>
+
+    <div class="status-card">
+      <div class="status-line" id="status-line" data-i18n="statusOn">Protecting this page</div>
+      <div class="muted" id="today-line"></div>
     </div>
-    <p class="muted" id="hint" data-i18n="recentDetections">Recent detections</p>
+
+    <div id="settings-panel" hidden>
+      <div class="row">
+        <label for="locale" class="muted" data-i18n="language">Language</label>
+        <select id="locale">
+          <option value="system" data-i18n="system">System</option>
+          <option value="en" data-i18n="english">English</option>
+          <option value="zh_CN" data-i18n="simplifiedChinese">简体中文</option>
+          <option value="zh_TW" data-i18n="traditionalChinese">繁體中文</option>
+        </select>
+      </div>
+      <div class="row">
+        <input type="checkbox" id="native" />
+        <label for="native" data-i18n="nativeForward">Connect the desktop app for stronger protection (optional)</label>
+      </div>
+      <p class="muted" data-i18n="nativeForwardHint">
+        With the desktop app connected, blocking decisions are also signed into the local audit log.
+      </p>
+      <div class="row">
+        <button id="btn-onboarding" class="ghost" data-i18n="viewIntro">See what AgentGuard does</button>
+      </div>
+    </div>
+
+    <p class="muted section" id="hint" data-i18n="recentDetections">Recent findings</p>
     <ul id="list"></ul>
+    <p class="muted section" data-i18n="blockedHosts">Blocked sites</p>
+    <ul id="blocklist"></ul>
+    <script src="guard-strings.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

@@ -29,6 +29,20 @@ void agentguard_ax_string_free(char *s);
 /** Human-readable last error (static buffer; may be empty). */
 const char *agentguard_ax_last_error(void);
 
+/**
+ * Start observing the frontmost app's AX tree for change notifications (E3).
+ * Registers an AXObserver on the run loop; each notification bumps an internal
+ * counter that Rust polls via agentguard_ax_observe_take. Returns AG_AX_OK on
+ * success, AG_AX_DENIED without Accessibility, AG_AX_ERROR otherwise.
+ */
+int agentguard_ax_observe_start(void);
+
+/** Take and zero the notification count accumulated since the last call. */
+unsigned long long agentguard_ax_observe_take(void);
+
+/** Stop observing and release the AXObserver (safe to call when not started). */
+void agentguard_ax_observe_stop(void);
+
 #ifdef __cplusplus
 }
 #endif

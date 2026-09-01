@@ -186,7 +186,7 @@ fn 前端不出现把字符串当代码的写法() {
     // release-gate 的计数刚因为同一个原因从 `-lt` 改成 `-ne`。
     // 新增前端文件时要一起改这个数,而那一改会出现在 diff 里,于是有人会看一眼
     // 那个新文件有没有 sink。
-    const 前端文件数: usize = 10;
+    const 前端文件数: usize = 20;
     assert_eq!(
         文件.len(),
         前端文件数,
@@ -1107,6 +1107,11 @@ fn 发布版本元数据一致() {
             .expect("Chromium manifest 必须是有效 JSON");
     assert_eq!(chromium["version"], "1.0.0.1");
     assert_eq!(chromium["version_name"], VERSION);
+
+    let firefox: serde_json::Value =
+        serde_json::from_str(&read("apps/extension-chromium/manifest.firefox.json"))
+            .expect("Firefox manifest 必须是有效 JSON");
+    assert_eq!(firefox["version"], "1.0.0.1");
 }
 
 /// GitHub 入口、变更记录、核心发布说明和每个组件 README 必须成组三语存在。
@@ -1132,6 +1137,56 @@ fn 公开文档三语成组() {
             "docs/privacy-policy.md",
             "docs/privacy-policy.zh-TW.md",
             "docs/privacy-policy.en.md",
+        ],
+        &[
+            "docs/acceptance-firefox.md",
+            "docs/acceptance-firefox.zh-TW.md",
+            "docs/acceptance-firefox.en.md",
+        ],
+        &[
+            "docs/acceptance-windows.md",
+            "docs/acceptance-windows.zh-TW.md",
+            "docs/acceptance-windows.en.md",
+        ],
+        &[
+            "docs/acceptance-runbook.md",
+            "docs/acceptance-runbook.zh-TW.md",
+            "docs/acceptance-runbook.en.md",
+        ],
+        &[
+            "docs/acceptance-report-template.md",
+            "docs/acceptance-report-template.zh-TW.md",
+            "docs/acceptance-report-template.en.md",
+        ],
+        &[
+            "docs/macos实时观测.md",
+            "docs/macos实时观测.zh-TW.md",
+            "docs/macos实时观测.en.md",
+        ],
+        &[
+            "docs/主张与测试映射.md",
+            "docs/主张与测试映射.zh-TW.md",
+            "docs/主张与测试映射.en.md",
+        ],
+        &[
+            "docs/入站信任.md",
+            "docs/入站信任.zh-TW.md",
+            "docs/入站信任.en.md",
+        ],
+        &[
+            "docs/浏览器执行前阻断.md",
+            "docs/浏览器执行前阻断.zh-TW.md",
+            "docs/浏览器执行前阻断.en.md",
+        ],
+        &[
+            "docs/消费者化界面.md",
+            "docs/消费者化界面.zh-TW.md",
+            "docs/消费者化界面.en.md",
+        ],
+        &[
+            "docs/跨浏览器.md",
+            "docs/跨浏览器.zh-TW.md",
+            "docs/跨浏览器.en.md",
         ],
         &[
             "apps/desktop-macos/README.md",

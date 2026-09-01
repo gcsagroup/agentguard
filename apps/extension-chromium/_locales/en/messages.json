@@ -1,15 +1,137 @@
 {
-  "extensionName": { "message": "AgentGuard Web Shield" },
-  "extensionDescription": { "message": "Detect prompt injection, optional PII overfill, and privacy traps on pages used by AI agents." },
-  "actionTitle": { "message": "AgentGuard Web Shield" },
-  "nativeForward": { "message": "Forward to desktop (Native Messaging)" },
-  "recentDetections": { "message": "Recent detections" },
-  "noRecords": { "message": "No detections yet" },
-  "readError": { "message": "Unable to read status" },
-  "findings": { "message": "findings" },
-  "language": { "message": "Language" },
-  "system": { "message": "System" },
-  "english": { "message": "English" },
-  "simplifiedChinese": { "message": "Simplified Chinese" },
-  "traditionalChinese": { "message": "Traditional Chinese" }
+  "extensionName": {
+    "message": "AgentGuard Web Shield"
+  },
+  "extensionDescription": {
+    "message": "Detect prompt injection, optional PII overfill, and privacy traps on pages used by AI agents."
+  },
+  "actionTitle": {
+    "message": "AgentGuard Web Shield"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "statusOn": {
+    "message": "Protecting this page"
+  },
+  "todaySummary": {
+    "message": "Today: {f} found · {b} blocked"
+  },
+  "nativeForward": {
+    "message": "Connect the desktop app for stronger protection (optional)"
+  },
+  "nativeForwardHint": {
+    "message": "With the desktop app connected, blocking decisions are also signed into the local audit log, and malicious sites are blocked on desktop too."
+  },
+  "recentDetections": {
+    "message": "Recent findings"
+  },
+  "noRecords": {
+    "message": "No detections yet"
+  },
+  "allClear": {
+    "message": "All clear — nothing suspicious on this page. When something risky happens (a payment, personal info being sent), AgentGuard stops it and asks you first."
+  },
+  "readError": {
+    "message": "Unable to read status"
+  },
+  "findings": {
+    "message": "findings"
+  },
+  "language": {
+    "message": "Language"
+  },
+  "system": {
+    "message": "System"
+  },
+  "english": {
+    "message": "English"
+  },
+  "simplifiedChinese": {
+    "message": "Simplified Chinese"
+  },
+  "traditionalChinese": {
+    "message": "Traditional Chinese"
+  },
+  "blockedHosts": {
+    "message": "Blocked sites"
+  },
+  "unblock": {
+    "message": "Unblock"
+  },
+  "kindMalicious": {
+    "message": "Known malicious site"
+  },
+  "kindOutOfScope": {
+    "message": "Outside this task's scope"
+  },
+  "noBlocked": {
+    "message": "No sites are blocked right now"
+  },
+  "whyBlocked": {
+    "message": "Why was it blocked?"
+  },
+  "blockedBy": {
+    "message": "Technical id"
+  },
+  "blockedPrefix": {
+    "message": "Blocked: "
+  },
+  "obTitle": {
+    "message": "Welcome to AgentGuard"
+  },
+  "obHeadline": {
+    "message": "You're protected"
+  },
+  "obLede": {
+    "message": "AgentGuard watches what AI agents do in your browser, and stops risky steps before they happen — then asks you."
+  },
+  "obP1Title": {
+    "message": "Sees what you can't"
+  },
+  "obP1Body": {
+    "message": "Pages can hide instructions meant for AI agents in invisible text. AgentGuard finds them and tells you."
+  },
+  "obP2Title": {
+    "message": "Asks before money or personal info moves"
+  },
+  "obP2Body": {
+    "message": "A payment click, a form fishing for your phone number — the action is paused first, and nothing happens unless you allow it."
+  },
+  "obP3Title": {
+    "message": "Blocks known bad sites at the network level"
+  },
+  "obP3Body": {
+    "message": "Requests to known malicious sites are stopped in the browser itself. You can see and undo every block from the toolbar popup."
+  },
+  "obDemoTitle": {
+    "message": "See it once, so it never surprises you"
+  },
+  "obDemoBody": {
+    "message": "Click the fake payment button below. This is a demo — no payment exists, nothing is sent anywhere. The dialog you'll see is rendered by the exact same code that protects real pages."
+  },
+  "obDemoBtn": {
+    "message": "Confirm Payment (demo)"
+  },
+  "obDemoAllowed": {
+    "message": "You allowed it once — on a real page, the payment would proceed."
+  },
+  "obDemoCancelled": {
+    "message": "Blocked. On a real page, nothing would have happened."
+  },
+  "obMoreTitle": {
+    "message": "Two things worth knowing"
+  },
+  "obMorePopup": {
+    "message": "The toolbar popup shows what was found and blocked today, in plain words. Technical details stay one tap away under \"Why?\"."
+  },
+  "obMoreDesktop": {
+    "message": "Optional: connect the AgentGuard desktop app (popup → Settings) and every blocking decision is also signed into a tamper-evident local audit log."
+  },
+  "obPrivacy": {
+    "message": "Findings stay on your device by default. Nothing is uploaded."
+  },
+  "viewIntro": {
+    "message": "See what AgentGuard does"
+  }
 }

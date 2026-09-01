@@ -10,7 +10,7 @@ body {
   font-family: system-ui, "PingFang SC", sans-serif;
   margin: 0;
   padding: 12px;
-  width: 320px;
+  width: 340px;
   background: #0f1419;
   color: #e8eef7;
 }
@@ -24,13 +24,69 @@ h1 { font-size: 14px; line-height: 1.2; margin: 0; }
   filter: drop-shadow(0 4px 8px rgba(0, 174, 239, 0.22));
 }
 .row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.header { margin-bottom: 12px; }
+.header h1 { flex: 0 0 auto; }
+.header .ghost { margin-left: auto; }
+.dot { width: 8px; height: 8px; border-radius: 999px; flex: 0 0 auto; }
+.dot.on { background: #35c06f; box-shadow: 0 0 6px rgba(53, 192, 111, 0.7); }
+.status-card {
+  background: #14202e;
+  border: 1px solid #223349;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.status-line { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+button.ghost {
+  background: transparent;
+  color: #8fa3bf;
+  border: 1px solid #33465f;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+button.ghost:hover { color: #e8eef7; border-color: #55708f; }
+#settings-panel {
+  background: #14202e;
+  border: 1px solid #223349;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+#settings-panel p { margin: 2px 0 0; }
 select { margin-left: auto; background: #182230; color: #e8eef7; border: 1px solid #33465f; border-radius: 6px; padding: 3px 5px; }
 .muted { color: #8fa3bf; font-size: 12px; }
-ul { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow: auto; }
+.section { margin: 12px 0 6px; }
+ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow: auto; }
 li {
   background: #182230;
   border-radius: 8px;
   padding: 8px;
   margin-bottom: 6px;
   font-size: 12px;
+}
+li .item-title { font-weight: 600; display: flex; align-items: baseline; gap: 8px; }
+li .item-title-text { flex: 1 1 auto; min-width: 0; }
+li .item-time { flex: 0 0 auto; color: #8fa3bf; font-weight: 400; }
+li .item-page {
+  color: #8fa3bf;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+li details { margin-top: 4px; }
+li summary { cursor: pointer; color: #6ea8ff; }
+li details div { color: #8fa3bf; margin-top: 4px; }
+li details .tech { color: #5c718c; }
+li button.unblock {
+  float: right;
+  background: transparent;
+  color: #6ea8ff;
+  border: 1px solid #33465f;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
 }

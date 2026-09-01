@@ -24,11 +24,15 @@ pub mod profile;
 
 #[cfg(target_os = "linux")]
 pub mod landlock;
+// mountns 和 landlock 一样是纯 Linux 机制(unshare/mount syscalls),必须同样 cfg 门。
+// 这一行曾经没有门:mountns 无条件 use linux-only 的 libc_syscall,于是整个 workspace
+// 在 macOS 上编译失败——Linux CI 全绿,真机验收(codex 报告 2026-08-31)才暴露。
+// 现在 check-macos-cfg 门对 aarch64-apple-darwin 目标真编译,这类漏门再犯会当场红。
 #[cfg(target_os = "linux")]
 pub mod mountns;
 
 pub use backend::{best_available, probe, Availability, Backend};
-pub use profile::Profile;
+pub use profile::{NetCeiling, Profile};
 
 use std::process::Command;
 
@@ -55,6 +59,12 @@ pub enum JailError {
          以非 root 运行,或(明确接受这个风险时)设 AGENTGUARD_JAIL_ALLOW_ROOT=1。见 docs/内核约束.md。"
     )]
     RootMountNamespace,
+    #[error(
+        "任务声明了网络出口天花板(scope.net),但只有 Landlock 后端能在内核里强制它,\
+         当前可用的是 {0} 后端。拒绝启动——不会'文件系统关住了、网络其实敞开'地跑。\
+         装/开启 Landlock(内核 ≥6.7),或从任务里去掉 scope.net。"
+    )]
+    NetUnenforceable(String),
     #[error("启动子进程失败：{0}")]
     Spawn(#[from] std::io::Error),
     #[error("{0}")]
@@ -79,9 +89,17 @@ fn effective_uid() -> Option<u32> {
 
 /// mount-ns + root 是不安全组合(见 `RootMountNamespace`)。这个纯函数把判定单独拿出来
 /// 便于测试:确知是 root、后端是 mount-ns、且没有明确放行时才拒。
-#[cfg(target_os = "linux")]
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))] // 调用点在 linux 门内;逻辑纯、有单测,保留全平台编译
 fn refuse_root_mountns(backend: Backend, euid: Option<u32>, allow_root: bool) -> bool {
     matches!(backend, Backend::MountNamespace) && euid == Some(0) && !allow_root
+}
+
+/// 声明了网络天花板、但选中的后端不是 Landlock(唯一能在内核里管网络的)时,该拒。
+///
+/// 纯函数,便于测试。理由和整个 crate 一致:一个约束不了网络却声称约束了的 jail,比明确说
+/// "我管不了网络"更糟——使用者会以为出站被关住了。
+fn refuse_net_without_landlock(backend: Backend, net_declared: bool) -> bool {
+    net_declared && !matches!(backend, Backend::Landlock)
 }
 
 /// 在约束下启动 `argv`。
@@ -104,6 +122,12 @@ pub fn launch(profile: &Profile, argv: &[String]) -> Result<Launched, JailError>
             .join("\n");
         return Err(JailError::NoBackend(why));
     };
+
+    // 声明了网络天花板但后端管不了网络(不是 Landlock)→ 拒绝,不静默把网络敞开着跑。
+    // 这条在所有平台都判(不只 Linux):在非 Linux 上 best_available 也给不出 Landlock。
+    if refuse_net_without_landlock(backend, profile.net.is_some()) {
+        return Err(JailError::NetUnenforceable(backend.as_str().to_string()));
+    }
 
     // mount-ns 作为 root 跑时 /dev 仍可写(内核执行的只读约束绕得过去)。默认拒这个组合;
     // 运维明确接受风险可设 AGENTGUARD_JAIL_ALLOW_ROOT=1(会打警告)。
@@ -184,7 +208,6 @@ mod tests {
 
     /// mount-ns + root 默认被拒;非 root、Landlock、或明确放行时不拒。
     #[test]
-    #[cfg(target_os = "linux")]
     fn root跑mountns默认被拒() {
         // 危险组合:root + mount-ns + 未放行 → 拒。
         assert!(refuse_root_mountns(Backend::MountNamespace, Some(0), false));
@@ -207,5 +230,25 @@ mod tests {
         let msg = JailError::RootMountNamespace.to_string();
         assert!(msg.contains("/dev"), "{msg}");
         assert!(msg.contains("AGENTGUARD_JAIL_ALLOW_ROOT"), "{msg}");
+    }
+
+    /// 声明了网络天花板但后端不是 Landlock → 拒(不静默把网络敞开)。
+    #[test]
+    fn 声明网络但后端非landlock被拒() {
+        // mount-ns 管不了网络 + 声明了 net → 拒。
+        assert!(refuse_net_without_landlock(Backend::MountNamespace, true));
+        // Landlock + 声明了 net → 不拒(它能强制)。
+        assert!(!refuse_net_without_landlock(Backend::Landlock, true));
+        // 没声明 net → 任何后端都不因这条拒(网络本就不管)。
+        assert!(!refuse_net_without_landlock(Backend::MountNamespace, false));
+        assert!(!refuse_net_without_landlock(Backend::Landlock, false));
+    }
+
+    #[test]
+    fn 网络不可强制错误信息说清怎么办() {
+        let msg = JailError::NetUnenforceable("mount-namespace".into()).to_string();
+        assert!(msg.contains("scope.net"), "{msg}");
+        assert!(msg.contains("Landlock"), "{msg}");
+        assert!(msg.contains("敞开"), "{msg}");
     }
 }

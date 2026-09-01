@@ -9,6 +9,37 @@
 ### Added
 
 - 接入 D 亮色品牌方案：增加共享 Logo 与 App 图标母版；更新 macOS、Windows、Android 与 Chromium 图标（含菜单栏、Adaptive/主题及通知小图标）；并在三语 README、文档门户、符合性说明及各前端页眉展示统一品牌标志。
+- 新增 `guard-trust`，以统一的常数时间比较、`InboundOutcome` 词汇和入站面清册测试约束六类入站信任边界；各协议仍保留适合自身的密码学原语和信任锚。
+- 新增当前 20 条“用户能力声明 ↔ 证明测试”机器可核对映射，以及从能力声明、发布门禁和状态数据生成的仪表盘；它们证明声明锚点与测试存在，不替代真机验收。
+- `guard-jail` 新增可选 `scope.net` 网络天花板：在 Landlock ABI v4（Linux 内核 6.7+）上只允许明确列出的 TCP connect/bind 端口；未声明时不约束网络，已声明但无法强制时拒绝启动。
+- 浏览器扩展新增付款 CTA、陷阱表单及付款形状 fetch/XHR 的有限执行前确认门；新增对已知恶意与越出会话范围主机的 DNR 阻断、持久化/过期语义、名单管理和规则溯源。
+- 增加 Firefox 独立 manifest、打包与 Native Messaging host 接入骨架，并补 Edge 安装兼容；Safari 保持为需 Xcode/Swift handler 的设计项。
+- macOS AX 树观测新增 AXObserver 推送、150ms 去抖、800ms 延迟上限与 3s 兜底轮询；像素捕获仍为采样路径。
+- macOS、Windows 与 Chromium 界面完成三语消费者化改造，包括首次引导、人话风险文案、无障碍确认层、键盘焦点、深色模式、通知及词表完整性检查。
+- 新增浏览器、Windows 与 macOS 真机验收清单、可执行手册、浏览器夹具和报告模板；文档与夹具是待执行流程，不表示已经获得真机证据。
+
+### Security
+
+- 网络天花板一经声明便覆盖 TCP connect 与 bind；空端口表表示全部拒绝，非 Landlock 后端不得静默降级为网络开放。
+- 恶意主机 DNR 名单跨 service worker 重启保留，越界主机随会话过期；popup 可查看、解除并追溯到 `INTEL-DOMAIN` 或 `SCOPE-HOST`。
+
+### Changed
+
+- Chromium 不再笼统描述为“只能事后通知”：页面门和 DNR 对其覆盖的向量提供执行前控制；Native Messaging 判决仍是异步的，不能追溯阻止触发事件，且页面门/DNR 都有明确绕过与 fail-open 边界。Android 仍为事件后提示。
+- 桌面观测不再笼统描述为“仅轮询”：macOS AX 树变化已有推送；像素捕获、其他桌面路径和兜底仍包含采样或轮询，因此不是零间隙实时监控。
+
+### Fixed
+
+- Firefox MV3 包改用其支持的模块化 `background.scripts` 事件页；结构测试同时钉住 Chromium service worker 与 Firefox event page 的同一 `background.js` 入口。
+- 修复读取拦截名单时丢失规则溯源，以及“允许一次”用 `form.submit()` 绕过表单校验并丢失 submitter 语义的问题；付款按钮的 click→submit 链现在共享一次性批准，不会重复弹出确认。
+- 把 macOS AXObserver 真正接入桌面驱动，绑定持续运行的主 RunLoop，并随前台应用切换重绑；新增产品路径接线测试。
+- SQLCipher 发布构建遇到旧明文 SQLite 审计库时不再启动崩溃：原库保持不变，新的加密库使用独立同级文件。
+- 扩展打包改为先生成全新 ZIP 再原子替换，避免 `zip` 更新模式因源文件时间戳而保留旧代码。
+
+### Known limitations
+
+- 当前 macOS ad-hoc 候选已在本机完成启动、TCC 探测与 AXObserver 推送流程检查，但签名/公证后的全新安装和升级路径仍未验收；Chrome、Edge、Firefox 与 Windows 仍缺候选版真机 E2E，Safari 只有设计。
+- 页面门能覆盖的只是在已安装扩展可触达的页面向量；DNR 规则安装失败时 fail-open，Native Host 和 Android 通知不能提供不可绕过的执行前控制。
 
 ## [1.0.0-rc.1] - 2026-08-28
 
@@ -20,7 +51,7 @@
 - macOS AXUIElement、ScreenCaptureKit 与 Vision OCR 观测路径。
 - Windows UI Automation、GDI 抓帧和 Windows.Media.Ocr 实现。
 - Android AccessibilityService 伴生应用、环境调查和 Android Keystore P-256 适配器签名。
-- Chromium MV3 扩展、Native Messaging host 与高风险判决事后通知。
+- Chromium MV3 扩展、Native Messaging host、高风险判决通知，以及对有限页面向量与名单主机的执行前控制。
 - 合作式 MCP 工具网关，以及 Linux 上由内核执行的 `guard-jail` 文件系统边界。
 - Ed25519 威胁情报、哈希链审计、可选逐条签名与 SQLCipher。
 - Bearer 保护的本地 API、签名策略同步和已认证计费 webhook。
@@ -39,7 +70,7 @@
 ### Changed
 
 - 明确区分旁路观测、合作式控制和 Linux 内核执行边界。
-- Android 与 Chromium 的确认统一描述为事件后的通知，不再描述为执行前阻断。
+- Android 的确认仍是事件后通知；Chromium 的页面门与 DNR 则在其有限覆盖面内提供执行前控制，Native Messaging 判决仍为异步。
 - Windows 状态从模拟脚手架更新为真实 UIA/GDI/OCR 实现，同时保留“尚未真机验收”的限制。
 - `guard-ffi` 明确标记为仓库内没有消费者的实验组件。
 - 发布文档不再把源码、测试、构建和正式安装包证据混为同一状态。
@@ -47,8 +78,8 @@
 ### Known limitations
 
 - 除 Linux `guard-jail` 外，大部分控制依赖 Agent 主动经过 AgentGuard，可以绕过。
-- 桌面观测包含轮询，不是实时监控。
-- Android 与 Chromium 无法在动作发生前阻断。
+- macOS AX 树变化已有推送，但像素捕获、其他桌面观测与兜底仍包含采样或轮询，不是零间隙实时监控。
+- Android 无法在动作发生前阻断；Chromium 只能在页面门和 DNR 覆盖的向量上执行前控制，不能据此声称通用或不可绕过。
 - Windows 尚无真实设备端到端验收；iOS 只有有限脚手架，没有完整工程或引擎接线。
 - 仓库夹具密钥不得用于生产，部署前必须替换。
 - 尚无签名、公证安装包和真实设备验收证据，严格发布门禁不能通过。

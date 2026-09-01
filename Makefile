@@ -1,4 +1,7 @@
-.PHONY: release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+# check-macos-cfg 用:能在无 Apple 工具链下对 darwin 目标 cargo check 的 crate(不经 ring)。
+DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
+
+.PHONY: ui-preview release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -15,6 +18,15 @@ acceptance:
 # Verify the published-attack-surface coverage matrix against the repo and render it.
 coverage:
 	cargo run -p guard-cli -- coverage
+
+# Verify the user-facing capability-claims → tests map against the repo and render it (X-2).
+capability-claims:
+	cargo run -p guard-cli -- capability-claims
+
+# 从真实来源(capability-claims.json + release-gate.sh + gate-status.json)生成状态仪表盘 HTML。
+# 不手写、不漂移。先跑 capability-claims 刷新 JSON。
+dashboard: capability-claims
+	python3 scripts/gen-dashboard.py
 
 # Every ranked agent answers the same probe suite; the command fails when a
 # profile is not comparable against it (docs/leaderboard-comparability.md).
@@ -130,8 +142,25 @@ check-shells:
 	done; \
 	if [ "$$n" -lt 3 ]; then echo "check-shells matched only $$n files - the glob has stopped finding the front ends" >&2; exit 1; fi; \
 	echo "$$n front-end modules parse"
+	@# E18:壳子词表完整性——键三语一致、data-i18n/t() 引用的键都存在、中文无英文残留。
+	@# t(缺键) 会把 key 名渲染到界面上,不报错不崩溃,只有这类测试或肉眼能看见。
+	node eval/shells-i18n.test.mjs
 	@set -e; find . -name '*.sh' -not -path './target/*' -print0 | xargs -0 -n1 bash -n
 	@echo "shell scripts parse"
+
+# 浏览器执行前阻断的纯决策逻辑单测(E2)+ click→submit DOM 事件链(E2)+
+# 跨浏览器 manifest 一致性(E4)+ 人话词典(E16)。真 Chrome/Firefox E2E 未验证。
+check-extension-gate:
+	node apps/extension-chromium/scripts/gate.test.mjs
+	node apps/extension-chromium/scripts/content-event.test.mjs
+	node apps/extension-chromium/scripts/manifests.test.mjs
+	node apps/extension-chromium/scripts/strings.test.mjs
+	bash apps/extension-chromium/scripts/package-store.test.sh
+
+## E16 视觉冒烟(开发工具,不进 release-gate:需要 playwright+Chromium)。
+## 真渲染确认弹层与 popup → 截图到 eval/ui-preview/out/ + 行为断言(先不要挡住/允许重放/可见文本无裸术语)。
+ui-preview:
+	node eval/ui-preview/shoot.mjs
 
 ## The desktop shells, compiled rather than parsed. On Linux this needs GTK/WebKit:
 ##   apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev
@@ -170,6 +199,13 @@ check-msrv:
 # dealias_platform_volumes 那几条测试) —— 否则这类 bug 永远只有 macOS 能发现。
 check-macos-cfg:
 	./scripts/check-macos-paths.sh
+	@# E19(codex 真机报告 2026-08-31):linux-only 代码漏 cfg 门(mountns 无条件 use
+	@# libc_syscall)让 workspace 在 macOS 编译失败,而 Linux CI 永远看不见——上面的脚本
+	@# 只查"macOS 专属代码编不编得过"这个**反方向**。补上正方向:对 aarch64-apple-darwin
+	@# 目标真编译。范围是不经 ring 的那部分 crate(ring 的 C 构建脚本要 Apple 工具链;
+	@# 依赖它的 intel/core/cli/nm-host/mac-adapter 等只能在真 Mac 上编,见真机验收)。
+	rustup target list --installed | grep -q aarch64-apple-darwin || rustup target add aarch64-apple-darwin
+	cargo check --target aarch64-apple-darwin $(DARWIN_CHECK_CRATES)
 
 check-macos-path-semantics:
 	cargo test -p guard-schema --lib paths::tests -- --exact \

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>popup 预览</title>
+<link rel="stylesheet" href="/apps/extension-chromium/popup.css">
+</head>
+<body>
+<div class="row header">
+  <div class="brand">
+    <img class="brand-mark" src="/apps/extension-chromium/assets/agentguard-mark-white.png" alt="" />
+    <span class="dot on" id="status-dot"></span>
+    <h1 data-i18n="extensionName">AgentGuard Web Shield</h1>
+  </div>
+  <button id="btn-settings" class="ghost" data-i18n="settings">Settings</button>
+</div>
+
+<div class="status-card">
+  <div class="status-line" id="status-line" data-i18n="statusOn">Protecting this page</div>
+  <div class="muted" id="today-line"></div>
+</div>
+
+<div id="settings-panel" hidden>
+  <div class="row">
+    <label for="locale" class="muted" data-i18n="language">Language</label>
+    <select id="locale">
+      <option value="system" data-i18n="system">System</option>
+      <option value="en" data-i18n="english">English</option>
+      <option value="zh_CN" data-i18n="simplifiedChinese">简体中文</option>
+      <option value="zh_TW" data-i18n="traditionalChinese">繁體中文</option>
+    </select>
+  </div>
+  <div class="row">
+    <input type="checkbox" id="native" />
+    <label for="native" data-i18n="nativeForward">Connect the desktop app</label>
+  </div>
+  <p class="muted" data-i18n="nativeForwardHint">hint</p>
+  <div class="row">
+    <button id="btn-onboarding" class="ghost" data-i18n="viewIntro">See what AgentGuard does</button>
+  </div>
+</div>
+
+<p class="muted section" id="hint" data-i18n="recentDetections">Recent findings</p>
+<ul id="list"></ul>
+<p class="muted section" data-i18n="blockedHosts">Blocked sites</p>
+<ul id="blocklist"></ul>
+
+<script>
+// —— chrome.* 最小桩 + 预置数据(预览用,不进仓库)。
+const NOW = Date.now();
+const state = new URLSearchParams(location.search).get("state") || "busy";
+const recent = state === "empty" ? [] : [
+  { ts: NOW - 3 * 60_000, kind: "prevented", prevented_kind: "payment_cta",
+    reason: "这一步会确认一次付款/转账", title: "轻松订 · 酒店预订", url: "https://hotel.example/pay" },
+  { ts: NOW - 26 * 60_000, kinds: ["invisible_injection"], count: 1,
+    title: "每日优惠聚合页", url: "https://deals.example/" },
+  { ts: NOW - 5 * 3_600_000, kinds: ["optional_pii", "privacy_trap"], count: 2,
+    title: "极速开卡 - VIP express", url: "https://card.example/form" },
+];
+const blocklist = state === "empty"
+  ? { malicious: [], out_of_scope: [], provenance: {} }
+  : {
+      malicious: ["evil.example"],
+      out_of_scope: ["tracker.example"],
+      provenance: {
+        "evil.example": { rule_id: "INTEL-DOMAIN" },
+        "tracker.example": { rule_id: "SCOPE-HOST" },
+      },
+    };
+window.chrome = {
+  storage: { local: {
+    get() { return Promise.resolve({ localeOverride: new URLSearchParams(location.search).get("locale") || "zh_CN" }); },
+    set() { return Promise.resolve(); },
+  }, onChanged: { addListener() {} } },
+  i18n: { getUILanguage() { return "zh-CN"; } },
+  runtime: {
+    getURL(p) { return "/apps/extension-chromium/" + p; },
+    sendMessage(msg, cb) {
+      if (msg.type === "get_recent") cb({ recent, nativeEnabled: true });
+      else if (msg.type === "get_blocklist") cb(blocklist);
+      else if (cb) cb({});
+    },
+  },
+};
+</script>
+<script src="/apps/extension-chromium/guard-strings.js"></script>
+<script src="/apps/extension-chromium/popup.js"></script>
+</body>
+</html>

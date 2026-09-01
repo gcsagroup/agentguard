@@ -131,7 +131,9 @@ gate "供应链 (cargo deny: CVE/许可/来源)"   make check-supply-chain
 gate "全 workspace 测试"                    cargo test --workspace
 gate "离线评测场景"                          make eval
 gate "覆盖矩阵(每个场景都被认领)"          make coverage
+gate "主张↔测试映射(声明都有测试兜底)"    make capability-claims
 gate "前端与 shell 脚本能解析"              make check-shells
+gate "浏览器执行前阻断逻辑"                  make check-extension-gate
 gate "macOS 专属代码路径能编译"             make check-macos-cfg
 gate "macOS 路径判决语义"                    make check-macos-path-semantics
 gate "部署自检结论与基线一致"                make preflight
@@ -174,8 +176,20 @@ need_evidence \
   "伴生应用签名的信封被桌面验过(适配器公钥已进注册表),且判决与预期一致" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID \
   "adapter"
+need_evidence \
+  "真机端到端验收(Firefox 扩展)" \
+  "需要一台装了 Firefox ≥128 的真机(world:MAIN fetch 门、DNR 配额、native host 的 gecko-id origin 只有真 Firefox 能验)" \
+  "docs/acceptance-firefox.md 的 F1–F8 逐条走完并留记录" \
+  AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX \
+  "acceptance"
+need_evidence \
+  "真机端到端验收(Windows 桌面)" \
+  "需要一台真 Windows(UI Automation 取树、GDI 抓帧、Windows.Media.Ocr 读屏、阻断式模态只有真机能验)" \
+  "docs/acceptance-windows.md 的 W1–W7 逐条走完并留记录" \
+  AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS \
+  "acceptance"
 
-# 自检:上面应该恰好登记 6 项需要证据的东西。
+# 自检:上面应该恰好登记 8 项需要证据的东西。
 #
 # 这一条存在,是因为这个脚本自己犯过一次:第一版用了中文局部变量名,bash 的 `local`
 # 不接受,于是 need_evidence 整体失效 —— 六项一条都没登记,而脚本最后打印的是
@@ -183,7 +197,7 @@ need_evidence \
 #
 # 教训不是"别用中文变量名",是**一个门禁必须能发现自己失效了**。所以这里对着一个
 # 写死的数字核对:登记数不对,报的是脚本自身的 bug,而不是发布通过。
-EXPECTED_EVIDENCE=6
+EXPECTED_EVIDENCE=8
 if [ "$EVIDENCE_SEEN" -ne "$EXPECTED_EVIDENCE" ]; then
   say ""
   say "脚本自身有 bug:登记了 $EVIDENCE_SEEN 项需要证据的检查,期望 $EXPECTED_EVIDENCE 项。"
@@ -192,7 +206,7 @@ if [ "$EVIDENCE_SEEN" -ne "$EXPECTED_EVIDENCE" ]; then
 fi
 # 精确相等,不是下限。上一版用 `-lt`,于是"新增一道门禁"就买到了"静默删掉一道门禁"
 # 的额度:11+6 仍然 >= 17。检查总数是一个已知的数,就该按已知的数核对。
-EXPECTED_GATES=11
+EXPECTED_GATES=13
 if [ $((PASS + FAIL + ${#UNVERIFIED[@]})) -ne $((EXPECTED_GATES + EXPECTED_EVIDENCE)) ]; then
   say ""
   say "脚本自身有 bug:通过 $PASS + 失败 $FAIL + 未验证 ${#UNVERIFIED[@]} 不等于应有的 $((EXPECTED_GATES + EXPECTED_EVIDENCE)) 项。"

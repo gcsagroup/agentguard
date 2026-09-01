@@ -615,9 +615,9 @@ hr.spine{border:0; border-top:1px solid var(--rule); margin:clamp(26px,3.4vw,38p
           <tr>
             <td class="plat"><span class="pname">macOS</span><span class="mono">12.3+ · Tauri</span></td>
             <td>
-              <span class="zh-c">真实的 <code>AXUIElement</code> 遍历器 + ScreenCaptureKit 取帧，像素级潜阈/隐写/帧摘要分析，Vision OCR；抓帧固定约 2 FPS，两个轮询器（SCK 帧 1.5 秒、AX 树 2.5 秒）。</span>
-              <span class="en-c">A real <code>AXUIElement</code> walker plus ScreenCaptureKit frames, pixel-level subliminal / stego / frame-digest analysis, and Vision OCR. Capture is pinned at ~2 FPS with two pollers: SCK frames at 1.5 s, the AX tree at 2.5 s.</span>
-              <span class="mono">AgentGuardAX.m (199 lines) · AgentGuardSCK.m (519 lines) · 4 event kinds</span>
+              <span class="zh-c">真实的 <code>AXUIElement</code> 遍历器 + ScreenCaptureKit 取帧，像素级潜阈/隐写/帧摘要分析，Vision OCR；SCK 帧按 1.5 秒采样，AX 树由 AXObserver 推送驱动（150ms 去抖、800ms 延迟上限、3 秒兜底）。</span>
+              <span class="en-c">A real <code>AXUIElement</code> walker plus ScreenCaptureKit frames, pixel-level subliminal / stego / frame-digest analysis, and Vision OCR. SCK frames remain sampled every 1.5 s; the AX tree is AXObserver-driven with 150 ms debounce, an 800 ms latency ceiling, and a 3 s fallback.</span>
+              <span class="mono">AgentGuardAX.m · AgentGuardSCK.m · AXObserver + 4 event kinds</span>
             </td>
             <td><span class="chip chip--ok">live</span><span class="mono">覆盖最完整的一端<br>the most complete of the three</span></td>
             <td>

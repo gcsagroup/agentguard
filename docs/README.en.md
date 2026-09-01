@@ -6,7 +6,7 @@
 
 # AgentGuard documentation portal
 
-This portal is the trilingual entry point. Trilingual coverage includes the root README, this portal, the `1.0.0-rc.1` release notes, the changelog, privacy disclosures, component READMEs, and primary store copy. Deep technical and audit documents remain in their original languages and are labeled below by purpose and status.
+This portal is the trilingual entry point. Trilingual coverage includes the root README, this portal, the `1.0.0-rc.1` release notes, the changelog, privacy disclosures, component READMEs, primary store copy, and the six technical and four acceptance documents added in this update. Other deep technical and audit documents remain in their original languages and are labeled below by purpose and status.
 
 > `1.0.0-rc.1` is a source release candidate. Code signing, notarization, store publication, and real-device end-to-end acceptance evidence are incomplete. The production release decision remains **No-Go**.
 
@@ -23,13 +23,28 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 
 - [Project README (Simplified Chinese)](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 release notes (Simplified Chinese)](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
+- [2026-09-01 real-device acceptance report (Simplified Chinese)](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — Separates the historical `bd7bb2f` baseline from the current uncommitted integration candidate; the release decision remains No-Go.
 - [Changelog (Simplified Chinese)](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [Privacy disclosure (Simplified Chinese)](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
+
+## Trilingual technical and acceptance documents added in this update
+
+- [Inbound trust (Simplified Chinese)](入站信任.md) · [繁體](入站信任.zh-TW.md) · [English](入站信任.en.md) — Shared trust principles, vocabulary, and an inventory test for six inbound surfaces.
+- [Capability claim-to-test mapping (Simplified Chinese)](主张与测试映射.md) · [繁體](主张与测试映射.zh-TW.md) · [English](主张与测试映射.en.md) — Initial capability claims, proof tests, and a generated status dashboard; not a substitute for real-device evidence.
+- [Browser pre-execution gates (Simplified Chinese)](浏览器执行前阻断.md) · [繁體](浏览器执行前阻断.zh-TW.md) · [English](浏览器执行前阻断.en.md) — Page gates, DNR, blocklist management and provenance, plus asynchronous Native Host and fail-open boundaries.
+- [Cross-browser support (Simplified Chinese)](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — The Firefox port, Edge compatibility, and Safari design boundary.
+- [Consumerized interface (Simplified Chinese)](消费者化界面.md) · [繁體](消费者化界面.zh-TW.md) · [English](消费者化界面.en.md) — Plain-language trilingual UI, first-run onboarding, accessibility, keyboard use, and dark mode.
+- [macOS real-time observation (Simplified Chinese)](macos实时观测.md) · [繁體](macos实时观测.zh-TW.md) · [English](macos实时观测.en.md) — AXObserver push and coalescing, with pixel-sampling, fallback-polling, and real-device-unverified boundaries.
+- [Real-device acceptance runbook (Simplified Chinese)](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — Executable steps and evidence rules, not completed acceptance.
+- [Real-device acceptance report template (Simplified Chinese)](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — Per-platform PASS, FAIL, and BLOCKED recording.
+- [Firefox acceptance checklist (Simplified Chinese)](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+, DNR quota, and gecko-id Native Messaging real-device checks.
+- [Windows acceptance checklist (Simplified Chinese)](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA, GDI, OCR, capability-probe, and Native Messaging real-device checks.
 
 ## Release, platform, and operations
 
 - [release-security.md](release-security.md) — Original language: mixed Chinese and English; status: release-evidence gate reference.
 - [platform-matrix.md](platform-matrix.md) — Original language: primarily English; status: platform reference whose real-device state must be read with the release notes.
+- [status-dashboard.html](status-dashboard.html) — A generated Simplified-Chinese machine view of capability claims and gate data; this English portal carries the translated conclusion. Regenerate it on the current commit, and do not treat it as real-device evidence.
 - [acceptance-macos.md](acceptance-macos.md) — Original language: Simplified Chinese; status: acceptance checklist, not evidence that acceptance was completed.
 - [macos-release.md](macos-release.md) — Original language: Simplified Chinese; status: signing, notarization, and packaging guide, not proof of execution.
 - [roadmap-status.md](roadmap-status.md) — Original language: primarily English; status: needs reconciliation because some metrics and completed boxes are historical snapshots.

@@ -14,7 +14,7 @@
           <img class="brand-mark" src="assets/agentguard-mark-white.png" alt="" />
           <div>
             <h1>AgentGuard</h1>
-            <p class="subtitle">macOS Menu Bar · Phase 2</p>
+            <p class="subtitle" data-i18n="subtitle">Guards what AI agents do on this Mac</p>
           </div>
         </div>
         <div class="header-actions">
@@ -37,7 +37,7 @@
       </section>
 
       <section id="tcc-panel" class="card tcc">
-        <h2 data-i18n="tcc.title">Permission setup (TCC)</h2>
+        <h2 data-i18n="tcc.title">Permissions</h2>
         <p class="muted" data-i18n="tcc.description">Without permission, only simulation and extension protection are active.</p>
         <ul id="tcc-hints" class="tcc-list"></ul>
         <div class="btn-row">
@@ -55,14 +55,16 @@
             the shell is no longer structurally unable to say what it was asked to do. The options
             are the profiles in policies/task-plans.yaml that carry a `scope:`.
           -->
+          <!-- 任务下拉给人话名(value 仍是 policies/task-plans.yaml 的 profile id)。
+               上一版直接把 book_hotel 这种配置名怼给用户。 -->
           <label class="task-profile">
             <span data-i18n="guard.task">Task</span>
             <select id="task-profile">
-              <option value="" data-i18n="guard.taskNone">(unscoped)</option>
-              <option value="book_hotel">book_hotel</option>
-              <option value="order_food">order_food</option>
-              <option value="navigation_jump">navigation_jump</option>
-              <option value="preference_save">preference_save</option>
+              <option value="" data-i18n="guard.taskNone">(any task)</option>
+              <option value="book_hotel" data-i18n="task.bookHotel">Book a hotel</option>
+              <option value="order_food" data-i18n="task.orderFood">Order food</option>
+              <option value="navigation_jump" data-i18n="task.navigate">Navigate pages</option>
+              <option value="preference_save" data-i18n="task.prefSave">Save preferences</option>
             </select>
           </label>
           <div class="btn-row">
@@ -70,16 +72,23 @@
             <button id="btn-end" class="secondary" data-i18n="guard.end">End session</button>
             <button id="btn-resume" class="secondary" data-i18n="guard.resume">Resume</button>
           </div>
+          <p id="caps" class="muted"></p>
+        </div>
+
+        <!-- 开发者面板(E16):AX/SCK 探测轮询、仿真注入、企业策略、决策原始日志是
+             演示与诊断工具,普通用户不需要 —— 默认折叠,不再伪装成主界面。 -->
+        <details class="card dev">
+          <summary data-i18n="dev.title">Developer panel (demos &amp; diagnostics)</summary>
           <label class="check" id="auto-approve-row">
             <input type="checkbox" id="auto-approve" />
-            <span data-i18n="guard.autoApprove">Auto-approve critical confirmations (debug builds only)</span>
+            <span data-i18n="guard.autoApprove">Auto-approve high-risk confirmations (debug builds only)</span>
           </label>
           <h3 class="subhead" data-i18n="ax.title">Accessibility (live AX)</h3>
           <p class="muted small" data-i18n="ax.description">Requires Accessibility permission.</p>
           <div class="btn-row wrap">
             <button id="btn-ax-probe" class="secondary" data-i18n="ax.probe">Probe AX</button>
             <button id="btn-ax-poll" data-i18n="ax.poll">Capture frontmost AX</button>
-            <button id="btn-ax-auto" class="secondary" data-i18n="ax.auto">Auto-poll AX</button>
+            <button id="btn-ax-auto" class="secondary" data-i18n="ax.auto">AX realtime observation</button>
           </div>
           <h3 class="subhead">ScreenCaptureKit</h3>
           <p class="muted small" data-i18n="sck.description">Requires Screen Recording permission.</p>
@@ -89,11 +98,7 @@
             <button id="btn-sck-stop" class="secondary" data-i18n="sck.stop">Stop</button>
             <button id="btn-sck-poll" class="secondary" data-i18n="sck.poll">Poll frames</button>
           </div>
-          <p id="caps" class="muted"></p>
-        </div>
-
-        <div class="card">
-          <h2 data-i18n="threat.title">Simulate threats</h2>
+          <h3 class="subhead" data-i18n="threat.title">Simulate threats</h3>
           <div class="btn-row wrap">
             <button data-threat="payment" data-i18n="threat.payment">Payment confirmation</button>
             <button data-threat="fm" class="secondary" data-i18n="threat.fm">Optional PII</button>
@@ -108,7 +113,7 @@
             <button id="btn-sync-policy" class="secondary" data-i18n="policy.sync">Sync enterprise policy</button>
           </div>
           <ul id="decisions" class="log"></ul>
-        </div>
+        </details>
       </section>
 
       <section class="card">

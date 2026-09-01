@@ -6,7 +6,7 @@
 
 # AgentGuard 文档门户
 
-本门户是三语入口。当前三语覆盖根 README、本门户、`1.0.0-rc.1` 发布说明、CHANGELOG、隐私说明、各组件 README 和主要商店文案；深层技术与审计文档继续保留原始语言，并在下方标明用途与状态。
+本门户是三语入口。当前三语覆盖根 README、本门户、`1.0.0-rc.1` 发布说明、CHANGELOG、隐私说明、各组件 README、主要商店文案，以及本轮新增的六份技术说明和四份验收文档；其余深层技术与审计文档继续保留原始语言，并在下方标明用途与状态。
 
 > `1.0.0-rc.1` 是源码候选版。代码签名、公证、商店发布和真实设备端到端验收证据尚未完成，生产发布判断仍为 **No-Go**。
 
@@ -23,13 +23,28 @@
 
 - [项目 README（简体）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 发布说明（简体）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
+- [2026-09-01 真机验收报告（简体）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 区分 `bd7bb2f` 历史基线与当前未提交整合候选；发布结论仍为 No-Go。
 - [CHANGELOG（简体）](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [隐私说明（简体）](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
+
+## 本轮新增的三语技术与验收文档
+
+- [入站信任（简体）](入站信任.md) · [繁體](入站信任.zh-TW.md) · [English](入站信任.en.md) — 六类入站面的统一信任原则、共用词汇与清册测试。
+- [主张与测试映射（简体）](主张与测试映射.md) · [繁體](主张与测试映射.zh-TW.md) · [English](主张与测试映射.en.md) — 首批能力声明、证明测试与生成状态仪表盘；不替代真机证据。
+- [浏览器执行前阻断（简体）](浏览器执行前阻断.md) · [繁體](浏览器执行前阻断.zh-TW.md) · [English](浏览器执行前阻断.en.md) — 页面门、DNR、名单管理与溯源，以及异步 Native Host 和 fail-open 边界。
+- [跨浏览器（简体）](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — Firefox 移植、Edge 兼容与 Safari 设计边界。
+- [消费者化界面（简体）](消费者化界面.md) · [繁體](消费者化界面.zh-TW.md) · [English](消费者化界面.en.md) — 三语人话界面、首次引导、无障碍、键盘与深色模式。
+- [macOS 实时观测（简体）](macos实时观测.md) · [繁體](macos实时观测.zh-TW.md) · [English](macos实时观测.en.md) — AXObserver 推送与合并；像素采样、兜底轮询和真机未验边界。
+- [真机验收执行手册（简体）](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — 可执行步骤与证据规范，不是已完成验收。
+- [真机验收报告模板（简体）](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — 按平台记录 PASS、FAIL 与 BLOCKED。
+- [Firefox 验收清单（简体）](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+、DNR 配额与 gecko-id Native Messaging 真机项。
+- [Windows 验收清单（简体）](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA、GDI、OCR、能力探针与 Native Messaging 真机项。
 
 ## 发布、平台与运维
 
 - [release-security.md](release-security.md) — 原始语言：中英混合；状态：发布证据门禁参考。
 - [platform-matrix.md](platform-matrix.md) — 原始语言：英文为主；状态：平台能力参考，真机状态须结合发布说明。
+- [status-dashboard.html](status-dashboard.html) — 从能力声明、门禁与状态数据生成；必须在当前提交上重生成，不能替代真机证据。
 - [acceptance-macos.md](acceptance-macos.md) — 原始语言：简体中文；状态：验收清单，不是已完成证据。
 - [macos-release.md](macos-release.md) — 原始语言：简体中文；状态：签名、公证与打包指南，不是已执行证明。
 - [roadmap-status.md](roadmap-status.md) — 原始语言：英文为主；状态：需对齐，部分指标和“已完成”勾选是历史快照。
