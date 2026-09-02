@@ -23,10 +23,25 @@ cargo run -p guard-cli -- entitlement-status
 ## Webhook apply (file / one-shot)
 
 ```bash
+# 夹具文件展示字段形状;它的 created_ms 是固定值,超出 ±10 分钟窗口会被拒——
+# 这是设计,不是 bug。现场演示请用 `make webhook-demo`(用当前时间拼 body)。
 cargo run -p guard-cli -- billing-webhook \
   --file eval/fixtures/billing_webhook_purchase.json \
   --store /tmp/ag-ent.json
 ```
+
+### 重放与乱序保护(P1-7)
+
+每个 webhook 事件**必须**带三个字段,缺一即拒:
+
+* `event_id` —— 签发方事件 ID。接收端在授权文件旁维护幂等表(`<store>.webhook-state.json`,
+  保留最近 512 个);见过的 ID 直接返回当前授权、不改动(签发方重试是常态,不是攻击)。
+* `created_ms` —— 事件时刻。与本机时钟相差超过 ±10 分钟拒收。
+* `version` —— 授权状态版本,单调递增。不高于已应用版本的拒收。
+
+这三条合起来挡的是报告 P1-7 指出的形态:一份**旧的、签名合法的** purchase 在 refund 之后被
+重放,把授权变回 Pro。测试 `refund后重放旧purchase被版本与时间窗双重拒绝` 把这条路走了一遍。
+HTTP 接收端另有 body 上限 64 KiB(签名校验在读完 body 之后,没有上限就是无认证的内存放大器)。
 
 ## Local HTTP webhook receiver
 

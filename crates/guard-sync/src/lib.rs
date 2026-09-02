@@ -152,6 +152,15 @@ pub fn pull_policy(url_or_path: &str) -> Result<DevicePolicy> {
 /// 这是生产 / 企业下发该走的路。签名对不上、`.sig` 拉不到,都拒绝 —— 一份没验过的策略
 /// 不会被当真。
 pub fn pull_policy_verified(url_or_path: &str, pubkey: &PublicKeyBytes) -> Result<DevicePolicy> {
+    Ok(pull_policy_verified_with_sig(url_or_path, pubkey)?.0)
+}
+
+/// [`pull_policy_verified`],外加返回验过的原始字节与签名——缓存时把两者一起落盘,
+/// 重启后可以对**缓存**再验一次(P1-9:引擎只装验过签的策略,重启也不例外)。
+pub fn pull_policy_verified_with_sig(
+    url_or_path: &str,
+    pubkey: &PublicKeyBytes,
+) -> Result<(DevicePolicy, Vec<u8>, String)> {
     let bytes = read_source(url_or_path)?;
     let sig_src = format!("{url_or_path}.sig");
     let sig_bytes = read_source(&sig_src)
@@ -161,7 +170,18 @@ pub fn pull_policy_verified(url_or_path: &str, pubkey: &PublicKeyBytes) -> Resul
         .trim()
         .to_string();
     verify_policy(&bytes, &sig_b64, pubkey)?;
-    parse_policy(&bytes)
+    let policy = parse_policy(&bytes)?;
+    Ok((policy, bytes, sig_b64))
+}
+
+/// 公钥指纹(hex 前 16 位),状态显示「签名者」用。
+pub fn signer_fingerprint(pubkey: &PublicKeyBytes) -> String {
+    let digest = Sha256::digest(pubkey.0);
+    digest
+        .iter()
+        .take(8)
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>()
 }
 
 /// 未认证同步到本地缓存(仅本地 / 开发)。生产用 [`sync_to_cache_verified`]。
@@ -171,14 +191,22 @@ pub fn sync_to_cache(url_or_path: &str, cache: impl AsRef<Path>) -> Result<Devic
     Ok(policy)
 }
 
-/// 已认证同步到本地缓存。
+/// 已认证同步到本地缓存。**缓存的是验过的原始字节**(不是重新序列化的),并把签名写到
+/// `<cache>.sig`——于是缓存本身也能用 [`pull_policy_verified`] 再验一遍(重启时壳子就这么做)。
 pub fn sync_to_cache_verified(
     url_or_path: &str,
     pubkey: &PublicKeyBytes,
     cache: impl AsRef<Path>,
 ) -> Result<DevicePolicy> {
-    let policy = pull_policy_verified(url_or_path, pubkey)?;
-    policy.write_path(cache.as_ref())?;
+    let (policy, bytes, sig) = pull_policy_verified_with_sig(url_or_path, pubkey)?;
+    let cache = cache.as_ref();
+    if let Some(parent) = cache.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(cache, &bytes)?;
+    let mut sig_path = cache.as_os_str().to_owned();
+    sig_path.push(".sig");
+    std::fs::write(PathBuf::from(sig_path), sig)?;
     Ok(policy)
 }
 
@@ -256,6 +284,36 @@ mod tests {
             pull_policy_verified(&path.to_string_lossy(), &kp.public).is_err(),
             "篡改后的策略必须验不过"
         );
+    }
+
+    /// P1-9:已认证同步后的缓存本身还能再验(原始字节 + 旁置 .sig);重新序列化会破坏签名,
+    /// 所以缓存必须是原字节。
+    #[test]
+    fn 已认证缓存可再验() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("p.yaml");
+        let p = DevicePolicy {
+            policy_id: "corp".into(),
+            ..DevicePolicy::default()
+        };
+        p.write_path(&src).unwrap();
+        let kp = guard_intel::generate_keypair();
+        std::fs::write(
+            dir.path().join("p.yaml.sig"),
+            sign_policy(&std::fs::read(&src).unwrap(), &kp).unwrap(),
+        )
+        .unwrap();
+        let cache = dir.path().join("cache").join("device.yaml");
+        let got = sync_to_cache_verified(&src.to_string_lossy(), &kp.public, &cache).unwrap();
+        assert_eq!(got.policy_id, "corp");
+        assert!(dir.path().join("cache").join("device.yaml.sig").exists());
+        // 对缓存再验:过。
+        let again = pull_policy_verified(&cache.to_string_lossy(), &kp.public).unwrap();
+        assert_eq!(again.policy_id, "corp");
+        // 篡改缓存 → 再验拒。
+        std::fs::write(&cache, b"policy_id: evil\nversion: '9'\n").unwrap();
+        assert!(pull_policy_verified(&cache.to_string_lossy(), &kp.public).is_err());
+        assert_eq!(signer_fingerprint(&kp.public).len(), 16);
     }
 
     /// 超过大小上限的文件被拒。

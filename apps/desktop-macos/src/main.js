@@ -115,6 +115,14 @@ function renderStateReasons(st) {
   }
 }
 
+function policyLine(p) {
+  if (!p || !p.policy_id) return t("policy.none");
+  if (p.enforced) {
+    return t("policy.enforced", { id: p.policy_id, ver: p.version, signer: p.signer || "?" });
+  }
+  return t("policy.notEnforced", { id: p.policy_id, ver: p.version, why: p.last_error || "" });
+}
+
 async function refreshStatus() {
   const st = await invoke("get_status");
   lastStatus = st;
@@ -128,8 +136,13 @@ async function refreshStatus() {
   const sckMsg = st.sck_message ? ` · ${st.sck_message}` : "";
   const axMsg = st.ax_message ? ` · AX: ${st.ax_message}` : "";
   const folded = st.suppressed_events > 0 ? ` · ${t("status.folded", { n: st.suppressed_events })}` : "";
+  // P1-4:超时/遗留的确认不是悄悄消失的——状态行说出来。
+  const pendingN = st.pending_count > 0 ? ` · ${t("status.pendingCount", { n: st.pending_count })}` : "";
+  const timedOut = st.confirms_timed_out > 0 ? ` · ${t("status.timedOut", { n: st.confirms_timed_out })}` : "";
+  const orphaned = st.orphaned_confirms > 0 ? ` · ${t("status.orphaned", { n: st.orphaned_confirms })}` : "";
+  // P1-9:策略是"验过并生效"还是"只下载了":两种情况必须说出来,不能都显示成一个 ID。
   caps().textContent =
-    `${t("status.rules")} ${st.rules_loaded} · intel ${st.intel_version} · AX=${st.accessibility} · Capture=${st.screen_capture} · ${sckPart}${sckMsg}${axMsg}${folded}`;
+    `${t("status.rules")} ${st.rules_loaded} · intel ${st.intel_version} · AX=${st.accessibility} · Capture=${st.screen_capture} · ${sckPart}${sckMsg}${axMsg}${folded}${pendingN}${timedOut}${orphaned} · ${policyLine(st.policy)}`;
   const tcc = await invoke("get_tcc_status");
   await refreshCoverage(st, tcc);
   await maybeShowConfirm();
@@ -437,6 +450,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   };
   document.getElementById("confirm-deny").onclick = () => resolvePending(false);
   document.getElementById("confirm-approve").onclick = () => resolvePending(true);
+
+  // P1-4:弹层开着时每 15 秒复查一次——超时的确认由后端按「先不要」处理并写 Timeout 回执,
+  // 弹层要跟着收起、状态行要说出来,不能停在一个已经不存在的请求上。
+  setInterval(() => {
+    if (!modal().classList.contains("hidden")) {
+      maybeShowConfirm().catch(() => {});
+      refreshStatus().catch(() => {});
+    }
+  }, 15000);
 
   document.querySelectorAll("[data-threat]").forEach((btn) => {
     btn.onclick = async () => {

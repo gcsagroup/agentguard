@@ -26,8 +26,17 @@
 //! Tauri、没有 AX/SCK、没有时钟。报告要求的复测判据「并发注入 ≥100 条事件,展示/id/回执
 //! 一一对应,无覆盖、无跨会话串线」在这里用真线程直接测(见文件末)。壳子只负责把 AX/SCK
 //! 事件塞进来、把 UI 的 request_id 传回来。
+//!
+//! # 阶段 C(报告 P1-4):超时默认拒 + 重启不静默丢
+//!
+//! 窗口隐藏/最小化时,一条高危确认可能一直等着而用户不知道。两条补充:
+//! * 每条待确认带入队时刻;[`ConfirmQueue::expire`] 把超过 TTL 的移出并**交给调用方**写
+//!   `Timeout` 回执——超时不是「悄悄消失」,是一次有审计的默认拒绝。
+//! * [`ConfirmQueue::snapshot`] 给出可落盘的最小视图(不含观测文本摘录);壳子每次变化写一份,
+//!   启动时读到上次遗留的,逐条写 `Timeout` 回执——重启后 pending 不能静默丢失。
 
 use crate::confirm::ConfirmRequest;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 /// 一条待确认(队列元素)。`request_id` 与 `generation` 不可变。
@@ -37,8 +46,26 @@ pub struct PendingItem {
     pub request_id: u64,
     /// 入队时的会话 generation。跨 generation 的解析一律 Stale。
     pub generation: u64,
+    /// 入队时刻(ms since epoch)。0 = 调用方没给时间(不会超时)。
+    pub enqueued_ms: u64,
     pub request: ConfirmRequest,
 }
+
+/// 可落盘的待确认视图(P1-4)。刻意**不含** `ui_excerpt`:那是被观察窗口的文本,不该以明文
+/// 躺在磁盘上;重启后要做的只是给 `audit_id` 写一条 Timeout 回执,不需要它。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PersistedPending {
+    pub request_id: u64,
+    pub generation: u64,
+    pub enqueued_ms: u64,
+    pub audit_id: Option<String>,
+    pub rule_id: String,
+    pub severity: String,
+    pub source_app: String,
+}
+
+/// 默认超时:两分钟没人拍板,按拒绝处理并写 Timeout 回执。
+pub const DEFAULT_CONFIRM_TTL_MS: u64 = 120_000;
 
 /// `resolve` 的结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +125,11 @@ impl ConfirmQueue {
     /// 满了就挤出最旧的(记进 evicted)。这里**不**判重:同一事件重复入队应该在上层用
     /// 指纹聚合挡掉(见 P2-3 的告警聚合),队列只保证 id 唯一与 CAS 语义。
     pub fn enqueue(&mut self, request: ConfirmRequest) -> u64 {
+        self.enqueue_at(request, 0)
+    }
+
+    /// 带入队时刻的入队;`now_ms` > 0 的项才会被 [`Self::expire`] 判超时。
+    pub fn enqueue_at(&mut self, request: ConfirmRequest, now_ms: u64) -> u64 {
         let id = self.next_id;
         self.next_id += 1;
         if self.items.len() >= self.cap {
@@ -108,9 +140,45 @@ impl ConfirmQueue {
         self.items.push_back(PendingItem {
             request_id: id,
             generation: self.generation,
+            enqueued_ms: now_ms,
             request,
         });
         id
+    }
+
+    /// 把等了超过 `ttl_ms` 的待确认移出并返回(调用方据此写 `Timeout` 回执、通知 UI)。
+    ///
+    /// 移出的 id 记进 evicted:此后对它的 resolve 是 `Stale`——用户在超时后才点的那一下
+    /// 不会放行任何东西。入队时刻为 0 的项(调用方没给时间)永不超时。
+    pub fn expire(&mut self, now_ms: u64, ttl_ms: u64) -> Vec<PendingItem> {
+        let mut out = Vec::new();
+        let mut keep = VecDeque::with_capacity(self.items.len());
+        for it in self.items.drain(..) {
+            if it.enqueued_ms > 0 && now_ms.saturating_sub(it.enqueued_ms) > ttl_ms {
+                Self::remember_evicted(&mut self.evicted, self.cap, it.request_id);
+                out.push(it);
+            } else {
+                keep.push_back(it);
+            }
+        }
+        self.items = keep;
+        out
+    }
+
+    /// 可落盘视图(见 [`PersistedPending`])。
+    pub fn snapshot(&self) -> Vec<PersistedPending> {
+        self.items
+            .iter()
+            .map(|it| PersistedPending {
+                request_id: it.request_id,
+                generation: it.generation,
+                enqueued_ms: it.enqueued_ms,
+                audit_id: it.request.audit_id.clone(),
+                rule_id: it.request.rule_id.clone(),
+                severity: it.request.severity.clone(),
+                source_app: it.request.source_app.clone(),
+            })
+            .collect()
     }
 
     /// 解析一个确切的 request_id(compare-and-swap)。
@@ -253,6 +321,77 @@ mod tests {
             q.resolve(c, true),
             ResolveOutcome::Resolved { .. }
         ));
+    }
+
+    /// P1-4:超时的按拒绝处理——移出、交给调用方写回执、之后再点是 Stale。
+    #[test]
+    fn 超时项被移出且之后解析为stale_未超时与无时间项留下() {
+        let mut q = ConfirmQueue::new(8);
+        let old = q.enqueue_at(req("OLD", "audit-old"), 1_000);
+        let fresh = q.enqueue_at(req("FRESH", "audit-fresh"), 100_000);
+        let timeless = q.enqueue(req("TIMELESS", "audit-timeless"));
+        let expired = q.expire(130_000, DEFAULT_CONFIRM_TTL_MS);
+        assert_eq!(expired.len(), 1);
+        assert_eq!(expired[0].request_id, old);
+        assert_eq!(expired[0].request.audit_id.as_deref(), Some("audit-old"));
+        assert_eq!(q.len(), 2);
+        assert_eq!(
+            q.resolve(old, true),
+            ResolveOutcome::Stale,
+            "超时后再点同意不放行"
+        );
+        assert!(matches!(
+            q.resolve(fresh, true),
+            ResolveOutcome::Resolved { .. }
+        ));
+        assert!(matches!(
+            q.resolve(timeless, false),
+            ResolveOutcome::Resolved { .. }
+        ));
+    }
+
+    #[test]
+    fn 恰好等于ttl不算超时_时钟回拨不算超时() {
+        let mut q = ConfirmQueue::new(8);
+        q.enqueue_at(req("A", "a"), 10_000);
+        assert!(q
+            .expire(10_000 + DEFAULT_CONFIRM_TTL_MS, DEFAULT_CONFIRM_TTL_MS)
+            .is_empty());
+        assert!(
+            q.expire(5_000, DEFAULT_CONFIRM_TTL_MS).is_empty(),
+            "now < enqueued"
+        );
+        assert_eq!(q.len(), 1);
+    }
+
+    /// P1-4:落盘视图不含观测文本摘录,含回执所需的 audit_id;能 JSON 往返。
+    #[test]
+    fn 快照不含ui摘录且可json往返() {
+        let mut q = ConfirmQueue::new(8);
+        let d = Decision {
+            action: DecisionAction::Block,
+            severity: Severity::Critical,
+            rule_id: "CRIT-001".into(),
+            human_message: "确认支付".into(),
+            require_confirm: true,
+        };
+        let r = ConfirmRequest::from_decision(
+            &d,
+            "Safari",
+            Some("audit-1".into()),
+            Some("卡号 4111 1111 1111 1111 的屏幕文本".into()),
+        );
+        let id = q.enqueue_at(r, 42);
+        let snap = q.snapshot();
+        assert_eq!(snap.len(), 1);
+        assert_eq!(snap[0].request_id, id);
+        assert_eq!(snap[0].audit_id.as_deref(), Some("audit-1"));
+        assert_eq!(snap[0].enqueued_ms, 42);
+        let json = serde_json::to_string(&snap).unwrap();
+        assert!(!json.contains("4111"), "观测文本不该落盘:{json}");
+        assert!(!json.contains("ui_excerpt"));
+        let back: Vec<PersistedPending> = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, snap);
     }
 
     /// 报告的复测判据:并发注入 ≥100 条事件,每条最终被解析的 audit 与它自己的 id 一一对应,

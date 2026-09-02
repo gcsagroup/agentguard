@@ -2,6 +2,7 @@
 
 pub mod confirm;
 pub mod confirm_queue;
+pub mod device_policy;
 pub mod event_dedup;
 pub mod observe_state;
 pub mod trajectory;
@@ -60,6 +61,10 @@ pub struct Engine {
     /// P0-3:最近一次审计写入失败的错误。`Some` = 审计当前不可写,防护状态机据此判 Degraded。
     /// 下一次写成功即清空——它描述的是「现在能不能写」,不是历史。
     audit_error: Option<String>,
+    /// P1-9:装进引擎的**已验证**设备策略。`None` = 没有策略(不是"策略全关")。
+    device_policy: Option<device_policy::EnforcedPolicy>,
+    /// 当前会话声明的 agent 名(AgentSessionStart 的 source_app),给策略 allowed_agents 用。
+    session_agent: Option<String>,
     /// When true, session is paused after DenyAndPause.
     paused: bool,
     /// Known-app registry for deeplink / package-forgery checks (AgentScan system layer).
@@ -504,6 +509,8 @@ impl Engine {
             intel: ThreatBundle::default(),
             last_audit_id: None,
             audit_error: None,
+            device_policy: None,
+            session_agent: None,
             paused: false,
             known_apps: None,
             foreground_app: None,
@@ -896,6 +903,12 @@ impl Engine {
             Some(f) => merge_keeping_reason(decision, f),
             None => decision,
         };
+        // P1-9:企业策略最后叠上去——只收紧,不放宽(见 device_policy 模块)。放在所有 finding
+        // 合并之后、落审计之前:审计里记的是策略作用后的最终判决。
+        let decision = match &self.device_policy {
+            Some(p) => p.apply(decision, self.session_agent.as_deref()),
+            None => decision,
+        };
         // Commit the step now that the verdict is final. A blocked step did not
         // execute, so it must not spend a budget or mark the task complete;
         // `process_gated` re-commits as executed if the user approves.
@@ -1187,6 +1200,21 @@ impl Engine {
         self.audit.is_some() && self.audit_error.is_none()
     }
 
+    /// P1-9:原子切换设备策略。`None` 卸下。调用方(壳子)只该传**验过签**的策略——
+    /// 这里不再检查 `verified`,因为引擎拿不到公钥;但未验证的策略进来了也只会**收紧**判决。
+    pub fn set_device_policy(&mut self, policy: Option<device_policy::EnforcedPolicy>) {
+        self.device_policy = policy;
+    }
+
+    pub fn device_policy(&self) -> Option<&device_policy::EnforcedPolicy> {
+        self.device_policy.as_ref()
+    }
+
+    /// 当前会话声明的 agent 名(没有会话则 `None`)。
+    pub fn session_agent(&self) -> Option<&str> {
+        self.session_agent.as_deref()
+    }
+
     fn decide(&mut self, event: &GuardEvent) -> Result<Decision> {
         // Ingest point for untrusted provenance. Done before rule matching
         // because those arms return early: an event that trips an injection rule
@@ -1220,6 +1248,7 @@ impl Engine {
                 });
             }
             self.session_open = true;
+            self.session_agent = Some(event.source_app.clone());
 
             // Aura pillar (i): who is acting? Resolved here and nowhere else — a
             // session's identity is fixed at the moment it opens, so a later event
@@ -1432,6 +1461,7 @@ impl Engine {
             self.task_profile = None;
             self.foreground_app = None;
             self.session_open = false;
+            self.session_agent = None;
             // The identity dies with the session. It used to outlive it: an ended
             // session's `Verified` verdict stayed latched on the engine, so every
             // later event — including a subsequent anonymous session's — was
@@ -4178,6 +4208,20 @@ pub struct EngineStatus {
     pub audit_error: Option<String>,
     pub paused: bool,
     pub intel_version: String,
+    /// P1-9:引擎里**正在执法**的设备策略(`None` = 没有)。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_policy: Option<DevicePolicyStatus>,
+}
+
+/// 状态里对外显示的策略摘要。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DevicePolicyStatus {
+    pub policy_id: String,
+    pub version: String,
+    pub verified: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer: Option<String>,
+    pub applied_at_ms: u64,
 }
 
 impl Engine {
@@ -4188,6 +4232,13 @@ impl Engine {
             audit_enabled: self.audit.is_some(),
             audit_error: self.audit_error.clone(),
             paused: self.paused,
+            device_policy: self.device_policy.as_ref().map(|p| DevicePolicyStatus {
+                policy_id: p.policy_id.clone(),
+                version: p.version.clone(),
+                verified: p.verified,
+                signer: p.signer.clone(),
+                applied_at_ms: p.applied_at_ms,
+            }),
             intel_version: self.intel.version.clone(),
         }
     }
@@ -4376,6 +4427,91 @@ rules:
         let recent = engine.audit().unwrap().list_recent(5).unwrap();
         assert_eq!(recent.len(), 1);
         assert!(recent[0].action.contains("Block"));
+    }
+
+    /// P1-9:装进引擎的策略真的在判决上起作用——不再是"同步了但未执法"。
+    #[test]
+    fn 设备策略在引擎判决上执法且随会话agent生效() {
+        let yaml = r#"
+version: "1.0"
+rules:
+  - id: CRIT-001
+    name: payment
+    severity: critical
+    action: block
+    require_confirm: false
+    match_any_text: ["确认支付"]
+"#;
+        let mut engine = Engine::new(
+            RuleSet::from_yaml_str(yaml).unwrap(),
+            GuardContract::default(),
+        );
+        engine.set_device_policy(Some(device_policy::EnforcedPolicy {
+            policy_id: "enterprise-poc".into(),
+            version: "0.1.0".into(),
+            require_confirm_critical: true,
+            block_malicious_domains: true,
+            allowed_agents: vec!["Claude".into()],
+            verified: true,
+            signer: None,
+            applied_at_ms: 1,
+        }));
+        assert!(engine.status().device_policy.is_some());
+
+        let start = |agent: &str, sid: &str| GuardEvent {
+            event_id: format!("start-{sid}"),
+            timestamp_ms: 0,
+            platform: "macos".into(),
+            event_type: EventType::AgentSessionStart,
+            source_app: agent.into(),
+            agent_context_id: Some(sid.into()),
+            metadata: HashMap::new(),
+        };
+        let end = |agent: &str, sid: &str| GuardEvent {
+            event_id: format!("end-{sid}"),
+            timestamp_ms: 1,
+            platform: "macos".into(),
+            event_type: EventType::AgentSessionEnd,
+            source_app: agent.into(),
+            agent_context_id: Some(sid.into()),
+            metadata: HashMap::new(),
+        };
+        let mut meta = HashMap::new();
+        meta.insert("ui_text".into(), "请确认支付 $99".into());
+        let pay = GuardEvent {
+            event_id: "pay".into(),
+            timestamp_ms: 0,
+            platform: "macos".into(),
+            event_type: EventType::UiTreeDelta,
+            source_app: "Safari".into(),
+            agent_context_id: Some("s1".into()),
+            metadata: meta,
+        };
+
+        // 名单内的 agent:规则本身 require_confirm=false,策略把 Critical 强制过人。
+        engine.process(&start("Claude", "s1")).unwrap();
+        assert_eq!(engine.session_agent(), Some("Claude"));
+        let d = engine.process(&pay).unwrap();
+        assert_eq!(d.rule_id, "CRIT-001");
+        assert_eq!(d.action, DecisionAction::Block);
+        assert!(d.require_confirm, "策略 require_confirm_critical 没生效");
+        engine.process(&end("Claude", "s1")).unwrap();
+        assert_eq!(engine.session_agent(), None);
+
+        // 名单外的 agent:会话开始那条事件起,全部 POLICY-AGENT-NOT-ALLOWED。
+        let d = engine.process(&start("EvilBot", "s2")).unwrap();
+        assert_eq!(d.rule_id, device_policy::POLICY_AGENT_RULE_ID);
+        assert_eq!(d.action, DecisionAction::Block);
+        let d = engine.process(&pay).unwrap();
+        assert_eq!(d.rule_id, device_policy::POLICY_AGENT_RULE_ID);
+
+        // 卸下策略:回到规则本身的判决。
+        engine.process(&end("EvilBot", "s2")).unwrap();
+        engine.set_device_policy(None);
+        engine.process(&start("EvilBot", "s3")).unwrap();
+        let d = engine.process(&pay).unwrap();
+        assert_eq!(d.rule_id, "CRIT-001");
+        assert!(!d.require_confirm);
     }
 
     /// P0-3:审计写失败要变成一个**能持续读到**的事实,不只是一次 Err。

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -11,14 +11,20 @@ use guard_audit::{
     AuditRecord, AuditStore, SessionReport, UserDecision,
 };
 use guard_billing::load_or_free;
-use guard_core::confirm_queue::{ConfirmQueue, ResolveOutcome};
+use guard_core::confirm_queue::{
+    ConfirmQueue, PersistedPending, ResolveOutcome, DEFAULT_CONFIRM_TTL_MS,
+};
+use guard_core::device_policy::EnforcedPolicy;
 use guard_core::event_dedup::{Aggregator, Verdict, REPEAT_COUNT_KEY};
 use guard_core::observe_state::{self, StateInputs, Thresholds};
 use guard_core::{AutoApprove, ConfirmRequest, Engine};
 use guard_intel::load_release;
+use guard_intel::PublicKeyBytes;
 use guard_netmon::{evaluate_flow, FlowSummary};
 use guard_schema::{Decision, DecisionAction, EventType, GuardEvent};
-use guard_sync::{sync_to_cache, DevicePolicy};
+use guard_sync::{
+    pull_policy_verified, signer_fingerprint, sync_to_cache, sync_to_cache_verified, DevicePolicy,
+};
 use mac_adapter::{
     ax_probe, demo_transparent_overlay_frame, mac_capabilities, sck_probe, start_capture_session,
     stop_capture_session, AxCapture, MacAdapter,
@@ -63,6 +69,192 @@ struct AppState {
     observer_error: Mutex<Option<String>>,
     /// P2-3:观察事件聚合器。只在 SCK/AX 轮询路径上用;会话边界 reset。
     aggregator: Mutex<Aggregator>,
+    /// P1-4:本次运行里因超时(两分钟没人拍板)被按拒绝处理并写了 Timeout 回执的确认数。
+    confirms_timed_out: AtomicUsize,
+    /// P1-4:启动时发现上次运行遗留的待确认数(逐条写了 Timeout 回执)。
+    orphaned_confirms: AtomicUsize,
+    /// P1-9:设备策略的对外状态(验证/执法/最近一次失败),与引擎里装的那份一致。
+    policy_status: Mutex<PolicyStatusDto>,
+}
+
+/// P1-9:策略状态。`enforced` 只在签名验过并装进引擎时为 true;`verified=false` 的策略
+/// 只显示,不执法——状态栏要把这两种情况分开说。
+#[derive(Serialize, Clone, Default)]
+struct PolicyStatusDto {
+    policy_id: String,
+    version: String,
+    verified: bool,
+    enforced: bool,
+    signer: Option<String>,
+    applied_at_ms: u64,
+    /// 最近一次同步/验证失败的原因(失败时引擎保留上一份策略,这里说明为什么是上一份)。
+    last_error: Option<String>,
+    source: String,
+}
+
+/// P1-9:策略验签公钥。来源:`AGENTGUARD_POLICY_PUBKEY`(文件路径,32 字节 / hex / base64)
+/// > 数据目录 `policy-pubkey.hex`。都没有 = **未验证模式**:策略只显示,不进引擎。
+fn policy_pubkey() -> Option<PublicKeyBytes> {
+    if let Ok(p) = std::env::var("AGENTGUARD_POLICY_PUBKEY") {
+        if let Ok(k) = PublicKeyBytes::from_path(&p) {
+            return Some(k);
+        }
+    }
+    let mut p = dirs_next_data();
+    p.push("agentguard");
+    p.push("policy-pubkey.hex");
+    PublicKeyBytes::from_path(&p).ok()
+}
+
+fn policy_cache_path() -> PathBuf {
+    let mut p = dirs_next_data();
+    p.push("agentguard");
+    let _ = std::fs::create_dir_all(&p);
+    p.push("device-cache.yaml");
+    p
+}
+
+fn enforced_from(policy: &DevicePolicy, signer: Option<String>) -> EnforcedPolicy {
+    EnforcedPolicy {
+        policy_id: policy.policy_id.clone(),
+        version: policy.version.clone(),
+        require_confirm_critical: policy.require_confirm_critical,
+        block_malicious_domains: policy.block_malicious_domains,
+        allowed_agents: policy.allowed_agents.clone(),
+        verified: true,
+        signer,
+        applied_at_ms: now_epoch_ms(),
+    }
+}
+
+/// P1-9:把一份策略来源同步进来并决定执不执法。
+///
+/// * 配了公钥:`sync_to_cache_verified`(原字节 + .sig 落缓存)→ 验过 → **原子换进引擎**,
+///   `enforced=true`。验不过/拉不到:引擎里的上一份**不动**,状态记 `last_error`(degraded)。
+/// * 没配公钥:`sync_to_cache`(未验证)→ 只更新显示,`enforced=false`,引擎不动,并在
+///   `last_error` 里说明"没有验签公钥,策略仅显示"。
+fn load_device_policy(state: &AppState, source: &str) -> Result<PolicyStatusDto, String> {
+    let cache = policy_cache_path();
+    let mut status = state
+        .policy_status
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    status.source = source.to_string();
+    match policy_pubkey() {
+        Some(pk) => match sync_to_cache_verified(source, &pk, &cache) {
+            Ok(policy) => {
+                let fp = signer_fingerprint(&pk);
+                let enforced = enforced_from(&policy, Some(fp.clone()));
+                let applied_at = enforced.applied_at_ms;
+                state
+                    .engine
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .set_device_policy(Some(enforced));
+                status = PolicyStatusDto {
+                    policy_id: policy.policy_id,
+                    version: policy.version,
+                    verified: true,
+                    enforced: true,
+                    signer: Some(fp),
+                    applied_at_ms: applied_at,
+                    last_error: None,
+                    source: source.to_string(),
+                };
+            }
+            Err(e) => {
+                // 失败保持上一份:引擎不动,只把原因写进状态。
+                status.last_error = Some(format!(
+                    "verified sync failed; keeping previous policy: {e}"
+                ));
+            }
+        },
+        None => match sync_to_cache(source, &cache) {
+            Ok(policy) => {
+                status = PolicyStatusDto {
+                    policy_id: policy.policy_id,
+                    version: policy.version,
+                    verified: false,
+                    enforced: false,
+                    signer: None,
+                    applied_at_ms: now_epoch_ms(),
+                    last_error: Some(
+                        "no policy public key configured (AGENTGUARD_POLICY_PUBKEY or \
+                         policy-pubkey.hex); policy is displayed only and NOT enforced"
+                            .into(),
+                    ),
+                    source: source.to_string(),
+                };
+            }
+            Err(e) => {
+                status.last_error = Some(format!("sync failed: {e}"));
+            }
+        },
+    }
+    *state.policy_status.lock().map_err(|e| e.to_string())? = status.clone();
+    Ok(status)
+}
+
+/// P1-9:启动时从缓存恢复——**只**恢复能再验过签的那份(缓存旁的 .sig + 公钥)。没公钥或
+/// 验不过,引擎里就没有策略,状态如实说。
+fn restore_device_policy_at_startup(engine: &mut Engine) -> PolicyStatusDto {
+    let cache = policy_cache_path();
+    let src = cache.to_string_lossy().into_owned();
+    let Some(pk) = policy_pubkey() else {
+        let shown = DevicePolicy::from_path(&cache).ok();
+        return PolicyStatusDto {
+            policy_id: shown
+                .as_ref()
+                .map(|p| p.policy_id.clone())
+                .unwrap_or_default(),
+            version: shown
+                .as_ref()
+                .map(|p| p.version.clone())
+                .unwrap_or_default(),
+            verified: false,
+            enforced: false,
+            signer: None,
+            applied_at_ms: 0,
+            last_error: Some(if shown.is_some() {
+                "cached policy present but no public key configured; displayed only, NOT enforced"
+                    .into()
+            } else {
+                "no device policy".into()
+            }),
+            source: src,
+        };
+    };
+    match pull_policy_verified(&src, &pk) {
+        Ok(policy) => {
+            let fp = signer_fingerprint(&pk);
+            let enforced = enforced_from(&policy, Some(fp.clone()));
+            let applied_at = enforced.applied_at_ms;
+            engine.set_device_policy(Some(enforced));
+            PolicyStatusDto {
+                policy_id: policy.policy_id,
+                version: policy.version,
+                verified: true,
+                enforced: true,
+                signer: Some(fp),
+                applied_at_ms: applied_at,
+                last_error: None,
+                source: src,
+            }
+        }
+        Err(e) => PolicyStatusDto {
+            policy_id: String::new(),
+            version: String::new(),
+            verified: false,
+            enforced: false,
+            signer: Some(signer_fingerprint(&pk)),
+            applied_at_ms: 0,
+            last_error: Some(format!(
+                "cached policy did not verify; nothing enforced: {e}"
+            )),
+            source: src,
+        },
+    }
 }
 
 fn now_epoch_ms() -> u64 {
@@ -111,6 +303,13 @@ struct StatusDto {
     observer_error: String,
     /// P2-3:本会话被聚合器折叠掉的重复观察条数。
     suppressed_events: u64,
+    /// P1-4:本次运行超时默认拒绝的确认数;上次运行遗留、启动时按超时处理的确认数。
+    confirms_timed_out: usize,
+    orphaned_confirms: usize,
+    /// 当前等待中的确认数(状态灯之外,给「待确认 N」用)。
+    pending_count: usize,
+    /// P1-9:设备策略状态(验证/执法/失败原因)。`device_policy_id` 保留给旧前端。
+    policy: PolicyStatusDto,
 }
 
 #[derive(Serialize)]
@@ -424,6 +623,8 @@ fn load_task_plans() -> Option<guard_schema::TaskPlanLibrary> {
 
 #[tauri::command]
 fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
+    // P1-4:每次有人看状态都先把超时的确认按拒绝处理掉——不然它们会一直「等着」。
+    sweep_expired_confirms(state.inner())?;
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
     let adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
@@ -507,6 +708,14 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         audit_error: st.audit_error.unwrap_or_default(),
         observer_error: observer_error.unwrap_or_default(),
         suppressed_events,
+        confirms_timed_out: state.confirms_timed_out.load(Ordering::Relaxed),
+        orphaned_confirms: state.orphaned_confirms.load(Ordering::Relaxed),
+        pending_count: pending.len(),
+        policy: state
+            .policy_status
+            .lock()
+            .map_err(|e| e.to_string())?
+            .clone(),
     })
 }
 
@@ -552,13 +761,158 @@ fn acknowledge_tcc(state: State<'_, AppState>) -> Result<(), String> {
 /// 唯一的入队路径。以前是散落各处的 `*state.pending.lock() = Some(...)`,新事件直接覆盖
 /// 旧的 —— 那正是 P0-5 的成因。集中到这里之后,后台事件只会**排在后面**,不会顶替。
 fn enqueue_confirm(state: &AppState, req: ConfirmRequest) -> Result<u64, String> {
-    let mut q = state.pending.lock().map_err(|e| e.to_string())?;
-    Ok(q.enqueue(req))
+    let id = {
+        let mut q = state.pending.lock().map_err(|e| e.to_string())?;
+        q.enqueue_at(req, now_epoch_ms())
+    };
+    persist_pending(state);
+    Ok(id)
+}
+
+/// P1-4:待确认落盘(不含观测文本摘录),重启后不静默丢。写失败只记 stderr——落盘是给
+/// 重启兜底的,不该反过来让当前这次确认失败。
+fn pending_confirms_path() -> PathBuf {
+    let mut p = dirs_next_data();
+    p.push("agentguard");
+    let _ = std::fs::create_dir_all(&p);
+    p.push("pending-confirms.json");
+    p
+}
+
+fn persist_pending(state: &AppState) {
+    let snapshot = match state.pending.lock() {
+        Ok(q) => q.snapshot(),
+        Err(_) => return,
+    };
+    let path = pending_confirms_path();
+    if snapshot.is_empty() {
+        let _ = std::fs::remove_file(&path);
+        return;
+    }
+    let tmp = path.with_extension("json.tmp");
+    let write = serde_json::to_vec(&snapshot)
+        .map_err(|e| e.to_string())
+        .and_then(|bytes| std::fs::write(&tmp, bytes).map_err(|e| e.to_string()))
+        .and_then(|_| std::fs::rename(&tmp, &path).map_err(|e| e.to_string()));
+    if let Err(e) = write {
+        eprintln!("agentguard: pending-confirms persist failed: {e}");
+    }
+}
+
+/// P1-4:启动时处理上次运行遗留的待确认——逐条写 Timeout 回执,然后删文件。
+/// 返回处理条数。任何一条回执写不进就**保留文件**(下次启动再试),不假装处理完了。
+fn restore_orphaned_confirms(engine: &Engine) -> usize {
+    let path = pending_confirms_path();
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return 0;
+    };
+    let items: Vec<PersistedPending> = match serde_json::from_str(&text) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("agentguard: pending-confirms.json unreadable ({e}); leaving it in place");
+            return 0;
+        }
+    };
+    let mut done = 0usize;
+    let mut failed = false;
+    if let Some(store) = engine.audit() {
+        for it in &items {
+            if let Some(id) = &it.audit_id {
+                match store.set_user_decision(id, UserDecision::Timeout) {
+                    Ok(()) => done += 1,
+                    Err(e) => {
+                        failed = true;
+                        eprintln!(
+                            "agentguard: orphaned confirm {} receipt failed: {e}",
+                            it.request_id
+                        );
+                    }
+                }
+            } else {
+                done += 1;
+            }
+        }
+    } else {
+        failed = !items.is_empty();
+    }
+    if !failed {
+        let _ = std::fs::remove_file(&path);
+    }
+    done
+}
+
+/// P1-4:把等了超过 TTL 的确认按拒绝处理:写 Timeout 回执、引擎保持/进入暂停、落盘、计数。
+/// 返回本次处理的 request_id。回执写不进的那条**留在计数外**并记 stderr——它已从队列移出
+/// (再点是 Stale),但审计里没有它的回执,这是要暴露而不是吞掉的。
+fn sweep_expired_confirms(state: &AppState) -> Result<Vec<u64>, String> {
+    let expired = {
+        let mut q = state.pending.lock().map_err(|e| e.to_string())?;
+        q.expire(now_epoch_ms(), DEFAULT_CONFIRM_TTL_MS)
+    };
+    if expired.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut ids = Vec::with_capacity(expired.len());
+    {
+        let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+        for it in &expired {
+            if let (Some(store), Some(id)) = (engine.audit(), it.request.audit_id.as_ref()) {
+                if let Err(e) = store.set_user_decision(id, UserDecision::Timeout) {
+                    eprintln!(
+                        "agentguard: timeout receipt for {} failed: {e}",
+                        it.request_id
+                    );
+                    continue;
+                }
+            }
+            ids.push(it.request_id);
+        }
+        // 超时 = 默认拒绝:和用户点「不」一样,引擎暂停,等用户回来点「恢复」。
+        engine.pause();
+    }
+    state
+        .confirms_timed_out
+        .fetch_add(ids.len(), Ordering::Relaxed);
+    persist_pending(state);
+    Ok(ids)
+}
+
+/// P1-4:高危确认到了,把窗口拉到前面。窗口隐藏/最小化时以前只 emit 一个事件给一个没人看的
+/// WebView。`main` 是 tauri.conf.json 里唯一的窗口标签。
+fn bring_to_front(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+/// P1-4:菜单栏图标旁的文字——有待确认时显示「‖ N」,没有就清掉。托盘是窗口关着时唯一
+/// 还看得见的东西。
+fn update_tray_badge(app: &AppHandle, pending: usize) {
+    if let Some(tray) = app.tray_by_id("agentguard-tray") {
+        let title = if pending > 0 {
+            Some(format!("‖ {pending}"))
+        } else {
+            None
+        };
+        let _ = tray.set_title(title.as_deref());
+        let _ = tray.set_tooltip(Some(if pending > 0 {
+            format!("AgentGuard — {pending} confirmation(s) waiting")
+        } else {
+            "AgentGuard".to_string()
+        }));
+    }
 }
 
 #[tauri::command]
-fn get_pending_confirm(state: State<'_, AppState>) -> Result<Option<ConfirmDto>, String> {
+fn get_pending_confirm(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<ConfirmDto>, String> {
+    sweep_expired_confirms(state.inner())?;
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
+    update_tray_badge(&app, pending.len());
     // 永远显示队首(最旧)那一条。它稳定不变,直到被 resolve 移除 —— UI 不再"内容一直在跳"。
     Ok(pending.front().map(|p| ConfirmDto {
         request_id: p.request_id,
@@ -591,6 +945,7 @@ fn resolve_confirm(
         let outcome = q.resolve(request_id, approve);
         (outcome, !q.is_empty())
     };
+    persist_pending(state.inner());
     let ResolveOutcome::Resolved { approve, audit_id } = outcome else {
         // Stale:用户看到的请求已经不在了(新会话清掉 / 被挤出 / 已解析过)。不改引擎状态,
         // 让前端重新拉 pending —— 绝不把一个过期的"同意"当作对当前请求的同意。
@@ -730,6 +1085,7 @@ fn start_guard_session(
         .lock()
         .map_err(|e| e.to_string())?
         .bump_generation();
+    persist_pending(state.inner());
     reset_observation_memory(state.inner())?;
     // 观察器若已在跑(用户先开了 AX 自动轮询再开会话),从现在起算启动宽限;心跳很快会来。
     if state.ax_auto_poll.load(Ordering::Relaxed) || state.sck_auto_poll.load(Ordering::Relaxed) {
@@ -776,6 +1132,7 @@ fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
         .lock()
         .map_err(|e| e.to_string())?
         .bump_generation();
+    persist_pending(state.inner());
     drain_and_process(state.inner(), &mut adapter)?;
     reset_observation_memory(state.inner())?;
     // 报告第 4 条末句:「一次拒绝后结束,界面还错误停留在“已暂停”」。SESSION-PAUSED 是
@@ -964,6 +1321,7 @@ fn start_sck_auto_poller(app: AppHandle, state: &AppState) {
                     let _ = app.emit("sck-poll", &dto);
                     if dto.decisions.iter().any(|d| d.require_confirm) {
                         let _ = app.emit("sck-confirm-needed", ());
+                        bring_to_front(&app);
                     }
                 }
                 Err(e) => {
@@ -1215,6 +1573,7 @@ fn start_ax_auto_poller(app: AppHandle, state: &AppState) {
                     let _ = app.emit("ax-poll", &dto);
                     if dto.decisions.iter().any(|d| d.require_confirm) {
                         let _ = app.emit("sck-confirm-needed", ());
+                        bring_to_front(&app);
                     }
                 }
                 Ok(None) => {}
@@ -1239,22 +1598,29 @@ fn start_ax_auto_poller(app: AppHandle, state: &AppState) {
 }
 
 #[tauri::command]
-fn sync_device_policy(source: Option<String>) -> Result<String, String> {
+fn sync_device_policy(
+    state: State<'_, AppState>,
+    source: Option<String>,
+) -> Result<String, String> {
     let src = source.unwrap_or_else(|| {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../policies/enterprise-poc.yaml")
             .to_string_lossy()
             .into_owned()
     });
-    let cache = {
-        let mut p = dirs_next_data();
-        p.push("agentguard");
-        let _ = std::fs::create_dir_all(&p);
-        p.push("device-cache.yaml");
-        p
-    };
-    let policy = sync_to_cache(&src, &cache).map_err(|e| e.to_string())?;
-    Ok(format!("{}@{}", policy.policy_id, policy.version))
+    // P1-9:同步 = 验签 + 装进引擎(验过才装),不再只是下载缓存显示 ID。
+    let st = load_device_policy(&state, &src)?;
+    Ok(match (&st.last_error, st.enforced) {
+        (None, true) => format!(
+            "{}@{} verified (signer {}) — enforced",
+            st.policy_id,
+            st.version,
+            st.signer.clone().unwrap_or_default()
+        ),
+        (Some(e), true) => format!("{}@{} still enforced; {e}", st.policy_id, st.version),
+        (Some(e), false) => format!("{}@{} NOT enforced: {e}", st.policy_id, st.version),
+        (None, false) => format!("{}@{} NOT enforced", st.policy_id, st.version),
+    })
 }
 
 #[tauri::command]
@@ -1478,8 +1844,14 @@ fn drain_and_process_observed(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let engine = build_engine();
+    // P1-4:上次运行没处理完的确认——逐条写 Timeout 回执。重启不是「悄悄清空」的理由。
+    let orphaned = restore_orphaned_confirms(&engine);
+    // P1-9:只恢复能再验过签的缓存策略;没公钥就只显示、不执法。
+    let mut engine = engine;
+    let policy_status = restore_device_policy_at_startup(&mut engine);
     let state = AppState {
-        engine: Mutex::new(build_engine()),
+        engine: Mutex::new(engine),
         adapter: Mutex::new(MacAdapter::new()),
         auto_approve: Mutex::new(false),
         // cap 64:同时在等的高危确认上限。真正防止风暴撑爆它的是上层的事件聚合(P2-3);
@@ -1497,6 +1869,9 @@ pub fn run() {
         observer_started_ms: AtomicU64::new(0),
         observer_error: Mutex::new(None),
         aggregator: Mutex::new(Aggregator::for_observers()),
+        confirms_timed_out: AtomicUsize::new(0),
+        orphaned_confirms: AtomicUsize::new(orphaned),
+        policy_status: Mutex::new(policy_status),
     };
 
     tauri::Builder::default()

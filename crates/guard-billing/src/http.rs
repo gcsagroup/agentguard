@@ -107,9 +107,20 @@ fn header_value(request: &tiny_http::Request, name: &str) -> Option<String> {
         .map(|h| h.value.as_str().to_string())
 }
 
+/// webhook body 上限(P1-7)。一份合法事件几百字节;没有上限就是一个无认证的内存放大器
+///(签名校验在读完 body 之后才做)。
+pub const MAX_WEBHOOK_BODY: usize = 64 * 1024;
+
 fn read_body(request: &mut tiny_http::Request) -> Result<String> {
+    use std::io::Read as _;
     let mut buf = Vec::new();
-    std::io::Read::read_to_end(request.as_reader(), &mut buf)?;
+    request
+        .as_reader()
+        .take(MAX_WEBHOOK_BODY as u64 + 1)
+        .read_to_end(&mut buf)?;
+    if buf.len() > MAX_WEBHOOK_BODY {
+        bail!("webhook body exceeds {MAX_WEBHOOK_BODY} bytes");
+    }
     let s = String::from_utf8(buf).context("webhook body utf-8")?;
     if s.trim().is_empty() {
         bail!("empty body");
@@ -187,7 +198,14 @@ mod tests {
         let health = ureq::get("http://127.0.0.1:18765/health").call().unwrap();
         assert_eq!(health.status(), 200);
 
-        let body = r#"{"type":"purchase","license_id":"http-1","plan":"pro"}"#;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let body = format!(
+            r#"{{"type":"purchase","license_id":"http-1","plan":"pro","event_id":"evt-http-1","created_ms":{now},"version":1}}"#
+        );
+        let body = body.as_str();
         let sig = crate::sign_webhook_body("test-webhook-secret-abc", body);
 
         // 无签名 → 401。

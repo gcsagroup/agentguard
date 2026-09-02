@@ -45,8 +45,10 @@ sim-mac:
 package-ext:
 	./apps/extension-chromium/scripts/package-store.sh
 
+# P1-7:webhook 现在要求 event_id / created_ms / version,created_ms 必须在 ±10 分钟内——
+# 静态夹具带不了"现在",所以演示用 --body 现场拼一份(夹具文件保留为字段形状参考)。
 webhook-demo:
-	cargo run -p guard-cli -- billing-webhook --file eval/fixtures/billing_webhook_purchase.json --store /tmp/ag-ent.json
+	cargo run -p guard-cli -- billing-webhook --body "{\"type\":\"purchase\",\"license_id\":\"stripe-sim-001\",\"plan\":\"pro\",\"provider\":\"stripe-sim\",\"event_id\":\"demo-$$(date +%s)\",\"created_ms\":$$(date +%s)000,\"version\":$$(date +%s)}" --store /tmp/ag-ent.json
 	cargo run -p guard-cli -- entitlement-status --store /tmp/ag-ent.json
 
 webhook-serve:

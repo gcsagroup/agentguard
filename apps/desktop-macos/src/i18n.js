@@ -97,6 +97,13 @@ const messages = {
     "reason.audit_disabled": "The activity log is not open, so nothing is being recorded.",
     "reason.audit_unwritable": "The activity log cannot be written: {detail}",
     "status.folded": "{n} repeated observations folded",
+    "status.timedOut": "{n} confirmation(s) timed out and were treated as “Not now”",
+    "status.orphaned": "{n} confirmation(s) left over from the last run were treated as “Not now”",
+    "status.pendingCount": "{n} waiting for you",
+    "confirm.timeoutHint": "If you do nothing for 2 minutes, this counts as “Not now”.",
+    "policy.enforced": "Policy {id}@{ver} verified and enforced (signer {signer})",
+    "policy.notEnforced": "Policy {id}@{ver} NOT enforced — {why}",
+    "policy.none": "No device policy",
     "observe.summary": "Repeated observation ended: {detail}"
   },
   "zh-Hans": {
@@ -195,6 +202,13 @@ const messages = {
     "reason.audit_disabled": "活动记录没有打开，任何事都没被记下来。",
     "reason.audit_unwritable": "活动记录写不进去：{detail}",
     "status.folded": "已折叠 {n} 条重复观察",
+    "status.timedOut": "{n} 条确认超时，已按「先不要」处理",
+    "status.orphaned": "上次运行遗留 {n} 条确认，已按「先不要」处理",
+    "status.pendingCount": "{n} 条等你决定",
+    "confirm.timeoutHint": "两分钟内不处理，将按「先不要」处理。",
+    "policy.enforced": "策略 {id}@{ver} 已验签并生效（签名者 {signer}）",
+    "policy.notEnforced": "策略 {id}@{ver} 未生效——{why}",
+    "policy.none": "没有设备策略",
     "observe.summary": "重复观察结束：{detail}"
   },
   "zh-Hant": {
@@ -293,6 +307,13 @@ const messages = {
     "reason.audit_disabled": "活動記錄沒有開啟，任何事都沒被記下來。",
     "reason.audit_unwritable": "活動記錄寫不進去：{detail}",
     "status.folded": "已折疊 {n} 條重複觀察",
+    "status.timedOut": "{n} 條確認逾時，已按「先不要」處理",
+    "status.orphaned": "上次執行遺留 {n} 條確認，已按「先不要」處理",
+    "status.pendingCount": "{n} 條等你決定",
+    "confirm.timeoutHint": "兩分鐘內不處理，將按「先不要」處理。",
+    "policy.enforced": "原則 {id}@{ver} 已驗簽並生效（簽署者 {signer}）",
+    "policy.notEnforced": "原則 {id}@{ver} 未生效——{why}",
+    "policy.none": "沒有裝置原則",
     "observe.summary": "重複觀察結束：{detail}"
   }
 };

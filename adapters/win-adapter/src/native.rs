@@ -138,6 +138,20 @@ impl NativeWinAdapter {
         self.inner.end_session(app);
     }
 
+    /// 只绑定会话 id、不产生会话事件(P1-5)。
+    ///
+    /// 桌面壳子用另一个 `WinAdapter` 实例开/关会话并产生 SESSION-START/END;真实观察器只负责
+    /// 轮询。以前两边互不知道,原生事件的 `agent_context_id` 一直是空——观察到的东西挂不到
+    /// 任何会话上。壳子在会话开始时把同一个 id 绑到这里,结束时解绑;`start_session` 那条
+    /// 会自己发事件的路径留给单用观察器的调用方。
+    pub fn bind_session(&mut self, session_id: Option<String>) {
+        self.session_id = session_id;
+    }
+
+    pub fn bound_session(&self) -> Option<&str> {
+        self.session_id.as_deref()
+    }
+
     pub fn ingest(&mut self, obs: SimObservation) {
         self.inner.ingest(obs);
     }

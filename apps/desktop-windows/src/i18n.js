@@ -36,7 +36,14 @@ const dictionaries = {
     "reason.heartbeat_stale": "The watcher has not reported for {age}s — it may be stuck.",
     "reason.audit_disabled": "The activity log is not open, so nothing is being recorded.",
     "reason.audit_unwritable": "The activity log cannot be written: {detail}",
-    folded: "{n} repeated observations folded"
+    folded: "{n} repeated observations folded",
+    timedOut: "{n} confirmation(s) timed out and were treated as “Not now”",
+    orphaned: "{n} confirmation(s) left over from the last run were treated as “Not now”",
+    pendingCount: "{n} waiting for you",
+    confirmTimeoutHint: "If you do nothing for 2 minutes, this counts as “Not now”.",
+    policyEnforced: "Policy {id}@{ver} verified and enforced (signer {signer})",
+    policyNotEnforced: "Policy {id}@{ver} NOT enforced — {why}",
+    policyNone: "No device policy"
   },
   "zh-Hans": {
     subtitle: "实时守护 AI 智能体在这台电脑上的操作",
@@ -72,7 +79,14 @@ const dictionaries = {
     "reason.heartbeat_stale": "观察已 {age} 秒没有汇报——可能卡住了。",
     "reason.audit_disabled": "活动记录没有打开，任何事都没被记下来。",
     "reason.audit_unwritable": "活动记录写不进去：{detail}",
-    folded: "已折叠 {n} 条重复观察"
+    folded: "已折叠 {n} 条重复观察",
+    timedOut: "{n} 条确认超时，已按「先不要」处理",
+    orphaned: "上次运行遗留 {n} 条确认，已按「先不要」处理",
+    pendingCount: "{n} 条等你决定",
+    confirmTimeoutHint: "两分钟内不处理，将按「先不要」处理。",
+    policyEnforced: "策略 {id}@{ver} 已验签并生效（签名者 {signer}）",
+    policyNotEnforced: "策略 {id}@{ver} 未生效——{why}",
+    policyNone: "没有设备策略"
   },
   "zh-Hant": {
     subtitle: "即時守護 AI 代理在這台電腦上的操作",
@@ -108,7 +122,14 @@ const dictionaries = {
     "reason.heartbeat_stale": "觀察已 {age} 秒沒有回報——可能卡住了。",
     "reason.audit_disabled": "活動記錄沒有開啟，任何事都沒被記下來。",
     "reason.audit_unwritable": "活動記錄寫不進去：{detail}",
-    folded: "已折疊 {n} 條重複觀察"
+    folded: "已折疊 {n} 條重複觀察",
+    timedOut: "{n} 條確認逾時，已按「先不要」處理",
+    orphaned: "上次執行遺留 {n} 條確認，已按「先不要」處理",
+    pendingCount: "{n} 條等你決定",
+    confirmTimeoutHint: "兩分鐘內不處理，將按「先不要」處理。",
+    policyEnforced: "原則 {id}@{ver} 已驗簽並生效（簽署者 {signer}）",
+    policyNotEnforced: "原則 {id}@{ver} 未生效——{why}",
+    policyNone: "沒有裝置原則"
   }
 };
 

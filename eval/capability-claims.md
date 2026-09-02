@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**26 条声明,61 条去重证明测试。**
+**30 条声明,71 条去重证明测试。**
 
 ## android
 
@@ -21,6 +21,16 @@
 说明:
 
 - **签名、防篡改的审计轨迹——改一行并重算哈希链,签名仍然戳穿它**:见 scripts/audit-signing-demo.sh 的六条篡改路径;截尾要靠带外头见证(check_inclusion)
+
+## billing
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| 计费 webhook 要求 event_id / created_ms / version,幂等去重、±10 分钟时间窗、版本单调——refund 后重放旧 purchase 不能恢复 Pro | `docs/billing.md` | guard_billing::admit_webhook + WebhookState 幂等表(授权文件旁);HTTP 接收端 body 上限 64 KiB | `refund后重放旧purchase被版本与时间窗双重拒绝`<br/>`缺event_id_created_ms_version任一即拒` |
+
+说明:
+
+- **计费 webhook 要求 event_id / created_ms / version,幂等去重、±10 分钟时间窗、版本单调——refund 后重放旧 purchase 不能恢复 Pro**:幂等表保留最近 512 个 event_id;更旧的重放靠时间窗与版本挡
 
 ## browser
 
@@ -81,6 +91,16 @@
 
 - **Linux jail 可在内核里强制 TCP 出口天花板(声明才强制、fail-closed)**:只到 TCP 端口、不按主机/IP、不含 UDP;syscall 路径本容器测不到(真机 E2E 未验证)
 
+## local-api
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| Local API 默认审计库在用户私有目录且拒绝符号链接/共享可写目录;请求体 256 KiB、limit 1000 上限;令牌默认脱敏不进 stderr | `docs/local-api.md` | guard_localapi::check_audit_db_location / default_audit_db_path / read_body_capped / mask_token | `审计库位置拒绝符号链接与共享可写目录`<br/>`请求体上限与limit夹紧`<br/>`令牌脱敏显示` |
+
+说明:
+
+- **Local API 默认审计库在用户私有目录且拒绝符号链接/共享可写目录;请求体 256 KiB、limit 1000 上限;令牌默认脱敏不进 stderr**:目录权限位检查只在 Unix;没有速率限制与并发上限
+
 ## localapi
 
 | 声明 | 印在 | 兑现 | 证明测试 |
@@ -120,12 +140,16 @@
 | 状态灯只在「会话 + 观察器运行 + 心跳新鲜 + 审计可写」全满足时显示守护中;会话开着但没人在看是「守护不完整」 | `docs/消费者化界面.md` | guard_core::observe_state::derive 纯函数;两个壳子的 get_status 把事实喂给它,前端只信 protection_state | `会话在但观察器没在跑是degraded而不是active`<br/>`心跳过期是degraded_心跳在ttl边界内仍是active`<br/>`审计不可写压过启动中且一定不是active`<br/>`审计写失败留痕为audit_error且写成功后清空` |
 | 同一语义内容的重复观察 30 秒内只过引擎一次;内容变一个字立刻放行;周期摘要带 repeat_count | `docs/消费者化界面.md` | guard_core::event_dedup::Aggregator,只挂在 SCK/AX/UIA 轮询路径;易变元数据键不进指纹 | `风暴仿真_106秒静止画面从上百条折叠到个位数`<br/>`内容变一个字就是新事件_立即放行不等窗口`<br/>`每帧必变的数字不进指纹_语义相同即同一指纹`<br/>`重复观察被折叠_周期摘要带repeat_count` |
 | 观察器跳过 AgentGuard 自己的窗口——守卫的仪表盘树里天生有演示威胁文字,交给引擎只会对着镜子告警 | `docs/windows-observation.md` | UiSnapshot::source_pid(桥如实带 pid)+ is_self_observation();Windows poll_once 整拍跳过并留 SELF_SKIP_NOTE,macOS capture_live_ax 返回 SkippedSelf;壳子把该拍算作心跳 | `只有pid等于自己才算自我观察_未知pid不算`<br/>`只有警告没有事件的一拍不更新心跳` |
+| 设备策略只在验过签后装进引擎并真的作用于判决——只收紧不放宽;未验证的只显示不执法;同步失败保持上一份 | `docs/device-policy.md` | guard_core::device_policy::EnforcedPolicy::apply 叠在每条判决上;壳子 load_device_policy 只在 sync_to_cache_verified 成功时 set_device_policy | `设备策略在引擎判决上执法且随会话agent生效`<br/>`策略永远不放宽判决`<br/>`已认证缓存可再验` |
+| 高危确认两分钟没人拍板按拒绝处理并写 Timeout 回执;重启后上次遗留的待确认逐条写回执而不是静默丢失 | `docs/消费者化界面.md` | ConfirmQueue::expire / snapshot;壳子 sweep_expired_confirms 在 get_status/get_pending_confirm 调用,restore_orphaned_confirms 在启动时处理落盘快照 | `超时项被移出且之后解析为stale_未超时与无时间项留下`<br/>`快照不含ui摘录且可json往返` |
 
 说明:
 
 - **状态灯只在「会话 + 观察器运行 + 心跳新鲜 + 审计可写」全满足时显示守护中;会话开着但没人在看是「守护不完整」**:状态机输入在壳子里采集;「真机上灯确实随观察器启停变色」由真机验收判定,不是这些测试
 - **同一语义内容的重复观察 30 秒内只过引擎一次;内容变一个字立刻放行;周期摘要带 repeat_count**:折叠只吃一字不差的重复(AX 文本里一个时钟数字变化就是新事件),所以真机上的折叠率取决于画面静止程度
 - **观察器跳过 AgentGuard 自己的窗口——守卫的仪表盘树里天生有演示威胁文字,交给引擎只会对着镜子告警**:pid 比对在 Rust 侧(可测);原生桥填 pid 那一行(ObjC / UIA)只能在真机上验;SCK 整屏帧无法按 pid 排除
+- **设备策略只在验过签后装进引擎并真的作用于判决——只收紧不放宽;未验证的只显示不执法;同步失败保持上一份**:壳子侧"验过才装"的分支在 Linux 只能编译到;策略无过期字段;allowed_agents 比对的是会话声明的 agent 名而非已验证身份
+- **高危确认两分钟没人拍板按拒绝处理并写 Timeout 回执;重启后上次遗留的待确认逐条写回执而不是静默丢失**:系统级通知(macOS 通知中心 / Windows toast)未接;现在的提醒面是窗口拉前、菜单栏「‖ N」与窗口标题。落盘快照不含观测文本
 
 ## vision
 

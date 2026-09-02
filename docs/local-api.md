@@ -4,15 +4,33 @@ AgentGuard exposes a **127.0.0.1-only by default** HTTP API for companion agents
 (非回环绑定要显式 `--allow-lan`,见下方 Endpoints 表末的说明).
 
 ```bash
-# 令牌:命令行 > AGENTGUARD_API_TOKEN > 自动生成(启动时打印一次)
+# 令牌:命令行 > AGENTGUARD_API_TOKEN > 自动生成(只有自动生成的那次会完整打印;
+#       你自己给的令牌启动时只打脱敏形式 ag_01…cdef,不进日志)
 export AGENTGUARD_API_TOKEN="$(cargo run -q -p guard-cli -- api-token)"
 cargo run -p guard-cli -- api-serve \
   --bind 127.0.0.1:8788 \
   --rules crates/guard-schema/rules/p0_rules.yaml \
-  --audit-db /tmp/agentguard-api-audit.db \
   --intel intel/bundle.json \
   --token "$AGENTGUARD_API_TOKEN"
+# --audit-db 默认在用户私有数据目录(Linux ~/.local/share/agentguard/api-audit.db,
+# macOS ~/Library/Application Support/agentguard/,Windows %APPDATA%\agentguard\),不再是 /tmp。
 ```
+
+## 审计库位置与请求上限(P1-7)
+
+真机报告 P1-7 指出的四条边界,现在都关上了:
+
+* **默认路径不可预测性**:`/tmp/agentguard-api-audit.db` 是任何本地用户都能预先创建、放符号链接的
+  共享路径。默认改为用户私有数据目录(0700),并在打开前检查:是符号链接 → 拒;不是普通文件 → 拒;
+  所在目录**其他人可写**(`/tmp` 这类 sticky 目录)→ 拒并告知默认私有位置。打开后文件权限设 0600。
+  非 Unix 平台做符号链接/文件类型检查,不做权限位检查(没有那个概念)。
+* **请求体上限** 256 KiB:`/v1/confirm`、`/v1/events` 超限回 **413**。多读一个字节判"超了",不是全读再量。
+* **`limit` 上限** 1000:`/v1/audit/recent?limit=…` 与 `/v1/audit/report?limit=…` 被夹到上限,
+  不再可能把整张审计表拉进内存。
+* **令牌不进 stderr**:显式或环境变量给的令牌启动时只打脱敏形式;只有本次随机生成的令牌才完整打印一次
+  (那是用户唯一能知道它的机会)。
+
+没做的(如实):没有速率限制,也没有每客户端并发上限——令牌强度门槛(见下)是在线猜测的唯一防线。
 
 ## 令牌强度
 

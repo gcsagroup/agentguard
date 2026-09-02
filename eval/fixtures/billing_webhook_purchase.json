@@ -1,1 +1,1 @@
-{"type":"purchase","license_id":"stripe-sim-001","plan":"pro","provider":"stripe-sim"}
+{"type":"purchase","license_id":"stripe-sim-001","plan":"pro","provider":"stripe-sim","event_id":"evt_sim_000001","created_ms":1756800000000,"version":1}

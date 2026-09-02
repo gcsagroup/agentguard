@@ -11,7 +11,7 @@ pub use http::{apply_file_to_store, serve_billing_webhook};
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -241,6 +241,14 @@ fn now_ms() -> i64 {
 }
 
 /// Provider-agnostic purchase/refund webhook payload (Stripe-like).
+///
+/// P1-7:三个字段让接收端能拒绝重放与乱序——
+/// * `event_id`:签发方的事件 ID。见过的直接幂等返回,不再改动授权;
+/// * `created_ms`:事件时刻。离现在超过 [`WEBHOOK_MAX_SKEW_MS`] 的拒收(一份旧的合法 purchase
+///   在 refund 之后被重放,就是靠这条和下一条挡住的);
+/// * `version`:授权状态版本(单调)。不高于本地已应用版本的拒收。
+///
+/// 三个都是**必填**:没有它们的 webhook 无法与重放区分,而这个接收端会自铸并激活授权。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingWebhookEvent {
     /// purchase | refund | entitlement.updated
@@ -251,17 +259,144 @@ pub struct BillingWebhookEvent {
     pub plan: String,
     #[serde(default)]
     pub provider: Option<String>,
+    #[serde(default)]
+    pub event_id: Option<String>,
+    #[serde(default)]
+    pub created_ms: Option<i64>,
+    #[serde(default)]
+    pub version: Option<u64>,
 }
 
 fn default_plan_pro() -> String {
     "pro".into()
 }
 
-/// Apply a billing webhook to the local entitlement store.
+/// webhook 事件时刻与本机时钟允许的最大偏差(过去与将来各 10 分钟)。
+pub const WEBHOOK_MAX_SKEW_MS: i64 = 10 * 60 * 1000;
+/// 幂等表保留的事件 ID 上限(超过就丢最旧的;时间窗已经挡住更旧的重放)。
+const WEBHOOK_SEEN_MAX: usize = 512;
+
+/// 接收端在授权文件旁维护的幂等/版本状态。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WebhookState {
+    pub last_version: u64,
+    #[serde(default)]
+    pub seen_event_ids: Vec<String>,
+}
+
+impl WebhookState {
+    pub fn path_for(store: &Path) -> PathBuf {
+        let mut p = store.as_os_str().to_owned();
+        p.push(".webhook-state.json");
+        PathBuf::from(p)
+    }
+
+    pub fn load(store: &Path) -> Self {
+        std::fs::read_to_string(Self::path_for(store))
+            .ok()
+            .and_then(|t| serde_json::from_str(&t).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save(&self, store: &Path) -> Result<()> {
+        let path = Self::path_for(store);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&path, serde_json::to_vec_pretty(self)?)?;
+        Ok(())
+    }
+}
+
+/// 一次 webhook 处理的结果。
+#[derive(Debug, Clone)]
+pub struct WebhookOutcome {
+    pub entitlement: Entitlement,
+    /// false = 幂等命中(同一 event_id 已应用过),授权未改动。
+    pub applied: bool,
+}
+
+/// 只做字段/重放/版本判定,不碰文件——便于单测。`Ok(())` 表示可以应用。
+pub fn admit_webhook(
+    event: &BillingWebhookEvent,
+    state: &WebhookState,
+    now_ms: i64,
+) -> std::result::Result<(), String> {
+    let Some(id) = event
+        .event_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    else {
+        return Err("webhook missing event_id (required for idempotency)".into());
+    };
+    if id.len() > 200 {
+        return Err("webhook event_id too long".into());
+    }
+    let Some(created) = event.created_ms else {
+        return Err("webhook missing created_ms (required for replay window)".into());
+    };
+    if (now_ms - created).abs() > WEBHOOK_MAX_SKEW_MS {
+        return Err(format!(
+            "webhook created_ms {created} is outside the ±{}s window of now {now_ms}",
+            WEBHOOK_MAX_SKEW_MS / 1000
+        ));
+    }
+    let Some(version) = event.version else {
+        return Err("webhook missing version (required for ordering)".into());
+    };
+    if version <= state.last_version {
+        return Err(format!(
+            "webhook version {version} is not newer than applied version {}",
+            state.last_version
+        ));
+    }
+    Ok(())
+}
+
+/// Apply a billing webhook to the local entitlement store(幂等、拒重放、拒乱序)。
 pub fn apply_webhook_event(
     event: &BillingWebhookEvent,
     store: impl AsRef<Path>,
 ) -> Result<Entitlement> {
+    Ok(apply_webhook_event_at(event, store, now_ms())?.entitlement)
+}
+
+/// [`apply_webhook_event`] 的可注入时钟版本,返回是否真的应用了。
+pub fn apply_webhook_event_at(
+    event: &BillingWebhookEvent,
+    store: impl AsRef<Path>,
+    now_ms: i64,
+) -> Result<WebhookOutcome> {
+    let store = store.as_ref();
+    let mut state = WebhookState::load(store);
+    // 幂等:同一 event_id 再来一次,原样返回当前授权,不改任何东西(签发方重试是常态)。
+    if let Some(id) = event.event_id.as_deref() {
+        if state.seen_event_ids.iter().any(|s| s == id) {
+            let current = Entitlement::from_path(store).unwrap_or_else(|_| Entitlement::free());
+            return Ok(WebhookOutcome {
+                entitlement: current,
+                applied: false,
+            });
+        }
+    }
+    admit_webhook(event, &state, now_ms).map_err(|e| anyhow::anyhow!(e))?;
+    let ent = apply_admitted(event, store)?;
+    state.last_version = event.version.unwrap_or(state.last_version);
+    state
+        .seen_event_ids
+        .push(event.event_id.clone().unwrap_or_default());
+    while state.seen_event_ids.len() > WEBHOOK_SEEN_MAX {
+        state.seen_event_ids.remove(0);
+    }
+    state.save(store)?;
+    Ok(WebhookOutcome {
+        entitlement: ent,
+        applied: true,
+    })
+}
+
+fn apply_admitted(event: &BillingWebhookEvent, store: &Path) -> Result<Entitlement> {
     match event.event_type.as_str() {
         "purchase" | "entitlement.updated" | "checkout.session.completed" => {
             let plan = match event.plan.as_str() {
@@ -272,12 +407,12 @@ pub fn apply_webhook_event(
             let secret = resolve_secret();
             let token = issue_license_token(&secret, &event.license_id, plan);
             let ent = activate_license_token(&secret, &token)?;
-            ent.write_path(store.as_ref())?;
+            ent.write_path(store)?;
             Ok(ent)
         }
         "refund" | "customer.subscription.deleted" => {
             let ent = Entitlement::free();
-            ent.write_path(store.as_ref())?;
+            ent.write_path(store)?;
             Ok(ent)
         }
         other => bail!("unsupported webhook type: {other}"),
@@ -292,6 +427,92 @@ pub fn apply_webhook_json(raw: &str, store: impl AsRef<Path>) -> Result<Entitlem
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ev(kind: &str, id: &str, created: i64, version: u64) -> BillingWebhookEvent {
+        BillingWebhookEvent {
+            event_type: kind.into(),
+            license_id: "lic-replay".into(),
+            plan: "pro".into(),
+            provider: Some("test".into()),
+            event_id: Some(id.into()),
+            created_ms: Some(created),
+            version: Some(version),
+        }
+    }
+
+    /// P1-7:refund 之后重放一份旧的合法 purchase,不能把授权变回 Pro。
+    #[test]
+    fn refund后重放旧purchase被版本与时间窗双重拒绝() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = dir.path().join("ent.json");
+        let t0 = 1_700_000_000_000i64;
+        let purchase = ev("purchase", "evt-1", t0, 1);
+        let out = apply_webhook_event_at(&purchase, &store, t0 + 1_000).unwrap();
+        assert!(out.applied && out.entitlement.is_active());
+        let refund = ev("refund", "evt-2", t0 + 60_000, 2);
+        let out = apply_webhook_event_at(&refund, &store, t0 + 61_000).unwrap();
+        assert!(out.applied && !out.entitlement.is_active());
+        // 重放 evt-1(同 id)→ 幂等命中,授权仍是 Free,未改动。
+        let out = apply_webhook_event_at(&purchase, &store, t0 + 62_000).unwrap();
+        assert!(!out.applied);
+        assert!(!out.entitlement.is_active(), "重放不能恢复 Pro");
+        // 换个 id 但版本旧 → 拒。
+        let replay = ev("purchase", "evt-1b", t0, 1);
+        let err = apply_webhook_event_at(&replay, &store, t0 + 62_000).unwrap_err();
+        assert!(err.to_string().contains("not newer"), "{err}");
+        // 版本新但时间戳太旧(超过窗口)→ 拒。
+        let stale = ev("purchase", "evt-3", t0, 3);
+        let err =
+            apply_webhook_event_at(&stale, &store, t0 + WEBHOOK_MAX_SKEW_MS + 60_000).unwrap_err();
+        assert!(err.to_string().contains("window"), "{err}");
+        assert!(!Entitlement::from_path(&store).unwrap().is_active());
+    }
+
+    #[test]
+    fn 缺event_id_created_ms_version任一即拒() {
+        let state = WebhookState::default();
+        let now = 1_700_000_000_000i64;
+        let mut e = ev("purchase", "x", now, 1);
+        assert!(admit_webhook(&e, &state, now).is_ok());
+        e.event_id = None;
+        assert!(admit_webhook(&e, &state, now)
+            .unwrap_err()
+            .contains("event_id"));
+        let mut e = ev("purchase", "x", now, 1);
+        e.created_ms = None;
+        assert!(admit_webhook(&e, &state, now)
+            .unwrap_err()
+            .contains("created_ms"));
+        let mut e = ev("purchase", "x", now, 1);
+        e.version = None;
+        assert!(admit_webhook(&e, &state, now)
+            .unwrap_err()
+            .contains("version"));
+        // 将来的时间戳同样超窗
+        let e = ev("purchase", "x", now + WEBHOOK_MAX_SKEW_MS + 1, 1);
+        assert!(admit_webhook(&e, &state, now).is_err());
+        // 恰在窗内
+        let e = ev("purchase", "x", now - WEBHOOK_MAX_SKEW_MS, 1);
+        assert!(admit_webhook(&e, &state, now).is_ok());
+    }
+
+    #[test]
+    fn 幂等表有界且状态文件落在授权文件旁() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = dir.path().join("ent.json");
+        let now = 1_700_000_000_000i64;
+        for i in 0..(WEBHOOK_SEEN_MAX as u64 + 10) {
+            let e = ev("purchase", &format!("evt-{i}"), now, i + 1);
+            apply_webhook_event_at(&e, &store, now).unwrap();
+        }
+        let st = WebhookState::load(&store);
+        assert_eq!(st.seen_event_ids.len(), WEBHOOK_SEEN_MAX);
+        assert_eq!(st.last_version, WEBHOOK_SEEN_MAX as u64 + 10);
+        assert!(WebhookState::path_for(&store).exists());
+        assert!(WebhookState::path_for(&store)
+            .to_string_lossy()
+            .ends_with("ent.json.webhook-state.json"));
+    }
 
     #[test]
     fn issue_and_activate_pro() {
@@ -360,11 +581,19 @@ mod tests {
     fn webhook_purchase_and_refund() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("ent.json");
-        let raw = r#"{"type":"purchase","license_id":"wh-1","plan":"pro","provider":"stripe-sim"}"#;
-        let e = apply_webhook_json(raw, &path).unwrap();
+        let now = now_ms();
+        let raw = format!(
+            r#"{{"type":"purchase","license_id":"wh-1","plan":"pro","provider":"stripe-sim","event_id":"wh-evt-1","created_ms":{now},"version":1}}"#
+        );
+        let e = apply_webhook_json(&raw, &path).unwrap();
         assert!(e.is_active());
-        let refund = r#"{"type":"refund","license_id":"wh-1","plan":"pro"}"#;
-        let e2 = apply_webhook_json(refund, &path).unwrap();
+        // P1-7:没有 event_id/created_ms/version 的 webhook 一律拒——这就是旧夹具的形状。
+        let legacy = r#"{"type":"purchase","license_id":"wh-1","plan":"pro"}"#;
+        assert!(apply_webhook_json(legacy, &path).is_err());
+        let refund = format!(
+            r#"{{"type":"refund","license_id":"wh-1","plan":"pro","event_id":"wh-evt-2","created_ms":{now},"version":2}}"#
+        );
+        let e2 = apply_webhook_json(&refund, &path).unwrap();
         assert!(!e2.is_active());
         assert_eq!(e2.plan, PlanTier::Free);
     }

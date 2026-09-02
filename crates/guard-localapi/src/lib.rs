@@ -103,9 +103,107 @@ pub struct ApiConfig {
     /// 一个能被猜到的 bearer 令牌在这个 API 上不是小事:`/v1/pause` 能把守卫
     /// 停掉,`/v1/confirm` 能替人回答确认框。也就是说,猜到令牌 = 绕过整个产品。
     pub insecure_token: bool,
+    /// 启动时把完整 bearer 令牌打到 stderr。
+    ///
+    /// P1-7:以前无条件打印。令牌是这个 API 的全部认证(`/v1/pause` 能停守卫,`/v1/confirm`
+    /// 能替人回答确认框),而 stderr 会进日志、进崩溃报告、进别人复制给你看的终端截图。
+    /// 现在默认只打脱敏形式(`ag_ab12…89ef`);**只有令牌是本次随机生成的**才值得打一次完整的
+    /// ——那是用户唯一能知道它的机会。CLI 据此设 `true`;显式/环境变量来的令牌用户本来就有。
+    pub reveal_token: bool,
 }
 
-/// bearer 令牌的最小长度。
+/// 请求体上限(P1-7)。`/v1/confirm` 的 body 只有一个布尔,`/v1/events` 的信封几 KiB;
+/// 没有上限就是一个拿到令牌后的内存放大器,拿不到令牌也能在 401 之前……不,401 在读 body 之前;
+/// 但 `/health` 之外的每条路都先读 body——所以还是要有上限。
+pub const MAX_BODY_BYTES: usize = 256 * 1024;
+/// `limit` 查询参数上限(P1-7)。`list_recent(usize::MAX)` 会把整张审计表拉进内存。
+pub const MAX_LIST_LIMIT: usize = 1000;
+
+/// 脱敏显示令牌:保留前 5 后 4,中间省略;短于 12 位全部遮住。
+pub fn mask_token(token: &str) -> String {
+    let n = token.chars().count();
+    if n < 12 {
+        return "•".repeat(n.max(1));
+    }
+    let head: String = token.chars().take(5).collect();
+    let tail: String = token.chars().skip(n - 4).collect();
+    format!("{head}…{tail}")
+}
+
+/// 默认审计库位置:用户私有数据目录,不是 `/tmp`(P1-7)。
+///
+/// `/tmp/agentguard-api-audit.db` 是可预测的共享路径:别的本地用户能预先创建它、放符号链接,
+/// 让守卫把签名审计写进别人指定的文件。私有目录(0700)+ 位置检查(见 [`check_audit_db_location`])
+/// 关掉这条路。
+pub fn default_audit_db_path() -> PathBuf {
+    let base = if cfg!(target_os = "macos") {
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"))
+    } else if cfg!(windows) {
+        std::env::var_os("APPDATA").map(PathBuf::from)
+    } else {
+        std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
+    };
+    base.unwrap_or_else(std::env::temp_dir)
+        .join("agentguard")
+        .join("api-audit.db")
+}
+
+/// 审计库位置检查(P1-7):拒绝符号链接、拒绝非普通文件、拒绝放在**其他人可写**的目录里
+///(`/tmp` 这类 sticky 世界可写目录——预创建/符号链接攻击的温床)。目录不存在就以 0700 建。
+///
+/// 只判定不打开;`AuditStore::open` 在它之后。Unix 之外不检查目录权限位(没有那个概念),
+/// 但符号链接/文件类型检查在所有平台都做。
+pub fn check_audit_db_location(path: &std::path::Path) -> Result<()> {
+    if let Ok(meta) = std::fs::symlink_metadata(path) {
+        if meta.file_type().is_symlink() {
+            bail!(
+                "audit db {} is a symlink — refusing to follow it (someone could point the guard's \
+                 signed audit at a file of their choosing)",
+                path.display()
+            );
+        }
+        if !meta.is_file() {
+            bail!(
+                "audit db {} exists but is not a regular file",
+                path.display()
+            );
+        }
+    }
+    let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) else {
+        bail!("audit db path {} has no parent directory", path.display());
+    };
+    if !parent.exists() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create audit dir {}", parent.display()))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700));
+        }
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(parent)
+            .with_context(|| format!("stat audit dir {}", parent.display()))?
+            .permissions()
+            .mode();
+        if mode & 0o002 != 0 {
+            bail!(
+                "audit db directory {} is world-writable (mode {:o}); a shared temp dir invites \
+                 pre-creation and symlink attacks. Use the default private location ({}) or a \
+                 directory only you can write.",
+                parent.display(),
+                mode & 0o777,
+                default_audit_db_path().display()
+            );
+        }
+    }
+    Ok(())
+}
+
 ///
 /// 24 个字符不是密码学下限,是**在线猜测**下限:这个服务器没有速率限制,
 /// 一个本机进程可以按网络速度试。自动生成的令牌是 `ag_` + 32 个十六进制字符,
@@ -198,7 +296,13 @@ impl ApiState {
     pub fn from_config(cfg: &ApiConfig) -> Result<Self> {
         let rules = RuleSet::from_path(&cfg.rules)
             .with_context(|| format!("load rules {}", cfg.rules.display()))?;
+        check_audit_db_location(&cfg.audit_db)?;
         let store = AuditStore::open(&cfg.audit_db)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&cfg.audit_db, std::fs::Permissions::from_mode(0o600));
+        }
         let store = match &cfg.audit_signing_key {
             Some(path) => {
                 // load_existing, not load_or_create: generating a key here would
@@ -365,8 +469,15 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
     let state = Arc::new(ApiState::from_config(&cfg)?);
     let server = tiny_http::Server::http(cfg.bind).map_err(|e| anyhow::anyhow!("bind: {e}"))?;
     eprintln!("guard local API on http://{}/v1/status", cfg.bind);
-    eprintln!("auth: Authorization: Bearer <token>  (token printed once below)");
-    eprintln!("AGENTGUARD_API_TOKEN={token}");
+    if cfg.reveal_token {
+        eprintln!("auth: Authorization: Bearer <token>  (generated this run; printed once below)");
+        eprintln!("AGENTGUARD_API_TOKEN={token}");
+    } else {
+        eprintln!(
+            "auth: Authorization: Bearer <token>  (token {}; not printed — you supplied it)",
+            mask_token(&token)
+        );
+    }
 
     loop {
         if shutdown
@@ -403,7 +514,7 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                 Err(e) => json_error(500, &e.to_string()),
             },
             (Method::Get, "/v1/audit/recent") | (Method::Get, "/v1/audit/recent/") => {
-                let limit = query_usize(&url, "limit").unwrap_or(50);
+                let limit = query_usize(&url, "limit").unwrap_or(50).min(MAX_LIST_LIMIT);
                 match state.engine.lock() {
                     Ok(engine) => match engine.audit() {
                         Some(store) => match store.list_recent(limit) {
@@ -419,7 +530,9 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                 }
             }
             (Method::Get, "/v1/audit/report") | (Method::Get, "/v1/audit/report/") => {
-                let limit = query_usize(&url, "limit").unwrap_or(500);
+                let limit = query_usize(&url, "limit")
+                    .unwrap_or(500)
+                    .min(MAX_LIST_LIMIT);
                 match state.engine.lock() {
                     Ok(engine) => match engine.audit() {
                         Some(store) => match store.list_recent(limit) {
@@ -474,7 +587,7 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                         }
                         Err(_) => json_error(500, "engine lock"),
                     },
-                    Err(e) => json_error(400, &e.to_string()),
+                    Err(e) => json_error(body_error_status(&e), &e.to_string()),
                 }
             }
             (Method::Post, "/v1/events") | (Method::Post, "/v1/events/") => {
@@ -489,8 +602,8 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                     .and_then(|v| v.parse::<i64>().ok());
 
                 let mut body = String::new();
-                if let Err(e) = std::io::Read::read_to_string(&mut request.as_reader(), &mut body) {
-                    json_error(400, &e.to_string())
+                if let Err(e) = read_body_capped(&mut request, &mut body) {
+                    json_error(body_error_status(&e), &e.to_string())
                 } else {
                     let parsed = match state.android.lock() {
                         Ok(mut adapter) => adapter.parse_envelope(&body),
@@ -584,10 +697,46 @@ fn query_usize(url: &str, key: &str) -> Option<usize> {
     None
 }
 
-fn read_json<T: for<'de> Deserialize<'de>>(request: &mut tiny_http::Request) -> Result<T> {
+/// 请求体超限的标记错误:让处理器回 413 而不是笼统的 400。
+#[derive(Debug)]
+struct BodyTooLarge;
+
+impl std::fmt::Display for BodyTooLarge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "request body exceeds {MAX_BODY_BYTES} bytes")
+    }
+}
+
+impl std::error::Error for BodyTooLarge {}
+
+/// 一个读 body 的错误该回什么状态码:超限 413,其余 400。
+fn body_error_status(e: &anyhow::Error) -> u16 {
+    if e.downcast_ref::<BodyTooLarge>().is_some() {
+        413
+    } else {
+        400
+    }
+}
+
+/// 读请求体,超过 [`MAX_BODY_BYTES`] 就拒(P1-7)。多读一个字节用来判"超了",不是全读再量。
+fn read_body_capped(request: &mut tiny_http::Request, out: &mut String) -> Result<()> {
+    use std::io::Read as _;
     let mut buf = Vec::new();
-    std::io::Read::read_to_end(request.as_reader(), &mut buf)?;
-    Ok(serde_json::from_slice(&buf)?)
+    request
+        .as_reader()
+        .take(MAX_BODY_BYTES as u64 + 1)
+        .read_to_end(&mut buf)?;
+    if buf.len() > MAX_BODY_BYTES {
+        return Err(BodyTooLarge.into());
+    }
+    out.push_str(std::str::from_utf8(&buf).context("body is not utf-8")?);
+    Ok(())
+}
+
+fn read_json<T: for<'de> Deserialize<'de>>(request: &mut tiny_http::Request) -> Result<T> {
+    let mut body = String::new();
+    read_body_capped(request, &mut body)?;
+    Ok(serde_json::from_str(&body)?)
 }
 
 fn json_header() -> Header {
@@ -698,6 +847,134 @@ mod tests {
         panic!("server on 127.0.0.1:{port} did not become ready in time");
     }
 
+    /// P1-7:审计库位置——符号链接、非普通文件、世界可写目录一律拒;私有目录放行并建成 0700。
+    #[cfg(unix)]
+    #[test]
+    fn 审计库位置拒绝符号链接与共享可写目录() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        // 私有目录里的新文件:放行,并且缺失的子目录以 0700 创建。
+        let fresh = dir.path().join("private").join("api-audit.db");
+        check_audit_db_location(&fresh).unwrap();
+        let mode = std::fs::metadata(fresh.parent().unwrap())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(
+            mode & 0o777,
+            0o700,
+            "新建目录应为 0700,实际 {:o}",
+            mode & 0o777
+        );
+        // 符号链接指向别处:拒。
+        let target = dir.path().join("elsewhere.db");
+        std::fs::write(&target, b"").unwrap();
+        let link = dir.path().join("private").join("link.db");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        let err = check_audit_db_location(&link).unwrap_err().to_string();
+        assert!(err.contains("symlink"), "{err}");
+        // 已存在但是个目录:拒。
+        let as_dir = dir.path().join("private").join("dir.db");
+        std::fs::create_dir(&as_dir).unwrap();
+        assert!(check_audit_db_location(&as_dir).is_err());
+        // 世界可写目录(/tmp 的形状):拒,并指出默认私有位置。
+        let shared = dir.path().join("shared");
+        std::fs::create_dir(&shared).unwrap();
+        std::fs::set_permissions(&shared, std::fs::Permissions::from_mode(0o1777)).unwrap();
+        let err = check_audit_db_location(&shared.join("agentguard-api-audit.db"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("world-writable"), "{err}");
+        assert!(err.contains("agentguard"), "错误里要给出默认私有位置:{err}");
+    }
+
+    #[test]
+    fn 默认审计库不在临时目录() {
+        let p = default_audit_db_path();
+        let s = p.to_string_lossy();
+        assert!(s.ends_with("api-audit.db"), "{s}");
+        assert!(!s.starts_with("/tmp/"), "默认路径回到了可预测的 /tmp:{s}");
+        assert!(s.contains("agentguard"));
+    }
+
+    #[test]
+    fn 令牌脱敏显示() {
+        assert_eq!(
+            mask_token("ag_0123456789abcdef0123456789abcdef"),
+            "ag_01…cdef"
+        );
+        assert_eq!(mask_token("short"), "•••••");
+        assert_eq!(mask_token(""), "•");
+        // 脱敏形式不含中段,拿它猜不回原令牌。
+        let m = mask_token("test-token-rc1-0123456789abcdef");
+        assert!(!m.contains("rc1-0123"));
+    }
+
+    /// P1-7:请求体超过上限 → 413;limit 查询参数被夹到上限(不是 500 就是 413,绝不 OOM)。
+    #[test]
+    fn 请求体上限与limit夹紧() {
+        let dir = tempfile::tempdir().unwrap();
+        let audit = dir.path().join("a.db");
+        let rules =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let flag = shutdown.clone();
+        let token = "test-token-rc1-0123456789abcdef".to_string();
+        let handle = thread::spawn(move || {
+            let _ = serve(
+                ApiConfig {
+                    bind: "127.0.0.1:18769".parse().unwrap(),
+                    rules,
+                    audit_db: audit,
+                    intel: None,
+                    intel_pubkey: None,
+                    token: token.clone(),
+                    allow_lan: false,
+                    audit_signing_key: None,
+                    known_apps: None,
+                    task_plans: None,
+                    agent_registry: None,
+                    adapter_registry: None,
+                    insecure_token: false,
+                    reveal_token: false,
+                },
+                Some(flag),
+            );
+        });
+        wait_ready(18769);
+        let auth = "Bearer test-token-rc1-0123456789abcdef";
+
+        // 超大 body → 413(confirm 走 read_json,events 走 read_body_capped,两条路都试)。
+        let huge = "x".repeat(MAX_BODY_BYTES + 1);
+        for path in ["/v1/confirm", "/v1/events"] {
+            let r = ureq::post(&format!("http://127.0.0.1:18769{path}"))
+                .set("Authorization", auth)
+                .set("Content-Type", "application/json")
+                .send_string(&huge);
+            match r {
+                Err(ureq::Error::Status(code, _)) => assert_eq!(code, 413, "{path}"),
+                Ok(resp) => assert_eq!(resp.status(), 413, "{path}"),
+                Err(e) => panic!("{path}: {e}"),
+            }
+        }
+        // 恰在上限内的合法小 body 仍然正常。
+        let ok = ureq::post("http://127.0.0.1:18769/v1/confirm")
+            .set("Authorization", auth)
+            .set("Content-Type", "application/json")
+            .send_string(r#"{"approve":true}"#)
+            .unwrap();
+        assert_eq!(ok.status(), 200);
+        // limit 巨大 → 仍 200(被夹到 MAX_LIST_LIMIT),不是把整表拉进内存。
+        let r = ureq::get("http://127.0.0.1:18769/v1/audit/recent?limit=99999999999")
+            .set("Authorization", auth)
+            .call()
+            .unwrap();
+        assert_eq!(r.status(), 200);
+
+        shutdown.store(true, Ordering::Relaxed);
+        let _ = handle.join();
+    }
+
     #[test]
     fn health_open_status_requires_token() {
         let dir = tempfile::tempdir().unwrap();
@@ -724,6 +1001,7 @@ mod tests {
                     agent_registry: None,
                     adapter_registry: None,
                     insecure_token: false,
+                    reveal_token: false,
                 },
                 Some(flag),
             );
@@ -774,6 +1052,7 @@ mod tests {
                     agent_registry: None,
                     adapter_registry: None,
                     insecure_token: false,
+                    reveal_token: false,
                 },
                 Some(flag),
             );
@@ -833,6 +1112,7 @@ mod tests {
                 token: "x".into(),
                 allow_lan: false,
                 insecure_token: false,
+                reveal_token: false,
                 audit_signing_key: None,
                 known_apps: None,
                 task_plans: None,
@@ -870,6 +1150,7 @@ mod tests {
                 agent_registry: None,
                 adapter_registry: None,
                 insecure_token: false,
+                reveal_token: false,
             },
             Some(shutdown),
         );
@@ -968,6 +1249,7 @@ mod tests {
                     agent_registry: None,
                     adapter_registry: Some(reg),
                     insecure_token: false,
+                    reveal_token: false,
                 },
                 Some(flag),
             );
@@ -1145,6 +1427,7 @@ mod tests {
                 agent_registry: None,
                 adapter_registry: None,
                 insecure_token: false,
+                reveal_token: false,
             },
             None,
         )
@@ -1184,6 +1467,7 @@ mod tests {
                 agent_registry: None,
                 adapter_registry: None,
                 insecure_token: true,
+                reveal_token: false,
             },
             Some(Arc::new(AtomicBool::new(true))),
         );
@@ -1210,6 +1494,7 @@ mod tests {
             agent_registry: None,
             adapter_registry: None,
             insecure_token: false,
+            reveal_token: false,
         }
     }
 

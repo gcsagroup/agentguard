@@ -40,7 +40,7 @@ use guard_privacy::{
 };
 use guard_schema::{DataTier, GuardEvent, RuleSet};
 use guard_shell::{SafeShell, ShellAction};
-use guard_sync::{sync_to_cache, DevicePolicy};
+use guard_sync::{sign_policy, sync_to_cache, sync_to_cache_verified, DevicePolicy};
 use mac_adapter::{
     ax_probe, demo_transparent_overlay_frame, live_ax_snapshot, mac_capabilities, sck_probe,
     start_capture_session, stop_capture_session, MacAdapter,
@@ -250,11 +250,31 @@ enum Commands {
         policy: PathBuf,
     },
     /// Pull enterprise policy into a local cache (POC sync).
+    ///
+    /// 给了 `--pubkey` 就走已认证路径(要求 `<source>.sig`,验不过拒绝);不给就是**未认证**
+    /// 同步,只适合本地开发——桌面壳子对未认证的策略只显示、不执法(P1-9)。
     PolicySync {
         #[arg(long, default_value = "policies/enterprise-poc.yaml")]
         source: String,
         #[arg(long, default_value = "policies/device-cache.yaml")]
         cache: PathBuf,
+        /// 策略签发方公钥文件(32 字节 / hex / base64)。
+        #[arg(long)]
+        pubkey: Option<PathBuf>,
+    },
+    /// 用签发方私钥给一份设备策略出分离签名(写 `<policy>.sig`)。
+    ///
+    /// P1-9:桌面壳子只执法**验过签**的策略。签发流程:`intel-keygen` 生一对钥
+    /// (同一 Ed25519 形态),`policy-sign --policy p.yaml --secret secret.hex` 出 `p.yaml.sig`,
+    /// 把 `public.hex` 装到每台设备的数据目录 `policy-pubkey.hex`(或 AGENTGUARD_POLICY_PUBKEY)。
+    PolicySign {
+        #[arg(long)]
+        policy: PathBuf,
+        #[arg(long)]
+        secret: PathBuf,
+        /// 输出路径,默认 `<policy>.sig`。
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     /// Aura-lite safe shell: propose an agent tool action.
     ShellPropose {
@@ -620,7 +640,9 @@ enum Commands {
         bind: String,
         #[arg(long, default_value = "crates/guard-schema/rules/p0_rules.yaml")]
         rules: PathBuf,
-        #[arg(long, default_value = "/tmp/agentguard-api-audit.db")]
+        /// 审计库路径。默认在用户私有数据目录(不再是可预测的 /tmp 路径,P1-7);
+        /// 符号链接、非普通文件、世界可写目录一律拒绝启动。
+        #[arg(long, default_value_os_t = guard_localapi::default_audit_db_path())]
         audit_db: PathBuf,
         #[arg(long, default_value = "intel/bundle.json")]
         intel: PathBuf,
@@ -1453,14 +1475,61 @@ fn run_cli() -> Result<()> {
                 p.pro_features.enterprise_export
             );
         }
-        Commands::PolicySync { source, cache } => {
-            let p = sync_to_cache(&source, &cache)?;
+        Commands::PolicySync {
+            source,
+            cache,
+            pubkey,
+        } => match pubkey {
+            Some(pk_path) => {
+                let pk = guard_intel::PublicKeyBytes::from_path(&pk_path).map_err(|e| {
+                    anyhow::anyhow!("read policy pubkey {}: {e}", pk_path.display())
+                })?;
+                let p = sync_to_cache_verified(&source, &pk, &cache)?;
+                println!(
+                    "synced+verified {} v{} → {} (signer {}, pro={})",
+                    p.policy_id,
+                    p.version,
+                    cache.display(),
+                    guard_sync::signer_fingerprint(&pk),
+                    p.is_pro()
+                );
+            }
+            None => {
+                let p = sync_to_cache(&source, &cache)?;
+                println!(
+                    "synced UNVERIFIED {} v{} → {} (pro={}) — dev only; shells display but do not enforce unverified policies",
+                    p.policy_id,
+                    p.version,
+                    cache.display(),
+                    p.is_pro()
+                );
+            }
+        },
+        Commands::PolicySign {
+            policy,
+            secret,
+            out,
+        } => {
+            let bytes = std::fs::read(&policy)
+                .with_context(|| format!("read policy {}", policy.display()))?;
+            // 先确认它真是一份能解析的策略,别给一个错文件签名。
+            let parsed: DevicePolicy = serde_yaml::from_str(std::str::from_utf8(&bytes)?)
+                .or_else(|_| serde_json::from_slice(&bytes))
+                .context("policy is neither YAML nor JSON DevicePolicy")?;
+            let kp = KeyPair::from_secret_path(&secret).map_err(|e| anyhow::anyhow!(e))?;
+            let sig = sign_policy(&bytes, &kp)?;
+            let dest = out.unwrap_or_else(|| {
+                let mut o = policy.as_os_str().to_owned();
+                o.push(".sig");
+                PathBuf::from(o)
+            });
+            std::fs::write(&dest, &sig)?;
             println!(
-                "synced {} v{} → {} (pro={})",
-                p.policy_id,
-                p.version,
-                cache.display(),
-                p.is_pro()
+                "signed {}@{} → {} (signer {})",
+                parsed.policy_id,
+                parsed.version,
+                dest.display(),
+                guard_sync::signer_fingerprint(&kp.public)
             );
         }
         Commands::ShellPropose {
@@ -2279,6 +2348,12 @@ fn run_cli() -> Result<()> {
                      unverified — using the built-in baseline only. See docs/release-security.md"
                 );
             }
+            // P1-7:只有本次随机生成的令牌才完整打印一次(用户没有别的途径知道它);
+            // 显式 / 环境变量来的,用户自己有,只打脱敏形式。
+            let token_generated = token.as_deref().is_none_or(str::is_empty)
+                && std::env::var("AGENTGUARD_API_TOKEN")
+                    .map(|t| t.is_empty())
+                    .unwrap_or(true);
             let token = resolve_api_token(token);
             let signing = audit_signing_key
                 .or_else(|| std::env::var_os("AGENTGUARD_AUDIT_SIGNING_KEY").map(PathBuf::from));
@@ -2319,6 +2394,7 @@ fn run_cli() -> Result<()> {
                     allow_lan,
                     insecure_token,
                     audit_signing_key: signing,
+                    reveal_token: token_generated,
                 },
                 None,
             )?;
