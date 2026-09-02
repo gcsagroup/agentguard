@@ -184,11 +184,35 @@ jobs:
       - name: Test the desktop shell
         working-directory: apps/desktop-macos/src-tauri
         run: cargo test
-      - name: Signing script runs and produces a verifiable signature
-        # Ad-hoc, no Apple account needed. It is here because macOS keys Accessibility and
-        # Screen Recording grants to the code signature: an unsigned rebuild arrives with no
-        # permissions while System Settings still shows them granted.
+      - name: Signing script parses (bash -n)
         run: bash -n apps/desktop-macos/scripts/sign-and-notarize.sh
+      - name: Signing script signs a bundle ad-hoc and codesign verifies it
+        # Real-device report P1-8: this step used to be named "runs and produces a verifiable
+        # signature" while executing only `bash -n`. Now it does what the name says, on a
+        # minimal stand-in bundle (a compiled binary in Contents/MacOS + Info.plist): the script
+        # runs end to end in ad-hoc mode, `codesign --verify --deep --strict` passes, and the
+        # identifier it stamped is the one TCC keys grants to. Still ad-hoc — no Developer ID,
+        # no notarization; those need credentials this job does not have and must not fake.
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/StandIn.app"
+          mkdir -p "$APP/Contents/MacOS"
+          printf 'int main(void){return 0;}\n' > "$RUNNER_TEMP/main.c"
+          cc -o "$APP/Contents/MacOS/StandIn" "$RUNNER_TEMP/main.c"
+          cat > "$APP/Contents/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleExecutable</key><string>StandIn</string>
+            <key>CFBundleIdentifier</key><string>com.agentguard.desktop.macos</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleName</key><string>StandIn</string>
+          </dict></plist>
+          PLIST
+          unset APPLE_SIGNING_IDENTITY
+          bash apps/desktop-macos/scripts/sign-and-notarize.sh "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --display --verbose=2 "$APP" 2>&1 | grep -q 'Identifier=com.agentguard.desktop.macos'
 
   android:
     name: Android companion (Kotlin)
@@ -205,17 +229,17 @@ jobs:
           # network dependency inside the build step, and when it fails the error is a
           # Gradle stack trace about a missing platform rather than "the SDK is not here".
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
-      - name: Unit tests
+      - name: JVM unit tests (no device, no instrumented tests)
         # The Kotlin half had zero tests. These include the cross-language dHash contract:
         # the Rust comparator and the Kotlin producer both assert against
         # eval/fixtures/icon_dhash_vectors.json, so a drift fails on both sides instead of
         # silently turning every icon comparison into noise.
         working-directory: apps/android-companion
         run: ./gradlew --no-daemon :app:testDebugUnitTest
-      - name: Assemble the APK
+      - name: Assemble the DEBUG APK (Android debug certificate — not a release artifact)
         working-directory: apps/android-companion
         run: ./gradlew --no-daemon :app:assembleDebug
-      - name: Upload the APK
+      - name: Upload the debug APK
         uses: actions/upload-artifact@v4
         with:
           name: agentguard-companion-debug
