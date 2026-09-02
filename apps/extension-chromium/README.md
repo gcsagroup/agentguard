@@ -76,6 +76,17 @@ cargo run -p guard-cli -- ingest-browser \
   --payload eval/fixtures/browser_extension_payload.json
 ```
 
+## 真浏览器 E2E
+
+```bash
+make e2e-extension        # 需要 playwright + Chromium(容器/CI 已预装)
+```
+
+把本目录原样装进真 Chromium,对 `eval/acceptance-fixtures/` 跑 20 条机器判据(隐藏注入上报、付款点击执行前拦住并只在
+「允许这一次」后重放一次、陷阱表单拦提交、页面直发 fetch 在**一个字节都没发出**前拦住、只读方法不误拦、popup 默认不转发且无裸术语)。
+结论落 `eval/e2e-extension/out/report.json`,最后一行 `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`。它不装 Native Messaging 宿主,
+也不是真机验收本身——对应关系与边界见 `docs/acceptance-chrome.md`。
+
 ## 隐私与限制
 
 - 默认不把浏览历史上传到 AgentGuard 服务器。

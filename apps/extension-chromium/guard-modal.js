@@ -175,6 +175,9 @@
     // 「先不要」是主按钮:实心、默认焦点、Esc。放行是危险动作,做成红字描边的次按钮。
     const cancel = document.createElement("button");
     cancel.textContent = ui ? ui.cancel : "Not now";
+    // 稳定的机器钩子(dataset,不走 setAttribute):真浏览器 E2E(eval/e2e-extension)和
+    // 验收者在 DevTools 里都靠它认按钮,而不是靠会随语言变的按钮文字。
+    cancel.dataset.agentguardAction = "cancel";
     Object.assign(cancel.style, {
       padding: "8px 16px",
       borderRadius: "8px",
@@ -186,6 +189,7 @@
     });
     const allow = document.createElement("button");
     allow.textContent = ui ? ui.allow : "Allow once";
+    allow.dataset.agentguardAction = "allow";
     Object.assign(allow.style, {
       padding: "8px 16px",
       borderRadius: "8px",

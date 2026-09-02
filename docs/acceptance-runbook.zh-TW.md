@@ -103,7 +103,17 @@ mkdir -p evidence/{firefox,windows,macos,android}
 
 ---
 
-## 3. 平台 B：Windows 桌面殼程式（W1–W7）
+### A.3 Chrome / Edge：先跑真瀏覽器 E2E，再做 C6–C8
+
+Chromium 側的 F1–F5 等價案例有機器判據：`make e2e-extension` 把擴充功能原樣載入真 Chromium，對同一批固件頁
+斷言「付款點擊先被攔、允許一次才重放、直發 fetch 到伺服器前被攔、唯讀方法不誤攔、popup 無裸術語」等 20 條，
+最後一行 `AGENTGUARD_E2E_EXTENSION=PASS`，結論落 `eval/e2e-extension/out/report.json`（附兩張截圖）。把這三個
+檔案複製到 `evidence/chrome/`。F6–F8 的 Chrome 等價案例（C6–C8，原生訊息／DNR）仍依 [acceptance-chrome.zh-TW.md](acceptance-chrome.zh-TW.md)
+在真 Chrome/Edge 上人工執行——E2E 不安裝宿主。Firefox 沒有等價的自動化（Playwright 無法載入 Firefox 擴充功能），F1–F8 仍全手動。
+
+---
+
+## 3. 平台 B：Windows 桌面殼程式（W1–W10）
 
 ### B.1 建置與執行
 
@@ -119,7 +129,7 @@ npm run tauri dev        # 啟動系統匣殼程式（dev）
 
 ### B.2 逐項執行
 
-判據以 `acceptance-windows.md` 的 W1–W7 為準。**每一項都先記錄執行階段 capability 與權限狀態，再區分
+判據以 `acceptance-windows.md` 的 W1–W10 為準。**每一項都先記錄執行階段 capability 與權限狀態，再區分
 「模擬」或「原生觀測」**（查看系統匣/日誌的能力標誌與實際事件/影格/OCR 輸出）：
 
 - **判決鏈路類（W1 阻斷模態）**：使用殼程式的模擬注入觸發一次 `CRIT-001`（付款文案）。PASS 判據：彈出
@@ -127,12 +137,23 @@ npm run tauri dev        # 啟動系統匣殼程式（dev）
 - **原生觀測類（W2 UIA 取樹 / W3 GDI 擷取影格+隱寫 / W4 Windows.Media.Ocr 讀屏 / W5 overlay）**：
   原生 UIA / GDI / OCR 已接入殼程式，但必須在目標 Windows 真機上依 capability 和實際輸出判定。
   capability 不可用或權限/語言套件缺失 → `BLOCKED (具體原因)`。可用時：
-  - W3 需要一張含隱寫的影像——使用 `make frame-digest-demo` 或 guard-vision 的隱寫編碼器產生一張，
-    顯示在目標視窗中，查看是否被擷取。
-  - W4 需要一段「只存在於像素中」的付款文字影像——用相同方法產生/擷取一張寫著 "Complete purchase" 的點陣圖並顯示。
+  - **固件**：`make acceptance-fixtures` 產生到 `eval/acceptance-fixtures/generated/`（確定性，`MANIFEST.json`
+    附 sha256；`crates/guard-vision/tests/验收固件.rs` 每次 `cargo test` 都在證明這些固件**真的觸發**它們聲稱的規則、
+    對照圖零 finding；HTML 固件另在容器內的 Chromium 真渲染一遍再過探測器）。
+  - W3：全螢幕顯示 `w3-stego-luma.png`（期望 OVL-008）與 `w3-stego-chroma.png`（期望 OVL-011）；再顯示
+    `w3-control-clean.png`，**不得**觸發——這一步是防「逢圖必報」。
+  - W4：Edge/Chrome 開啟 `w4-pixel-only-payment.html`——付款文字只畫在 canvas 像素中，UIA 樹沒有；OCR 讀出後
+    期望 OVL-009。缺語言套件 → `BLOCKED (ocr language pack missing)`。
+  - W5：開啟 `w5-self-drawn-overlay.html`（頁面自繪 3% 不透明度的指令文字，GDI 擷取得到；DevTools 刪除 `#sub`
+    作對照）或全螢幕 `w5-self-drawn-overlay.png`；期望 OVL-006。
   - 缺辨識語言套件時 OCR 不執行，殼程式應提供**含原因**的能力報告（這本身就是 W6 的 PASS 判據）。
 - **W6 能力探針**：開啟殼程式的能力面板/日誌，確認 UIA / 擷取 / OCR 各自「是否可用 + 原因字串」。
-- **W7 原生訊息**：同 F7，只是 host 透過登錄檔登記。
+- **W7 原生訊息**：同 F7，只是 host 透過登錄檔登記（`native-host\install-host.ps1 <extension-id>` 一條指令寫入登錄檔 + manifest + allowed-origin）。
+- **W8–W10 trace 判據／結束後不擷取／狀態一致**：整場以 `AGENTGUARD_ACCEPTANCE_TRACE=evidence\windows\trace.jsonl`
+  啟動殼程式（殼程式把 session_start/end、confirm_enqueued/shown/resolved/expired、每次觀測 tick、每次狀態變化附加成 JSONL）；
+  跑完後執行 `guard-cli acceptance-trace-check --trace evidence/windows/trace.jsonl --audit-db <稽核庫>`。六項：會話數一致、
+  每張回執落在**展示過**的那筆紀錄上且允許／拒絕對得上（報告 P0-5 的形狀）、逾時回執為 timeout、會話結束後無觀測、
+  「保護中」狀態有 ≤10 s 的心跳背書、過期確認不產生 approve 回執。任一 FAIL 結束碼 1，W8 即 FAIL。
 
 ---
 
@@ -150,6 +171,13 @@ Screen Recording 權限，再依 capability 報告、真實 AX 事件、擷取�
 `PASS (sim)`，不能取代 `PASS (native)`。案例清單見 `acceptance-macos.md` 的驗收案例表。host 安裝方法：
 `install-host.sh --browser chrome <id>`（macOS 路徑見指令碼）。
 
+案例 15–17 的判據來自**驗收 trace**：整場以 `AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl` 啟動殼程式
+（`AGENTGUARD_ACCEPTANCE_TRACE=… npm run tauri dev`），跑完 1–14、16、17 後執行
+`target/release/guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl --audit-db <稽核庫>`，把整段輸出存為
+`evidence/macos/15-trace-check.txt`。它對照 trace 與稽核庫做六項檢查（見 Windows W8 的說明），印出
+`AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS` 才算 15 PASS；16（結束後不再擷取）與 17（狀態燈與事實一致）另附截圖與
+`audit-report` 尾段。像素案例（5/5b 的 overlay、隱寫）可重用 `make acceptance-fixtures` 產生的固件——同一套 `guard-vision`。
+
 ---
 
 ## 5. 平台 D：Android 伴生應用程式
@@ -162,6 +190,18 @@ PASS 需要同時證明：事件來自目標真實裝置、HTTP body 的簽署�
 且裝置收到對應風險結果。Debug 建置、JVM 單元測試、未登錄公鑰的中繼或只離線重播 JSON 都不能取代這條真實裝置 E2E；
 任一環節無法判定時記為 `BLOCKED (具體原因)`。
 
+**照著指令碼做**：`scripts/acceptance/android-e2e.sh`（需要 adb + 已授權的真機 + python3）把上面這段變成機器判據——
+它安裝 APK、授予通知權限、啟用無障礙服務、`adb reverse`、以一次性令牌啟動桌面 API、把你從應用程式貼來的 P-256 公鑰寫成
+`evidence/android/adapter-registry.yaml`、在手機瀏覽器開啟付款固件頁，然後核對：A1（安裝／授權／前景通知 id 1001）、
+A2（桌面 `/v1/status` 的 `adapter_ingress.verified` 增加且 `rejected` 不增加——`/v1/events` 現在把每份 body 的簽章結論
+寫進回應、狀態與 stderr，以前這條在桌面側沒有任何可讀證據）、A3（稽核出現 `platform=android` 的 `CRIT-*` 判決）、
+A4（裝置 prefs 的 `last_risk_json` 帶同一 rule_id 且引擎通知 id 1005 存在）、L（`am crash` 殺掉處理程序後處理程序回來、
+`session_active` 仍 true、前景通知回來、無障礙仍啟用——報告 P0-3）、S（prefs 無明文 `relay_token`、有 `relay_token_enc`；
+`files/events` ≤ 50 MiB——報告 P1-6）。每步印 PASS／FAIL／BLOCKED（原因），證據落 `evidence/android/`，最後一行
+`AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED device=real|emulator`——`device=emulator` 時只能記 `PASS (sim)`。
+需要人做的只有三件事：貼公鑰、在應用程式填地址與令牌並開啟轉送、按「開始守護會話」（私鑰與令牌都在 Keystore，adb 碰不到，
+這是設計使然）。指令碼的結論仍要由人轉錄進報告範本，`manual-acceptance android` 只認那份報告。
+
 ---
 
 ## 6. 記錄結果 → 產生結構化證據
@@ -170,8 +210,8 @@ PASS 需要同時證明：事件來自目標真實裝置、HTTP body 的簽署�
 
 1. **填寫獨立報告**：將 `docs/acceptance-report-template.zh-TW.md` 複製到對應
    `evidence/<平台>/report.md`，逐項寫入 `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (原因)` 與儲存庫相對
-   證據路徑。作為嚴格閘門 artifact 時，Firefox 的 F1–F8、Windows 的 W1–W7、Android 的 A1–A4，以及
-   macOS 的 1、2、3、4、5、5b、5c、6–14 必須各自恰好一列；第二欄必須精確為 `PASS (native)`，
+   證據路徑。作為嚴格閘門 artifact 時，Firefox 的 F1–F8、Windows 的 W1–W10、Android 的 A1–A4，以及
+   macOS 的 1、2、3、4、5、5b、5c、6–17 必須各自恰好一列；第二欄必須精確為 `PASS (native)`，
    第三欄必須指向對應 `evidence/<平台>/` 下真實存在的儲存庫相對非空普通檔案，且每個案例必須使用唯一證據路徑。引用不能是報告本身或目前證據 JSON 來源檔案，
    路徑不能包含符號連結或超出儲存庫；路徑只使用 `/`，每個元件必須符合可攜式 ASCII `[A-Za-z0-9._-]+`，不能包含空白或 shell glob／展開字元。
    `PASS (sim)`、FAIL、BLOCKED、N/A、缺失、重複、重複使用路徑或引用檔案不存在都不能冒充真實裝置 PASS。

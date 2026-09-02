@@ -245,6 +245,41 @@ jobs:
           name: agentguard-companion-debug
           path: apps/android-companion/app/build/outputs/apk/debug/*.apk
 
+  browser-e2e:
+    name: Chromium extension real-browser E2E + acceptance fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright Chromium
+        # Global install, matching how eval/e2e-extension/run.mjs resolves playwright (local
+        # node_modules first, then `npm root -g`). The repository has no package.json at the
+        # root on purpose — the extension ships as plain files.
+        run: |
+          npm install -g playwright@1.56.0
+          npx --yes playwright@1.56.0 install --with-deps chromium
+      - name: Real-browser E2E (C1–C5 of docs/acceptance-chrome.md)
+        # Loads apps/extension-chromium unpacked into a real Chromium and asserts the
+        # pre-execution gates against eval/acceptance-fixtures. Not part of release-gate
+        # (needs a browser); a FAIL here is still a FAIL of the extension.
+        run: make e2e-extension
+      - name: Acceptance fixtures render + detector contract (W3/W4/W5)
+        # Generates the deterministic fixtures, renders the HTML ones in real Chromium and
+        # runs guard-vision over every pixel buffer, including the ignored render-contract test.
+        run: make acceptance-fixtures
+      - name: Upload E2E report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-e2e
+          path: |
+            eval/e2e-extension/out/
+            eval/acceptance-fixtures/generated/MANIFEST.json
+            eval/acceptance-fixtures/generated/rendered/INDEX.json
+
   jail:
     name: 内核约束（guard-jail）
     runs-on: ubuntu-latest

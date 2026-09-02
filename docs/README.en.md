@@ -24,7 +24,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [Project README (Simplified Chinese)](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 release notes (Simplified Chinese)](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 real-device acceptance report (Simplified Chinese)](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — Historical snapshot separating `bd7bb2f` from the integration candidate that was uncommitted at the time. It does not prove real-device acceptance for this commit; the release decision remains No-Go.
-- [2026-09-02 Windows partial real-device acceptance report (Simplified Chinese)](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — Automation, Release-artifact, and independent RDP interaction evidence for candidate `89dadf9`. W1–W7 are incomplete, and production release remains No-Go.
+- [2026-09-02 Windows partial real-device acceptance report (Simplified Chinese)](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — Automation, Release-artifact, and independent RDP interaction evidence for candidate `89dadf9`. W1–W10 are incomplete, and production release remains No-Go.
 - [Changelog (Simplified Chinese)](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [Privacy disclosure (Simplified Chinese)](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -39,6 +39,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [Structured release evidence (Simplified Chinese)](release-evidence.md) · [繁體](release-evidence.zh-TW.md) · [English](release-evidence.en.md) — Commit and artifact binding for eight evidence kinds, template and verification commands, and the unsigned-attestation boundary.
 - [Real-device acceptance runbook (Simplified Chinese)](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — Executable steps and evidence rules, not completed acceptance.
 - [Real-device acceptance report template (Simplified Chinese)](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — Per-platform PASS, FAIL, and BLOCKED recording.
+- [Chromium extension acceptance checklist (Simplified Chinese)](acceptance-chrome.md) · [繁體](acceptance-chrome.zh-TW.md) · [English](acceptance-chrome.en.md) — Chrome/Edge: C1–C5 are produced by the `make e2e-extension` real-browser E2E, C6–C8 (native messaging / DNR) stay manual on a real device; not yet a strict-gate kind.
 - [Firefox acceptance checklist (Simplified Chinese)](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+, DNR quota, and gecko-id Native Messaging real-device checks.
 - [Windows acceptance checklist (Simplified Chinese)](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA, GDI, OCR, capability-probe, and Native Messaging real-device checks.
 - [macOS acceptance checklist (Simplified Chinese)](acceptance-macos.md) · [繁體](acceptance-macos.zh-TW.md) · [English](acceptance-macos.en.md) — Strict PASS/BLOCKED boundaries for SCK, AX, TCC, and native cases.
@@ -61,7 +62,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [architecture.md](architecture.md) — Original language: mixed Chinese and English; status: technical reference.
 - [android-completeness.md](android-completeness.md) — Original language: primarily English; status: Android capability and gap reference.
 - [android-env-survey.md](android-env-survey.md) — Original language: English; status: Android environment-survey reference.
-- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with partial real-device evidence for startup, continuous observation, and the blocking modal; full W1–W7 end-to-end acceptance remains open.
+- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with partial real-device evidence for startup, continuous observation, and the blocking modal; full W1–W10 end-to-end acceptance remains open.
 - [ios-limited-sku.md](ios-limited-sku.md) — Original language: primarily English; status: limited scaffold description, not a complete product.
 - [local-api.md](local-api.md) — Original language: mixed Chinese and English; status: local API reference.
 - [billing.md](billing.md) — Original language: mixed Chinese and English; status: billing and entitlement reference.

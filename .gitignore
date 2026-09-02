@@ -67,3 +67,5 @@ _to_delete/
 *.zip
 docs/.status-dashboard.body.html
 eval/ui-preview/out/
+eval/e2e-extension/out/
+eval/acceptance-fixtures/generated/

@@ -56,6 +56,9 @@ Windows version: __________　Shell mode: ☐ Simulation ☐ Native available �
 | W5 overlay |  |  |  |
 | W6 Capability probe (with reason string) |  |  |  |
 | W7 Native messaging |  |  |  |
+| W8 Acceptance trace check |  |  |  |
+| W9 No observation after end |  |  |  |
+| W10 Status light matches reality |  |  |  |
 
 ## macOS Desktop Shell
 
@@ -79,6 +82,9 @@ macOS version: __________　Shell mode: ☐ Simulation ☐ Native available ☐ 
 | 12 AX probe |  |  |  |
 | 13 Real-device AX |  |  |  |
 | 14 UI revalidation |  |  |  |
+| 15 Acceptance trace check |  |  |  |
+| 16 No observation after end |  |  |  |
+| 17 Status light matches reality |  |  |  |
 
 ## Android Companion
 

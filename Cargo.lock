@@ -799,6 +799,7 @@ dependencies = [
  "guard-schema",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

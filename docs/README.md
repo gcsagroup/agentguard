@@ -24,7 +24,7 @@
 - [项目 README（简体）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 发布说明（简体）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 真机验收报告（简体）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 历史快照，区分 `bd7bb2f` 与当时未提交的整合候选；不代表本次提交已完成真机验收，发布结论仍为 No-Go。
-- [2026-09-02 Windows 部分真机验收报告（简体）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候选 `89dadf9` 的自动化、Release 产物与独立 RDP 交互证据；W1–W7 未完整执行，生产发布仍为 No-Go。
+- [2026-09-02 Windows 部分真机验收报告（简体）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候选 `89dadf9` 的自动化、Release 产物与独立 RDP 交互证据；W1–W10 未完整执行，生产发布仍为 No-Go。
 - [CHANGELOG（简体）](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [隐私说明（简体）](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -39,6 +39,7 @@
 - [结构化发布证据（简体）](release-evidence.md) · [繁體](release-evidence.zh-TW.md) · [English](release-evidence.en.md) — 八类证据的提交与产物绑定、模板和校验命令，以及未签名自证边界。
 - [真机验收执行手册（简体）](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — 可执行步骤与证据规范，不是已完成验收。
 - [真机验收报告模板（简体）](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — 按平台记录 PASS、FAIL 与 BLOCKED。
+- [Chromium 扩展验收清单（简体）](acceptance-chrome.md) · [繁體](acceptance-chrome.zh-TW.md) · [English](acceptance-chrome.en.md) — Chrome/Edge：C1–C5 由 `make e2e-extension` 真浏览器 E2E 机器产出，C6–C8（原生消息 / DNR）仍真机人工；尚非严格门禁 kind。
 - [Firefox 验收清单（简体）](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+、DNR 配额与 gecko-id Native Messaging 真机项。
 - [Windows 验收清单（简体）](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA、GDI、OCR、能力探针与 Native Messaging 真机项。
 - [macOS 验收清单（简体）](acceptance-macos.md) · [繁體](acceptance-macos.zh-TW.md) · [English](acceptance-macos.en.md) — SCK、AX、TCC 与原生用例的严格 PASS/BLOCKED 边界。
@@ -61,7 +62,7 @@
 - [architecture.md](architecture.md) — 原始语言：中英混合；状态：技术参考。
 - [android-completeness.md](android-completeness.md) — 原始语言：英文为主；状态：Android 能力与缺口参考。
 - [android-env-survey.md](android-env-survey.md) — 原始语言：英文；状态：Android 环境调查技术参考。
-- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与阻断模态的部分真机证据；完整 W1–W7 端到端验收仍未完成。
+- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与阻断模态的部分真机证据；完整 W1–W10 端到端验收仍未完成。
 - [ios-limited-sku.md](ios-limited-sku.md) — 原始语言：英文为主；状态：有限脚手架说明，不是完整产品。
 - [local-api.md](local-api.md) — 原始语言：中英混合；状态：本地 API 技术参考。
 - [billing.md](billing.md) — 原始语言：中英混合；状态：计费与授权技术参考。

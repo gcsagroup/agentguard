@@ -2,7 +2,19 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**32 条声明,76 条去重证明测试。**
+**35 条声明,82 条去重证明测试。**
+
+## acceptance
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| 真机验收有机器判据——壳子留 trace,`acceptance-trace-check` 对照审计库核对回执落点、结束后不采、状态有心跳背书,任一 FAIL 退出 1 | `docs/acceptance-runbook.md` | guard-core::acceptance_trace::check 六项纯函数检查;guard-cli 子命令读库跑它并打 AGENTGUARD_ACCEPTANCE_TRACE_CHECK 标记;两个壳子在 AGENTGUARD_ACCEPTANCE_TRACE 下写 JSONL | `回执落错记录退出1并点名`<br/>`会话结束后仍有观察记录退出1`<br/>`一致的trace与库通过并打出marker` |
+| W3/W4/W5 的验收固件会触发它们声称的规则(OVL-008 / OVL-011 / OVL-006 / OVL-009),对照图零 finding | `docs/acceptance-runbook.md` | scripts/acceptance/make-fixtures.py 确定性生成(存储块 PNG);tests/验收固件.rs 逐字节读回过 stats_from_pixels + analyze_frame;render-fixtures.mjs 用真 Chromium 渲染 HTML 固件再过探测器 | `固件触发其声称的规则_对照图零finding`<br/>`w4固件的像素文本对树文本触发_ovl009` |
+
+说明:
+
+- **真机验收有机器判据——壳子留 trace,`acceptance-trace-check` 对照审计库核对回执落点、结束后不采、状态有心跳背书,任一 FAIL 退出 1**:trace 由壳子自己写——它证明的是"壳子说的和库里记的一致",不是独立见证;截图与真机仍是必要证据
+- **W3/W4/W5 的验收固件会触发它们声称的规则(OVL-008 / OVL-011 / OVL-006 / OVL-009),对照图零 finding**:OCR 本身读不读得出(W4)与 GDI 真抓到什么仍是真机的事;渲染契约测试默认 ignore,make acceptance-fixtures 才跑
 
 ## android
 
@@ -103,10 +115,12 @@
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
 | Local API 默认审计库在用户私有目录且拒绝符号链接/共享可写目录;请求体 256 KiB、limit 1000 上限;令牌默认脱敏不进 stderr | `docs/local-api.md` | guard_localapi::check_audit_db_location / default_audit_db_path / read_body_capped / mask_token | `审计库位置拒绝符号链接与共享可写目录`<br/>`请求体上限与limit夹紧`<br/>`令牌脱敏显示` |
+| 桌面 API 对每份签名 body 的验签结论可读——回应带 adapter_identity,/v1/status 计数 verified / unsigned / rejected(Android A2 的桌面侧证据) | `docs/acceptance-runbook.md` | guard-localapi::AdapterIngressStats 每次入站 record();回应 JSON 的 adapter_identity 与 stderr 日志同源 | `端到端_伪造的干净调查清不掉锁存的风险` |
 
 说明:
 
 - **Local API 默认审计库在用户私有目录且拒绝符号链接/共享可写目录;请求体 256 KiB、limit 1000 上限;令牌默认脱敏不进 stderr**:目录权限位检查只在 Unix;没有速率限制与并发上限
+- **桌面 API 对每份签名 body 的验签结论可读——回应带 adapter_identity,/v1/status 计数 verified / unsigned / rejected(Android A2 的桌面侧证据)**:计数在进程内存里,重启归零;它是验收期的证据,不是审计记录
 
 ## localapi
 

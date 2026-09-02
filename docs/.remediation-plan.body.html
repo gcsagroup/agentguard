@@ -218,12 +218,25 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
 
   <div class="phase">
     <div class="dot">D</div>
-    <h2>发布工程与真机验收</h2>
-    <div class="meta">2–4 周 · 受证书与商店账号周期影响</div>
+    <h2>发布工程与真机验收 <span class="chip done">云端准备已完成</span></h2>
+    <div class="meta">2–4 周 · 受证书与商店账号周期影响 · 云端能做的准备(判据机器化、固件、脚本、清单)已落地</div>
+    <div class="item">
+      <div class="head"><b>每一端的判据都机器化了</b><span class="chip done">云端</span></div>
+      <p><b>macOS / Windows</b>:壳子在 <code>AGENTGUARD_ACCEPTANCE_TRACE</code> 下写 JSONL(会话、确认入队/展示/回执/过期、每拍观测、每次状态);
+      <code>guard-cli acceptance-trace-check</code> 对照审计库做六项检查(回执落在展示过的记录上且允许/拒绝对得上、超时回执、结束后零观测、
+      「保护中」有 ≤10 s 心跳背书、过期确认不产生 approve),任一 FAIL 退出 1。清单新增 macOS 15–17 / Windows W8–W10,报告模板、runbook、
+      <code>evidence-verify</code> 必填列表三语同步。<b>Windows W3/W4/W5</b>:<code>make acceptance-fixtures</code> 生成确定性固件(隐写两张 + 对照 +
+      自绘覆盖 PNG,canvas 付款页,自绘 3% 覆盖页);<code>tests/验收固件.rs</code> 每次 <code>cargo test</code> 都证明它们真触发 OVL-008/011/006/009、对照图零 finding;
+      HTML 固件还在容器 Chromium 真渲染后过探测器——第一版 44px 粗体覆盖实测 0.000,改成正常字号后 0.49/0.69,这个错没能活到真机。</p>
+      <p><b>Chrome</b>:<code>make e2e-extension</code> 把扩展原样装进真 Chromium 跑 20 条机器判据(F1–F5 等价 + popup),两处突变都被抓住;
+      新增三语 <code>acceptance-chrome.md</code>,C6–C8(原生消息/DNR)如实留给真机,Firefox 仍 BLOCKED。<b>Android</b>:<code>scripts/acceptance/android-e2e.sh</code>
+      把 runbook §5 变成 A1–A4 + P0-3 重启恢复 + P1-6 令牌/日志边界的逐项 PASS/FAIL/BLOCKED;桌面 API 的 <code>/v1/events</code> 回应与 <code>/v1/status</code>
+      现在带每份签名 body 的验签结论——A2 以前在桌面侧没有任何可读证据。CI 新增 browser-e2e job。</p>
+    </div>
     <div class="item">
       <div class="head"><b>签名链与真机矩阵</b><span class="chip device">需你 / codex / 证书</span></div>
-      <p>Developer ID + 公证 + staple、Windows Authenticode、Android release key、Chrome 真装 E2E——
-      证书和账号在你侧;阶段 A 的结构化证据工具会让每份真产物"一验即录"。真机矩阵与判据直接沿用报告 §11。</p>
+      <p>Developer ID + 公证 + staple、Windows Authenticode、Android release key、真 Chrome/Edge 的 C6–C8、Firefox F1–F8——
+      证书和账号在你侧;阶段 A 的结构化证据工具会让每份真产物"一验即录"。真机矩阵与判据直接沿用报告 §11,现在每一端都有可照着跑的脚本或固件。</p>
     </div>
     <div class="crit"><b>诚实边界:</b>云端沙箱验不了 ring 系 crate 的 darwin 编译、真机行为与签名——这些永远以真机复测为准。
     云端能做的,是让每一项修复带着红-绿-突变测试落地,并把"再犯会当场红"的门装好。</div>
@@ -240,6 +253,6 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     <div><span class="k">体验</span><span>三语无 key 泄漏;读屏、键盘、高对比、大字体验收通过</span></div>
   </div>
 
-  <p class="foot">进度:阶段 0、A、B、C 与 Windows 补充报告的云端部分已完成(<code>a544ace</code>);剩余全部在阶段 D(证书、真机矩阵、strict 证据)。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
+  <p class="foot">进度:阶段 0、A、B、C、Windows 补充报告与阶段 D 的云端准备已完成;剩余是阶段 D 中只能在你侧发生的部分(证书、真机矩阵逐条走完、strict 证据归档)。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
   真机复测与证书流程在你侧,判据以报告原文为准。本页随进度更新——阶段完成即标绿。</p>
 </div>

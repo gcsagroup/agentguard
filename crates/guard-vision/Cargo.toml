@@ -14,3 +14,7 @@ guard-schema = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
+
+[dev-dependencies]
+# 验收固件契约测试(tests/验收固件.rs)把脚本输出落到临时目录。
+tempfile = "3"

@@ -38,6 +38,80 @@ pub struct StatusSnapshot {
     /// 站着一个什么风险",否则那个锁存状态只存在于进程内存里,谁也看不见。
     /// 这也让"伪造的干净调查清不掉锁存风险"这件事从**外部**可验证。
     pub env_findings: Vec<String>,
+    /// `/v1/events` 入站的适配器签名统计(Android 真机验收 A2 的桌面侧判据)。
+    ///
+    /// 以前 `/v1/events` 的回应里没有"这份 body 的签名验过没有",引擎里的结论
+    /// (`Engine::adapter_identity`)也只活到下一个事件。于是 A2「桌面端成功验证真实
+    /// HTTP body 签名」在桌面侧**没有任何可读的证据**——只能靠"风险被清掉了"反推。
+    /// 现在每次入站都计数并记下最近一次,验收脚本读这里。
+    #[serde(default)]
+    pub adapter_ingress: AdapterIngressStats,
+}
+
+/// `/v1/events` 适配器签名入站统计。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterIngressStats {
+    /// 签名验过、注册表对得上、时间新鲜、event_id 未用过。
+    pub verified: usize,
+    /// 没带签名头。绝大多数桌面浏览器事件都是这一种——不是攻击。
+    pub unsigned: usize,
+    /// 带了签名但没验过(坏签名 / 未注册 / 过期 / 重放 / 平台不许 …)。
+    pub rejected: usize,
+    /// 最近一次入站的结论。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last: Option<AdapterIngressRecord>,
+}
+
+/// 一次 `/v1/events` 入站的适配器身份结论(也原样出现在该次回应的 `adapter_identity` 里)。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AdapterIngressRecord {
+    pub ts_ms: i64,
+    /// `verified` / `unsigned` / `bad_signature` / `unregistered` / `stale` / `replayed` /
+    /// `platform_not_permitted` / `no_key_on_record` / `publicly_known_key` / `unanchored_event`。
+    pub state: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adapter_id: Option<String>,
+    /// 这一次入站里被引擎处理的事件数。
+    pub events: usize,
+}
+
+impl AdapterIngressRecord {
+    pub fn from_identity(id: &guard_schema::AdapterIdentity, ts_ms: i64, events: usize) -> Self {
+        use guard_schema::AdapterIdentity as AI;
+        let (state, adapter_id) = match id {
+            AI::Verified { adapter_id } => ("verified", Some(adapter_id.clone())),
+            AI::Unsigned => ("unsigned", None),
+            AI::Unregistered { adapter_id } => ("unregistered", Some(adapter_id.clone())),
+            AI::NoKeyOnRecord { adapter_id } => ("no_key_on_record", Some(adapter_id.clone())),
+            AI::PubliclyKnownKey { adapter_id, .. } => {
+                ("publicly_known_key", Some(adapter_id.clone()))
+            }
+            AI::BadSignature { adapter_id } => ("bad_signature", Some(adapter_id.clone())),
+            AI::PlatformNotPermitted { adapter_id, .. } => {
+                ("platform_not_permitted", Some(adapter_id.clone()))
+            }
+            AI::Stale { adapter_id, .. } => ("stale", Some(adapter_id.clone())),
+            AI::Replayed { adapter_id, .. } => ("replayed", Some(adapter_id.clone())),
+            AI::UnanchoredEvent { adapter_id } => ("unanchored_event", Some(adapter_id.clone())),
+        };
+        Self {
+            ts_ms,
+            state: state.to_string(),
+            adapter_id,
+            events,
+        }
+    }
+}
+
+impl AdapterIngressStats {
+    pub fn record(&mut self, rec: AdapterIngressRecord) {
+        match rec.state.as_str() {
+            "verified" => self.verified += 1,
+            "unsigned" => self.unsigned += 1,
+            _ => self.rejected += 1,
+        }
+        self.last = Some(rec);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +124,8 @@ pub struct ApiState {
     pub audit_db: PathBuf,
     /// Envelope ingress from the Android companion (over `adb reverse`).
     pub android: Mutex<android_adapter::AndroidAdapter>,
+    /// 适配器签名入站统计(见 [`AdapterIngressStats`])。
+    pub adapter_ingress: Mutex<AdapterIngressStats>,
 }
 
 pub struct ApiConfig {
@@ -370,6 +446,7 @@ impl ApiState {
             engine: Mutex::new(engine),
             audit_db: cfg.audit_db.clone(),
             android: Mutex::new(android_adapter::AndroidAdapter::new()),
+            adapter_ingress: Mutex::new(AdapterIngressStats::default()),
         })
     }
 
@@ -405,6 +482,11 @@ impl ApiState {
                 v.dedup();
                 v
             },
+            adapter_ingress: self
+                .adapter_ingress
+                .lock()
+                .map(|g| g.clone())
+                .unwrap_or_default(),
         })
     }
 }
@@ -664,12 +746,32 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                                 if let Some(e) = failed {
                                     json_error(500, &e)
                                 } else {
+                                    // A2 的桌面侧证据:这份 body 的签名结论,进回应、进状态、进 stderr。
+                                    let now_ms = std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .map(|d| d.as_millis() as i64)
+                                        .unwrap_or(0);
+                                    let rec = AdapterIngressRecord::from_identity(
+                                        &adapter_identity,
+                                        now_ms,
+                                        outcomes.len(),
+                                    );
+                                    eprintln!(
+                                        "api-serve: /v1/events adapter={} identity={} events={}",
+                                        rec.adapter_id.as_deref().unwrap_or("-"),
+                                        rec.state,
+                                        rec.events
+                                    );
+                                    if let Ok(mut st) = state.adapter_ingress.lock() {
+                                        st.record(rec.clone());
+                                    }
                                     json_response(
                                         200,
                                         &serde_json::json!({
                                             "ok": true,
                                             "ingested": outcomes.len(),
                                             "decisions": outcomes,
+                                            "adapter_identity": rec,
                                         })
                                         .to_string(),
                                     )
@@ -1351,6 +1453,44 @@ mod tests {
             risk_latched(),
             "把签名的十六进制改成大写重放,风险被清掉了 —— 重放防御在中继路径上是可绕的"
         );
+
+        // 6. A2 的桌面侧证据:入站统计要对得上上面 6 次 POST 的实际结论 ——
+        //    3 次无签名(1、2、5 的重锁存)、1 次坏签名(3)、1 次验过(4)、1 次重放(5)。
+        //    回应体里也要带这次的结论,手机端 / 验收脚本都能直接读。
+        let status: serde_json::Value = serde_json::from_str(
+            &ureq::get("http://127.0.0.1:18781/v1/status")
+                .set("Authorization", &format!("Bearer {token}"))
+                .call()
+                .unwrap()
+                .into_string()
+                .unwrap(),
+        )
+        .unwrap();
+        let ingress = &status["adapter_ingress"];
+        assert_eq!(ingress["verified"], 1, "{ingress}");
+        assert_eq!(ingress["unsigned"], 3, "{ingress}");
+        assert_eq!(ingress["rejected"], 2, "{ingress}");
+        assert_eq!(ingress["last"]["state"], "replayed", "{ingress}");
+        assert_eq!(ingress["last"]["adapter_id"], "companion");
+        let resp: serde_json::Value = serde_json::from_str(
+            &ureq::post("http://127.0.0.1:18781/v1/events")
+                .set("Authorization", &format!("Bearer {token}"))
+                .set("Content-Type", "application/json")
+                .set(guard_schema::ADAPTER_HEADER_ID, "companion")
+                .set(guard_schema::ADAPTER_HEADER_TIMESTAMP, "1")
+                .set(guard_schema::ADAPTER_HEADER_SIGNATURE, &"0".repeat(128))
+                .send_string(&clean_survey_envelope())
+                .unwrap()
+                .into_string()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(resp["ok"], true);
+        // 乱造的签名:引擎先验签再看新鲜度,所以结论是 bad_signature(不是 stale)——
+        // 冒充比时钟偏更要紧,先报它;状态名要和引擎的判决一致。
+        assert_eq!(resp["adapter_identity"]["state"], "bad_signature", "{resp}");
+        assert_eq!(resp["adapter_identity"]["adapter_id"], "companion");
+        assert!(resp["adapter_identity"]["events"].as_u64().unwrap() >= 1);
 
         shutdown.store(true, Ordering::Relaxed);
         let _ = handle.join();

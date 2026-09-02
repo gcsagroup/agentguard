@@ -1,7 +1,7 @@
 # check-macos-cfg 用:能在无 Apple 工具链下对 darwin 目标 cargo check 的 crate(不经 ring)。
 DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
 
-.PHONY: ui-preview release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: ui-preview e2e-extension acceptance-fixtures release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -163,6 +163,25 @@ check-extension-gate:
 ## 真渲染确认弹层与 popup → 截图到 eval/ui-preview/out/ + 行为断言(先不要挡住/允许重放/可见文本无裸术语)。
 ui-preview:
 	node eval/ui-preview/shoot.mjs
+
+## Chromium 扩展真浏览器 E2E(开发工具,不进 release-gate:需要 playwright+Chromium)。
+## 把 apps/extension-chromium 原样装进真 Chromium,对 eval/acceptance-fixtures 跑 F1–F5 等价机器判据
+## (注入上报 / 付款点击拦住→允许一次重放 / 陷阱表单拦提交 / 直发 fetch 到服务器前拦住 / 不误拦 / popup)。
+## 结论落 eval/e2e-extension/out/report.json,最后一行 AGENTGUARD_E2E_EXTENSION=PASS|FAIL。
+## 不装 Native Messaging 宿主(F6/F7 仍真机);Firefox 的 Playwright 装不了扩展,仍 BLOCKED。
+e2e-extension:
+	node eval/e2e-extension/run.mjs
+
+## 真机验收固件(Windows W3/W4/W5;macOS 像素用例同用)。三步:
+##   1. python3 生成确定性 PNG/HTML → eval/acceptance-fixtures/generated/(gitignore;MANIFEST.json 带 sha256);
+##   2. Playwright 把 W4/W5 HTML 在真 Chromium 里渲染成像素(字体/反锯齿由浏览器决定,Python 算不出);
+##   3. guard-vision 读回全部像素并断言"固件真的触发它声称的规则、对照图零 finding"。
+## 第 1、3 步的契约每次 `cargo test` 都在跑(tests/验收固件.rs);第 2 步需要 playwright,所以在这里。
+acceptance-fixtures:
+	python3 scripts/acceptance/make-fixtures.py
+	node scripts/acceptance/render-fixtures.mjs
+	AGENTGUARD_RENDERED_FIXTURES=$(CURDIR)/eval/acceptance-fixtures/generated/rendered \
+		cargo test -p guard-vision --test 验收固件 -- --include-ignored
 
 ## The desktop shells, compiled rather than parsed. On Linux this needs GTK/WebKit:
 ##   apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev

@@ -114,7 +114,19 @@ evidence specified by the criterion.
 
 ---
 
-## 3. Platform B: Windows Desktop Shell (W1–W7)
+### A.3 Chrome / Edge: run the real-browser E2E first, then do C6–C8
+
+The Chromium twins of F1–F5 have machine criteria: `make e2e-extension` loads the extension unpacked into a real
+Chromium and asserts 20 things against the same fixture pages (payment click held before the handler runs, replayed
+exactly once after "Allow once", page-issued fetch held before a byte reaches the server, read-only methods not gated,
+popup without raw terms, …). It ends with `AGENTGUARD_E2E_EXTENSION=PASS` and writes `eval/e2e-extension/out/report.json`
+plus two screenshots; copy those three files into `evidence/chrome/`. The Chrome twins of F6–F8 (C6–C8: native
+messaging / DNR) are still done by hand on real Chrome/Edge per [acceptance-chrome.en.md](acceptance-chrome.en.md) — the
+E2E installs no host. Firefox has no equivalent automation (Playwright cannot load Firefox extensions); F1–F8 stay manual.
+
+---
+
+## 3. Platform B: Windows Desktop Shell (W1–W10)
 
 ### B.1 Build and Run
 
@@ -130,7 +142,7 @@ For the native-messaging host (when testing the W7 browser path), write `com.age
 
 ### B.2 Execute Each Case
 
-Use W1–W7 in `acceptance-windows.md` as the criteria. **For every case, record the runtime capability and
+Use W1–W10 in `acceptance-windows.md` as the criteria. **For every case, record the runtime capability and
 permission state first, then distinguish simulation from native observation** using capability indicators
 in the tray/logs and actual event/frame/OCR output:
 
@@ -141,15 +153,29 @@ in the tray/logs and actual event/frame/OCR output:
   reading / W5 overlay):** native UIA / GDI / OCR is wired into the shell, but it must be assessed from
   capability and actual output on the target Windows device. If capability is unavailable or a permission /
   language pack is missing, record `BLOCKED (specific reason)`. When available:
-  - W3 requires an image containing steganography. Generate one with `make frame-digest-demo` or the
-    guard-vision steganography encoder, display it in the target window, and verify that it is captured.
-  - W4 requires an image with payment text that exists only in pixels. Generate or capture a bitmap saying
-    "Complete purchase" in the same way and display it.
+  - **Fixtures:** `make acceptance-fixtures` writes them to `eval/acceptance-fixtures/generated/` (deterministic;
+    `MANIFEST.json` carries sha256s; `crates/guard-vision/tests/验收固件.rs` proves on every `cargo test` that these
+    fixtures **do trigger** the rules they claim and that the control image yields zero findings; the HTML fixtures are
+    additionally rendered in the container's Chromium and fed through the detectors).
+  - W3: show `w3-stego-luma.png` (expect OVL-008) and `w3-stego-chroma.png` (expect OVL-011) full-screen; then show
+    `w3-control-clean.png`, which must **not** fire — this step rules out "every image fires".
+  - W4: open `w4-pixel-only-payment.html` in Edge/Chrome — the payment text is drawn only into canvas pixels and is absent
+    from the UIA tree; once OCR reads it, expect OVL-009. Missing language pack → `BLOCKED (ocr language pack missing)`.
+  - W5: open `w5-self-drawn-overlay.html` (the page draws its own 3 % opacity instruction text, which GDI captures;
+    delete `#sub` in DevTools for the control) or show `w5-self-drawn-overlay.png` full-screen; expect OVL-006.
   - When a recognition language pack is missing, OCR does not run. The shell must provide a capability
     report **with a reason** (which is itself W6's PASS criterion).
 - **W6 capability probe:** open the shell's capability panel/log and confirm the availability status plus a
   reason string for UIA / capture / OCR.
-- **W7 native messaging:** same as F7, except the host is registered through the Windows registry.
+- **W7 native messaging:** same as F7, except the host is registered through the Windows registry
+  (`native-host\install-host.ps1 <extension-id>` writes registry key + manifest + allowed-origin in one go).
+- **W8–W10 trace check / no observation after end / state consistency:** launch the shell for the whole session with
+  `AGENTGUARD_ACCEPTANCE_TRACE=evidence\windows\trace.jsonl` (the shell appends session_start/end,
+  confirm_enqueued/shown/resolved/expired, every observation tick and every state change as JSONL); afterwards run
+  `guard-cli acceptance-trace-check --trace evidence/windows/trace.jsonl --audit-db <audit db>`. Six checks: session
+  counts agree; every receipt lands on the record that was **shown** and approve/deny match (the shape of report P0-5);
+  expired confirmations produce timeout receipts; no observation after session end; every “Protecting” state is backed by a
+  heartbeat ≤10 s old; an expired confirmation never yields an approve receipt. Any FAIL exits 1 and fails W8.
 
 ---
 
@@ -169,6 +195,15 @@ validates the verdict path, record `PASS (sim)`; it cannot replace `PASS (native
 table in `acceptance-macos.md`. Install the host with `install-host.sh --browser chrome <id>` (see the script
 for the macOS path).
 
+Cases 15–17 are judged from the **acceptance trace**: launch the shell for the whole session with
+`AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl` (`AGENTGUARD_ACCEPTANCE_TRACE=… npm run tauri dev`); after
+cases 1–14, 16 and 17 run `target/release/guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl --audit-db <audit db>`
+and save the whole output as `evidence/macos/15-trace-check.txt`. It cross-checks the trace against the audit database
+with six checks (see the Windows W8 note); only a printed `AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS` makes 15 PASS.
+16 (no observation after end) and 17 (status light matches reality) additionally need screenshots and the tail of
+`audit-report`. Pixel cases (overlay/steganography in 5/5b) may reuse the fixtures from `make acceptance-fixtures` — same
+`guard-vision`.
+
 ---
 
 ## 5. Platform D: Android Companion
@@ -184,6 +219,23 @@ body envelope with the registered public key, the engine returned the expected v
 the corresponding risk result. A debug build, JVM unit test, relay with an unregistered key, or offline-only JSON
 replay does not replace this real-device E2E. Record `BLOCKED (specific reason)` if any link cannot be determined.
 
+**Follow the script:** `scripts/acceptance/android-e2e.sh` (needs adb + an authorized real device + python3) turns the
+paragraph above into machine criteria — it installs the APK, grants the notification permission, enables the
+accessibility service, sets up `adb reverse`, starts the desktop API with a one-off token, writes the P-256 public key you
+paste from the app into `evidence/android/adapter-registry.yaml`, opens the payment fixture page in the phone browser and
+then checks: A1 (install / permissions / foreground notification id 1001), A2 (desktop `/v1/status`
+`adapter_ingress.verified` increases and `rejected` does not — `/v1/events` now writes each body's signature outcome into
+the response, the status snapshot and stderr; previously A2 had no readable desktop-side evidence at all), A3 (a
+`platform=android` `CRIT-*` verdict appears in the audit), A4 (the device's `last_risk_json` carries the same rule_id and the
+engine notification id 1005 is present), L (after `am crash` the process returns, `session_active` stays true, the
+foreground notification is restored, accessibility stays enabled — report P0-3), S (no plaintext `relay_token` in prefs,
+`relay_token_enc` present; `files/events` ≤ 50 MiB — report P1-6). Every step prints PASS / FAIL / BLOCKED(reason),
+evidence lands in `evidence/android/`, and the last line is `AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED device=real|emulator` —
+`device=emulator` can only ever be recorded as `PASS (sim)`. Only three things need a human: pasting the public key,
+entering URL + token in the app and enabling forwarding, tapping "Start guard session" (private key and token live in the
+Keystore; adb cannot reach them by design). The script's verdicts still have to be transcribed into the report template —
+`manual-acceptance android` reads only that report.
+
 ---
 
 ## 6. Record Results → Produce Structured Evidence
@@ -192,8 +244,8 @@ For each case:
 
 1. **Complete a separate report:** copy `docs/acceptance-report-template.en.md` to the corresponding
    `evidence/<platform>/report.md`. Record `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (reason)` and a
-   repository-relative evidence path for every case. As a strict-gate artifact, Firefox F1–F8, Windows W1–W7,
-   Android A1–A4, and macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–14 must each appear exactly once. Column two must be
+   repository-relative evidence path for every case. As a strict-gate artifact, Firefox F1–F8, Windows W1–W10,
+   Android A1–A4, and macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–17 must each appear exactly once. Column two must be
    exactly `PASS (native)`, and column three must identify an existing repository-relative nonempty regular file under the
    matching `evidence/<platform>/` directory. Every case must use a unique evidence path. It cannot reference the report
    itself or the current evidence JSON source file, contain a symbolic-link path, or resolve outside the repository.

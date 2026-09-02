@@ -403,3 +403,39 @@ claims:
       - { test: "total size cap deletes from the oldest until under the cap", file: apps/android-companion/app/src/test/java/com/agentguard/companion/EventLogRetentionTest.kt }
     note: 策略是纯函数并有测试;文件系统那一层(rename/delete)在设备上跑
 
+
+  - id: acceptance-trace-check
+    claim: 真机验收有机器判据——壳子留 trace,`acceptance-trace-check` 对照审计库核对回执落点、结束后不采、状态有心跳背书,任一 FAIL 退出 1
+    area: acceptance
+    source:
+      doc: docs/acceptance-runbook.md
+      anchor: "guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl"
+    mechanism: guard-core::acceptance_trace::check 六项纯函数检查;guard-cli 子命令读库跑它并打 AGENTGUARD_ACCEPTANCE_TRACE_CHECK 标记;两个壳子在 AGENTGUARD_ACCEPTANCE_TRACE 下写 JSONL
+    proven_by:
+      - { test: 回执落错记录退出1并点名, file: crates/guard-cli/tests/验收trace判据.rs }
+      - { test: 会话结束后仍有观察记录退出1, file: crates/guard-cli/tests/验收trace判据.rs }
+      - { test: 一致的trace与库通过并打出marker, file: crates/guard-cli/tests/验收trace判据.rs }
+    note: trace 由壳子自己写——它证明的是"壳子说的和库里记的一致",不是独立见证;截图与真机仍是必要证据
+
+  - id: acceptance-fixtures-trigger
+    claim: W3/W4/W5 的验收固件会触发它们声称的规则(OVL-008 / OVL-011 / OVL-006 / OVL-009),对照图零 finding
+    area: acceptance
+    source:
+      doc: docs/acceptance-runbook.md
+      anchor: "每次 `cargo test` 都在证明这些固件**真的触发**它们声称的规则"
+    mechanism: scripts/acceptance/make-fixtures.py 确定性生成(存储块 PNG);tests/验收固件.rs 逐字节读回过 stats_from_pixels + analyze_frame;render-fixtures.mjs 用真 Chromium 渲染 HTML 固件再过探测器
+    proven_by:
+      - { test: 固件触发其声称的规则_对照图零finding, file: crates/guard-vision/tests/验收固件.rs }
+      - { test: w4固件的像素文本对树文本触发_ovl009, file: crates/guard-vision/tests/验收固件.rs }
+    note: OCR 本身读不读得出(W4)与 GDI 真抓到什么仍是真机的事;渲染契约测试默认 ignore,make acceptance-fixtures 才跑
+
+  - id: adapter-ingress-visible
+    claim: 桌面 API 对每份签名 body 的验签结论可读——回应带 adapter_identity,/v1/status 计数 verified / unsigned / rejected(Android A2 的桌面侧证据)
+    area: local-api
+    source:
+      doc: docs/acceptance-runbook.md
+      anchor: "`/v1/events` 现在把每份 body 的签名结论"
+    mechanism: guard-localapi::AdapterIngressStats 每次入站 record();回应 JSON 的 adapter_identity 与 stderr 日志同源
+    proven_by:
+      - { test: 端到端_伪造的干净调查清不掉锁存的风险, file: crates/guard-localapi/src/lib.rs }
+    note: 计数在进程内存里,重启归零;它是验收期的证据,不是审计记录

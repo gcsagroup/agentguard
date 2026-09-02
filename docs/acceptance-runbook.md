@@ -101,9 +101,17 @@ mkdir -p evidence/{firefox,windows,macos,android}
 > 越界(`SCOPE-HOST`/E9 本地允许表门)需要会话声明了 `scope.hosts`——浏览器路径默认没有,记 `N/A` 除非
 > 你显式配了带 `scope.hosts` 的任务会话。
 
+### A.3 Chrome / Edge:先跑真浏览器 E2E,再做 C6–C8
+
+Chromium 侧的 F1–F5 等价用例有机器判据:`make e2e-extension` 把扩展原样装进真 Chromium,对上面同一批固件页
+断言"付款点击先被拦、允许一次才重放、直发 fetch 到服务器前被拦、只读方法不误拦、popup 无裸术语"等 20 条,
+最后一行 `AGENTGUARD_E2E_EXTENSION=PASS`,结论落 `eval/e2e-extension/out/report.json`(附两张截图)。把这三个
+文件拷进 `evidence/chrome/`。F6–F8 的 Chrome 等价用例(C6–C8,原生消息 / DNR)仍按 [acceptance-chrome.md](acceptance-chrome.md)
+在真 Chrome/Edge 上人工做——E2E 不装宿主。Firefox 没有等价的自动化(Playwright 装不了 Firefox 扩展),F1–F8 仍全手工。
+
 ---
 
-## 3. 平台 B:Windows 桌面壳子(W1–W7)
+## 3. 平台 B:Windows 桌面壳子(W1–W10)
 
 ### B.1 构建与运行
 
@@ -119,7 +127,7 @@ npm run tauri dev        # 起托盘壳子(dev)
 
 ### B.2 逐条执行
 
-判据以 `acceptance-windows.md` 的 W1–W7 为准。**每条先记录运行时 capability 与权限状态,再区分
+判据以 `acceptance-windows.md` 的 W1–W10 为准。**每条先记录运行时 capability 与权限状态,再区分
 "仿真"还是"原生观测"**(看托盘/日志的能力标志与实际事件/帧/OCR 输出):
 
 - **判决链路类(W1 阻断模态)**:用壳子的仿真注入触发一次 `CRIT-001`(付款文案)。PASS 判据:弹出
@@ -127,12 +135,23 @@ npm run tauri dev        # 起托盘壳子(dev)
 - **原生观测类(W2 UIA 取树 / W3 GDI 抓帧+隐写 / W4 Windows.Media.Ocr 读屏 / W5 overlay)**:
   原生 UIA / GDI / OCR 已接进壳子,但必须在目标 Windows 真机上按 capability 和实际输出判定。
   capability 不可用或权限/语言包缺失 → `BLOCKED (具体原因)`。可用时:
-  - W3 需要一张含隐写的图 —— 用 `make frame-digest-demo` 或 guard-vision 的隐写编码器生成一张,
-    在目标窗口显示,看是否被抓到。
-  - W4 需要一段"只在像素里"的付款文本图 —— 同法生成/截图一张写着 "Complete purchase" 的位图显示。
+  - **固件**:`make acceptance-fixtures` 生成到 `eval/acceptance-fixtures/generated/`(确定性,`MANIFEST.json`
+    带 sha256;`crates/guard-vision/tests/验收固件.rs` 每次 `cargo test` 都在证明这些固件**真的触发**它们声称的规则、
+    对照图零 finding;HTML 固件还在容器里的 Chromium 真渲染过一遍再过探测器)。
+  - W3:全屏显示 `w3-stego-luma.png`(期望 OVL-008)与 `w3-stego-chroma.png`(期望 OVL-011);再显示
+    `w3-control-clean.png`,**不得**报——这一步是防"逢图必报"。
+  - W4:Edge/Chrome 打开 `w4-pixel-only-payment.html`——付款文本只画在 canvas 像素里,UIA 树中没有;OCR 读出后
+    期望 OVL-009。缺语言包 → `BLOCKED (ocr language pack missing)`。
+  - W5:打开 `w5-self-drawn-overlay.html`(页面自绘 3% 不透明度的指令文字,GDI 抓得到;DevTools 删掉 `#sub`
+    作对照)或全屏 `w5-self-drawn-overlay.png`;期望 OVL-006。
   - 缺识别语言包时 OCR 不跑,壳子应给**带原因**的能力报告(那本身是 W6 的 PASS 判据)。
 - **W6 能力探针**:打开壳子的能力面板/日志,确认 UIA / 捕获 / OCR 各自"可用与否 + 原因串"。
-- **W7 原生消息**:同 F7,只是 host 走注册表登记。
+- **W7 原生消息**:同 F7,只是 host 走注册表登记(`native-host\install-host.ps1 <extension-id>` 一条命令写注册表 + manifest + allowed-origin)。
+- **W8–W10 trace 判据 / 结束后不采 / 状态一致**:整场以 `AGENTGUARD_ACCEPTANCE_TRACE=evidence\windows\trace.jsonl`
+  启动壳子(壳子把 session_start/end、confirm_enqueued/shown/resolved/expired、每次观测 tick、每次状态变化追加成 JSONL);
+  跑完后 `guard-cli acceptance-trace-check --trace evidence/windows/trace.jsonl --audit-db <审计库>`。六项:会话数一致、
+  每张回执落在**展示过**的那条记录上且允许/拒绝对得上(报告 P0-5 的形状)、超时回执为 timeout、会话结束后无观测、
+  「保护中」状态有 ≤10 s 的心跳背书、过期确认不产生 approve 回执。任一 FAIL 退出码 1,W8 即 FAIL。
 
 ---
 
@@ -150,6 +169,13 @@ Screen Recording 权限,再以 capability 报告、真实 AX 事件、捕获帧�
 `PASS (sim)`,不能替代 `PASS (native)`。用例清单见 `acceptance-macos.md` 的验收用例表。宿主装法:
 `install-host.sh --browser chrome <id>`(macOS 路径见脚本)。
 
+用例 15–17 的判据来自**验收 trace**:整场以 `AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl` 启动壳子
+(`AGENTGUARD_ACCEPTANCE_TRACE=… npm run tauri dev`),跑完 1–14、16、17 后执行
+`target/release/guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl --audit-db <审计库>`,把整段输出存为
+`evidence/macos/15-trace-check.txt`。它对照 trace 与审计库做六项检查(见 Windows W8 的说明),打印
+`AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS` 才算 15 PASS;16(结束后不再采集)与 17(状态灯与事实一致)另附截图与
+`audit-report` 尾部。像素用例(5/5b 的 overlay、隐写)可以复用 `make acceptance-fixtures` 生成的固件——同一套 `guard-vision`。
+
 ---
 
 ## 5. 平台 D:Android 伴生应用
@@ -162,6 +188,18 @@ PASS 需要同时证明:事件来自目标真机、HTTP body 的签名信封由�
 且设备收到相应风险结果。Debug 构建、JVM 单测、未注册公钥的中继或只离线回放 JSON 都不能替代这条真机 E2E；
 任一环节无法判定时记 `BLOCKED (具体原因)`。
 
+**照着脚本做**:`scripts/acceptance/android-e2e.sh`(需要 adb + 已授权的真机 + python3)把上面这段变成机器判据——
+它装 APK、授通知权限、开无障碍服务、`adb reverse`、用一次性令牌起桌面 API、把你从应用里粘来的 P-256 公钥写成
+`evidence/android/adapter-registry.yaml`、在手机浏览器里打开付款固件页,然后核对:A1(安装/授权/前台通知 id 1001)、
+A2(桌面 `/v1/status` 的 `adapter_ingress.verified` 增加且 `rejected` 不增加——`/v1/events` 现在把每份 body 的签名结论
+写进回应、状态与 stderr,以前这条在桌面侧没有任何可读证据)、A3(审计出现 `platform=android` 的 `CRIT-*` 判决)、
+A4(设备 prefs 的 `last_risk_json` 带同一 rule_id 且引擎通知 id 1005 在)、L(`am crash` 杀进程后进程回来、
+`session_active` 仍 true、前台通知回来、无障碍仍启用——报告 P0-3)、S(prefs 无明文 `relay_token`、有 `relay_token_enc`;
+`files/events` ≤ 50 MiB——报告 P1-6)。每步打 PASS / FAIL / BLOCKED(原因),证据落 `evidence/android/`,最后一行
+`AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED device=real|emulator`——`device=emulator` 时只能记 `PASS (sim)`。
+需要人做的只有三件事:粘公钥、在应用里填地址与令牌并开转发、点「开始守护会话」(私钥与令牌都在 Keystore 里,adb 碰不到,
+这是设计使然)。脚本的结论仍要由人转录进报告模板,`manual-acceptance android` 只认那份报告。
+
 ---
 
 ## 6. 记录结果 → 生成结构化证据
@@ -170,7 +208,7 @@ PASS 需要同时证明:事件来自目标真机、HTTP body 的签名信封由�
 
 1. **填写独立报告**:把 `docs/acceptance-report-template.md` 复制到对应 `evidence/<平台>/report.md`,逐条写
    `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (原因)` 和仓库相对证据路径。作为严格门禁 artifact 时，
-   Firefox 的 F1–F8、Windows 的 W1–W7、Android 的 A1–A4，以及 macOS 的 1、2、3、4、5、5b、5c、6–14
+   Firefox 的 F1–F8、Windows 的 W1–W10、Android 的 A1–A4，以及 macOS 的 1、2、3、4、5、5b、5c、6–17
    必须各自恰好一行；第二列必须精确为 `PASS (native)`，第三列必须指向对应 `evidence/<平台>/` 下真实存在的
    仓库相对非空普通文件，且每个用例必须使用唯一证据路径。引用不能是报告自身或当前证据 JSON 源文件，路径不能含符号链接或越出仓库；
    路径只用 `/`，每个组件必须匹配可移植 ASCII `[A-Za-z0-9._-]+`，不能含空白或 shell glob／展开字符。`PASS (sim)`、FAIL、BLOCKED、N/A、

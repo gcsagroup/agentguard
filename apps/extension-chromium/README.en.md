@@ -76,6 +76,19 @@ cargo run -p guard-cli -- ingest-browser \
   --payload eval/fixtures/browser_extension_payload.json
 ```
 
+## Real-browser E2E
+
+```bash
+make e2e-extension        # needs playwright + Chromium (preinstalled in the container / CI)
+```
+
+Loads this directory unpacked into a real Chromium and runs 20 machine assertions against `eval/acceptance-fixtures/`
+(hidden injection reported; payment click held before execution and replayed exactly once after "Allow once"; trap form
+submit held; page-issued fetch held **before a single byte leaves**; read-only methods not gated; popup forwarding off by
+default and free of raw terms). Results land in `eval/e2e-extension/out/report.json`; the last line is
+`AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. It installs no Native Messaging host and is not the real-device acceptance itself —
+mapping and boundaries in `docs/acceptance-chrome.en.md`.
+
 ## Privacy and limits
 
 - Browsing history is not uploaded to AgentGuard servers by default.

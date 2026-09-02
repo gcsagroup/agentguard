@@ -8,7 +8,7 @@ This document covers pre-release manual acceptance testing on a **real macOS dev
 > `make acceptance` or `cargo run -p guard-cli -- acceptance-run` at the repository root.
 > The command runs the offline scenarios listed in `eval/acceptance/manifest.yaml` and generates `eval/acceptance-report.json` / `eval/acceptance-report.md`. All PASS is necessary but not sufficient for macOS release.
 
-> A fully green checklist is necessary but not sufficient for release. It does not replace Developer ID signing, notarization, release-artifact identity, evidence for other platforms, or the complete release gate. When used as strict-gate `acceptance_macos` evidence, cases 1, 2, 3, 4, 5, 5b, 5c, and 6–14 must all be recorded exactly as `PASS (native)`. `PASS (sim)`, FAIL, BLOCKED, and N/A are rejected.
+> A fully green checklist is necessary but not sufficient for release. It does not replace Developer ID signing, notarization, release-artifact identity, evidence for other platforms, or the complete release gate. When used as strict-gate `acceptance_macos` evidence, cases 1, 2, 3, 4, 5, 5b, 5c, and 6–17 must all be recorded exactly as `PASS (native)`. `PASS (sim)`, FAIL, BLOCKED, and N/A are rejected.
 
 ## Prerequisites
 
@@ -48,6 +48,9 @@ Complete at least one primary path among **Claude Desktop / Cursor / Chrome+exte
 | 12 | | | **AX probe:** run `cargo run -p guard-cli -- ax-probe` | `ax_probe: OK`; permission denial is BLOCKED |
 | 13 | | | **Real-device AX:** after granting Accessibility, use “Capture foreground AX” in the dashboard or run `ax-snapshot` | Produces UiTreeDelta; form filling triggers FM/TR |
 | 14 | | | **UI revalidation:** use two consecutive, different UI frames (or change the UI before the second AX capture) | `UI-REVALIDATE` → confirmation pending |
+| 15 | | | **Acceptance trace check:** launch the shell for the whole session with `AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl`; after cases 1–14, 16 and 17 run `guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl --audit-db <audit db>` | All six checks `PASS` and the tool prints the full line `AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS`. Any FAIL (receipt on the wrong record, observation after session end, state not backed by heartbeats…) fails this case; it must not be patched by eye |
+| 16 | | | **No observation after end** (report P0-4): click “End session”, wait ≥60 s, then switch through a few windows | The last audit row is `SESSION-END` with **zero** observation rows after it; the trace has no tick with `events>0` after the end; the status light reads “Stopped”. Evidence: dashboard screenshot + the tail of `audit-report` |
+| 17 | | | **Status light matches reality** (report P0-3): screenshot “Protecting” mid-session; revoke Accessibility in System Settings and screenshot again within 10 s; re-grant and screenshot again within 10 s | Three screenshots read “Protecting” → “Permission required” (reason names AX) → “Protecting”; the trace `state` lines match and trace-check #5 passes |
 
 ### SCK / TCC Notes
 

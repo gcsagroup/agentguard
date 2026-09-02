@@ -8,7 +8,7 @@
 > `make acceptance` 或 `cargo run -p guard-cli -- acceptance-run`。
 > 该命令会执行 `eval/acceptance/manifest.yaml` 中列出的离线场景，并生成 `eval/acceptance-report.json` / `eval/acceptance-report.md`。全部 PASS 是 macOS 发布的必要（非充分）条件。
 
-> 本清单全绿只是发布的必要非充分条件，不能替代 Developer ID 签名、公证、发布包身份、其他平台证据或完整发布门禁。作为 `acceptance_macos` 严格门禁证据时，1、2、3、4、5、5b、5c 与 6–14 必须全部精确记录为 `PASS (native)`；`PASS (sim)`、FAIL、BLOCKED 或 N/A 都不能通过。
+> 本清单全绿只是发布的必要非充分条件，不能替代 Developer ID 签名、公证、发布包身份、其他平台证据或完整发布门禁。作为 `acceptance_macos` 严格门禁证据时，1、2、3、4、5、5b、5c 与 6–17 必须全部精确记录为 `PASS (native)`；`PASS (sim)`、FAIL、BLOCKED 或 N/A 都不能通过。
 
 ## 前置条件
 
@@ -48,6 +48,9 @@
 | 12 | | | **AX 探针**：`cargo run -p guard-cli -- ax-probe` | `ax_probe: OK`；权限拒绝须记为 BLOCKED |
 | 13 | | | **真机 AX**：授权辅助功能后，仪表盘「抓取前台 AX」或 `ax-snapshot` | 产出 UiTreeDelta；含填表时触发 FM/TR |
 | 14 | | | **UI revalidate**：连续两次不同 UI 帧（或二次 AX 抓取时 UI 已变） | `UI-REVALIDATE` → 待确认 |
+| 15 | | | **验收 trace 判据**：整场用 `AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl` 启动壳子；跑完 1–14 与 16、17 后执行 `guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl --audit-db <审计库>` | 六项全 `PASS`，打印整行 `AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS`；任一 FAIL（回执落错记录、结束后仍采集、状态与心跳不符…）本项即 FAIL，不得靠肉眼补正 |
+| 16 | | | **结束后不再采集**（报告 P0-4）：点「结束会话」，等 ≥60 s，再切几个窗口 | 审计库最后一条是 `SESSION-END`，其后**零**观察记录；trace 里会话结束后没有 `events>0` 的 tick；状态灯「已停止」。截图仪表盘 + `audit-report` 尾部 |
+| 17 | | | **状态灯与事实一致**（报告 P0-3）：会话中截图「保护中」；系统设置里撤掉辅助功能授权，≤10 s 内再截图；恢复授权，≤10 s 再截图 | 三张截图依次为「保护中」→「需要授权」（原因串写明 AX）→「保护中」；trace 的 `state` 行与之对应，trace-check 第 5 项 PASS |
 
 ### SCK / TCC 说明
 
