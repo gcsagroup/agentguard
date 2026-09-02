@@ -96,6 +96,25 @@ for (const shell of SHELLS) {
     }
   });
 
+  test(`${shell.dir}:动态键 state.* / reason.* 覆盖 guard-core 状态机的每个取值`, () => {
+    // P0-3:main.js 用 t(\`state.\${st.protection_state}\`) 和 t(\`reason.\${code}\`)。取值集合的
+    // 单一事实来源是 crates/guard-core/src/observe_state.rs 里两个 as_str():Rust 端多加一个
+    // 状态而词表没跟上,界面就会显示 "state.foo" 这个 key 名——这个测试让那种漏在门禁里红。
+    assert(/state\.\$\{/.test(mainSrc), "main.js 不再用 state.* 动态键?测试需要跟着改");
+    assert(/reason\.\$\{/.test(mainSrc), "main.js 不再用 reason.* 动态键?测试需要跟着改");
+    const rust = readFileSync(join(REPO, "crates/guard-core/src/observe_state.rs"), "utf8");
+    const states = [...rust.matchAll(/ProtectionState::\w+ => "([a-z_]+)"/g)].map((m) => m[1]);
+    const reasons = [...rust.matchAll(/Reason::\w+ => "([a-z_]+)"/g)].map((m) => m[1]);
+    assert(states.length >= 7, `只从 observe_state.rs 抠出 ${states.length} 个状态 —— 提取可能在空转`);
+    assert(reasons.length >= 11, `只从 observe_state.rs 抠出 ${reasons.length} 个原因 —— 提取可能在空转`);
+    for (const st of states) {
+      assert(`state.${st}` in dict.en, `词表缺 "state.${st}"(guard-core 有这个状态)`);
+    }
+    for (const r of reasons) {
+      assert(`reason.${r}` in dict.en, `词表缺 "reason.${r}"(guard-core 有这个原因码)`);
+    }
+  });
+
   test(`${shell.dir}:中文词表无未翻译的英文残留`, () => {
     for (const loc of locales.filter((l) => l !== "en")) {
       for (const [key, v] of Object.entries(dict[loc])) {

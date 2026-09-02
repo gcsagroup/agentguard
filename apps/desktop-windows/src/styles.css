@@ -53,6 +53,9 @@ h2 { margin: 0 0 0.75rem; font-size: 1rem; color: #c5d3e8; }
 .pill.idle { background: #243044; color: #9fb2cb; }
 .pill.active { background: #143528; color: #3dd68c; }
 .pill.paused { background: #3a2210; color: #f0a35a; }
+/* P0-3:状态成因。每一条都是"为什么不是绿灯",用提醒色。 */
+.state-why { margin-bottom: 1rem; border-left: 4px solid #f0a35a; color: #f0a35a; font-size: 0.88rem; }
+.state-why-item { display: block; margin: 0.15rem 0; }
 
 .grid {
   display: grid;

@@ -82,29 +82,54 @@ async function refreshTcc() {
   return tcc;
 }
 
+// P0-3:状态灯只信后端状态机的 `protection_state`,不再自己用 session_active 拼「守护中」。
+// 七个状态里只有 active 是绿的;degraded 是橙的——会话开着但没人在看,不能显示成绿。
+const PILL_CLASS = {
+  stopped: "idle",
+  confirmation_pending: "paused",
+  paused: "paused",
+  permission_required: "idle",
+  observer_starting: "idle",
+  degraded: "paused",
+  active: "active",
+};
+
+function renderStateReasons(st) {
+  const box = document.getElementById("state-why");
+  if (!box) return;
+  box.replaceChildren();
+  const reasons = st.state_reasons || [];
+  if (reasons.length === 0) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  for (const code of reasons) {
+    // 原因文本里的 {detail} 是操作系统/数据库的错误原文,可能含被观察窗口的标题 —— 走 textContent。
+    const li = document.createElement("li");
+    li.textContent = t(`reason.${code}`, {
+      detail: code === "observer_error" ? st.observer_error : st.audit_error,
+      age: Math.round((st.heartbeat_age_ms || 0) / 1000),
+    });
+    box.appendChild(li);
+  }
+}
+
 async function refreshStatus() {
   const st = await invoke("get_status");
   lastStatus = st;
-  if (st.pending_confirm) {
-    pill().textContent = t("status.pending");
-    pill().className = "pill paused";
-  } else if (st.paused) {
-    pill().textContent = t("status.paused");
-    pill().className = "pill paused";
-  } else if (st.session_active) {
-    pill().textContent = t(st.protection_mode === "sim" ? "status.simulating" : "status.protecting");
-    pill().className = "pill active";
-  } else {
-    pill().textContent = t("status.idle");
-    pill().className = "pill idle";
-  }
+  const state = st.protection_state || "stopped";
+  pill().textContent = t(`state.${state}`);
+  pill().className = `pill ${PILL_CLASS[state] || "idle"}`;
+  renderStateReasons(st);
   const sckPart = st.sck_streaming
     ? `SCK=streaming(native=${st.sck_native_ok}${st.sck_auto_poll ? ",auto" : ""})`
     : "SCK=idle";
   const sckMsg = st.sck_message ? ` · ${st.sck_message}` : "";
   const axMsg = st.ax_message ? ` · AX: ${st.ax_message}` : "";
+  const folded = st.suppressed_events > 0 ? ` · ${t("status.folded", { n: st.suppressed_events })}` : "";
   caps().textContent =
-    `${t("status.rules")} ${st.rules_loaded} · intel ${st.intel_version} · AX=${st.accessibility} · Capture=${st.screen_capture} · ${sckPart}${sckMsg}${axMsg}`;
+    `${t("status.rules")} ${st.rules_loaded} · intel ${st.intel_version} · AX=${st.accessibility} · Capture=${st.screen_capture} · ${sckPart}${sckMsg}${axMsg}${folded}`;
   const tcc = await invoke("get_tcc_status");
   await refreshCoverage(st, tcc);
   await maybeShowConfirm();
@@ -120,6 +145,17 @@ async function refreshStatus() {
 // `textContent` 从根上关掉这条路:它赋的是文本节点,永远不会被当作标签解析。
 // 配合 tauri.conf.json 里的限制性 CSP —— 两道,因为任何一道都可能被将来的
 // 某次改动绕过。
+// P2-3:一段重复观察结束时,开发者日志里留一行;折叠本身不逐条刷屏(计数在状态行)。
+function pushObserveSummaries(list) {
+  for (const detail of list || []) {
+    pushDecisions([{
+      action: "LogOnly",
+      rule_id: "OBSERVE-FOLD",
+      human_message: t("observe.summary", { detail }),
+    }]);
+  }
+}
+
 function auditRow(r) {
   const el = document.createElement("div");
   el.className = `item ${actionClass(r.action)}`;
@@ -324,6 +360,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     const { listen } = window.__TAURI__.event;
     await listen("sck-poll", async (ev) => {
       const out = ev.payload || {};
+      pushObserveSummaries(out.summaries);
       if ((out.frames_drained || 0) > 0 || (out.decisions || []).length > 0) {
         pushDecisions(out.decisions);
         await refreshStatus();
@@ -337,6 +374,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
     await listen("ax-poll", async (ev) => {
       const out = ev.payload || {};
+      pushObserveSummaries(out.summaries);
       if ((out.decisions || []).length > 0) {
         pushDecisions(out.decisions);
         await refreshStatus();

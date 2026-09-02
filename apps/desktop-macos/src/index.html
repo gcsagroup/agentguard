@@ -27,13 +27,14 @@
               <option value="zh-Hant" data-i18n="language.zhHant">繁體中文</option>
             </select>
           </label>
-          <div id="status-pill" class="pill idle" data-i18n="status.idle">Idle</div>
+          <div id="status-pill" class="pill idle" data-i18n="state.stopped">Not protecting</div>
         </div>
       </header>
 
       <section id="coverage-banner" class="card coverage sim" role="status">
         <strong id="coverage-title" data-i18n="coverage.checking">Protection coverage: checking…</strong>
         <ul id="coverage-lines" class="tcc-list"></ul>
+        <ul id="state-why" class="state-why" hidden></ul>
       </section>
 
       <section id="tcc-panel" class="card tcc">

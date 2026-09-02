@@ -2,6 +2,8 @@
 
 pub mod confirm;
 pub mod confirm_queue;
+pub mod event_dedup;
+pub mod observe_state;
 pub mod trajectory;
 
 pub use trajectory::{DriftKind, Step, Trajectory};
@@ -55,6 +57,9 @@ pub struct Engine {
     audit: Option<AuditStore>,
     intel: ThreatBundle,
     last_audit_id: Option<String>,
+    /// P0-3:最近一次审计写入失败的错误。`Some` = 审计当前不可写,防护状态机据此判 Degraded。
+    /// 下一次写成功即清空——它描述的是「现在能不能写」,不是历史。
+    audit_error: Option<String>,
     /// When true, session is paused after DenyAndPause.
     paused: bool,
     /// Known-app registry for deeplink / package-forgery checks (AgentScan system layer).
@@ -498,6 +503,7 @@ impl Engine {
             audit: None,
             intel: ThreatBundle::default(),
             last_audit_id: None,
+            audit_error: None,
             paused: false,
             known_apps: None,
             foreground_app: None,
@@ -1147,7 +1153,13 @@ impl Engine {
                 _ => record,
             };
             self.last_audit_id = Some(record.id.clone());
-            store.append(&record)?;
+            if let Err(e) = store.append(&record) {
+                // 写失败要留痕再返回:调用方(壳子)拿到 Err 会把这次轮询记成失败,但状态栏
+                // 需要一个能持续读到的事实——「审计现在写不进去」——而不是一条闪过的错误。
+                self.audit_error = Some(e.to_string());
+                return Err(e);
+            }
+            self.audit_error = None;
             if matches!(event.event_type, EventType::AgentSessionEnd) {
                 if let Some(sid) = &event.agent_context_id {
                     store.end_session(sid, event.timestamp_ms)?;
@@ -1163,6 +1175,16 @@ impl Engine {
 
     pub fn audit(&self) -> Option<&AuditStore> {
         self.audit.as_ref()
+    }
+
+    /// 最近一次审计写入失败的错误;`None` = 上一次写成功(或还没写过)。
+    pub fn audit_error(&self) -> Option<&str> {
+        self.audit_error.as_deref()
+    }
+
+    /// 审计**现在**可写:挂了审计库,且上一次写没有失败。防护状态机的输入之一。
+    pub fn audit_writable(&self) -> bool {
+        self.audit.is_some() && self.audit_error.is_none()
     }
 
     fn decide(&mut self, event: &GuardEvent) -> Result<Decision> {
@@ -4151,6 +4173,9 @@ pub struct EngineStatus {
     pub rules_loaded: usize,
     pub policy_id: String,
     pub audit_enabled: bool,
+    /// P0-3:最近一次审计写入失败的错误。`audit_enabled && audit_error.is_none()` 才算可写。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit_error: Option<String>,
     pub paused: bool,
     pub intel_version: String,
 }
@@ -4161,6 +4186,7 @@ impl Engine {
             rules_loaded: self.rules.rules.len(),
             policy_id: self.privacy.contract.policy_id.clone(),
             audit_enabled: self.audit.is_some(),
+            audit_error: self.audit_error.clone(),
             paused: self.paused,
             intel_version: self.intel.version.clone(),
         }
@@ -4350,6 +4376,64 @@ rules:
         let recent = engine.audit().unwrap().list_recent(5).unwrap();
         assert_eq!(recent.len(), 1);
         assert!(recent[0].action.contains("Block"));
+    }
+
+    /// P0-3:审计写失败要变成一个**能持续读到**的事实,不只是一次 Err。
+    ///
+    /// 用只读打开的库复现「写不进去」:`open` 建好 schema 后再 `open_read_only`,
+    /// append 必失败;引擎应把错误留在 `audit_error`,`audit_writable()` 变 false,
+    /// `status().audit_error` 带出去给壳子的状态机。换回可写库、写成功一次即清空。
+    #[test]
+    fn 审计写失败留痕为audit_error且写成功后清空() {
+        let dir = std::env::temp_dir().join(format!(
+            "ag-audit-ro-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db = dir.join("audit.db");
+        drop(AuditStore::open(&db).unwrap()); // 建 schema
+        let ro = AuditStore::open_read_only(&db).unwrap();
+        let mut engine = Engine::new(empty_rules(), GuardContract::default()).with_audit(ro);
+        assert!(engine.audit_writable(), "还没写过,不该预判失败");
+
+        let mut meta = HashMap::new();
+        meta.insert("required".into(), "false".into());
+        meta.insert("is_trap".into(), "true".into());
+        meta.insert("probe_type".into(), "trap_resistance".into());
+        meta.insert("profile_key".into(), "phone_number".into());
+        meta.insert("value_filled".into(), "true".into());
+        let event = GuardEvent {
+            event_id: "ro-1".into(),
+            timestamp_ms: 42,
+            platform: "windows".into(),
+            event_type: EventType::FormFill,
+            source_app: "Chrome".into(),
+            agent_context_id: Some("sess-ro".into()),
+            metadata: meta,
+        };
+        let err = engine
+            .process(&event)
+            .expect_err("只读库上 append 必须失败");
+        assert!(engine.audit_error().is_some(), "失败没有留痕:{err}");
+        assert!(!engine.audit_writable());
+        assert_eq!(
+            engine.status().audit_error,
+            engine.audit_error().map(str::to_string)
+        );
+
+        // 换成可写库(同一个引擎实例继续用),写成功一次就清空。
+        let mut engine = Engine::new(empty_rules(), GuardContract::default())
+            .with_audit(AuditStore::open_in_memory().unwrap());
+        engine.audit_error = Some("stale".into());
+        engine.process(&event).unwrap();
+        assert!(engine.audit_error().is_none());
+        assert!(engine.audit_writable());
+        assert!(engine.status().audit_error.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

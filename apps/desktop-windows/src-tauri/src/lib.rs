@@ -1,9 +1,9 @@
 //! AgentGuard Tauri backend: engine + audit + confirm modal + win-adapter simulation.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use guard_audit::{
     auto_approve_allowed, default_audit_key_path, ensure_audit_key_file, sqlcipher_enabled,
@@ -11,6 +11,7 @@ use guard_audit::{
 };
 use guard_billing::load_or_free;
 use guard_core::confirm_queue::{ConfirmQueue, ResolveOutcome};
+use guard_core::observe_state::{self, StateInputs, Thresholds};
 use guard_core::{AutoApprove, ConfirmRequest, Engine};
 use guard_intel::load_release;
 use guard_netmon::{evaluate_flow, FlowSummary};
@@ -44,6 +45,19 @@ struct AppState {
     observe_error: Mutex<Option<String>>,
     /// Set while the auto-poller thread should keep running.
     polling: Arc<AtomicBool>,
+    /// P0-3:最近一次**成功**观察的时刻(ms since epoch,0 = 没有)。
+    heartbeat_ms: AtomicU64,
+    /// P0-3:观察循环最近一次启动的时刻(0 = 没启动过),给状态机判「启动宽限」。
+    observer_started_ms: AtomicU64,
+    /// P2-3:观察事件聚合器。只在原生观察路径上用;会话边界 reset。
+    aggregator: Mutex<guard_core::event_dedup::Aggregator>,
+}
+
+fn now_epoch_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 #[derive(Serialize)]
@@ -78,6 +92,17 @@ struct StatusDto {
     /// sim | partial | full — honest coverage level from native capabilities.
     protection_mode: String,
     protection_summary: String,
+    /// P0-3:状态机输出(`guard_core::observe_state`)。前端只信这个字段来画状态灯。
+    protection_state: String,
+    /// 状态成因码(前端查 `reason.*` 词表)。Active 时为空。
+    state_reasons: Vec<String>,
+    observers_available: u32,
+    observers_running: u32,
+    heartbeat_age_ms: Option<u64>,
+    /// 引擎最近一次审计写入失败的错误;空串 = 可写。
+    audit_error: String,
+    /// P2-3:本会话被聚合器折叠掉的重复观察条数。
+    suppressed_events: u64,
 }
 
 #[derive(Serialize)]
@@ -354,7 +379,9 @@ fn build_engine() -> Engine {
 fn load_task_plans() -> Option<guard_schema::TaskPlanLibrary> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let candidates = [
-        std::env::var("AGENTGUARD_TASK_PLANS").map(PathBuf::from).unwrap_or_default(),
+        std::env::var("AGENTGUARD_TASK_PLANS")
+            .map(PathBuf::from)
+            .unwrap_or_default(),
         manifest.join("../../../policies/task-plans.yaml"),
         PathBuf::from("policies/task-plans.yaml"),
     ];
@@ -385,6 +412,39 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let device_policy = DevicePolicy::from_path(device_policy_path()).unwrap_or_default();
     let observing = state.polling.load(Ordering::Relaxed);
     let (protection_mode, protection_summary) = protection_coverage(&caps, observing);
+    let observe_error = state
+        .observe_error
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    let suppressed_events = state
+        .aggregator
+        .lock()
+        .map_err(|e| e.to_string())?
+        .suppressed_total();
+    let now = now_epoch_ms();
+    let hb = state.heartbeat_ms.load(Ordering::Relaxed);
+    let started = state.observer_started_ms.load(Ordering::Relaxed);
+    let observers_available =
+        caps.uia_native.available as u32 + caps.frame_capture.available as u32;
+    // 一个轮询循环同时驱动 UI 树和窗口捕获,所以"在跑"是 0 或 1。
+    let observers_running = observing as u32;
+    let derived = observe_state::derive(
+        &StateInputs {
+            session_active: adapter.has_session(),
+            paused: st.paused,
+            pending_confirm: !pending.is_empty(),
+            observers_available,
+            observers_running,
+            observer_error: observe_error.as_deref(),
+            audit_enabled: st.audit_enabled,
+            audit_error: st.audit_error.as_deref(),
+            observer_started_ms: (started > 0).then_some(started),
+            last_heartbeat_ms: (hb > 0).then_some(hb),
+            now_ms: now,
+        },
+        &Thresholds::default(),
+    );
     Ok(StatusDto {
         rules_loaded: st.rules_loaded,
         policy_id: st.policy_id,
@@ -399,12 +459,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         ocr: caps.ocr.available,
         ocr_detail: caps.ocr.detail.clone(),
         observing,
-        observe_error: state
-            .observe_error
-            .lock()
-            .map_err(|e| e.to_string())?
-            .clone()
-            .unwrap_or_default(),
+        observe_error: observe_error.unwrap_or_default(),
         privacy_composite: score.composite,
         pending_confirm: !pending.is_empty(),
         intel_version: st.intel_version,
@@ -413,6 +468,17 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         device_policy_id: device_policy.policy_id,
         protection_mode,
         protection_summary,
+        protection_state: derived.state.as_str().to_string(),
+        state_reasons: derived
+            .reasons
+            .iter()
+            .map(|r| r.as_str().to_string())
+            .collect(),
+        observers_available,
+        observers_running,
+        heartbeat_age_ms: (hb > 0).then(|| now.saturating_sub(hb)),
+        audit_error: st.audit_error.unwrap_or_default(),
+        suppressed_events,
     })
 }
 
@@ -491,7 +557,10 @@ fn force_pause(state: &State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn list_audit(state: State<'_, AppState>, limit: Option<usize>) -> Result<Vec<AuditRecord>, String> {
+fn list_audit(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<AuditRecord>, String> {
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
     let store = engine.audit().ok_or("audit disabled")?;
     store
@@ -579,7 +648,9 @@ fn start_guard_session(
     // exactly as before — but a caller that does know can no longer only *not* say so, which was
     // the position the shell was in when the plan library was loaded and never selected from.
     let task = guard_schema::TaskDeclaration {
-        profile: task_profile.map(|p| p.trim().to_string()).filter(|p| !p.is_empty()),
+        profile: task_profile
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty()),
         apps: task_apps.unwrap_or_default(),
         ..Default::default()
     };
@@ -590,15 +661,28 @@ fn start_guard_session(
         .lock()
         .map_err(|e| e.to_string())?
         .bump_generation();
+    reset_observation_memory(&state)?;
     drain_and_process(&state, &mut adapter)?;
     // Observation begins with the session and ends with it. Polling outside a session would
     // record a user's screen with no agent to attribute it to, which is the opposite of what
     // a session-scoped guard is for.
     drop(adapter);
     if capabilities().can_observe() {
+        state
+            .observer_started_ms
+            .store(now_epoch_ms(), Ordering::Relaxed);
         start_auto_poller(app, state.polling.clone());
     }
     Ok(sid)
+}
+
+/// 会话边界:清掉「上一段观察」的记忆——聚合器(上一会话见过的画面在新会话里要当首次记)
+/// 和心跳/启动时刻(新会话从零起算,不拿旧会话的心跳冒充「在观察」)。
+fn reset_observation_memory(state: &State<'_, AppState>) -> Result<(), String> {
+    state.aggregator.lock().map_err(|e| e.to_string())?.reset();
+    state.heartbeat_ms.store(0, Ordering::Relaxed);
+    state.observer_started_ms.store(0, Ordering::Relaxed);
+    Ok(())
 }
 
 #[tauri::command]
@@ -613,6 +697,10 @@ fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .bump_generation();
     drain_and_process(&state, &mut adapter)?;
+    reset_observation_memory(&state)?;
+    // SESSION-PAUSED 是会话级状态("Session paused after critical deny"),会话结束即失效;
+    // 不清的话下一个会话所有事件都被拦成 SESSION-PAUSED,界面也一直停在「已暂停」。
+    state.engine.lock().map_err(|e| e.to_string())?.resume();
     Ok(())
 }
 
@@ -731,11 +819,16 @@ fn sync_device_policy(source: Option<String>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn ingest_browser_json(state: State<'_, AppState>, payload: String) -> Result<Vec<DecisionDto>, String> {
+fn ingest_browser_json(
+    state: State<'_, AppState>,
+    payload: String,
+) -> Result<Vec<DecisionDto>, String> {
     use browser_adapter::BrowserAdapter;
     let mut browser = BrowserAdapter::new();
     browser.set_session(Some("browser-ext".into()));
-    let events = browser.parse_envelope(&payload).map_err(|e| e.to_string())?;
+    let events = browser
+        .parse_envelope(&payload)
+        .map_err(|e| e.to_string())?;
     let _adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     // Feed browser events through engine directly.
     drop(_adapter);
@@ -764,9 +857,7 @@ fn process_one(
 
     // Interactive path: process without auto-deny pause; queue confirm UI.
     let d = engine.process(event).map_err(|e| e.to_string())?;
-    if d.require_confirm
-        && matches!(d.action, DecisionAction::Block | DecisionAction::Alert)
-    {
+    if d.require_confirm && matches!(d.action, DecisionAction::Block | DecisionAction::Alert) {
         let req = ConfirmRequest::from_decision(
             &d,
             &event.source_app,
@@ -811,7 +902,9 @@ fn drain_and_process(
 /// a poll that read no tree and captured no frame returns an empty decision list, which is
 /// indistinguishable from a clean screen unless the reason travels alongside it.
 #[cfg(windows)]
-fn poll_native_once(state: &State<'_, AppState>) -> Result<(Vec<DecisionDto>, Vec<String>), String> {
+fn poll_native_once(
+    state: &State<'_, AppState>,
+) -> Result<(Vec<DecisionDto>, Vec<String>), String> {
     let mut guard = state.observer.lock().map_err(|e| e.to_string())?;
     let observer = match guard.as_mut() {
         Some(o) => o,
@@ -826,17 +919,75 @@ fn poll_native_once(state: &State<'_, AppState>) -> Result<(Vec<DecisionDto>, Ve
         }
     };
     let outcome = observer.poll_once();
+    // 这个 cfg(windows) 函数在 Linux/macOS 上编不到(ring 也挡住了 msvc 目标的交叉 check),
+    // 所以它只保留一行调用;所有逻辑在下面的平台无关函数里,cargo test 在任何机器上都盯着。
+    let (to_process, warnings) = aggregate_observed(
+        &state.aggregator,
+        &state.heartbeat_ms,
+        outcome.events,
+        outcome.warnings,
+        now_epoch_ms(),
+    )?;
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
-    let mut out = Vec::new();
-    for event in &outcome.events {
+    let mut out = Vec::with_capacity(to_process.len());
+    for event in &to_process {
         out.push(process_one(state, &mut engine, event, approve)?);
     }
-    Ok((out, outcome.warnings))
+    Ok((out, warnings))
+}
+
+/// 观察器一拍的结果 → (该过引擎的事件, 警告)。平台无关,`#[cfg(windows)]` 之外。
+///
+/// - 心跳(P0-3):这一拍真的看到了东西,或者它没什么可抱怨的,才算。只带 warnings 回来
+///   (树读不到、帧抓不到)的一拍**不**算心跳——那正是状态机要暴露的「没在观察」。
+/// - 聚合(P2-3):同一语义内容 30 s 内只过引擎一次;折叠的不写审计、不入待确认队列。
+///   窗口过后同一内容仍在,放行一条并把折叠计数写进 `repeat_count`,审计里就有持续摘要。
+#[cfg_attr(not(windows), allow(dead_code))]
+fn aggregate_observed(
+    aggregator: &Mutex<guard_core::event_dedup::Aggregator>,
+    heartbeat_ms: &AtomicU64,
+    events: Vec<GuardEvent>,
+    mut warnings: Vec<String>,
+    now: u64,
+) -> Result<(Vec<GuardEvent>, Vec<String>), String> {
+    use guard_core::event_dedup::{Verdict, REPEAT_COUNT_KEY};
+    if !events.is_empty() || warnings.is_empty() {
+        heartbeat_ms.store(now, Ordering::Relaxed);
+    }
+    let mut aggregator = aggregator.lock().map_err(|e| e.to_string())?;
+    let mut to_process = Vec::with_capacity(events.len());
+    let mut suppressed = 0usize;
+    for mut event in events {
+        match aggregator.observe_event(&event, now) {
+            Verdict::Emit { repeats } => {
+                if repeats > 0 {
+                    event
+                        .metadata
+                        .insert(REPEAT_COUNT_KEY.to_string(), repeats.to_string());
+                }
+                to_process.push(event);
+            }
+            Verdict::Suppress { .. } => suppressed += 1,
+        }
+    }
+    for ended in aggregator.sweep(now).into_iter().filter(|e| e.total > 1) {
+        warnings.push(format!(
+            "repeated observation ended: seen {} time(s) over {:.1}s",
+            ended.total,
+            ended.last_ms.saturating_sub(ended.first_ms) as f64 / 1000.0
+        ));
+    }
+    if suppressed > 0 {
+        warnings.push(format!("{suppressed} duplicate observation(s) folded"));
+    }
+    Ok((to_process, warnings))
 }
 
 #[cfg(not(windows))]
-fn poll_native_once(_state: &State<'_, AppState>) -> Result<(Vec<DecisionDto>, Vec<String>), String> {
+fn poll_native_once(
+    _state: &State<'_, AppState>,
+) -> Result<(Vec<DecisionDto>, Vec<String>), String> {
     Ok((
         Vec::new(),
         vec![format!(
@@ -850,7 +1001,10 @@ fn poll_native_once(_state: &State<'_, AppState>) -> Result<(Vec<DecisionDto>, V
 #[tauri::command]
 fn poll_native(state: State<'_, AppState>) -> Result<PollDto, String> {
     let (decisions, warnings) = poll_native_once(&state)?;
-    Ok(PollDto { decisions, warnings })
+    Ok(PollDto {
+        decisions,
+        warnings,
+    })
 }
 
 #[derive(Serialize)]
@@ -928,13 +1082,18 @@ pub fn run() {
         auto_approve: Mutex::new(false),
         pending: Mutex::new(ConfirmQueue::new(64)),
         #[cfg(windows)]
-        observer: Mutex::new(if caps.uia_native.available || caps.frame_capture.available {
-            Some(NativeObserver::new().with_schemas(load_form_schemas()))
-        } else {
-            None
-        }),
+        observer: Mutex::new(
+            if caps.uia_native.available || caps.frame_capture.available {
+                Some(NativeObserver::new().with_schemas(load_form_schemas()))
+            } else {
+                None
+            },
+        ),
         observe_error: Mutex::new(observe_error),
         polling: Arc::new(AtomicBool::new(false)),
+        heartbeat_ms: AtomicU64::new(0),
+        observer_started_ms: AtomicU64::new(0),
+        aggregator: Mutex::new(guard_core::event_dedup::Aggregator::for_observers()),
     };
 
     tauri::Builder::default()
@@ -959,6 +1118,106 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn ev(source: &str, ui_text: &str, digest: &str) -> GuardEvent {
+        let mut metadata = HashMap::new();
+        metadata.insert("ui_text".to_string(), ui_text.to_string());
+        metadata.insert("frame_digest".to_string(), digest.to_string());
+        GuardEvent {
+            event_id: "e".into(),
+            timestamp_ms: 0,
+            platform: "windows".into(),
+            event_type: EventType::UiTreeDelta,
+            source_app: source.into(),
+            agent_context_id: None,
+            metadata,
+        }
+    }
+
+    /// P0-3:只带 warnings、没有事件的一拍不算心跳;有事件或无警告才算。
+    #[test]
+    fn 只有警告没有事件的一拍不更新心跳() {
+        let agg = Mutex::new(guard_core::event_dedup::Aggregator::for_observers());
+        let hb = AtomicU64::new(0);
+        aggregate_observed(&agg, &hb, vec![], vec!["UIA: no tree".into()], 1_000).unwrap();
+        assert_eq!(hb.load(Ordering::Relaxed), 0, "树读不到的一拍冒充了心跳");
+        aggregate_observed(&agg, &hb, vec![], vec![], 2_000).unwrap();
+        assert_eq!(hb.load(Ordering::Relaxed), 2_000);
+        aggregate_observed(
+            &agg,
+            &hb,
+            vec![ev("Chrome", "x", "a")],
+            vec!["w".into()],
+            3_000,
+        )
+        .unwrap();
+        assert_eq!(hb.load(Ordering::Relaxed), 3_000);
+    }
+
+    /// P2-3:静止画面 30 s 内只放行一条;窗口过后放行的那条带 repeat_count;折叠数进 warnings。
+    #[test]
+    fn 重复观察被折叠_周期摘要带repeat_count() {
+        let agg = Mutex::new(guard_core::event_dedup::Aggregator::for_observers());
+        let hb = AtomicU64::new(0);
+        let (first, w) =
+            aggregate_observed(&agg, &hb, vec![ev("Chrome", "Pay now", "d1")], vec![], 0).unwrap();
+        assert_eq!(first.len(), 1);
+        assert!(w.is_empty());
+        let mut folded = 0;
+        for t in (2_500..30_000).step_by(2_500) {
+            let (out, w) = aggregate_observed(
+                &agg,
+                &hb,
+                vec![ev("Chrome", "Pay now", &format!("d{t}"))],
+                vec![],
+                t,
+            )
+            .unwrap();
+            assert!(out.is_empty(), "t={t} 同一画面又过了引擎");
+            assert!(w.iter().any(|m| m.contains("folded")), "折叠没有报出来");
+            folded += 1;
+        }
+        assert_eq!(folded, 11);
+        let (summary, _) = aggregate_observed(
+            &agg,
+            &hb,
+            vec![ev("Chrome", "Pay now", "dz")],
+            vec![],
+            30_000,
+        )
+        .unwrap();
+        assert_eq!(summary.len(), 1);
+        assert_eq!(
+            summary[0]
+                .metadata
+                .get(guard_core::event_dedup::REPEAT_COUNT_KEY)
+                .map(String::as_str),
+            Some("11")
+        );
+    }
+
+    /// 内容变了立刻放行,不等窗口——去重不能变成漏看。
+    #[test]
+    fn 内容变化立即放行() {
+        let agg = Mutex::new(guard_core::event_dedup::Aggregator::for_observers());
+        let hb = AtomicU64::new(0);
+        aggregate_observed(&agg, &hb, vec![ev("Chrome", "Total $10", "a")], vec![], 0).unwrap();
+        let (out, _) = aggregate_observed(
+            &agg,
+            &hb,
+            vec![ev("Chrome", "Total $299", "b")],
+            vec![],
+            2_500,
+        )
+        .unwrap();
+        assert_eq!(out.len(), 1);
+    }
 }
 
 #[cfg(test)]
@@ -987,7 +1246,11 @@ mod packaging_tests {
         for i in icons {
             let rel = i.as_str().expect("icon path");
             let path = root.join(rel);
-            assert!(path.is_file(), "declared icon {rel} does not exist at {}", path.display());
+            assert!(
+                path.is_file(),
+                "declared icon {rel} does not exist at {}",
+                path.display()
+            );
         }
     }
 

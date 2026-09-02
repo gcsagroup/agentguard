@@ -415,11 +415,69 @@
         "anchor": "人话词典是单一真相源",
         "doc": "docs/消费者化界面.md"
       }
+    },
+    {
+      "area": "shells",
+      "claim": "状态灯只在「会话 + 观察器运行 + 心跳新鲜 + 审计可写」全满足时显示守护中;会话开着但没人在看是「守护不完整」",
+      "id": "protection-state-truthful",
+      "mechanism": "guard_core::observe_state::derive 纯函数;两个壳子的 get_status 把事实喂给它,前端只信 protection_state",
+      "note": "状态机输入在壳子里采集;「真机上灯确实随观察器启停变色」由真机验收判定,不是这些测试",
+      "proven_by": [
+        {
+          "file": "crates/guard-core/src/observe_state.rs",
+          "test": "会话在但观察器没在跑是degraded而不是active"
+        },
+        {
+          "file": "crates/guard-core/src/observe_state.rs",
+          "test": "心跳过期是degraded_心跳在ttl边界内仍是active"
+        },
+        {
+          "file": "crates/guard-core/src/observe_state.rs",
+          "test": "审计不可写压过启动中且一定不是active"
+        },
+        {
+          "file": "crates/guard-core/src/lib.rs",
+          "test": "审计写失败留痕为audit_error且写成功后清空"
+        }
+      ],
+      "source": {
+        "anchor": "会话开了 ≠ 有人在看",
+        "doc": "docs/消费者化界面.md"
+      }
+    },
+    {
+      "area": "shells",
+      "claim": "同一语义内容的重复观察 30 秒内只过引擎一次;内容变一个字立刻放行;周期摘要带 repeat_count",
+      "id": "observation-dedup",
+      "mechanism": "guard_core::event_dedup::Aggregator,只挂在 SCK/AX/UIA 轮询路径;易变元数据键不进指纹",
+      "note": "折叠只吃一字不差的重复(AX 文本里一个时钟数字变化就是新事件),所以真机上的折叠率取决于画面静止程度",
+      "proven_by": [
+        {
+          "file": "crates/guard-core/src/event_dedup.rs",
+          "test": "风暴仿真_106秒静止画面从上百条折叠到个位数"
+        },
+        {
+          "file": "crates/guard-core/src/event_dedup.rs",
+          "test": "内容变一个字就是新事件_立即放行不等窗口"
+        },
+        {
+          "file": "crates/guard-core/src/event_dedup.rs",
+          "test": "每帧必变的数字不进指纹_语义相同即同一指纹"
+        },
+        {
+          "file": "apps/desktop-windows/src-tauri/src/lib.rs",
+          "test": "重复观察被折叠_周期摘要带repeat_count"
+        }
+      ],
+      "source": {
+        "anchor": "内容变一个字就是新事件,立刻放行",
+        "doc": "docs/消费者化界面.md"
+      }
     }
   ],
   "report": {
-    "distinct_tests": 39,
+    "distinct_tests": 47,
     "problems": [],
-    "total_claims": 20
+    "total_claims": 22
   }
 }

@@ -37,31 +37,47 @@ async function maybeShowConfirm() {
   modal().classList.remove("hidden");
 }
 
+// P0-3:状态灯只信后端状态机的 `protection_state`(guard_core::observe_state)。
+// 以前这里用 session_active / observing 两个布尔自己拼——会话开着、观察器停了、审计写不进去,
+// 三种情况都能显示成绿。现在七个状态里只有 active 是绿的。
+const PILL_CLASS = {
+  stopped: "idle",
+  confirmation_pending: "paused",
+  paused: "paused",
+  permission_required: "idle",
+  observer_starting: "idle",
+  degraded: "paused",
+  active: "active",
+};
+
+function renderStateReasons(st, span) {
+  const box = document.getElementById("state-why");
+  if (!box) return;
+  box.replaceChildren();
+  const reasons = st.state_reasons || [];
+  box.hidden = reasons.length === 0;
+  for (const code of reasons) {
+    // {detail} 是操作系统/数据库的错误原文,可能含被观察窗口的标题 —— 走 textContent。
+    box.appendChild(
+      span(
+        "state-why-item",
+        t(`reason.${code}`, {
+          detail: code === "observer_error" ? st.observe_error : st.audit_error,
+          age: Math.round((st.heartbeat_age_ms || 0) / 1000),
+        })
+      )
+    );
+  }
+}
+
 async function refreshStatus() {
   const st = await invoke("get_status");
-  if (st.pending_confirm) {
-    pill().textContent = t("pending");
-    pill().className = "pill paused";
-  } else if (st.paused) {
-    pill().textContent = t("paused");
-    pill().className = "pill paused";
-  } else if (st.session_active) {
-    // "observing" and "able to observe" are different states, and the pill has to say which.
-    // The old version printed "protecting" whenever a session was open, including on a host
-    // where no tree could be read and no frame captured.
-    if (st.observing) {
-      pill().textContent = t("observing");
-      pill().className = "pill active";
-    } else {
-      pill().textContent = t(st.protection_mode === "sim" ? "simulating" : "notObserving");
-      pill().className = st.protection_mode === "sim" ? "pill paused" : "pill idle";
-    }
-  } else {
-    pill().textContent = t("idle");
-    pill().className = "pill idle";
-  }
+  const state = st.protection_state || "stopped";
+  pill().textContent = t(`state.${state}`);
+  pill().className = `pill ${PILL_CLASS[state] || "idle"}`;
+  const folded = st.suppressed_events > 0 ? ` · ${t("folded", { n: st.suppressed_events })}` : "";
   caps().textContent =
-    `${t("rules")} ${st.rules_loaded} · intel ${st.intel_version} · ${t("plan")} ${st.plan}${st.pro_active ? "✓" : ""} · ${t("policy")} ${st.device_policy_id} · ${t("privacy")} ${st.privacy_composite.toFixed(2)}`;
+    `${t("rules")} ${st.rules_loaded} · intel ${st.intel_version} · ${t("plan")} ${st.plan}${st.pro_active ? "✓" : ""} · ${t("policy")} ${st.device_policy_id} · ${t("privacy")} ${st.privacy_composite.toFixed(2)}${folded}`;
 
   // Every capability renders with its reason. A bare cross told the user nothing and let a
   // compile flag pass for a probe.
@@ -78,6 +94,7 @@ async function refreshStatus() {
     e.textContent = text ?? "";
     return e;
   };
+  renderStateReasons(st, span);
   const box = observeBox();
   box.replaceChildren();
   for (const [label, ok, detail] of rows) {

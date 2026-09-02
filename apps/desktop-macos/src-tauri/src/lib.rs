@@ -1,9 +1,10 @@
 //! AgentGuard macOS shell: Menu Bar tray + TCC onboarding + MacAdapter simulation.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use guard_audit::{
     auto_approve_allowed, default_audit_key_path, ensure_audit_key_file, sqlcipher_enabled,
@@ -11,6 +12,8 @@ use guard_audit::{
 };
 use guard_billing::load_or_free;
 use guard_core::confirm_queue::{ConfirmQueue, ResolveOutcome};
+use guard_core::event_dedup::{Aggregator, Verdict, REPEAT_COUNT_KEY};
+use guard_core::observe_state::{self, StateInputs, Thresholds};
 use guard_core::{AutoApprove, ConfirmRequest, Engine};
 use guard_intel::load_release;
 use guard_netmon::{evaluate_flow, FlowSummary};
@@ -42,9 +45,30 @@ struct AppState {
     sck_auto_poll: Arc<AtomicBool>,
     /// Background live-AX poller (2.5s). Cleared on disable/quit.
     ax_auto_poll: Arc<AtomicBool>,
-    /// Last UiTreeDelta for pop-up / TOCTOU revalidation.
-    last_ui_event: Mutex<Option<GuardEvent>>,
+    /// Last UiTreeDelta **per source_app**, for pop-up / TOCTOU revalidation.
+    ///
+    /// 报告第 4 条:以前是单个 `Option`,SCK 帧(source=ScreenCapture)和 AX 快照
+    /// (source=Safari)交替到达,指纹里带 source_app,于是每次交替都被判成
+    /// 「UI 在决策和执行之间变了」→ UI-REVALIDATE 风暴;演示注入的支付事件也被拿去和
+    /// 上一帧比,得到 UI-REVALIDATE 而不是 CRIT-001。按来源分开比,跨来源不比。
+    /// 会话开始/结束清空。
+    last_ui_event: Mutex<HashMap<String, GuardEvent>>,
     ax_message: Mutex<String>,
+    /// P0-3:最近一次**成功**观察的时刻(ms since epoch,0 = 没有)。SCK/AX 轮询成功时更新。
+    heartbeat_ms: AtomicU64,
+    /// P0-3:观察器最近一次启动的时刻(0 = 没启动过),给状态机判「启动宽限」。
+    observer_started_ms: AtomicU64,
+    /// P0-3:观察器循环因错误停下时留下的原因(AX 权限被收回等)。成功轮询即清空。
+    observer_error: Mutex<Option<String>>,
+    /// P2-3:观察事件聚合器。只在 SCK/AX 轮询路径上用;会话边界 reset。
+    aggregator: Mutex<Aggregator>,
+}
+
+fn now_epoch_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
 }
 
 #[derive(Serialize)]
@@ -72,6 +96,20 @@ struct StatusDto {
     /// sim | partial | full — honest coverage level from TCC.
     protection_mode: String,
     protection_summary: String,
+    /// P0-3:状态机输出(`guard_core::observe_state`)。前端只信这个字段来画状态灯;
+    /// `session_active` 等原始布尔仍在,但不再被翻译成「守护中」。
+    protection_state: String,
+    /// 状态成因码(前端查 `reason.*` 词表)。Active 时为空。
+    state_reasons: Vec<String>,
+    observers_available: u32,
+    observers_running: u32,
+    /// 距最近一次成功观察的毫秒数;`None` = 还没观察到。
+    heartbeat_age_ms: Option<u64>,
+    /// 引擎最近一次审计写入失败的错误;空串 = 可写。
+    audit_error: String,
+    observer_error: String,
+    /// P2-3:本会话被聚合器折叠掉的重复观察条数。
+    suppressed_events: u64,
 }
 
 #[derive(Serialize)]
@@ -150,6 +188,10 @@ struct CaptureSessionDto {
 struct SckPollDto {
     decisions: Vec<DecisionDto>,
     frames_drained: usize,
+    /// P2-3:这一拍被折叠掉的重复观察条数。
+    suppressed: usize,
+    /// P2-3:一段重复观察结束时的人读摘要(不进审计——审计里是带 repeat_count 的周期摘要行)。
+    summaries: Vec<String>,
 }
 
 fn rules_path() -> PathBuf {
@@ -325,7 +367,9 @@ fn build_engine() -> Engine {
 fn load_task_plans() -> Option<guard_schema::TaskPlanLibrary> {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let candidates = [
-        std::env::var("AGENTGUARD_TASK_PLANS").map(PathBuf::from).unwrap_or_default(),
+        std::env::var("AGENTGUARD_TASK_PLANS")
+            .map(PathBuf::from)
+            .unwrap_or_default(),
         manifest.join("../../../policies/task-plans.yaml"),
         PathBuf::from("policies/task-plans.yaml"),
     ];
@@ -362,6 +406,38 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let ax_message = state.ax_message.lock().map_err(|e| e.to_string())?.clone();
     let (protection_mode, protection_summary, _) =
         protection_coverage(caps.accessibility, caps.screen_capture);
+    let ax_auto_poll = state.ax_auto_poll.load(Ordering::Relaxed);
+    let observer_error = state
+        .observer_error
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    let suppressed_events = state
+        .aggregator
+        .lock()
+        .map_err(|e| e.to_string())?
+        .suppressed_total();
+    let now = now_epoch_ms();
+    let hb = state.heartbeat_ms.load(Ordering::Relaxed);
+    let started = state.observer_started_ms.load(Ordering::Relaxed);
+    let observers_available = caps.accessibility as u32 + caps.screen_capture as u32;
+    let observers_running = ax_auto_poll as u32 + (sck_streaming && sck_auto_poll) as u32;
+    let derived = observe_state::derive(
+        &StateInputs {
+            session_active: adapter.has_session(),
+            paused: st.paused,
+            pending_confirm: !pending.is_empty(),
+            observers_available,
+            observers_running,
+            observer_error: observer_error.as_deref(),
+            audit_enabled: st.audit_enabled,
+            audit_error: st.audit_error.as_deref(),
+            observer_started_ms: (started > 0).then_some(started),
+            last_heartbeat_ms: (hb > 0).then_some(hb),
+            now_ms: now,
+        },
+        &Thresholds::default(),
+    );
     Ok(StatusDto {
         rules_loaded: st.rules_loaded,
         policy_id: st.policy_id,
@@ -382,9 +458,21 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         sck_message,
         sck_auto_poll,
         ax_message,
-        ax_auto_poll: state.ax_auto_poll.load(Ordering::Relaxed),
+        ax_auto_poll,
         protection_mode,
         protection_summary,
+        protection_state: derived.state.as_str().to_string(),
+        state_reasons: derived
+            .reasons
+            .iter()
+            .map(|r| r.as_str().to_string())
+            .collect(),
+        observers_available,
+        observers_running,
+        heartbeat_age_ms: (hb > 0).then(|| now.saturating_sub(hb)),
+        audit_error: st.audit_error.unwrap_or_default(),
+        observer_error: observer_error.unwrap_or_default(),
+        suppressed_events,
     })
 }
 
@@ -405,8 +493,7 @@ fn get_tcc_status(state: State<'_, AppState>) -> Result<TccStatusDto, String> {
         screen_capture_hint: if caps.screen_capture {
             "屏幕录制：已授权".into()
         } else {
-            "系统设置 → 隐私与安全性 → 屏幕录制 → 允许 AgentGuard（ScreenCaptureKit）"
-                .into()
+            "系统设置 → 隐私与安全性 → 屏幕录制 → 允许 AgentGuard（ScreenCaptureKit）".into()
         },
         acknowledged,
         simulation_only: !caps.accessibility && !caps.screen_capture,
@@ -505,7 +592,10 @@ fn resolve_confirm(
 }
 
 #[tauri::command]
-fn list_audit(state: State<'_, AppState>, limit: Option<usize>) -> Result<Vec<AuditRecord>, String> {
+fn list_audit(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<AuditRecord>, String> {
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
     let store = engine.audit().ok_or("audit disabled")?;
     store
@@ -592,7 +682,9 @@ fn start_guard_session(
     // exactly as before — but a caller that does know can no longer only *not* say so, which was
     // the position the shell was in when the plan library was loaded and never selected from.
     let task = guard_schema::TaskDeclaration {
-        profile: task_profile.map(|p| p.trim().to_string()).filter(|p| !p.is_empty()),
+        profile: task_profile
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty()),
         apps: task_apps.unwrap_or_default(),
         ..Default::default()
     };
@@ -604,8 +696,33 @@ fn start_guard_session(
         .lock()
         .map_err(|e| e.to_string())?
         .bump_generation();
+    reset_observation_memory(state.inner())?;
+    // 观察器若已在跑(用户先开了 AX 自动轮询再开会话),从现在起算启动宽限;心跳很快会来。
+    if state.ax_auto_poll.load(Ordering::Relaxed) || state.sck_auto_poll.load(Ordering::Relaxed) {
+        state
+            .observer_started_ms
+            .store(now_epoch_ms(), Ordering::Relaxed);
+    }
     drain_and_process(state.inner(), &mut adapter)?;
     Ok(sid)
+}
+
+/// 会话边界:清掉所有「上一段观察」的记忆。
+///
+/// - `last_ui_event`:报告第 4 条——不清的话,新会话第一条事件被拿去和上一会话最后一帧比,
+///   得到 UI-REVALIDATE。
+/// - 聚合器:上一会话见过的画面在新会话里第一次出现要当首次记。
+/// - 心跳/启动时刻:新会话从零起算,不拿旧会话的心跳冒充「在观察」。
+fn reset_observation_memory(state: &AppState) -> Result<(), String> {
+    state
+        .last_ui_event
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clear();
+    state.aggregator.lock().map_err(|e| e.to_string())?.reset();
+    state.heartbeat_ms.store(0, Ordering::Relaxed);
+    state.observer_started_ms.store(0, Ordering::Relaxed);
+    Ok(())
 }
 
 #[tauri::command]
@@ -626,6 +743,11 @@ fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .bump_generation();
     drain_and_process(state.inner(), &mut adapter)?;
+    reset_observation_memory(state.inner())?;
+    // 报告第 4 条末句:「一次拒绝后结束,界面还错误停留在“已暂停”」。SESSION-PAUSED 是
+    // **会话**级的状态(消息原文就是 "Session paused after critical deny"),会话结束了它
+    // 就没有意义;不清的话下一个会话所有事件都被拦成 SESSION-PAUSED。
+    state.engine.lock().map_err(|e| e.to_string())?.resume();
     Ok(())
 }
 
@@ -680,7 +802,12 @@ fn inject_demo_threat(
             };
             let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
             let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
-            return Ok(vec![process_one(state.inner(), &mut engine, &event, approve)?]);
+            return Ok(vec![process_one(
+                state.inner(),
+                &mut engine,
+                &event,
+                approve,
+            )?]);
         }
         "capture" => {
             adapter.ingest_capture_frame(demo_transparent_overlay_frame(), "ScreenCapture");
@@ -711,7 +838,12 @@ fn inject_demo_threat(
             };
             let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
             let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
-            return Ok(vec![process_one(state.inner(), &mut engine, &event, approve)?]);
+            return Ok(vec![process_one(
+                state.inner(),
+                &mut engine,
+                &event,
+                approve,
+            )?]);
         }
         other => return Err(format!("unknown threat kind: {other}")),
     }
@@ -783,6 +915,7 @@ fn start_sck_auto_poller(app: AppHandle, state: &AppState) {
     state.sck_auto_poll.store(false, Ordering::Relaxed);
     let flag = state.sck_auto_poll.clone();
     flag.store(true, Ordering::Relaxed);
+    note_observer_started(state);
     std::thread::spawn(move || {
         while flag.load(Ordering::Relaxed) {
             std::thread::sleep(Duration::from_millis(1500));
@@ -800,10 +933,7 @@ fn start_sck_auto_poller(app: AppHandle, state: &AppState) {
                     }
                 }
                 Err(e) => {
-                    let _ = app.emit(
-                        "sck-poll-error",
-                        serde_json::json!({ "error": e }),
-                    );
+                    let _ = app.emit("sck-poll-error", serde_json::json!({ "error": e }));
                 }
             }
         }
@@ -816,14 +946,21 @@ fn poll_sck_once(state: &AppState) -> Result<SckPollDto, String> {
         return Ok(SckPollDto {
             decisions: vec![],
             frames_drained: 0,
+            suppressed: 0,
+            summaries: vec![],
         });
     }
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     let frames_drained = adapter.poll_sck_frames("ScreenCapture");
-    let decisions = drain_and_process(state, &mut adapter)?;
+    let (decisions, suppressed, summaries) = drain_and_process_observed(state, &mut adapter)?;
+    // 心跳 = 这一路观察器成功跑了一拍(流活着),不要求这一拍抓到东西:静止画面 SCK 可能
+    // 一帧都不交,那不是观察器死了。
+    state.heartbeat_ms.store(now_epoch_ms(), Ordering::Relaxed);
     Ok(SckPollDto {
         decisions,
         frames_drained,
+        suppressed,
+        summaries,
     })
 }
 
@@ -839,6 +976,8 @@ struct AxPollDto {
     decisions: Vec<DecisionDto>,
     source_app: String,
     message: String,
+    suppressed: usize,
+    summaries: Vec<String>,
 }
 
 #[tauri::command]
@@ -873,13 +1012,27 @@ fn poll_ax_once(state: &AppState) -> Result<AxPollDto, String> {
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     match adapter.capture_live_ax() {
         Ok(()) => {
-            let decisions = drain_and_process(state, &mut adapter)?;
-            let msg = format!("live AX ingested · {} decision(s)", decisions.len());
+            let (decisions, suppressed, summaries) =
+                drain_and_process_observed(state, &mut adapter)?;
+            let msg = if suppressed > 0 {
+                format!(
+                    "live AX ingested · {} decision(s) · {suppressed} duplicate(s) folded",
+                    decisions.len()
+                )
+            } else {
+                format!("live AX ingested · {} decision(s)", decisions.len())
+            };
             *state.ax_message.lock().map_err(|e| e.to_string())? = msg.clone();
+            state.heartbeat_ms.store(now_epoch_ms(), Ordering::Relaxed);
+            if let Ok(mut slot) = state.observer_error.lock() {
+                *slot = None;
+            }
             Ok(AxPollDto {
                 decisions,
                 source_app: "frontmost".into(),
                 message: msg,
+                suppressed,
+                summaries,
             })
         }
         Err(e) => {
@@ -922,6 +1075,7 @@ fn start_ax_auto_poller(app: AppHandle, state: &AppState) {
     state.ax_auto_poll.store(false, Ordering::Relaxed);
     let flag = state.ax_auto_poll.clone();
     flag.store(true, Ordering::Relaxed);
+    note_observer_started(state);
     std::thread::spawn(move || {
         while flag.load(Ordering::Relaxed) {
             std::thread::sleep(Duration::from_millis(2500));
@@ -940,7 +1094,12 @@ fn start_ax_auto_poller(app: AppHandle, state: &AppState) {
                 }
                 Err(e) => {
                     let _ = app.emit("ax-poll-error", serde_json::json!({ "error": e }));
-                    // Permission lost mid-run: stop the loop instead of spamming.
+                    // Permission lost mid-run: stop the loop instead of spamming — and leave
+                    // the reason where the state machine reads it (P0-3),so the pill goes to
+                    // Degraded with `observer_error` instead of staying green.
+                    if let Ok(mut slot) = st.observer_error.lock() {
+                        *slot = Some(format!("AX observer stopped: {e}"));
+                    }
                     flag.store(false, Ordering::Relaxed);
                 }
             }
@@ -970,9 +1129,30 @@ fn sync_device_policy(source: Option<String>) -> Result<String, String> {
 #[tauri::command]
 fn set_tray_locale(app: AppHandle, locale: String) -> Result<(), String> {
     let labels = match locale.as_str() {
-        "zh-Hans" => ["打开仪表盘", "抓取前台 AX 树", "AX 自动轮询：开/关", "SCK 开始捕获", "SCK 停止", "退出 AgentGuard"],
-        "zh-Hant" => ["開啟儀表板", "擷取最上層 AX 樹", "AX 自動輪詢：開/關", "SCK 開始擷取", "SCK 停止", "結束 AgentGuard"],
-        _ => ["Open dashboard", "Capture frontmost AX tree", "AX auto-poll: on/off", "Start SCK capture", "Stop SCK", "Quit AgentGuard"],
+        "zh-Hans" => [
+            "打开仪表盘",
+            "抓取前台 AX 树",
+            "AX 自动轮询：开/关",
+            "SCK 开始捕获",
+            "SCK 停止",
+            "退出 AgentGuard",
+        ],
+        "zh-Hant" => [
+            "開啟儀表板",
+            "擷取最上層 AX 樹",
+            "AX 自動輪詢：開/關",
+            "SCK 開始擷取",
+            "SCK 停止",
+            "結束 AgentGuard",
+        ],
+        _ => [
+            "Open dashboard",
+            "Capture frontmost AX tree",
+            "AX auto-poll: on/off",
+            "Start SCK capture",
+            "Stop SCK",
+            "Quit AgentGuard",
+        ],
     };
     let show = MenuItem::with_id(&app, "show", labels[0], true, None::<&str>)
         .map_err(|e| e.to_string())?;
@@ -1009,11 +1189,13 @@ fn process_one(
     );
 
     if is_ui {
+        // 只和**同一来源**的上一帧比:SCK 帧不和 AX 快照比,演示注入不和真机观察比。
         let before = state
             .last_ui_event
             .lock()
             .map_err(|e| e.to_string())?
-            .clone();
+            .get(&event.source_app)
+            .cloned();
         if let Some(ref before) = before {
             let gate = engine.revalidate_ui(before, event);
             if gate.action != DecisionAction::Allow {
@@ -1021,21 +1203,17 @@ fn process_one(
                     let d = engine
                         .process_with_revalidate(before, event, &AutoApprove)
                         .map_err(|e| e.to_string())?;
-                    *state.last_ui_event.lock().map_err(|e| e.to_string())? = Some(event.clone());
+                    remember_ui_event(state, event)?;
                     return Ok(to_dto(&d));
                 }
                 // Mark UI so UI-REVALIDATE rule + pending confirm modal fire.
                 let mut marked = event.clone();
-                let ui = marked
-                    .metadata
-                    .get("ui_text")
-                    .cloned()
-                    .unwrap_or_default();
+                let ui = marked.metadata.get("ui_text").cloned().unwrap_or_default();
                 marked.metadata.insert(
                     "ui_text".into(),
                     format!("{ui} [AG_UI_REVALIDATE]").trim().to_string(),
                 );
-                *state.last_ui_event.lock().map_err(|e| e.to_string())? = Some(event.clone());
+                remember_ui_event(state, event)?;
                 let d = engine.process(&marked).map_err(|e| e.to_string())?;
                 if d.require_confirm
                     && matches!(d.action, DecisionAction::Block | DecisionAction::Alert)
@@ -1051,7 +1229,7 @@ fn process_one(
                 return Ok(to_dto(&d));
             }
         }
-        *state.last_ui_event.lock().map_err(|e| e.to_string())? = Some(event.clone());
+        remember_ui_event(state, event)?;
     }
 
     if approve {
@@ -1083,6 +1261,25 @@ fn to_dto(d: &Decision) -> DecisionDto {
     }
 }
 
+fn remember_ui_event(state: &AppState, event: &GuardEvent) -> Result<(), String> {
+    state
+        .last_ui_event
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(event.source_app.clone(), event.clone());
+    Ok(())
+}
+
+fn note_observer_started(state: &AppState) {
+    state
+        .observer_started_ms
+        .store(now_epoch_ms(), Ordering::Relaxed);
+    if let Ok(mut slot) = state.observer_error.lock() {
+        *slot = None;
+    }
+}
+
+/// 一次一条的路径(会话开始/结束、演示注入、SessionEnd 等):不聚合。
 fn drain_and_process(
     state: &AppState,
     adapter: &mut MacAdapter,
@@ -1095,6 +1292,57 @@ fn drain_and_process(
         out.push(process_one(state, &mut engine, &event, approve)?);
     }
     Ok(out)
+}
+
+/// 观察器轮询路径(SCK / AX):先过聚合器,同一语义内容 30 s 内只过引擎一次(P2-3)。
+///
+/// 返回 (判决, 这一拍折叠掉的条数, 结束摘要)。折叠掉的事件**不**过引擎、不写审计、不入
+/// 待确认队列——它们和上一条一字不差,过一遍只会多一行一样的记录和一个多余的弹窗。
+/// 窗口过后同一内容仍在,放行一条并把折叠计数写进元数据 `repeat_count`,审计里就有
+/// 「这 30 s 里同一画面出现了 N 次」的持续摘要,而不是 N 行。
+fn drain_and_process_observed(
+    state: &AppState,
+    adapter: &mut MacAdapter,
+) -> Result<(Vec<DecisionDto>, usize, Vec<String>), String> {
+    let events = adapter.poll_events().map_err(|e| e.to_string())?;
+    let now = now_epoch_ms();
+    let mut aggregator = state.aggregator.lock().map_err(|e| e.to_string())?;
+    let mut to_process = Vec::with_capacity(events.len());
+    let mut suppressed = 0usize;
+    for mut event in events {
+        match aggregator.observe_event(&event, now) {
+            Verdict::Emit { repeats } => {
+                if repeats > 0 {
+                    event
+                        .metadata
+                        .insert(REPEAT_COUNT_KEY.to_string(), repeats.to_string());
+                }
+                to_process.push(event);
+            }
+            Verdict::Suppress { .. } => suppressed += 1,
+        }
+    }
+    let summaries: Vec<String> = aggregator
+        .sweep(now)
+        .into_iter()
+        .filter(|e| e.total > 1)
+        .map(|e| {
+            format!(
+                "repeated observation ended: seen {} time(s) over {:.1}s",
+                e.total,
+                e.last_ms.saturating_sub(e.first_ms) as f64 / 1000.0
+            )
+        })
+        .collect();
+    drop(aggregator);
+
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
+    let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
+    let mut out = Vec::with_capacity(to_process.len());
+    for event in &to_process {
+        out.push(process_one(state, &mut engine, event, approve)?);
+    }
+    Ok((out, suppressed, summaries))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1112,8 +1360,12 @@ pub fn run() {
         sck_message: Mutex::new(String::new()),
         sck_auto_poll: Arc::new(AtomicBool::new(false)),
         ax_auto_poll: Arc::new(AtomicBool::new(false)),
-        last_ui_event: Mutex::new(None),
+        last_ui_event: Mutex::new(HashMap::new()),
         ax_message: Mutex::new(String::new()),
+        heartbeat_ms: AtomicU64::new(0),
+        observer_started_ms: AtomicU64::new(0),
+        observer_error: Mutex::new(None),
+        aggregator: Mutex::new(Aggregator::for_observers()),
     };
 
     tauri::Builder::default()
@@ -1123,13 +1375,23 @@ pub fn run() {
             let tray_icon =
                 tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
             let show = MenuItem::with_id(app, "show", "Open dashboard", true, None::<&str>)?;
-            let ax_poll = MenuItem::with_id(app, "ax_poll", "Capture frontmost AX tree", true, None::<&str>)?;
-            let ax_auto = MenuItem::with_id(app, "ax_auto", "AX auto-poll: on/off", true, None::<&str>)?;
-            let sck_start = MenuItem::with_id(app, "sck_start", "Start SCK capture", true, None::<&str>)?;
+            let ax_poll = MenuItem::with_id(
+                app,
+                "ax_poll",
+                "Capture frontmost AX tree",
+                true,
+                None::<&str>,
+            )?;
+            let ax_auto =
+                MenuItem::with_id(app, "ax_auto", "AX auto-poll: on/off", true, None::<&str>)?;
+            let sck_start =
+                MenuItem::with_id(app, "sck_start", "Start SCK capture", true, None::<&str>)?;
             let sck_stop = MenuItem::with_id(app, "sck_stop", "Stop SCK", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit AgentGuard", true, None::<&str>)?;
-            let menu =
-                Menu::with_items(app, &[&show, &ax_poll, &ax_auto, &sck_start, &sck_stop, &quit])?;
+            let menu = Menu::with_items(
+                app,
+                &[&show, &ax_poll, &ax_auto, &sck_start, &sck_stop, &quit],
+            )?;
             let _tray = TrayIconBuilder::with_id("agentguard-tray")
                 .icon(tray_icon)
                 .icon_as_template(true)
@@ -1152,10 +1414,8 @@ pub fn run() {
                                     }
                                 }
                                 Err(e) => {
-                                    let _ = app.emit(
-                                        "ax-poll-error",
-                                        serde_json::json!({ "error": e }),
-                                    );
+                                    let _ = app
+                                        .emit("ax-poll-error", serde_json::json!({ "error": e }));
                                 }
                             }
                         }
@@ -1280,7 +1540,11 @@ mod packaging_tests {
         for i in icons {
             let rel = i.as_str().expect("icon path");
             let path = root.join(rel);
-            assert!(path.is_file(), "declared icon {rel} does not exist at {}", path.display());
+            assert!(
+                path.is_file(),
+                "declared icon {rel} does not exist at {}",
+                path.display()
+            );
         }
     }
 
