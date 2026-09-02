@@ -34,6 +34,19 @@
     <string name="task_profile_label">Task (blank = unscoped)</string>
     <string name="relay_offline">Relay not reaching the engine: %1$s</string>
     <string name="relay_connected">Relay connected to the engine</string>
+    <string name="guard_stopped">Not protecting — no session</string>
+    <string name="guard_permission_required">Session started, but the accessibility service is not connected — nothing is being observed. Open accessibility settings.</string>
+    <string name="guard_degraded">Protection incomplete: %1$s</string>
+    <string name="guard_active">Protecting</string>
+    <string name="relay_state_disabled">Desktop relay off — verdicts stay on this phone</string>
+    <string name="relay_state_connecting">Desktop relay on, never reached the engine yet</string>
+    <string name="relay_state_connected">Desktop relay connected (last success %1$s)</string>
+    <string name="relay_state_degraded">Desktop relay not reaching the engine: %1$s</string>
+    <string name="token_saved">Bearer token saved (kept encrypted, not shown)</string>
+    <string name="save">Save</string>
+    <string name="token_missing">No bearer token saved</string>
+    <string name="clear_events">Delete local event log (%1$s)</string>
+    <string name="events_cleared">Deleted %1$d files</string>
     <string name="notif_permission_rationale">Notifications are how a required confirmation reaches you. Without them a blocked action is only written to the log.</string>
     <string name="risk_deeplink">Suspicious deeplink detected</string>
     <string name="risk_broadcast_input_sink">Another app (%1$s) is listening on the agent’s text-input broadcast — everything typed is readable</string>

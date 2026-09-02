@@ -378,3 +378,28 @@ claims:
       - { test: 令牌脱敏显示, file: crates/guard-localapi/src/lib.rs }
     note: 目录权限位检查只在 Unix;没有速率限制与并发上限
 
+  - id: android-state-derived
+    claim: Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误
+    area: android
+    source:
+      doc: docs/android-completeness.md
+      anchor: "State is derived, not assembled."
+    mechanism: ProtectionState.derive(sessionActive, accessibilityBound, relayEnabled, lastOk, lastError, now);RelayClient.postAsync 成功一律 recordOk + clearRelayError
+    proven_by:
+      - { test: "session without accessibility binding is permission required, not active", file: apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt }
+      - { test: "relay disabled is disabled, and does not degrade the guard", file: apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt }
+      - { test: "newest of ok and error wins", file: apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt }
+    note: JVM 单测;真机上的绑定/重启/通知路径只编译过
+
+  - id: android-event-log-bounded
+    claim: Android 原始事件 JSONL 有保留期 14 天、20 个文件、50 MiB 总量、5 MiB 单文件轮转,并有用户可见的清除入口
+    area: android
+    source:
+      doc: docs/android-completeness.md
+      anchor: "The raw event log is bounded."
+    mechanism: EventLogRetention.select 纯函数;EnvelopeSink.append 轮转后应用;clearAll 按钮
+    proven_by:
+      - { test: "old files go, current session file never goes", file: apps/android-companion/app/src/test/java/com/agentguard/companion/EventLogRetentionTest.kt }
+      - { test: "total size cap deletes from the oldest until under the cap", file: apps/android-companion/app/src/test/java/com/agentguard/companion/EventLogRetentionTest.kt }
+    note: 策略是纯函数并有测试;文件系统那一层(rename/delete)在设备上跑
+

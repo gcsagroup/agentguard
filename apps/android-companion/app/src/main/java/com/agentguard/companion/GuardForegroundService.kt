@@ -25,6 +25,16 @@ class GuardForegroundService : Service() {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
+            // P1-6:START_STICKY 在进程被杀后用 null intent 拉起我们。以前这里什么都不做——
+            // 服务活着、没有前台通知、SessionState 是空的。现在按落盘的会话状态重建:仍在会话里
+            // 就重新进前台(通知回来),否则老实退出。
+            null -> {
+                if (SessionState.restore(this)) {
+                    startForeground(NOTIFICATION_ID, buildNotification())
+                } else {
+                    stopSelf()
+                }
+            }
         }
         return START_STICKY
     }

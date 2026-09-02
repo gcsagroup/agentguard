@@ -673,11 +673,57 @@
         "anchor": "审计库位置与请求上限",
         "doc": "docs/local-api.md"
       }
+    },
+    {
+      "area": "android",
+      "claim": "Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误",
+      "id": "android-state-derived",
+      "mechanism": "ProtectionState.derive(sessionActive, accessibilityBound, relayEnabled, lastOk, lastError, now);RelayClient.postAsync 成功一律 recordOk + clearRelayError",
+      "note": "JVM 单测;真机上的绑定/重启/通知路径只编译过",
+      "proven_by": [
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt",
+          "test": "session without accessibility binding is permission required, not active"
+        },
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt",
+          "test": "relay disabled is disabled, and does not degrade the guard"
+        },
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt",
+          "test": "newest of ok and error wins"
+        }
+      ],
+      "source": {
+        "anchor": "State is derived, not assembled.",
+        "doc": "docs/android-completeness.md"
+      }
+    },
+    {
+      "area": "android",
+      "claim": "Android 原始事件 JSONL 有保留期 14 天、20 个文件、50 MiB 总量、5 MiB 单文件轮转,并有用户可见的清除入口",
+      "id": "android-event-log-bounded",
+      "mechanism": "EventLogRetention.select 纯函数;EnvelopeSink.append 轮转后应用;clearAll 按钮",
+      "note": "策略是纯函数并有测试;文件系统那一层(rename/delete)在设备上跑",
+      "proven_by": [
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/EventLogRetentionTest.kt",
+          "test": "old files go, current session file never goes"
+        },
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/EventLogRetentionTest.kt",
+          "test": "total size cap deletes from the oldest until under the cap"
+        }
+      ],
+      "source": {
+        "anchor": "The raw event log is bounded.",
+        "doc": "docs/android-completeness.md"
+      }
     }
   ],
   "report": {
-    "distinct_tests": 71,
+    "distinct_tests": 76,
     "problems": [],
-    "total_claims": 30
+    "total_claims": 32
   }
 }

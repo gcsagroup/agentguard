@@ -475,21 +475,61 @@ class GuardAccessibilityService : AccessibilityService() {
     }
 }
 
-/** Shared session flag used by MainActivity and the accessibility service. */
+/**
+ * Shared session flag used by MainActivity and the accessibility service.
+ *
+ * P1-6:以前只在内存里。进程被杀再由 START_STICKY 拉起时 `active` 是 false、`sessionId`
+ * 是一个新随机值——前台服务的通知还挂着"会话进行中",而这里已经不认识那个会话了。现在
+ * 最小状态(active / sessionId / startedAt)落 prefs;[restore] 在进程重建时读回。
+ */
 object SessionState {
+    private const val PREFS = "agentguard"
+    private const val KEY_ACTIVE = "session_active"
+    private const val KEY_ID = "session_id"
+    private const val KEY_STARTED = "session_started_ms"
+
     @Volatile
     var active: Boolean = false
 
     var sessionId: String = UUID.randomUUID().toString()
         private set
 
-    fun start(): String {
+    var startedAtMs: Long = 0L
+        private set
+
+    fun start(): String = start(null)
+
+    fun start(context: android.content.Context?): String {
         sessionId = UUID.randomUUID().toString()
+        startedAtMs = System.currentTimeMillis()
         active = true
+        context?.let { persist(it) }
         return sessionId
     }
 
-    fun stop() {
+    fun stop() = stop(null)
+
+    fun stop(context: android.content.Context?) {
         active = false
+        context?.let { persist(it) }
+    }
+
+    /** 进程重建后读回;返回是否有一个仍标记为进行中的会话。 */
+    fun restore(context: android.content.Context): Boolean {
+        val p = context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+        val wasActive = p.getBoolean(KEY_ACTIVE, false)
+        p.getString(KEY_ID, null)?.let { sessionId = it }
+        startedAtMs = p.getLong(KEY_STARTED, 0L)
+        active = wasActive
+        return wasActive
+    }
+
+    private fun persist(context: android.content.Context) {
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_ACTIVE, active)
+            .putString(KEY_ID, sessionId)
+            .putLong(KEY_STARTED, startedAtMs)
+            .apply()
     }
 }

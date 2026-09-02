@@ -16,7 +16,7 @@ object RelayClient {
     private const val PREFS = "agentguard"
     private const val KEY_ENABLED = "relay_enabled"
     private const val KEY_URL = "relay_url"
-    private const val KEY_TOKEN = "relay_token"
+    private const val KEY_LAST_OK = "relay_last_ok_ms"
     const val DEFAULT_URL = "http://127.0.0.1:8788/v1/events"
 
     fun isEnabled(context: Context): Boolean =
@@ -29,11 +29,24 @@ object RelayClient {
     fun url(context: Context): String =
         prefs(context).getString(KEY_URL, DEFAULT_URL) ?: DEFAULT_URL
 
+    /** URL 进 prefs;令牌进 Keystore 封装([TokenVault]),不再明文。空令牌 = 不改动已存的。 */
     fun setEndpoint(context: Context, url: String, token: String) {
-        prefs(context).edit()
-            .putString(KEY_URL, url)
-            .putString(KEY_TOKEN, token)
-            .apply()
+        prefs(context).edit().putString(KEY_URL, url).apply()
+        if (token.isNotEmpty()) {
+            TokenVault.store(context, token)
+        }
+    }
+
+    /** 是否已保存过令牌(界面不回显令牌本身,只说"已保存")。 */
+    fun hasToken(context: Context): Boolean = TokenVault.isSet(context)
+
+    fun clearToken(context: Context) = TokenVault.store(context, "")
+
+    /** 最近一次成功 POST 的时刻(0 = 没有)。空判决的成功也算成功。 */
+    fun lastOkMs(context: Context): Long = prefs(context).getLong(KEY_LAST_OK, 0L)
+
+    private fun recordOk(context: Context) {
+        prefs(context).edit().putLong(KEY_LAST_OK, System.currentTimeMillis()).apply()
     }
 
     /** One decision the engine returned for a posted event. */
@@ -72,7 +85,7 @@ object RelayClient {
     ) {
         if (!isEnabled(context)) return
         val url = url(context)
-        val token = prefs(context).getString(KEY_TOKEN, "") ?: ""
+        val token = TokenVault.load(context)
         val payload = envelope.toString()
         // 签**实际要发出去的那串字节**,不是 payload 这个字符串再转一次 ——
         // 两次转换只要有一次用了不同的字符集,签名就静默地验不过。
@@ -116,7 +129,13 @@ object RelayClient {
                 parseVerdicts(body)
             }
             outcome.fold(
-                onSuccess = { verdicts -> if (verdicts.isNotEmpty()) onVerdicts?.invoke(verdicts) },
+                onSuccess = { verdicts ->
+                    // P1-6:一次成功就是成功——空判决也清旧错误、也记时刻。以前只有带判决的
+                    // 成功才回调,于是中继恢复后界面仍停在上次的错误上。
+                    recordOk(context)
+                    EnvelopeSink.clearRelayError(context)
+                    if (verdicts.isNotEmpty()) onVerdicts?.invoke(verdicts)
+                },
                 onFailure = { e -> onError?.invoke(e.message ?: e.javaClass.simpleName) },
             )
         }.start()

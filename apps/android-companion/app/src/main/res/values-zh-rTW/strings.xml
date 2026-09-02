@@ -34,6 +34,19 @@
     <string name="task_profile_label">任務名（留空 = 不限定範圍）</string>
     <string name="relay_offline">中繼未連上引擎：%1$s</string>
     <string name="relay_connected">中繼已連上引擎</string>
+    <string name="guard_stopped">未在守護——沒有工作階段</string>
+    <string name="guard_permission_required">工作階段已開始，但無障礙服務沒有連上——什麼都沒被觀察。請開啟無障礙設定。</string>
+    <string name="guard_degraded">守護不完整：%1$s</string>
+    <string name="guard_active">守護中</string>
+    <string name="relay_state_disabled">桌面中繼關閉——判決只留在這台手機上</string>
+    <string name="relay_state_connecting">桌面中繼已開，還沒連上過引擎</string>
+    <string name="relay_state_connected">桌面中繼已連接（上次成功 %1$s）</string>
+    <string name="relay_state_degraded">桌面中繼未連上引擎：%1$s</string>
+    <string name="token_saved">權杖已儲存（加密存放，不回顯）</string>
+    <string name="save">儲存</string>
+    <string name="token_missing">還沒有儲存權杖</string>
+    <string name="clear_events">刪除本機事件記錄（%1$s）</string>
+    <string name="events_cleared">已刪除 %1$d 個檔案</string>
     <string name="notif_permission_rationale">需要確認時是靠通知找到你的。不給通知權限，被攔下的操作只會寫進日誌。</string>
     <string name="risk_deeplink">偵測到可疑深層連結</string>
     <string name="risk_broadcast_input_sink">另一個應用程式（%1$s）正在監聽代理的文字輸入廣播 — 鍵入的所有內容都可被讀取</string>

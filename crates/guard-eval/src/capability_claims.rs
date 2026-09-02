@@ -15,7 +15,8 @@
 //!    这挡住"映射表声称我们宣传了 X,而文档里根本没有 X"——反过来,文档改了措辞、把某条
 //!    能力删了,而映射表没跟上,也会红。
 //! 2. **每条证明测试真的存在。** 证明测试的签名必须出现在它声明的源文件里——Rust 是 `fn <名>(`,
-//!    JS/TS(浏览器扩展的 node 测试)是 `test("<名>"`(按扩展名自动选,见 `test_needle`)。删掉 /
+//!    JS/TS(浏览器扩展的 node 测试)是 `test("<名>"`,Kotlin(Android JVM 单测)是
+//!    `` fun `<名>`( ``(按扩展名自动选,见 `test_needle`)。删掉 /
 //!    改名一条证明测试而不更新映射,就红——和 `coverage.rs`、X-1 的入站面清册同一招。
 //!
 //! `mechanism`(哪段代码兑现)是**描述性**的,和 `coverage.rs` 的 `mechanism` 一样**不**被
@@ -97,6 +98,9 @@ fn test_needle(file: &str, test: &str) -> String {
     let is_js = file.ends_with(".mjs") || file.ends_with(".js") || file.ends_with(".ts");
     if is_js {
         format!("test(\"{test}\"")
+    } else if file.ends_with(".kt") {
+        // Kotlin(Android JVM 单测):JUnit 的反引号命名 `fun \`带空格的名字\`()`。
+        format!("fun `{test}`(")
     } else {
         format!("fn {test}(")
     }
@@ -421,6 +425,11 @@ claims:
 
     #[test]
     fn js证明测试按test签名匹配() {
+        // Kotlin 证明测试:needle 是 `fun \`名\`(`。
+        assert_eq!(
+            test_needle("apps/android-companion/app/src/test/java/X.kt", "a b c"),
+            "fun `a b c`("
+        );
         // 一条 JS 证明测试:needle 是 `test("名"`,不是 `fn 名(`。
         let y = r#"
 version: 1

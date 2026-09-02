@@ -75,6 +75,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    // P1-6:进程重建后先读回落盘的会话状态,再决定界面显示什么。
+                    remember { SessionState.restore(this@MainActivity) }
                     var sessionActive by remember { mutableStateOf(SessionState.active) }
                     var sessionId by remember { mutableStateOf(SessionState.sessionId) }
                     var lastRisk by remember {
@@ -125,13 +127,36 @@ class MainActivity : ComponentActivity() {
                                 ),
                             )
                         }
+                        // P0-3 / P1-6:「已启动 / 已连接」由状态机推出来,不是几个布尔各拼一句。
+                        val relayOnNow = RelayClient.isEnabled(this@MainActivity)
+                        val derived = ProtectionState.derive(
+                            sessionActive = sessionActive,
+                            accessibilityBound = GuardAccessibilityService.isBound(),
+                            relayEnabled = relayOnNow,
+                            relayLastOkMs = RelayClient.lastOkMs(this@MainActivity),
+                            relayLastErrorMs = EnvelopeSink.lastRelayErrorMs(this@MainActivity),
+                            nowMs = System.currentTimeMillis(),
+                        )
+                        Text(
+                            when (derived.guard) {
+                                ProtectionState.Guard.STOPPED -> stringResource(R.string.guard_stopped)
+                                ProtectionState.Guard.PERMISSION_REQUIRED ->
+                                    stringResource(R.string.guard_permission_required)
+                                ProtectionState.Guard.DEGRADED -> stringResource(
+                                    R.string.guard_degraded,
+                                    derived.reasons.joinToString(", ") { it.name.lowercase() },
+                                )
+                                ProtectionState.Guard.ACTIVE -> stringResource(R.string.guard_active)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                         Text(
                             if (sessionActive) {
                                 stringResource(R.string.session_active, sessionId)
                             } else {
                                 stringResource(R.string.session_inactive)
                             },
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                         )
 
                         Text(
@@ -159,9 +184,19 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         Text(
-                            relayError?.let { e ->
-                                stringResource(R.string.relay_offline, e.substringAfter('|'))
-                            } ?: stringResource(R.string.relay_connected),
+                            when (derived.relay) {
+                                ProtectionState.Relay.DISABLED -> stringResource(R.string.relay_state_disabled)
+                                ProtectionState.Relay.CONNECTING -> stringResource(R.string.relay_state_connecting)
+                                ProtectionState.Relay.CONNECTED -> stringResource(
+                                    R.string.relay_state_connected,
+                                    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+                                        .format(java.util.Date(RelayClient.lastOkMs(this@MainActivity))),
+                                )
+                                ProtectionState.Relay.DEGRADED -> stringResource(
+                                    R.string.relay_state_degraded,
+                                    relayError?.substringAfter('|') ?: "",
+                                )
+                            },
                             style = MaterialTheme.typography.labelSmall,
                         )
 
@@ -176,7 +211,7 @@ class MainActivity : ComponentActivity() {
 
                         Button(
                             onClick = {
-                                sessionId = SessionState.start()
+                                sessionId = SessionState.start(this@MainActivity)
                                 GuardForegroundService.start(this@MainActivity)
                                 sessionActive = true
                                 // Naming the task selects the plan and the resource ceiling
@@ -198,7 +233,7 @@ class MainActivity : ComponentActivity() {
                         Button(
                             onClick = {
                                 GuardAccessibilityService.emitSessionEndIfBound()
-                                SessionState.stop()
+                                SessionState.stop(this@MainActivity)
                                 GuardForegroundService.stop(this@MainActivity)
                                 sessionActive = false
                             },
@@ -217,6 +252,23 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(stringResource(R.string.refresh_risk))
                         }
+
+                        // P1-6:本地事件记录的清除入口(以前只能靠 adb 删文件)。
+                        var eventBytes by remember {
+                            mutableStateOf(EnvelopeSink.totalBytes(this@MainActivity))
+                        }
+                        var clearedNote by remember { mutableStateOf<String?>(null) }
+                        Button(
+                            onClick = {
+                                val n = EnvelopeSink.clearAll(this@MainActivity)
+                                eventBytes = EnvelopeSink.totalBytes(this@MainActivity)
+                                envelopePath = null
+                                clearedNote = getString(R.string.events_cleared, n)
+                            },
+                        ) {
+                            Text(stringResource(R.string.clear_events, "${eventBytes / 1024} KB"))
+                        }
+                        clearedNote?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
 
                         Button(
                             onClick = {
@@ -238,11 +290,7 @@ class MainActivity : ComponentActivity() {
                                 relayOn = !relayOn
                                 RelayClient.setEnabled(this@MainActivity, relayOn)
                                 if (relayOn) {
-                                    RelayClient.setEndpoint(
-                                        this@MainActivity,
-                                        relayUrl,
-                                        relayToken,
-                                    )
+                                    RelayClient.setEndpoint(this@MainActivity, relayUrl, "")
                                 }
                             },
                         ) {
@@ -253,19 +301,37 @@ class MainActivity : ComponentActivity() {
                                 value = relayUrl,
                                 onValueChange = {
                                     relayUrl = it
-                                    RelayClient.setEndpoint(this@MainActivity, it, relayToken)
+                                    RelayClient.setEndpoint(this@MainActivity, it, "")
                                 },
                                 label = { Text(stringResource(R.string.desktop_api_url)) },
                                 singleLine = true,
                             )
+                            // P1-6:令牌不回显。输入框永远空着,保存后只说"已保存(加密)";
+                            // 存进 Keystore 封装(TokenVault),不再是明文 prefs。
+                            var tokenSaved by remember {
+                                mutableStateOf(RelayClient.hasToken(this@MainActivity))
+                            }
                             OutlinedTextField(
                                 value = relayToken,
-                                onValueChange = {
-                                    relayToken = it
-                                    RelayClient.setEndpoint(this@MainActivity, relayUrl, it)
-                                },
+                                onValueChange = { relayToken = it },
                                 label = { Text(stringResource(R.string.bearer_token)) },
                                 singleLine = true,
+                                visualTransformation =
+                                    androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                            )
+                            Button(
+                                onClick = {
+                                    RelayClient.setEndpoint(this@MainActivity, relayUrl, relayToken)
+                                    relayToken = ""
+                                    tokenSaved = RelayClient.hasToken(this@MainActivity)
+                                },
+                                enabled = relayToken.isNotBlank(),
+                            ) {
+                                Text(stringResource(R.string.save))
+                            }
+                            Text(
+                                stringResource(if (tokenSaved) R.string.token_saved else R.string.token_missing),
+                                style = MaterialTheme.typography.labelSmall,
                             )
                             Text(stringResource(R.string.relay_help), style = MaterialTheme.typography.labelSmall)
 

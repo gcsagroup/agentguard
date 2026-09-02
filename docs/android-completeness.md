@@ -125,6 +125,36 @@ Also untested, because these are pure-JVM tests by choice: anything needing a de
 instrumented test and no device run anywhere in this repository. The APK builds and packages in CI;
 nobody has watched it observe a real agent.
 
+## Lifecycle, relay state and secrets (real-device report P0-3 / P1-6)
+
+The 2026-08-31 real-device report listed four Android gaps; this is what changed and what did not.
+
+- **State is derived, not assembled.** `ProtectionState.derive` (pure, JVM-tested) turns the facts
+  (session on, accessibility service bound, relay enabled, last relay success / failure timestamps)
+  into a guard state (`STOPPED` / `PERMISSION_REQUIRED` / `DEGRADED` / `ACTIVE`) and a relay state
+  (`DISABLED` / `CONNECTING` / `CONNECTED` / `DEGRADED`). A session started while the accessibility
+  service is not bound now reads "session started, but nothing is being observed" instead of
+  "active"; a relay that is switched off reads "off", not "connected"; a relay that has never
+  succeeded reads "connecting". The newest of last-ok / last-error wins, and **an empty verdict is a
+  success** — it clears an old error, which it did not before.
+- **Session state survives the process.** `SessionState` persists `active` / `sessionId` / `startedAt`
+  to prefs; the `START_STICKY` restart path (`onStartCommand(null)`) restores it and re-enters the
+  foreground with its notification, or stops itself if no session was open. Before, a restarted
+  service sat there with no notification and a blank session.
+- **The bearer token is not plaintext any more.** `TokenVault` wraps it with an AES-256/GCM key in
+  the Android Keystore; the settings field is a password field that is never pre-filled and shows
+  only "saved (encrypted, not shown)". A legacy plaintext `relay_token` is migrated on first read.
+  What this does *not* stop: a rooted device reading process memory — the key is non-exportable,
+  the decrypted token is not.
+- **The raw event log is bounded.** `EventLogRetention` (pure, JVM-tested): 14-day age limit,
+  20 files, 50 MiB total, 5 MiB per file with rotation; the current session's file is never
+  deleted; a "delete local event log" button is the user-visible clearing entry.
+
+Still true, and unchanged by the above: none of it has run on a device in this repository's
+history. The state machine and retention policy are tested on the JVM; the Keystore path, the
+`START_STICKY` restart and the notification re-entry are code paths that compile and that a phone
+has to exercise.
+
 ## What is still missing
 
 - **No `deeplink` source**, as above.
