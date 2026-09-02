@@ -10,6 +10,7 @@ use guard_audit::{
     AuditRecord, AuditStore, SessionReport, UserDecision,
 };
 use guard_billing::load_or_free;
+use guard_core::acceptance_trace::{TraceLine, TraceWriter};
 use guard_core::confirm_queue::{
     ConfirmQueue, PersistedPending, ResolveOutcome, DEFAULT_CONFIRM_TTL_MS,
 };
@@ -71,6 +72,13 @@ struct AppState {
     orphaned_confirms: AtomicUsize,
     /// P1-9:设备策略的对外状态(验证/执法/最近一次失败),与引擎里装的那份一致。
     policy_status: Mutex<PolicyStatusDto>,
+    /// 阶段 D:验收 trace(AGENTGUARD_ACCEPTANCE_TRACE 设定时写,否则空转)。
+    trace: TraceWriter,
+    last_shown_request: Mutex<Option<u64>>,
+}
+
+fn trace_line(kind: &str) -> TraceLine {
+    TraceLine::new(now_epoch_ms(), kind)
 }
 
 /// P1-9:策略状态。`enforced` 只在签名验过并装进引擎时为 true;`verified=false` 的策略
@@ -653,6 +661,17 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         },
         &Thresholds::default(),
     );
+    if state.trace.enabled() {
+        state.trace.write(&TraceLine {
+            protection_state: Some(derived.state.as_str().to_string()),
+            reasons: derived
+                .reasons
+                .iter()
+                .map(|r| r.as_str().to_string())
+                .collect(),
+            ..trace_line("state")
+        });
+    }
     Ok(StatusDto {
         rules_loaded: st.rules_loaded,
         policy_id: st.policy_id,
@@ -791,6 +810,12 @@ fn sweep_expired_confirms(state: &AppState) -> Result<Vec<u64>, String> {
                 }
             }
             ids.push(it.request_id);
+            state.trace.write(&TraceLine {
+                request_id: Some(it.request_id),
+                audit_id: it.request.audit_id.clone(),
+                rule_id: Some(it.request.rule_id.clone()),
+                ..trace_line("confirm_expired")
+            });
         }
         engine.pause();
     }
@@ -830,6 +855,18 @@ fn get_pending_confirm(
             "AgentGuard".to_string()
         });
     }
+    if let Ok(mut last) = state.last_shown_request.lock() {
+        let now_front = pending.front().map(|p| p.request_id);
+        if now_front != *last {
+            *last = now_front;
+            if let Some(id) = now_front {
+                state.trace.write(&TraceLine {
+                    request_id: Some(id),
+                    ..trace_line("confirm_shown")
+                });
+            }
+        }
+    }
     Ok(pending.front().map(|p| ConfirmDto {
         request_id: p.request_id,
         rule_id: p.request.rule_id.clone(),
@@ -861,11 +898,24 @@ fn resolve_confirm(
     };
     persist_pending(&state);
     let ResolveOutcome::Resolved { approve, audit_id } = outcome else {
+        state.trace.write(&TraceLine {
+            request_id: Some(request_id),
+            approve: Some(approve),
+            outcome: Some("stale".into()),
+            ..trace_line("confirm_resolved")
+        });
         return Ok(ResolveDto {
             resolved: false,
             has_next,
         });
     };
+    state.trace.write(&TraceLine {
+        request_id: Some(request_id),
+        audit_id: audit_id.clone(),
+        approve: Some(approve),
+        outcome: Some("resolved".into()),
+        ..trace_line("confirm_resolved")
+    });
 
     {
         let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
@@ -1001,6 +1051,10 @@ fn start_guard_session(
         ..Default::default()
     };
     adapter.start_task_session(sid.clone(), "Claude", &task);
+    state.trace.write(&TraceLine {
+        session_id: Some(sid.clone()),
+        ..trace_line("session_start")
+    });
     // P0-3/P0-5:新会话推进 generation 并清空上一会话遗留的待确认。
     state
         .pending
@@ -1042,6 +1096,7 @@ fn reset_observation_memory(state: &State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
     state.polling.store(false, Ordering::Relaxed);
+    state.trace.write(&trace_line("session_end"));
     #[cfg(windows)]
     if let Ok(mut guard) = state.observer.lock() {
         if let Some(o) = guard.as_mut() {
@@ -1232,12 +1287,19 @@ fn process_one(
             engine.last_audit_id().map(|s| s.to_string()),
             event.metadata.get("ui_text").cloned(),
         );
-        state
+        let (audit_id, rule_id) = (req.audit_id.clone(), req.rule_id.clone());
+        let id = state
             .pending
             .lock()
             .map_err(|e| e.to_string())?
             .enqueue_at(req, now_epoch_ms());
         persist_pending(state);
+        state.trace.write(&TraceLine {
+            request_id: Some(id),
+            audit_id,
+            rule_id: Some(rule_id),
+            ..trace_line("confirm_enqueued")
+        });
     }
     Ok(to_dto(&d))
 }
@@ -1290,13 +1352,19 @@ fn poll_native_once(
     let outcome = observer.poll_once();
     // 这个 cfg(windows) 函数在 Linux/macOS 上编不到(ring 也挡住了 msvc 目标的交叉 check),
     // 所以它只保留一行调用;所有逻辑在下面的平台无关函数里,cargo test 在任何机器上都盯着。
-    let (to_process, warnings) = aggregate_observed(
+    let (to_process, warnings, suppressed) = aggregate_observed(
         &state.aggregator,
         &state.heartbeat_ms,
         outcome.events,
         outcome.warnings,
         now_epoch_ms(),
     )?;
+    state.trace.write(&TraceLine {
+        source: Some("uia".into()),
+        events: Some(to_process.len() as u32),
+        suppressed: Some(suppressed as u32),
+        ..trace_line("observe_tick")
+    });
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
     let mut out = Vec::with_capacity(to_process.len());
@@ -1319,7 +1387,7 @@ fn aggregate_observed(
     events: Vec<GuardEvent>,
     mut warnings: Vec<String>,
     now: u64,
-) -> Result<(Vec<GuardEvent>, Vec<String>), String> {
+) -> Result<(Vec<GuardEvent>, Vec<String>, usize), String> {
     use guard_core::event_dedup::{Verdict, REPEAT_COUNT_KEY};
     // 「前台是守卫自己,跳过」是观察器看了一眼之后的结论,算心跳;别的 warning(树读不到、
     // 帧抓不到)不算。
@@ -1353,7 +1421,7 @@ fn aggregate_observed(
     if suppressed > 0 {
         warnings.push(format!("{suppressed} duplicate observation(s) folded"));
     }
-    Ok((to_process, warnings))
+    Ok((to_process, warnings, suppressed))
 }
 
 #[cfg(not(windows))]
@@ -1571,6 +1639,8 @@ pub fn run() {
         confirms_timed_out: AtomicUsize::new(0),
         orphaned_confirms: AtomicUsize::new(orphaned),
         policy_status: Mutex::new(policy_status),
+        trace: TraceWriter::from_env(),
+        last_shown_request: Mutex::new(None),
     };
 
     tauri::Builder::default()
@@ -1668,13 +1738,13 @@ mod observation_tests {
     fn 重复观察被折叠_周期摘要带repeat_count() {
         let agg = Mutex::new(guard_core::event_dedup::Aggregator::for_observers());
         let hb = AtomicU64::new(0);
-        let (first, w) =
+        let (first, w, _) =
             aggregate_observed(&agg, &hb, vec![ev("Chrome", "Pay now", "d1")], vec![], 0).unwrap();
         assert_eq!(first.len(), 1);
         assert!(w.is_empty());
         let mut folded = 0;
         for t in (2_500..30_000).step_by(2_500) {
-            let (out, w) = aggregate_observed(
+            let (out, w, folded_n) = aggregate_observed(
                 &agg,
                 &hb,
                 vec![ev("Chrome", "Pay now", &format!("d{t}"))],
@@ -1684,10 +1754,11 @@ mod observation_tests {
             .unwrap();
             assert!(out.is_empty(), "t={t} 同一画面又过了引擎");
             assert!(w.iter().any(|m| m.contains("folded")), "折叠没有报出来");
+            assert_eq!(folded_n, 1);
             folded += 1;
         }
         assert_eq!(folded, 11);
-        let (summary, _) = aggregate_observed(
+        let (summary, _, _) = aggregate_observed(
             &agg,
             &hb,
             vec![ev("Chrome", "Pay now", "dz")],
@@ -1722,7 +1793,7 @@ mod observation_tests {
         let agg = Mutex::new(guard_core::event_dedup::Aggregator::for_observers());
         let hb = AtomicU64::new(0);
         aggregate_observed(&agg, &hb, vec![ev("Chrome", "Total $10", "a")], vec![], 0).unwrap();
-        let (out, _) = aggregate_observed(
+        let (out, _, _) = aggregate_observed(
             &agg,
             &hb,
             vec![ev("Chrome", "Total $299", "b")],

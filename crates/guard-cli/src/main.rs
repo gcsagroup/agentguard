@@ -267,6 +267,20 @@ enum Commands {
     /// P1-9:桌面壳子只执法**验过签**的策略。签发流程:`intel-keygen` 生一对钥
     /// (同一 Ed25519 形态),`policy-sign --policy p.yaml --secret secret.hex` 出 `p.yaml.sig`,
     /// 把 `public.hex` 装到每台设备的数据目录 `policy-pubkey.hex`(或 AGENTGUARD_POLICY_PUBKEY)。
+    /// 真机验收的机器判据:把壳子写的验收 trace(AGENTGUARD_ACCEPTANCE_TRACE)和签名审计库对起来。
+    ///
+    /// 判据见 guard_core::acceptance_trace:确认回执与用户看到的请求一一对应(P0-5)、超时有
+    /// Timeout 回执(P1-4)、会话结束后无观察(P0-3)、「守护中」有观察拍支撑(P0-3)、
+    /// 过期确认不放行。任一项不过 → 退出 1。输出可直接贴进验收报告。
+    AcceptanceTraceCheck {
+        #[arg(long)]
+        trace: PathBuf,
+        #[arg(long)]
+        audit_db: PathBuf,
+        /// 输出 JSON(给证据归档)而不是人读表格。
+        #[arg(long)]
+        json: bool,
+    },
     PolicySign {
         #[arg(long)]
         policy: PathBuf,
@@ -1505,6 +1519,68 @@ fn run_cli() -> Result<()> {
                 );
             }
         },
+        Commands::AcceptanceTraceCheck {
+            trace,
+            audit_db,
+            json,
+        } => {
+            use guard_core::acceptance_trace::{check, parse_trace, AuditRow};
+            let text = std::fs::read_to_string(&trace)
+                .with_context(|| format!("read trace {}", trace.display()))?;
+            let (lines, parse_errors) = parse_trace(&text);
+            let store = AuditStore::open_read_only(&audit_db)?;
+            // 全表:验收库是隔离的小库;上限只是防呆。
+            let rows: Vec<AuditRow> = store
+                .list_recent(100_000)?
+                .into_iter()
+                .map(|r| AuditRow {
+                    id: r.id,
+                    timestamp_ms: r.timestamp_ms,
+                    event_type: r.event_type,
+                    rule_id: r.rule_id,
+                    user_decision: r.user_decision,
+                })
+                .collect();
+            let report = check(&lines, &rows);
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "trace": trace.display().to_string(),
+                        "audit_db": audit_db.display().to_string(),
+                        "trace_lines": lines.len(),
+                        "trace_parse_errors": parse_errors,
+                        "audit_rows": rows.len(),
+                        "checks": report.checks,
+                        "all_pass": report.all_pass() && parse_errors.is_empty(),
+                    }))?
+                );
+            } else {
+                println!(
+                    "acceptance trace: {} line(s), {} audit row(s)",
+                    lines.len(),
+                    rows.len()
+                );
+                for e in &parse_errors {
+                    println!("  PARSE-ERROR {e}");
+                }
+                for c in &report.checks {
+                    println!(
+                        "  {} {} — {}",
+                        if c.pass { "PASS" } else { "FAIL" },
+                        c.name,
+                        c.detail
+                    );
+                }
+            }
+            if !report.all_pass() || !parse_errors.is_empty() {
+                eprintln!("acceptance-trace-check: FAIL");
+                std::process::exit(1);
+            }
+            if !json {
+                println!("AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS");
+            }
+        }
         Commands::PolicySign {
             policy,
             secret,

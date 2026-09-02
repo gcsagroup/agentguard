@@ -11,6 +11,7 @@ use guard_audit::{
     AuditRecord, AuditStore, SessionReport, UserDecision,
 };
 use guard_billing::load_or_free;
+use guard_core::acceptance_trace::{TraceLine, TraceWriter};
 use guard_core::confirm_queue::{
     ConfirmQueue, PersistedPending, ResolveOutcome, DEFAULT_CONFIRM_TTL_MS,
 };
@@ -75,6 +76,14 @@ struct AppState {
     orphaned_confirms: AtomicUsize,
     /// P1-9:设备策略的对外状态(验证/执法/最近一次失败),与引擎里装的那份一致。
     policy_status: Mutex<PolicyStatusDto>,
+    /// 阶段 D:验收 trace(AGENTGUARD_ACCEPTANCE_TRACE 设定时写,否则空转)。
+    trace: TraceWriter,
+    /// 上一次向 UI 报出的队首 request_id,避免每次轮询都写一条 confirm_shown。
+    last_shown_request: Mutex<Option<u64>>,
+}
+
+fn trace_line(kind: &str) -> TraceLine {
+    TraceLine::new(now_epoch_ms(), kind)
 }
 
 /// P1-9:策略状态。`enforced` 只在签名验过并装进引擎时为 true;`verified=false` 的策略
@@ -673,6 +682,13 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         },
         &Thresholds::default(),
     );
+    if state.trace.enabled() {
+        state.trace.write(&TraceLine {
+            protection_state: Some(derived.state.as_str().to_string()),
+            reasons: derived.reasons.iter().map(|r| r.as_str().to_string()).collect(),
+            ..trace_line("state")
+        });
+    }
     Ok(StatusDto {
         rules_loaded: st.rules_loaded,
         policy_id: st.policy_id,
@@ -761,11 +777,18 @@ fn acknowledge_tcc(state: State<'_, AppState>) -> Result<(), String> {
 /// 唯一的入队路径。以前是散落各处的 `*state.pending.lock() = Some(...)`,新事件直接覆盖
 /// 旧的 —— 那正是 P0-5 的成因。集中到这里之后,后台事件只会**排在后面**,不会顶替。
 fn enqueue_confirm(state: &AppState, req: ConfirmRequest) -> Result<u64, String> {
+    let (audit_id, rule_id) = (req.audit_id.clone(), req.rule_id.clone());
     let id = {
         let mut q = state.pending.lock().map_err(|e| e.to_string())?;
         q.enqueue_at(req, now_epoch_ms())
     };
     persist_pending(state);
+    state.trace.write(&TraceLine {
+        request_id: Some(id),
+        audit_id,
+        rule_id: Some(rule_id),
+        ..trace_line("confirm_enqueued")
+    });
     Ok(id)
 }
 
@@ -866,6 +889,12 @@ fn sweep_expired_confirms(state: &AppState) -> Result<Vec<u64>, String> {
                 }
             }
             ids.push(it.request_id);
+            state.trace.write(&TraceLine {
+                request_id: Some(it.request_id),
+                audit_id: it.request.audit_id.clone(),
+                rule_id: Some(it.request.rule_id.clone()),
+                ..trace_line("confirm_expired")
+            });
         }
         // 超时 = 默认拒绝:和用户点「不」一样,引擎暂停,等用户回来点「恢复」。
         engine.pause();
@@ -913,6 +942,19 @@ fn get_pending_confirm(
     sweep_expired_confirms(state.inner())?;
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
     update_tray_badge(&app, pending.len());
+    // 验收 trace:队首变了才记一条 confirm_shown(UI 此刻展示的就是它)。
+    if let Ok(mut last) = state.last_shown_request.lock() {
+        let now_front = pending.front().map(|p| p.request_id);
+        if now_front != *last {
+            *last = now_front;
+            if let Some(id) = now_front {
+                state.trace.write(&TraceLine {
+                    request_id: Some(id),
+                    ..trace_line("confirm_shown")
+                });
+            }
+        }
+    }
     // 永远显示队首(最旧)那一条。它稳定不变,直到被 resolve 移除 —— UI 不再"内容一直在跳"。
     Ok(pending.front().map(|p| ConfirmDto {
         request_id: p.request_id,
@@ -949,11 +991,24 @@ fn resolve_confirm(
     let ResolveOutcome::Resolved { approve, audit_id } = outcome else {
         // Stale:用户看到的请求已经不在了(新会话清掉 / 被挤出 / 已解析过)。不改引擎状态,
         // 让前端重新拉 pending —— 绝不把一个过期的"同意"当作对当前请求的同意。
+        state.trace.write(&TraceLine {
+            request_id: Some(request_id),
+            approve: Some(approve),
+            outcome: Some("stale".into()),
+            ..trace_line("confirm_resolved")
+        });
         return Ok(ResolveDto {
             resolved: false,
             has_next,
         });
     };
+    state.trace.write(&TraceLine {
+        request_id: Some(request_id),
+        audit_id: audit_id.clone(),
+        approve: Some(approve),
+        outcome: Some("resolved".into()),
+        ..trace_line("confirm_resolved")
+    });
 
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     // 审计落库失败 = 确认失败。以前这里是 `let _ = ...`(报告 P0-5 点名):回执没写进签名
@@ -1078,6 +1133,10 @@ fn start_guard_session(
         ..Default::default()
     };
     adapter.start_task_session(sid.clone(), "Claude", &task);
+    state.trace.write(&TraceLine {
+        session_id: Some(sid.clone()),
+        ..trace_line("session_start")
+    });
     // P0-3/P0-5:新会话推进 generation 并清空上一会话遗留的待确认。一个新会话不继承
     // 悬空的确认;上一会话的 request_id 从此解析为 Stale。
     state
@@ -1119,6 +1178,7 @@ fn reset_observation_memory(state: &AppState) -> Result<(), String> {
 fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     adapter.end_session("Claude");
+    state.trace.write(&trace_line("session_end"));
     // P0-3:会话结束停掉后台观察器(不再"结束了还在采集"),并清空待确认队列。
     // 观察器由这两个 AtomicBool 驱动,置 false 让 SCK/AX 轮询线程在下一拍退出。
     state.sck_auto_poll.store(false, Ordering::SeqCst);
@@ -1348,6 +1408,14 @@ fn poll_sck_once(state: &AppState) -> Result<SckPollDto, String> {
     // 心跳 = 这一路观察器成功跑了一拍(流活着),不要求这一拍抓到东西:静止画面 SCK 可能
     // 一帧都不交,那不是观察器死了。
     state.heartbeat_ms.store(now_epoch_ms(), Ordering::Relaxed);
+    if state.trace.enabled() && (frames_drained > 0 || !decisions.is_empty() || suppressed > 0) {
+        state.trace.write(&TraceLine {
+            source: Some("sck".into()),
+            events: Some(decisions.len() as u32),
+            suppressed: Some(suppressed as u32),
+            ..trace_line("observe_tick")
+        });
+    }
     Ok(SckPollDto {
         decisions,
         frames_drained,
@@ -1436,6 +1504,12 @@ fn poll_ax_once(state: &AppState) -> Result<AxPollDto, String> {
             if let Ok(mut slot) = state.observer_error.lock() {
                 *slot = None;
             }
+            state.trace.write(&TraceLine {
+                source: Some("ax".into()),
+                events: Some(decisions.len() as u32),
+                suppressed: Some(suppressed as u32),
+                ..trace_line("observe_tick")
+            });
             Ok(AxPollDto {
                 decisions,
                 source_app: "frontmost".into(),
@@ -1493,6 +1567,12 @@ fn poll_ax_push_once(state: &AppState) -> Result<Option<AxPollDto>, String> {
     if let Ok(mut slot) = state.observer_error.lock() {
         *slot = None;
     }
+    state.trace.write(&TraceLine {
+        source: Some("ax".into()),
+        events: Some(decisions.len() as u32),
+        suppressed: Some(suppressed as u32),
+        ..trace_line("observe_tick")
+    });
     Ok(Some(AxPollDto {
         decisions,
         source_app: "frontmost".into(),
@@ -1872,6 +1952,8 @@ pub fn run() {
         confirms_timed_out: AtomicUsize::new(0),
         orphaned_confirms: AtomicUsize::new(orphaned),
         policy_status: Mutex::new(policy_status),
+        trace: TraceWriter::from_env(),
+        last_shown_request: Mutex::new(None),
     };
 
     tauri::Builder::default()

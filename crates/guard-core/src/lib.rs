@@ -1,5 +1,6 @@
 //! Core event pipeline: ingest GuardEvent → Decision → optional AuditStore.
 
+pub mod acceptance_trace;
 pub mod confirm;
 pub mod confirm_queue;
 pub mod device_policy;
