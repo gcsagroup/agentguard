@@ -69,7 +69,7 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
 @media (max-width:560px){h1{font-size:27px}.wrap{padding-top:36px}}
 </style>
 <div class="wrap">
-  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 · canonical <code>a795631</code> · 合流后 <code>64c47bb</code> · 阶段 B 完成 <code>c7fe926</code></div>
+  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 与 Windows 补充报告 2026-09-02 · 第二次三树会合 <code>56cfed7</code>(含 GitHub <code>e69654d</code>)· 阶段 C 云端部分完成 <code>a544ace</code></div>
   <h1>从 No-Go 到 Go:AgentGuard 整改路线</h1>
   <p class="lede">codex 在真 Mac 上完整跑了构建、UI E2E、审计验签和门禁攻击,结论是发布 No-Go——理由成立。
   这页把报告的 5 项 P0、9 项 P1 排成五个阶段:每项标注严重级和"云端可完成 / 需真机或证书",
@@ -82,7 +82,7 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
   <div class="tiles">
     <div class="tile done"><div class="n">已完成</div><div class="l">阶段 0 · 源码树合流</div></div>
     <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(5 项云端已修,待真机复测)</div></div>
-    <div class="tile"><div class="n">9</div><div class="l">P1 · 生产前必修</div></div>
+    <div class="tile"><div class="n">9</div><div class="l">P1 · 生产前必修(8 项云端已修;P1-8 签名链在你侧)</div></div>
     <div class="tile"><div class="n">7</div><div class="l">P2 · 质量改进(1 项已修)</div></div>
   </div>
 
@@ -155,24 +155,64 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     </div>
   </div>
 
-  <div class="phase">
+  <div class="phase done">
     <div class="dot">C</div>
-    <h2>浏览器与本地边界</h2>
-    <div class="meta">约 1 周 · 隐私默认值与状态连续性</div>
+    <h2>浏览器与本地边界 <span class="chip done">云端部分已完成</span></h2>
+    <div class="meta">落地于 <code>e17c263</code> / <code>cbbe893</code> / <code>9c2fc66</code> / <code>a544ace</code> · 剩余:真 Chrome/Firefox E2E、真机 Android(你侧)</div>
     <div class="item">
-      <div class="head"><b>隐私默认翻转</b><span class="chip p1">P1-1</span><span class="chip cloud">云端可完成</span></div>
-      <p><code>nativeEnabled</code> 默认 false;storage 加载完成前 fail-closed;URL 去 fragment/userinfo、
-      query 白名单化;popup 明示当前扫描站点与转发去向。STORE.md 与 X-2 声明锚同步改。</p>
+      <div class="head"><b>隐私默认翻转</b><span class="chip p1">P1-1</span><span class="chip done">已修</span></div>
+      <p><code>nativeEnabled</code> 默认 false;storage 加载前的事件排队、加载后按设置决定(fail-closed);
+      URL 最小化(去 userinfo/fragment/全部 query,令牌形状的路径段打成 …)进转发、进本地列表、进宿主的签名审计;
+      popup 显示当前检查站点、转发去向、连接状态与上次成功时间。STORE 三语与 X-2 锚同步。</p>
     </div>
     <div class="item">
-      <div class="head"><b>宿主状态连续性 + 调用方认证</b><span class="chip p1">P1-2/3</span><span class="chip cloud">云端可完成</span></div>
-      <p><code>connectNative</code> 长连接替代一次性消息,pause/taint 状态跨请求延续,断线 fail-closed;
-      argv origin 不再当身份凭据——先诚实化文档,再加会话 nonce 与单调计数防重放。</p>
+      <div class="head"><b>宿主状态连续性 + 调用方认证</b><span class="chip p1">P1-2/3</span><span class="chip done">已修</span></div>
+      <p><code>connectNative</code> 长连接,断线退避重连;扩展持久化 pause 状态,hello 带回宿主重新 pause。
+      连接级 nonce + 单调 seq,宿主拒重放/乱序/不符帧。文档如实:argv origin 与 nonce 都<b>不是</b>调用方身份认证——
+      同用户权限的本地进程能直接 exec 宿主,stdio 宿主拿不到对端凭据,这条边界在此架构里关不上。</p>
     </div>
     <div class="item">
-      <div class="head"><b>后台 Critical 可见性、Local API 与 webhook 硬化</b><span class="chip p1">P1-4/7</span><span class="chip cloud">云端可完成</span></div>
-      <p>系统通知 + 托盘红点 + 可恢复待确认队列,超时默认拒;Local API 改私有目录与安全创建语义、
-      body/limit 上限、token 不再打 stderr;billing webhook 幂等 + 重放防护;企业策略验签后真正注入引擎(P1-9)。</p>
+      <div class="head"><b>后台 Critical 可见性</b><span class="chip p1">P1-4</span><span class="chip done">已修(无系统通知)</span></div>
+      <p>确认到达拉前聚焦窗口;菜单栏「‖ N」/ 窗口标题;两分钟没人拍板按「先不要」处理并写 Timeout 回执;
+      待确认落盘(不含观测文本),重启后逐条写回执不静默丢。<b>没接</b>系统级通知(需 Tauri 通知插件,本容器验不了)。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>Windows 会话绑定与轮询生命周期</b><span class="chip p1">P1-5</span><span class="chip done">已修</span></div>
+      <p>原生观察器绑到会话 id(事件不再无主);轮询线程带代际号防重复;连续失败指数退避进 degraded,成功即恢复,不再三次永久停。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>Android 生命周期、中继与秘密</b><span class="chip p1">P1-6</span><span class="chip done">已修(JVM 验)</span></div>
+      <p>状态机推出守护/中继四态(无障碍未绑定 ≠ 已启动、中继关闭 ≠ 已连接、空判决也是成功);会话状态落盘并在
+      START_STICKY 重启时重建;bearer 令牌进 Keystore 封装、不回显;事件 JSONL 14 天/20 文件/50 MiB/5 MiB 轮转 + 清除按钮。
+      compile / 45 JVM 测试 / lint / assembleDebug 本容器全过;设备行为未跑。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>Local API 与 webhook 硬化</b><span class="chip p1">P1-7</span><span class="chip done">已修</span></div>
+      <p>审计库默认私有目录,拒符号链接/共享可写目录;body 256 KiB(413)、limit 1000;令牌默认脱敏。
+      webhook 必带 event_id/created_ms/version:幂等、±10 分钟、版本单调——refund 后重放旧 purchase 被双重拒绝。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>企业策略真执法</b><span class="chip p1">P1-9</span><span class="chip done">已修</span></div>
+      <p>只把验过签的策略装进引擎;策略叠在每条判决上<b>只收紧不放宽</b>;未验证的只显示并写明「未生效」;同步失败保留上一份。
+      新增 <code>policy-sign</code> / <code>policy-sync --pubkey</code>;端到端:签 → 验过同步 → 篡改被拒。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>发布链任务名诚实化</b><span class="chip p1">P1-8(部分)</span><span class="chip done">CI 侧已修</span><span class="chip device">签名/公证在你侧</span></div>
+      <p>CI 的「签名脚本产出可验证签名」以前只跑 <code>bash -n</code>;现在在替身 .app 上真跑 ad-hoc 签名并 codesign 验过。
+      Android 步骤名如实标 JVM/debug。Developer ID、公证、Authenticode、release keystore 仍在阶段 D。</p>
+    </div>
+  </div>
+
+  <div class="phase done">
+    <div class="dot">W</div>
+    <h2>Windows 补充报告(2026-09-02)处理 <span class="chip done">云端部分已完成</span></h2>
+    <div class="meta">candidate <code>89dadf9</code> 的三个崩溃修复由 codex 落地并合入;云端处理其余四项(<code>2b3a62c</code>)</div>
+    <div class="item">
+      <p>报告两轮都在 30 秒内弹出的 <code>OVL-010</code> 是<b>守卫看着自己的仪表盘</b>(折叠面板的演示按钮文字:树里有、像素里没有)——
+      证明链路能跑,不是检测。修两层:观察器按 pid 跳过自己(跳过的那一拍照常算心跳);<code>OVL-010</code> 加「未渲染文字要像一段指令」的判据,
+      OCR 漏读普通标签不再触发 Critical 阻断。W6 加 <code>AGENTGUARD_FORCE_CAP_UNAVAILABLE</code> 开关(只能可用→不可用);
+      W7 补 <code>install-host.ps1</code>(注册表 + allowed-origin;<b>本机无 PowerShell,未执行过</b>)。验收文档三语补执行方法。
+      W1–W7 仍 0/7,需真机逐项走完并归档 strict 证据。</p>
     </div>
   </div>
 
@@ -200,6 +240,6 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     <div><span class="k">体验</span><span>三语无 key 泄漏;读屏、键盘、高对比、大字体验收通过</span></div>
   </div>
 
-  <p class="foot">进度:阶段 0、A、B 云端部分已完成(<code>c7fe926</code>),下一步阶段 C。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
+  <p class="foot">进度:阶段 0、A、B、C 与 Windows 补充报告的云端部分已完成(<code>a544ace</code>);剩余全部在阶段 D(证书、真机矩阵、strict 证据)。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
   真机复测与证书流程在你侧,判据以报告原文为准。本页随进度更新——阶段完成即标绿。</p>
 </div>
