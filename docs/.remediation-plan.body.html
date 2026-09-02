@@ -69,7 +69,7 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
 @media (max-width:560px){h1{font-size:27px}.wrap{padding-top:36px}}
 </style>
 <div class="wrap">
-  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 · canonical <code>a795631</code> · 合流后 <code>64c47bb</code></div>
+  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 · canonical <code>a795631</code> · 合流后 <code>64c47bb</code> · 阶段 B 完成 <code>c7fe926</code></div>
   <h1>从 No-Go 到 Go:AgentGuard 整改路线</h1>
   <p class="lede">codex 在真 Mac 上完整跑了构建、UI E2E、审计验签和门禁攻击,结论是发布 No-Go——理由成立。
   这页把报告的 5 项 P0、9 项 P1 排成五个阶段:每项标注严重级和"云端可完成 / 需真机或证书",
@@ -81,9 +81,9 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
   </div>
   <div class="tiles">
     <div class="tile done"><div class="n">已完成</div><div class="l">阶段 0 · 源码树合流</div></div>
-    <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(3 项已修)</div></div>
+    <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(5 项云端已修,待真机复测)</div></div>
     <div class="tile"><div class="n">9</div><div class="l">P1 · 生产前必修</div></div>
-    <div class="tile"><div class="n">7</div><div class="l">P2 · 质量改进</div></div>
+    <div class="tile"><div class="n">7</div><div class="l">P2 · 质量改进(1 项已修)</div></div>
   </div>
 
   <div class="phase done">
@@ -122,26 +122,36 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     </div>
   </div>
 
-  <div class="phase">
+  <div class="phase done">
     <div class="dot">B</div>
-    <h2>确认语义与状态真实性</h2>
-    <div class="meta">3–5 天 · 报告里最伤产品灵魂的两条</div>
+    <h2>确认语义与状态真实性 <span class="chip done">云端部分已完成</span></h2>
+    <div class="meta">桌面端(macOS + Windows)修复已落地 <code>2af3be1</code> / <code>c7fe926</code> · 剩余:真机复测(你侧)、Android 状态机(阶段 C 并做)</div>
     <div class="item">
-      <div class="head"><b>确认竞态:同意 A 可能放行 B</b><span class="chip p0">P0-5</span><span class="chip cloud">云端改码</span><span class="chip device">真机复测</span></div>
-      <p>macOS 真机已复现:弹窗显示 UI-REVALIDATE、截图已是 OVL-007、拒绝写进 PRIV-XAPP。
-      修法:单值 <code>pending</code> 改有界队列,每项带不可变 <code>request_id</code> + <code>audit_id</code> + 会话
-      generation;确认接口按 request_id 做 compare-and-swap;审计落库失败则确认失败(删掉 <code>let&nbsp;_</code>);
-      超时默认拒。回归测试:并发注入 100 条事件,展示、ID、回执、放行/拒绝一一对应。</p>
+      <div class="head"><b>确认竞态:同意 A 可能放行 B</b><span class="chip p0">P0-5</span><span class="chip done">已修</span><span class="chip device">真机复测</span></div>
+      <p>单值 <code>pending</code> 改成 <code>guard_core::ConfirmQueue</code>:有界 FIFO,每项带不可变 <code>request_id</code>
+      + 会话 generation;后台事件只能<b>排队</b>不再顶替正在看的那条;前端记住展示的 request_id 原样回传,
+      后端 compare-and-swap,对不上返回 Stale(按未放行处理);审计落库失败则确认失败(<code>let&nbsp;_</code> 已删)。
+      回归测试:8 线程并发注入 200 条,每条回执与自身 id 一一对应。最终判据:真机重跑报告第一条会话,
+      弹窗内容 = 后台 pending = 回执落点。</p>
     </div>
     <div class="item">
-      <div class="head"><b>"守护中"必须等于真在守护</b><span class="chip p0">P0-3</span><span class="chip cloud">云端改码</span><span class="chip device">真机复测</span></div>
-      <p>End session 不停 AX/SCK、Android 服务未绑定也显示已启动。三端统一显式状态机,
-      <code>active</code> 收紧为"会话在 + 观察器真跑 + 心跳新鲜 + 审计可写",任一丢失即降级;
-      结束会话必须停掉全部观察线程。</p>
+      <div class="head"><b>"守护中"必须等于真在守护</b><span class="chip p0">P0-3</span><span class="chip done">桌面端已修</span><span class="chip device">真机复测</span></div>
+      <p>状态判定不再是壳子里的布尔拼接,是 <code>guard_core::observe_state</code> 的纯函数:
+      <code>active</code> ⇔ 会话 ∧ ≥1 观察器运行 ∧ 心跳 ≤ 10 s ∧ 审计可写(引擎记住最近一次写失败)∧ 无待确认/暂停/观察器错。
+      其余六态各带机器可读原因码,前端查三语词表列在状态灯下;<b>会话开着但没人在看现在是橙色「守护不完整」</b>。
+      End session 停掉 AX/SCK 线程与 SCK 流、清空待确认与观察记忆、解除 SESSION-PAUSED(报告第 4 条末句)。
+      两个壳子共用同一份状态机;词表测试从 Rust 源码抠出全部状态逐一点名。13 条状态机测试,8 处突变全部被杀。
+      诚实边界:状态机的<b>输入</b>(心跳、观察器标志)在真机的轮询回调里采集,Linux 只能编译到、跑不到——
+      「灯确实随观察器启停变色」以真机验收为准。Android 端尚未动。</p>
     </div>
     <div class="item">
-      <div class="head"><b>告警风暴(106 秒 75 条)</b><span class="chip p1">P2-3 提前</span><span class="chip cloud">云端可完成</span></div>
-      <p>按 {会话, 来源, 规则, 证据指纹} 聚合:首次 + 持续摘要 + 状态变化。它本身就在加剧确认覆盖,和 P0-5 一起做。</p>
+      <div class="head"><b>告警风暴(106 秒 75 条)</b><span class="chip p1">P2-3 提前</span><span class="chip done">已修</span></div>
+      <p><code>guard_core::event_dedup</code>:指纹 = 事件类型 | 来源 | 规则真正读的元数据(<code>frame_digest</code>、
+      <code>low_opacity_ratio</code> 这类每帧必变的数字不进指纹);同一内容 30 s 内只过引擎一次,窗口后放行一条带
+      <code>repeat_count</code> 的持续摘要;<b>内容变一个字立刻放行</b>。只挂在 SCK/AX/UIA 轮询路径,会话/演示/扩展事件不折叠。
+      用报告的节奏(106 s,1.5 s 帧 + 2.5 s AX)仿真:110+ 候选 → ≤ 8 条。顺带修掉 UI-REVALIDATE 的根因:
+      <code>last_ui_event</code> 单值跨来源比对,SCK 帧和 AX 快照交替到达就互判"UI 变了";现在按来源分开、会话边界清空,
+      演示支付回到 CRIT-001。</p>
     </div>
   </div>
 
@@ -190,6 +200,6 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     <div><span class="k">体验</span><span>三语无 key 泄漏;读屏、键盘、高对比、大字体验收通过</span></div>
   </div>
 
-  <p class="foot">分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
+  <p class="foot">进度:阶段 0、A、B 云端部分已完成(<code>c7fe926</code>),下一步阶段 C。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
   真机复测与证书流程在你侧,判据以报告原文为准。本页随进度更新——阶段完成即标绿。</p>
 </div>
