@@ -27,8 +27,10 @@ Findings stay in the extension by default. With the optional `guard-nm-host`, ma
 ## Privacy
 
 - Browsing history is not uploaded to AgentGuard servers by default.
+- Native Messaging forwarding is **off by default**; it only starts after the user enables it in the popup settings. Events that arrive before settings have loaded are queued, not sent (fail-closed).
 - Without an installed or enabled Native Messaging host, findings remain in the extension-local buffer.
-- With the host enabled, matching events go to the user's local `guard-nm-host` process.
+- With the host enabled, matching events go to the user's local `guard-nm-host` process. URLs that are forwarded or kept in the local list are **minimized**: userinfo, fragment and the whole query are dropped and token-shaped path segments become `…` — the rules read page text, not the tokens, OAuth codes or reset links a URL may carry.
+- The popup shows the site currently being checked, where findings are forwarded (the local host name), whether it is connected, and the time of the last success.
 - The host audit database remains local by default. Audit signing and encryption require explicit user configuration and must not be assumed enabled.
 - Threat intel updates are signed (Ed25519) and optional; production deployments must replace repository fixture keys.
 - See the [privacy policy](../../docs/privacy-policy.en.md).
@@ -45,6 +47,8 @@ Findings stay in the extension by default. With the optional `guard-nm-host`, ma
 ## Local-host security boundary
 
 In addition to Chrome manifest `allowed_origins`, the host verifies the origin Chrome supplies through `argv[1]`. It refuses to start when no expected origin is configured or the values differ. The installer writes the extension origin to an `allowed-origin` file beside the binary.
+
+**This is not caller authentication.** `argv[1]` is a caller-controlled string and `allowed-origin` is a readable value on disk: a local process running as the same user can read it, execute the host with the same argument and feed it native-messaging frames, forging or polluting events and audit rows. A stdio host cannot obtain peer-process credentials, so this boundary cannot be closed in this architecture; what it stops is processes that do not know the protocol and misconfigured browsers, not a malicious local process. The persistent connection between extension and host (`connectNative`) carries a per-connection random nonce and a monotonic sequence number, and the host rejects replayed, out-of-order or mismatched frames; that too constrains frames, not processes.
 
 ## Package
 

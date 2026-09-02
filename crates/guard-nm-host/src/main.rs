@@ -500,6 +500,85 @@ fn check_caller_origin() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// P1-2 / P1-3:连接级会话 nonce + 单调 seq。
+//
+// 扩展现在用 connectNative 长连接(一个宿主进程活到端口断开),连上先发一帧
+// `{"type":"hello","nonce":<32 hex>,"seq":1,"paused":bool}`;之后每帧带同一个 nonce 和递增的 seq。
+// 宿主拒绝:nonce 不对、seq 不增、hello 之后不带 nonce/seq 的帧。
+//
+// 它挡的是**重放与乱序**(同一条流里把一帧再喂一遍;把旧帧插到新帧后面),以及 hello 里
+// 带回扩展记住的 pause 状态——宿主进程重启后 pause 不会静默消失(P1-2 的"状态不连续")。
+//
+// 它**不**挡的(如实,P1-3):一个能直接 exec 宿主并拿到 stdin 的本地进程。那种进程自己就能
+// 发 hello、自己编 nonce。argv origin 和这里的 nonce 都不是调用方身份认证;stdio 宿主拿不到
+// 对端凭据。边界写在 STORE.md「本机 host 安全边界」。
+//
+// 没有收到 hello 的连接(旧扩展、CLI 直喂帧)按 **legacy** 处理:不校验,但 stderr 记一行——
+// 不校验的连接要看得见,而不是悄悄和校验过的一样。
+// ---------------------------------------------------------------------------
+#[derive(Debug, Default)]
+struct SeqGuard {
+    nonce: Option<String>,
+    last_seq: u64,
+    legacy_warned: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum SeqVerdict {
+    /// 正常帧,处理。
+    Accept,
+    /// hello 帧:已登记 nonce/seq,调用方据 `paused` 恢复引擎状态,回 ok。
+    Hello { paused: bool },
+    /// 拒绝,不处理;原因给扩展。
+    Reject(String),
+}
+
+const MIN_NONCE_LEN: usize = 16;
+
+impl SeqGuard {
+    fn check(&mut self, msg: &Value) -> SeqVerdict {
+        let ty = msg.get("type").and_then(Value::as_str);
+        let nonce = msg.get("nonce").and_then(Value::as_str);
+        let seq = msg.get("seq").and_then(Value::as_u64);
+        if ty == Some("hello") {
+            let (Some(n), Some(s)) = (nonce, seq) else {
+                return SeqVerdict::Reject("hello frame without nonce/seq".into());
+            };
+            if n.len() < MIN_NONCE_LEN || !n.chars().all(|c| c.is_ascii_alphanumeric()) {
+                return SeqVerdict::Reject("hello nonce too short or not alphanumeric".into());
+            }
+            self.nonce = Some(n.to_string());
+            self.last_seq = s;
+            let paused = msg.get("paused").and_then(Value::as_bool).unwrap_or(false);
+            return SeqVerdict::Hello { paused };
+        }
+        let Some(want) = self.nonce.as_deref() else {
+            if !self.legacy_warned {
+                self.legacy_warned = true;
+                eprintln!(
+                    "agentguard: connection without hello — no replay protection on this stream (legacy caller)"
+                );
+            }
+            return SeqVerdict::Accept;
+        };
+        match (nonce, seq) {
+            (Some(n), Some(s)) if n == want && s > self.last_seq => {
+                self.last_seq = s;
+                SeqVerdict::Accept
+            }
+            (Some(n), _) if n != want => {
+                SeqVerdict::Reject("frame nonce does not match this connection".into())
+            }
+            (_, Some(s)) if s <= self.last_seq => SeqVerdict::Reject(format!(
+                "replayed or out-of-order frame: seq {s} <= last {}",
+                self.last_seq
+            )),
+            _ => SeqVerdict::Reject("frame without nonce/seq after hello".into()),
+        }
+    }
+}
+
 fn process_payload(
     engine: &mut Engine,
     adapter: &mut BrowserAdapter,
@@ -723,6 +802,7 @@ fn run() -> Result<()> {
     let mut engine = build_engine()?;
     let mut adapter = BrowserAdapter::new();
     adapter.set_session(Some("native-messaging".into()));
+    let mut seq = SeqGuard::default();
     let mut stdin = std::io::stdin().lock();
 
     loop {
@@ -737,9 +817,24 @@ fn run() -> Result<()> {
                 }
             }
             Frame::Message(msg) => {
-                let resp = match process_payload(&mut engine, &mut adapter, &msg) {
-                    Ok(r) => r,
-                    Err(e) => HostResponse::failed(e.to_string()),
+                let resp = match seq.check(&msg) {
+                    SeqVerdict::Reject(why) => {
+                        eprintln!("agentguard: rejected frame: {why}");
+                        HostResponse::failed(why)
+                    }
+                    SeqVerdict::Hello { paused } => {
+                        // 扩展那份 pause 状态带回来:宿主进程是新的,暂停不是。
+                        if paused {
+                            engine.pause();
+                        }
+                        let mut r = HostResponse::ok(0, None);
+                        r.paused = engine.is_paused();
+                        r
+                    }
+                    SeqVerdict::Accept => match process_payload(&mut engine, &mut adapter, &msg) {
+                        Ok(r) => r,
+                        Err(e) => HostResponse::failed(e.to_string()),
+                    },
                 };
                 write_message(&serde_json::to_value(resp)?)?;
             }
@@ -751,6 +846,120 @@ fn run() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // -----------------------------------------------------------------------
+    // P1-2 / P1-3:连接级 nonce + 单调 seq。
+    // -----------------------------------------------------------------------
+
+    fn j(s: &str) -> Value {
+        serde_json::from_str(s).unwrap()
+    }
+
+    #[test]
+    fn hello之后帧必须带同一nonce且seq单调递增() {
+        let mut g = SeqGuard::default();
+        assert_eq!(
+            g.check(&j(
+                r#"{"type":"hello","nonce":"0123456789abcdef0123456789abcdef","seq":1}"#
+            )),
+            SeqVerdict::Hello { paused: false }
+        );
+        assert_eq!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"0123456789abcdef0123456789abcdef","seq":2,"events":[]}"#)),
+            SeqVerdict::Accept
+        );
+        // 重放上一帧
+        assert!(matches!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"0123456789abcdef0123456789abcdef","seq":2,"events":[]}"#)),
+            SeqVerdict::Reject(w) if w.contains("replayed")
+        ));
+        // 乱序(更旧)
+        assert!(matches!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"0123456789abcdef0123456789abcdef","seq":1,"events":[]}"#)),
+            SeqVerdict::Reject(_)
+        ));
+        // nonce 不对
+        assert!(matches!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"ffffffffffffffffffffffffffffffff","seq":3,"events":[]}"#)),
+            SeqVerdict::Reject(w) if w.contains("nonce")
+        ));
+        // 没带
+        assert!(matches!(
+            g.check(&j(r#"{"type":"browser_events","events":[]}"#)),
+            SeqVerdict::Reject(w) if w.contains("without nonce/seq")
+        ));
+        // 跳号允许(丢帧不是重放),之后继续单调
+        assert_eq!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"0123456789abcdef0123456789abcdef","seq":10,"events":[]}"#)),
+            SeqVerdict::Accept
+        );
+        assert!(matches!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"0123456789abcdef0123456789abcdef","seq":9,"events":[]}"#)),
+            SeqVerdict::Reject(_)
+        ));
+    }
+
+    #[test]
+    fn hello缺字段或nonce太短被拒() {
+        let mut g = SeqGuard::default();
+        assert!(matches!(
+            g.check(&j(r#"{"type":"hello"}"#)),
+            SeqVerdict::Reject(_)
+        ));
+        assert!(matches!(
+            g.check(&j(r#"{"type":"hello","nonce":"short","seq":1}"#)),
+            SeqVerdict::Reject(w) if w.contains("too short")
+        ));
+        assert!(matches!(
+            g.check(&j(
+                r#"{"type":"hello","nonce":"0123456789abcdef0123456789abcde!","seq":1}"#
+            )),
+            SeqVerdict::Reject(_)
+        ));
+        assert!(g.nonce.is_none(), "被拒的 hello 不该登记 nonce");
+    }
+
+    #[test]
+    fn hello带回暂停状态() {
+        let mut g = SeqGuard::default();
+        assert_eq!(
+            g.check(&j(r#"{"type":"hello","nonce":"0123456789abcdef0123456789abcdef","seq":1,"paused":true}"#)),
+            SeqVerdict::Hello { paused: true }
+        );
+    }
+
+    /// 没有 hello 的连接(旧扩展 / CLI 直喂)按 legacy 放行——但这是**看得见**的不校验。
+    #[test]
+    fn 没有hello的连接按legacy放行() {
+        let mut g = SeqGuard::default();
+        assert_eq!(
+            g.check(&j(r#"{"type":"browser_events","events":[]}"#)),
+            SeqVerdict::Accept
+        );
+        assert_eq!(g.check(&j(r#"{"type":"ping"}"#)), SeqVerdict::Accept);
+        assert!(g.legacy_warned);
+    }
+
+    /// 同一进程里后到的 hello 换 nonce(扩展 service worker 重启后重连是新端口 → 新进程,
+    /// 但一个进程内收到第二个 hello 也要能开始新计数,不能卡在旧 nonce)。
+    #[test]
+    fn 第二个hello重置计数() {
+        let mut g = SeqGuard::default();
+        g.check(&j(
+            r#"{"type":"hello","nonce":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","seq":1}"#,
+        ));
+        g.check(&j(r#"{"type":"browser_events","nonce":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","seq":50,"events":[]}"#));
+        assert_eq!(
+            g.check(&j(
+                r#"{"type":"hello","nonce":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","seq":1}"#
+            )),
+            SeqVerdict::Hello { paused: false }
+        );
+        assert_eq!(
+            g.check(&j(r#"{"type":"browser_events","nonce":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","seq":2,"events":[]}"#)),
+            SeqVerdict::Accept
+        );
+    }
 
     fn frame(payload: &[u8]) -> Vec<u8> {
         let mut v = (payload.len() as u32).to_le_bytes().to_vec();

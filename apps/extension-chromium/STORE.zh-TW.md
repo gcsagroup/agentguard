@@ -27,8 +27,10 @@ AgentGuard Web Shield 為 AI Agent 代替使用者操作的頁面提供三層有
 ## 隱私
 
 - 預設不向 AgentGuard 伺服器上傳瀏覽歷程。
+- Native Messaging 轉發**預設關閉**；使用者在彈出層設定裡開啟後才轉發。設定載入完成前到達的事件先排隊、不外送（fail-closed）。
 - 未安裝或關閉 Native Messaging host 時，發現保存在擴充功能本機緩衝區。
-- 啟用 host 後，符合條件的事件傳送到使用者本機的 `guard-nm-host`。
+- 啟用 host 後，符合條件的事件傳送到使用者本機的 `guard-nm-host`。外送與本機記錄的 URL 都經過**最小化**：去掉 userinfo、fragment 和全部 query，路徑裡形似權杖的段打成 `…`——規則讀的是頁面文字，不需要 URL 裡的權杖、OAuth code 或重設連結。
+- 彈出層顯示目前檢查的站台、轉發去向（本機 host 名）、是否已連接與上次成功時間。
 - host 的稽核資料庫預設是本機資料；稽核簽章與加密必須由使用者明確設定，不能假定預設存在。
 - 威脅情報更新使用 Ed25519 簽章且為選用功能；正式環境部署必須替換儲存庫測試金鑰。
 - 詳見 [隱私權政策](../../docs/privacy-policy.zh-TW.md)。
@@ -45,6 +47,8 @@ AgentGuard Web Shield 為 AI Agent 代替使用者操作的頁面提供三層有
 ## 本機 host 安全邊界
 
 host 除了依賴 Chrome manifest 的 `allowed_origins`，還會驗證 Chrome 經由 `argv[1]` 提供的 origin。沒有設定期望 origin 或值不相符時拒絕啟動；安裝腳本會把擴充功能 origin 寫到二進位檔旁的 `allowed-origin` 檔案。
+
+**這不是呼叫方身分認證。** `argv[1]` 是呼叫者可控的字串，`allowed-origin` 是磁碟上可讀的公開值：一個以目前使用者權限執行的本機行程可以讀到它、用同樣的參數直接執行 host 並餵入原生訊息幀，從而偽造或污染事件與稽核。stdio 宿主拿不到對端行程憑證，這條邊界在這個架構裡關不上；能擋住的是「不知道協定的行程」和「設定錯誤的瀏覽器」，不是「本機惡意行程」。擴充功能與 host 之間的長連線（`connectNative`）帶連線級隨機 nonce 與單調 seq，host 拒絕重放、亂序和 nonce 不符的幀；它同樣只約束幀，不認證行程。
 
 ## 封裝
 

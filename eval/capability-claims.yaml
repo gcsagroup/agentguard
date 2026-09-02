@@ -302,3 +302,29 @@ claims:
       - { test: 中文隐藏指令仍被抓到, file: crates/guard-vision/src/viewtree.rs }
     note: 词表是有限的:用词表外的动词写的隐藏指令会被漏掉,这是精确率换来的召回代价;注入短语规则(OVL-004 等)不受影响,仍对 ui_text 全文生效
 
+  - id: extension-url-minimization
+    claim: 转发给宿主与本地最近列表里的 URL 都最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不外传
+    area: extension
+    source:
+      doc: apps/extension-chromium/STORE.en.md
+      anchor: "token-shaped path segments become"
+    mechanism: guard-gate.js minimizeUrl(默认 query 白名单为空,写死并有测试钉住),background.js 所有 url 出口经它
+    proven_by:
+      - { test: "minimizeUrl:去掉 userinfo / fragment / 全部 query,只留 origin+path", file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: "minimizeUrl:path 里像 token 的段打成 …", file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: "minimizeUrl:非 http(s) 与畸形输入不外传", file: apps/extension-chromium/scripts/gate.test.mjs }
+    note: 令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字
+
+  - id: native-link-replay-protection
+    claim: 扩展↔宿主长连接带连接级 nonce 与单调 seq,宿主拒绝重放、乱序、nonce 不符的帧;hello 带回暂停状态
+    area: native-host
+    source:
+      doc: apps/extension-chromium/STORE.en.md
+      anchor: "rejects replayed, out-of-order or mismatched frames"
+    mechanism: guard-nm-host SeqGuard(hello 登记 nonce/seq,之后逐帧校验);background.js connectNative + postFrame 编号
+    proven_by:
+      - { test: hello之后帧必须带同一nonce且seq单调递增, file: crates/guard-nm-host/src/main.rs }
+      - { test: hello带回暂停状态, file: crates/guard-nm-host/src/main.rs }
+      - { test: 没有hello的连接按legacy放行, file: crates/guard-nm-host/src/main.rs }
+    note: 只约束帧,不认证进程(STORE「本机 host 安全边界」如实写明);没有 hello 的旧调用方按 legacy 放行且 stderr 记一行
+

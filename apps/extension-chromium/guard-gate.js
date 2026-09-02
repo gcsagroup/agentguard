@@ -232,6 +232,81 @@
     };
   }
 
+  // ---------------------------------------------------------------------------
+  // P1-1:URL 最小化 —— 转发给宿主、落进最近列表之前都要过这里。
+  //
+  // 完整 URL 里常有 token、OAuth code、密码重置链接、业务参数(真机报告 P1-1)。这些对判决
+  // **没有用**:规则读的是页面文字和表单字段,不是 URL 的 query。所以默认只留 scheme + host +
+  // path;userinfo、fragment 一律去掉;query 只保留白名单里的键(默认一个都不留);path 里
+  // 长得像 token 的段(≥ 16 位的十六进制 / ≥ 20 位的 base64url 形状)打成 "…"。
+  // 非 http(s)(chrome://、file:、data:)不外传:返回空串。
+  // ---------------------------------------------------------------------------
+
+  /** 默认不保留任何 query 键。将来若某条规则确实需要某个键,在这里点名,并写下为什么。 */
+  const URL_QUERY_ALLOWLIST = Object.freeze([]);
+  /** path 保留上限;再长的 path 多半也是在夹带东西。 */
+  const URL_PATH_MAX = 120;
+  const TOKEN_HEX = /^[0-9a-fA-F]{16,}$/;
+  const TOKEN_B64URL = /^[A-Za-z0-9_-]{20,}$/;
+
+  /**
+   * @param {string} raw
+   * @param {readonly string[]} [allowQuery]
+   * @returns {string} 最小化后的 URL;不该外传时为 ""。
+   */
+  function minimizeUrl(raw, allowQuery = URL_QUERY_ALLOWLIST) {
+    if (typeof raw !== "string" || raw === "") return "";
+    let u;
+    try {
+      u = new URL(raw);
+    } catch (_) {
+      return "";
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    const segments = u.pathname.split("/").map((seg) => {
+      if (seg.length >= 16 && (TOKEN_HEX.test(seg) || TOKEN_B64URL.test(seg))) return "…";
+      return seg;
+    });
+    let path = segments.join("/");
+    if (path.length > URL_PATH_MAX) path = `${path.slice(0, URL_PATH_MAX)}…`;
+    const kept = [];
+    for (const [k, v] of u.searchParams) {
+      if (allowQuery.includes(k)) kept.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+    }
+    const search = kept.length ? `?${kept.join("&")}` : "";
+    // u.origin 不含 userinfo;hash 根本不拼。
+    return `${u.origin}${path}${search}`;
+  }
+
+  /** 最近列表里的页面标题:本地可见但也别无限长,标题里同样可能夹着邮箱/姓名。 */
+  const TITLE_MAX = 120;
+  function clampTitle(title) {
+    if (typeof title !== "string") return "";
+    const t = title.trim();
+    return t.length > TITLE_MAX ? `${t.slice(0, TITLE_MAX)}…` : t;
+  }
+
+  // ---------------------------------------------------------------------------
+  // P1-2 / P1-3:宿主长连接的纯部分 —— 重连退避与会话 nonce。
+  // ---------------------------------------------------------------------------
+
+  /** 第 n 次重连前等多久:1s、2s、4s … 上限 60s。断线后不能每次扫描都去敲宿主。 */
+  function backoffMs(attempt) {
+    const n = Math.max(0, Math.min(6, Math.floor(Number(attempt) || 0)));
+    return Math.min(60000, 1000 * 2 ** n);
+  }
+
+  /** 每次连接一个随机 nonce(16 字节 hex)。宿主据它 + 单调 seq 拒绝重放/乱序帧。 */
+  function newNonce() {
+    const bytes = new Uint8Array(16);
+    const c = root.crypto || (typeof globalThis !== "undefined" ? globalThis.crypto : undefined);
+    if (!c || typeof c.getRandomValues !== "function") {
+      throw new Error("no cryptographic RNG available");
+    }
+    c.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
   const Gate = {
     gateForFinding,
     gateForFindings,
@@ -241,9 +316,14 @@
     pruneBlocklist,
     hostInScope,
     scopeGateHost,
+    minimizeUrl,
+    clampTitle,
+    backoffMs,
+    newNonce,
     SESSION_TTL_MS,
     MAX_PERSISTENT,
     BLOCKING,
+    URL_QUERY_ALLOWLIST,
   };
 
   root.AgentGuardGate = Gate;

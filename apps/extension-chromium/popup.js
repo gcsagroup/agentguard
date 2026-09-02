@@ -56,6 +56,7 @@ async function initialize() {
   }
   renderRecent();
   renderBlocklist();
+  renderSite();
 }
 
 /** 一条最近记录的人话标题:拦截类读作"已拦截:这一步要付款了",发现类拼各 kind 的词典标题。 */
@@ -145,6 +146,42 @@ function renderBlocklist() {
   });
 }
 
+// P1-1:用户要能看见「转发去哪、连上了没、上次成功是什么时候」——以前这些都不可见,
+// 而默认还是开着的。全部 textContent。
+function renderLink(link) {
+  const el = document.getElementById("link-line");
+  if (!el) return;
+  if (!link || !link.enabled) {
+    el.textContent = t("linkOff");
+    return;
+  }
+  const where = tf("linkTo", { host: link.host || "" });
+  const state = link.connected ? t("linkConnected") : t("linkDisconnected");
+  const last = link.lastOk && S
+    ? tf("linkLastOk", { when: S.relativeTime(link.lastOk, Date.now(), vocabLocale) })
+    : t("linkNever");
+  const err = !link.connected && link.lastError ? ` · ${link.lastError}` : "";
+  el.textContent = `${where} · ${state} · ${last}${err}`;
+}
+
+// P1-1:状态卡说清现在检查的是哪个站点——扩展覆盖所有 http(s) 页面,用户至少要知道
+// 此刻被看的是哪一个。只取 host;popup 打开本身就是用户手势,activeTab 给到 URL。
+function renderSite() {
+  const el = document.getElementById("site-line");
+  if (!el || !chrome.tabs || !chrome.tabs.query) return;
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const url = tabs && tabs[0] && tabs[0].url;
+    let host = "";
+    try {
+      const u = new URL(url || "");
+      if (u.protocol === "http:" || u.protocol === "https:") host = u.hostname;
+    } catch (_) {
+      host = "";
+    }
+    el.textContent = host ? tf("checkingSite", { host }) : t("checkingNone");
+  });
+}
+
 function renderRecent() {
   chrome.runtime.sendMessage({ type: "get_recent" }, (resp) => {
     const list = document.getElementById("list");
@@ -158,8 +195,11 @@ function renderRecent() {
     }
     native.checked = !!resp.nativeEnabled;
     native.onchange = () => {
-      chrome.runtime.sendMessage({ type: "set_native", enabled: native.checked });
+      chrome.runtime.sendMessage({ type: "set_native", enabled: native.checked }, (r) => {
+        renderLink((r && r.link) || { enabled: native.checked });
+      });
     };
+    renderLink(resp.link);
     // 状态卡:今天发现了几件事、拦下了几次 —— 用户打开 popup 最想知道的一行。
     const now = Date.now();
     const dayStart = new Date().setHours(0, 0, 0, 0);

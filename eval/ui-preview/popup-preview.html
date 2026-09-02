@@ -18,6 +18,7 @@
 <div class="status-card">
   <div class="status-line" id="status-line" data-i18n="statusOn">Protecting this page</div>
   <div class="muted" id="today-line"></div>
+  <div class="muted" id="site-line"></div>
 </div>
 
 <div id="settings-panel" hidden>
@@ -35,6 +36,7 @@
     <label for="native" data-i18n="nativeForward">Connect the desktop app</label>
   </div>
   <p class="muted" data-i18n="nativeForwardHint">hint</p>
+  <p class="muted" id="link-line"></p>
   <div class="row">
     <button id="btn-onboarding" class="ghost" data-i18n="viewIntro">See what AgentGuard does</button>
   </div>
@@ -73,10 +75,17 @@ window.chrome = {
     set() { return Promise.resolve(); },
   }, onChanged: { addListener() {} } },
   i18n: { getUILanguage() { return "zh-CN"; } },
+  // P1-1:状态卡「正在检查:host」。popup 打开就是用户手势,真环境里 activeTab 给到 URL。
+  tabs: { query(_q, cb) { cb([{ url: "https://shop.example.com/checkout/pay?session=abc" }]); } },
   runtime: {
     getURL(p) { return "/apps/extension-chromium/" + p; },
     sendMessage(msg, cb) {
-      if (msg.type === "get_recent") cb({ recent, nativeEnabled: true });
+      if (msg.type === "get_recent") cb({
+        recent,
+        nativeEnabled: true,
+        // P1-1:转发去向 / 连接状态 / 上次成功——设置面板里那一行。
+        link: { enabled: true, connected: true, lastOk: Date.now() - 90000, lastError: "", host: "com.agentguard.native" },
+      });
       else if (msg.type === "get_blocklist") cb(blocklist);
       else if (cb) cb({});
     },

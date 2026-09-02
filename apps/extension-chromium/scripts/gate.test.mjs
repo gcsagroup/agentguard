@@ -193,4 +193,72 @@ test("表单允许一次用 requestSubmit 保留校验与原 submitter 语义", 
   );
 });
 
+// ---- P1-1:URL 最小化 ------------------------------------------------------------
+
+test("minimizeUrl:去掉 userinfo / fragment / 全部 query,只留 origin+path", () => {
+  const out = Gate.minimizeUrl(
+    "https://user:pw@shop.example.com/checkout/pay?session=abc123&utm=x#access_token=SECRET"
+  );
+  assert.equal(out, "https://shop.example.com/checkout/pay");
+});
+
+test("minimizeUrl:path 里像 token 的段打成 …", () => {
+  assert.equal(
+    Gate.minimizeUrl("https://id.example.com/reset/0123456789abcdef0123456789abcdef"),
+    "https://id.example.com/reset/…"
+  );
+  assert.equal(
+    Gate.minimizeUrl("https://x.example.com/v/AbCdEfGhIjKlMnOpQrStUvWx-_12/next"),
+    "https://x.example.com/v/…/next"
+  );
+  // 普通英文段不动(长度够但含非 base64url 字符或很短)。
+  assert.equal(Gate.minimizeUrl("https://a.example.com/settings/profile"), "https://a.example.com/settings/profile");
+});
+
+test("minimizeUrl:非 http(s) 与畸形输入不外传", () => {
+  assert.equal(Gate.minimizeUrl("chrome://extensions/"), "");
+  assert.equal(Gate.minimizeUrl("file:///Users/me/secret.html"), "");
+  assert.equal(Gate.minimizeUrl("data:text/html,hi"), "");
+  assert.equal(Gate.minimizeUrl("not a url"), "");
+  assert.equal(Gate.minimizeUrl(""), "");
+  assert.equal(Gate.minimizeUrl(undefined), "");
+});
+
+test("minimizeUrl:白名单里的 query 键保留,其他丢", () => {
+  const out = Gate.minimizeUrl("https://s.example.com/p?tab=billing&token=zzz", ["tab"]);
+  assert.equal(out, "https://s.example.com/p?tab=billing");
+  assert.deepEqual([...Gate.URL_QUERY_ALLOWLIST], [], "默认白名单必须为空——保留任何键都要在代码里点名");
+});
+
+test("minimizeUrl:超长 path 截断", () => {
+  const long = "https://a.example.com/" + "seg/".repeat(60);
+  const out = Gate.minimizeUrl(long);
+  assert.ok(out.length <= "https://a.example.com".length + 121 + 1, out);
+  assert.ok(out.endsWith("…"));
+});
+
+test("clampTitle:截断并去空白", () => {
+  assert.equal(Gate.clampTitle("  Hello  "), "Hello");
+  assert.equal(Gate.clampTitle("x".repeat(200)).length, 121);
+  assert.equal(Gate.clampTitle(null), "");
+});
+
+// ---- P1-2 / P1-3:长连接的纯部分 ----------------------------------------------------
+
+test("backoffMs:指数退避,1s 起,60s 封顶,坏输入按 0 次", () => {
+  assert.equal(Gate.backoffMs(0), 1000);
+  assert.equal(Gate.backoffMs(1), 2000);
+  assert.equal(Gate.backoffMs(5), 32000);
+  assert.equal(Gate.backoffMs(6), 60000);
+  assert.equal(Gate.backoffMs(99), 60000);
+  assert.equal(Gate.backoffMs("x"), 1000);
+});
+
+test("newNonce:32 位 hex,连续两次不同", () => {
+  const a = Gate.newNonce();
+  const b = Gate.newNonce();
+  assert.match(a, /^[0-9a-f]{32}$/);
+  assert.notEqual(a, b);
+});
+
 console.log(`\nguard-gate: ${passed} 条测试全部通过`);

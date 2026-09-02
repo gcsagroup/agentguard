@@ -133,5 +133,29 @@
   },
   "viewIntro": {
     "message": "See what AgentGuard does"
+  },
+  "linkOff": {
+    "message": "Desktop forwarding is off — findings stay in this browser."
+  },
+  "linkTo": {
+    "message": "Forwarding to the desktop app on this computer ({host})"
+  },
+  "linkConnected": {
+    "message": "connected"
+  },
+  "linkDisconnected": {
+    "message": "not connected"
+  },
+  "linkLastOk": {
+    "message": "last success {when}"
+  },
+  "linkNever": {
+    "message": "never connected yet"
+  },
+  "checkingSite": {
+    "message": "Checking: {host}"
+  },
+  "checkingNone": {
+    "message": "Not a web page — nothing to check here."
   }
 }

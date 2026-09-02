@@ -133,5 +133,29 @@
   },
   "viewIntro": {
     "message": "查看功能介紹"
+  },
+  "linkOff": {
+    "message": "未連接桌面端——發現只留在這個瀏覽器裡。"
+  },
+  "linkTo": {
+    "message": "轉發到這台電腦上的桌面端({host})"
+  },
+  "linkConnected": {
+    "message": "已連接"
+  },
+  "linkDisconnected": {
+    "message": "未連接"
+  },
+  "linkLastOk": {
+    "message": "上次成功:{when}"
+  },
+  "linkNever": {
+    "message": "還沒有連上過"
+  },
+  "checkingSite": {
+    "message": "正在檢查:{host}"
+  },
+  "checkingNone": {
+    "message": "這不是網頁,沒有可檢查的內容。"
   }
 }

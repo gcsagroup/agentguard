@@ -133,5 +133,29 @@
   },
   "viewIntro": {
     "message": "查看功能介绍"
+  },
+  "linkOff": {
+    "message": "未连接桌面端——发现只留在这个浏览器里。"
+  },
+  "linkTo": {
+    "message": "转发到这台电脑上的桌面端({host})"
+  },
+  "linkConnected": {
+    "message": "已连接"
+  },
+  "linkDisconnected": {
+    "message": "未连接"
+  },
+  "linkLastOk": {
+    "message": "上次成功:{when}"
+  },
+  "linkNever": {
+    "message": "还没有连上过"
+  },
+  "checkingSite": {
+    "message": "正在检查:{host}"
+  },
+  "checkingNone": {
+    "message": "这不是网页,没有可检查的内容。"
   }
 }

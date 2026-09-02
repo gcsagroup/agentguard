@@ -27,8 +27,10 @@ AgentGuard Web Shield 为 AI Agent 代用户操作的页面提供三层有限防
 ## 隐私
 
 - 默认不向 AgentGuard 服务器上传浏览历史。
+- Native Messaging 转发**默认关闭**；用户在弹出层设置里打开后才转发。设置加载完成前到达的事件先排队、不外发（fail-closed）。
 - 未安装或关闭 Native Messaging host 时，发现保存在扩展本地缓冲区。
-- 启用 host 后，匹配事件发送到用户本机的 `guard-nm-host`。
+- 启用 host 后，匹配事件发送到用户本机的 `guard-nm-host`。外发与本地记录的 URL 都经过**最小化**：去掉 userinfo、fragment 和全部 query，路径里形似令牌的段打成 `…`——规则读的是页面文字，不需要 URL 里的令牌、OAuth code 或重置链接。
+- 弹出层显示当前检查的站点、转发去向（本机 host 名）、是否已连接与上次成功时间。
 - host 的审计库默认是本地数据；审计签名和加密必须由用户显式配置，不能假定默认存在。
 - 威胁情报更新使用 Ed25519 签名且为可选功能；生产部署必须替换仓库夹具密钥。
 - 详见 [隐私政策](../../docs/privacy-policy.md)。
@@ -45,6 +47,8 @@ AgentGuard Web Shield 为 AI Agent 代用户操作的页面提供三层有限防
 ## 本机 host 安全边界
 
 host 除了依赖 Chrome manifest 的 `allowed_origins`，还会校验 Chrome 通过 `argv[1]` 提供的 origin。没有配置期望 origin 或值不匹配时拒绝启动；安装脚本会把扩展 origin 写到二进制旁的 `allowed-origin` 文件。
+
+**这不是调用方身份认证。** `argv[1]` 是调用者可控的字符串，`allowed-origin` 是磁盘上可读的公开值：一个以当前用户权限运行的本地进程可以读到它、用同样的参数直接执行 host 并喂入原生消息帧，从而伪造或污染事件与审计。stdio 宿主拿不到对端进程凭据，这条边界在这个架构里关不上；能挡住的是"不知道协议的进程"和"配置错误的浏览器"，不是"本机恶意进程"。扩展与 host 之间的长连接（`connectNative`）带连接级随机 nonce 与单调 seq，host 拒绝重放、乱序和 nonce 不符的帧；它同样只约束帧，不认证进程。
 
 ## 打包
 
