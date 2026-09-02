@@ -116,6 +116,21 @@ test("越界目的地随会话过期,不永久拦掉用户对该主机的正常�
   assert.ok(!s2.active.includes("booking.com"), "过期的越界主机应从 active 撤掉");
 });
 
+test("清理过期名单不会丢掉规则溯源", () => {
+  const state = {
+    persistent: ["evil.example"],
+    session: [{ host: "expired.example", exp: 1000 }],
+    provenance: {
+      "evil.example": { kind: "malicious", rule_id: "INTEL-DOMAIN" },
+      "expired.example": { kind: "out_of_scope", rule_id: "SCOPE-HOST" },
+    },
+  };
+  const pruned = Gate.pruneBlocklist(state, 1001);
+  assert.deepEqual(pruned.persistent, ["evil.example"]);
+  assert.deepEqual(pruned.session, []);
+  assert.deepEqual(pruned.provenance, state.provenance, "管理界面仍需显示活跃主机的规则来源");
+});
+
 test("再次判越界会刷新过期时间", () => {
   const ttl = 1000;
   const s1 = Gate.mergeBlocklist({}, [], ["x.example"], 1000, ttl);
@@ -166,6 +181,16 @@ test("scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", (
   assert.ok(d.reason.length > 0);
   // 空表 = 明确不许出网 → 全拦。
   assert.equal(Gate.scopeGateHost("stripe.com", []).gate, true);
+});
+
+test("表单允许一次用 requestSubmit 保留校验与原 submitter 语义", () => {
+  const source = fs.readFileSync(path.join(here, "..", "content.js"), "utf8");
+  assert.match(source, /form\.requestSubmit\(e\.submitter \|\| undefined\)/);
+  assert.doesNotMatch(
+    source,
+    /^[ \t]*form\.submit\(\);/m,
+    "不能绕过约束校验和 submitter 覆盖属性"
+  );
 });
 
 console.log(`\nguard-gate: ${passed} 条测试全部通过`);

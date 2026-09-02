@@ -141,7 +141,34 @@ jobs:
         run: cargo clippy -p win-adapter --all-targets -- -D warnings
       - name: Build the desktop shell
         working-directory: apps/desktop-windows/src-tauri
-        run: cargo test
+        run: cargo test --locked
+      - name: Smoke-test the desktop window
+        shell: pwsh
+        working-directory: apps/desktop-windows/src-tauri
+        run: |
+          cargo build --locked
+          $exe = Join-Path $PWD 'target\debug\desktop-windows.exe'
+          $stdout = Join-Path $env:RUNNER_TEMP 'desktop-windows-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'desktop-windows-stderr.log'
+          $process = Start-Process -FilePath $exe -WorkingDirectory $PWD -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+          try {
+            Start-Sleep -Seconds 10
+            $process.Refresh()
+            if ($process.HasExited) {
+              Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
+              throw "desktop-windows exited during startup with code $($process.ExitCode)"
+            }
+            if ($process.MainWindowHandle -eq [IntPtr]::Zero) {
+              Get-Content $stdout, $stderr -ErrorAction SilentlyContinue
+              throw 'desktop-windows stayed alive but did not create a native window'
+            }
+          }
+          finally {
+            if (-not $process.HasExited) {
+              Stop-Process -Id $process.Id
+              Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+            }
+          }
 
   macos-shell:
     name: macOS shell (native AX + SCK)

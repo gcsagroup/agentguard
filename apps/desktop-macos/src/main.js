@@ -355,7 +355,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     await maybeShowConfirm();
   };
 
-  // Backend auto-poll emits events even when Menu Bar window is in background.
+  // The backend AXObserver driver emits coalesced events even when the Menu Bar window is in background.
   try {
     const { listen } = window.__TAURI__.event;
     await listen("sck-poll", async (ev) => {

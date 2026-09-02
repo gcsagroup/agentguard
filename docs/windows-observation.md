@@ -1,5 +1,8 @@
 # Windows observation
 
+> Original language: English. This file is the existing technical reference for the Windows
+> observation implementation; translated acceptance conclusions are linked below.
+
 ## What was here before
 
 `adapters/win-adapter` had no Win32 code. Its `Cargo.toml` declared no `windows` or
@@ -114,6 +117,25 @@ indistinguishable from a real measurement.
 - **No opacity or font size from the tree.** UIA exposes neither, and inventing one would be worse
   than reporting none: `regions_from_snapshot` defaults an absent opacity to fully opaque, so a
   guess would either fabricate an overlay finding or mask a real one.
-- **Never run on real hardware by anyone.** The code compiles for `x86_64-pc-windows-msvc` and CI
-  builds and tests it on `windows-latest`. Neither is the same as having watched it observe a real
-  agent. Nothing in this repository has done that.
+- **Partial real-device evidence only.** Candidate
+  `89dadf960a558d35dc3c6c557eadbc19d3a162d0` ran interactively over RDP on Windows 11 build
+  26200, remained idle for more than 30 seconds, completed two observation sessions of more than
+  30 seconds each, reported UIA/GDI/OCR as available, and produced a real `OVL-010` block. This
+  does not cover install/upgrade/uninstall, permission-failure paths, Native Messaging, signing,
+  or the full W1–W7 suite, so it is not production-release evidence.
+
+## Desktop startup and process lifetime
+
+The old startup path called `capabilities()` on Tauri's UI thread. UIA initialised that thread as
+MTA, then tao called `OleInitialize` for its STA file-drop path; the apartment conflict terminated
+startup with `RPC_E_CHANGED_MODE` before a window appeared. Moving the probe to a short-lived
+worker fixed that conflict but exposed a second lifetime fault: the process-cached OCR
+`FactoryCache` could later fail with `0xC0000005` after the probe's MTA thread exited.
+
+The desktop now runs the startup probe away from the UI thread, retains a process-lifetime MTA via
+`CoIncrementMTAUsage`, and caches the resulting capabilities in application state. The interactive
+RDP runs and cross-thread regression test exercise this lifecycle; the CI window-startup smoke test
+covers real-window startup. Full reports:
+[Simplified Chinese](acceptance-report-windows-2026-09-02.md) |
+[Traditional Chinese](acceptance-report-windows-2026-09-02.zh-TW.md) |
+[English](acceptance-report-windows-2026-09-02.en.md).

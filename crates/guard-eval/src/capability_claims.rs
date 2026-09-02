@@ -274,6 +274,9 @@ pub fn to_markdown(registry: &ClaimsRegistry, report: &ClaimsReport) -> String {
         }
         md.push('\n');
     }
+    while md.ends_with("\n\n") {
+        md.pop();
+    }
     md
 }
 
@@ -463,5 +466,7 @@ claims:
         assert!(md.contains("We detect X"));
         assert!(md.contains("x_is_detected"));
         assert!(md.contains("demo"));
+        assert!(md.ends_with('\n'));
+        assert!(!md.ends_with("\n\n"));
     }
 }

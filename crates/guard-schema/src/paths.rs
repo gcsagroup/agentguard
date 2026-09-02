@@ -259,7 +259,8 @@ pub fn resolve_with_aliases(
         // 这正是 scope-and-non-goals 表里第四行那个 `$id` 为空的场景。
         return Err("操作数为空；命令会退化成对当前目录操作".into());
     }
-    if raw.chars().any(|c| GLOB_CHARS.contains(&c)) {
+    let glob_input = glob_input(raw)?;
+    if glob_input.chars().any(|c| GLOB_CHARS.contains(&c)) {
         return Err(format!(
             "含通配符 {raw:?}；一个通配符可以展开到授权之外，无法证明包含关系"
         ));
@@ -344,6 +345,38 @@ pub fn resolve_with_aliases(
     // **只在 macOS 上折。** 见 `VolumeAliases`:在别的平台上这是改写而不是归一化,
     // 而改写会让守卫判决的路径和执行方写入的路径分家。
     Ok(dealias_with(&out, aliases))
+}
+
+/// 返回需要扫描通配符的部分，并验证 Windows verbatim 命名空间。
+///
+/// Windows verbatim 路径固定以 `\\?\` 开头；这里的 `?` 是路径命名空间标记，不是 glob。
+/// 只接受能与普通路径做语义等价比较的盘符和 UNC 形态。`GLOBALROOT`、卷 GUID、PIPE 等其它
+/// 命名空间无法由当前敏感目录与工作区规则证明，必须 fail-closed。
+fn glob_input(raw: &str) -> Result<&str, String> {
+    #[cfg(target_os = "windows")]
+    if let Some(rest) = raw.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        let drive = bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && bytes[2] == b'\\';
+        let unc = bytes
+            .get(..4)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"UNC\\"))
+            && {
+                let mut parts = rest[4..].split('\\');
+                parts.next().is_some_and(|part| !part.is_empty())
+                    && parts.next().is_some_and(|part| !part.is_empty())
+            };
+        if drive || unc {
+            return Ok(rest);
+        }
+        return Err(format!(
+            "不支持的 Windows verbatim 命名空间 {raw:?}；无法证明它属于已授权或敏感路径"
+        ));
+    }
+
+    Ok(raw)
 }
 
 /// 去掉 macOS 的 firmlink / synthetic 卷别名前缀,把路径归一到**逻辑**形式。
@@ -652,6 +685,30 @@ pub fn is_within(grant: &Path, candidate: &Path) -> bool {
 }
 
 fn components_eq(a: &Component<'_>, b: &Component<'_>) -> bool {
+    #[cfg(target_os = "windows")]
+    if let (Component::Prefix(a), Component::Prefix(b)) = (a, b) {
+        use std::path::Prefix;
+
+        let os_eq = |x: &std::ffi::OsStr, y: &std::ffi::OsStr| {
+            x.to_string_lossy().to_lowercase() == y.to_string_lossy().to_lowercase()
+        };
+        return match (a.kind(), b.kind()) {
+            (Prefix::Disk(x), Prefix::Disk(y))
+            | (Prefix::Disk(x), Prefix::VerbatimDisk(y))
+            | (Prefix::VerbatimDisk(x), Prefix::Disk(y))
+            | (Prefix::VerbatimDisk(x), Prefix::VerbatimDisk(y)) => x.eq_ignore_ascii_case(&y),
+            (Prefix::UNC(xs, xh), Prefix::UNC(ys, yh))
+            | (Prefix::UNC(xs, xh), Prefix::VerbatimUNC(ys, yh))
+            | (Prefix::VerbatimUNC(xs, xh), Prefix::UNC(ys, yh))
+            | (Prefix::VerbatimUNC(xs, xh), Prefix::VerbatimUNC(ys, yh)) => {
+                os_eq(xs, ys) && os_eq(xh, yh)
+            }
+            // DeviceNS / Verbatim 等其它命名空间不能与盘符或 UNC 混为一谈；同形态仍沿用
+            // Windows 的大小写不敏感比较。
+            _ => os_eq(a.as_os_str(), b.as_os_str()),
+        };
+    }
+
     let (x, y) = (a.as_os_str(), b.as_os_str());
     if cfg!(any(target_os = "macos", target_os = "windows")) {
         x.to_string_lossy().to_lowercase() == y.to_string_lossy().to_lowercase()
@@ -1210,8 +1267,45 @@ pub fn assign_intents(verb: &str, args: &[String], path_operand_count: usize) ->
 mod tests {
     use super::*;
 
+    #[cfg(not(target_os = "windows"))]
     fn ctx() -> ResolveContext {
         ResolveContext::with(Some("/home/agent"), Some("/home/agent/proj"))
+    }
+
+    #[cfg(target_os = "windows")]
+    fn ctx() -> ResolveContext {
+        // 用真实的 Windows 绝对路径。`/home/agent` 在 Windows 上只有根分隔符、没有盘符，
+        // 并不是绝对路径；拿它做夹具会测到当前盘符拼接，而不是家目录/工作目录语义。
+        // 只取系统临时目录的盘符根，再接一个本进程唯一且不创建的目录。
+        // 这避免 Windows 对已存在的 `%TEMP%` 前缀有时返回 `RUNNER~1`、有时返回
+        // `\\?\C:\Users\runneradmin` 的表示差异，让测试只聚焦 `~`、相对路径和 `..` 语义。
+        let home = root_of(&std::env::temp_dir())
+            .join(format!("agentguard-path-tests-{}", std::process::id()))
+            .join("home")
+            .join("agent");
+        let cwd = home.join("proj");
+        ResolveContext {
+            home: Some(home),
+            cwd: Some(cwd),
+        }
+    }
+
+    fn no_base_ctx() -> ResolveContext {
+        ResolveContext {
+            home: None,
+            cwd: None,
+        }
+    }
+
+    fn resolve_absolute(path: &Path) -> PathBuf {
+        resolve(&path.to_string_lossy(), no_base_ctx()).unwrap()
+    }
+
+    fn assert_same_path(left: &Path, right: &Path) {
+        assert!(
+            is_within(left, right) && is_within(right, left),
+            "路径应当语义等价：left={left:?}, right={right:?}"
+        );
     }
 
     // ---------- 归约 ----------
@@ -1347,7 +1441,7 @@ mod tests {
     /// 上一条是对 `for_host()` 的单元断言;这一条是端到端的那个性质本身 ——
     /// 一个别名形状的操作数,归约结果必须还是它自己,于是执行方拿到的和守卫判过的
     /// 是同一个路径。
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[test]
     fn 非macos宿主上真实resolve不改写别名路径() {
         let ctx = ResolveContext::with(Some("/tmp"), Some("/tmp"));
@@ -1359,6 +1453,46 @@ mod tests {
         );
     }
 
+    /// Windows 也必须钉住“不把 macOS 路径别名套到本机路径上”，但夹具必须是带盘符的
+    /// Windows 绝对路径。`/System/...` 在 Windows 上是当前盘根相对路径，不能代表执行方
+    /// 真正会收到的路径。
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows宿主上不改写macos别名形状() {
+        let root = root_of(&std::env::temp_dir());
+        let original = root
+            .join("System")
+            .join("Volumes")
+            .join("Data")
+            .join("agentguard")
+            .join("tmp")
+            .join("ws")
+            .join("x");
+        let other = root.join("agentguard").join("tmp").join("ws").join("x");
+        let got = resolve(&original.to_string_lossy(), no_base_ctx()).unwrap();
+
+        // `canonicalize` 可能把普通盘符变成 `\\?\C:\...`；两者仍必须被识别为同一位置。
+        assert!(
+            is_within(&original, &got) && is_within(&got, &original),
+            "Windows 本机路径被改写了：{original:?} -> {got:?}"
+        );
+        assert!(
+            !is_within(&other, &got),
+            "Windows 路径被错误套用 macOS 卷别名：{got:?}"
+        );
+
+        // 即使测试显式注入 Fold，带盘符的 Windows 路径也不能被当成 `/System/...`。
+        let folded = resolve_with_aliases(
+            &original.to_string_lossy(),
+            no_base_ctx(),
+            VolumeAliases::Fold,
+        )
+        .unwrap();
+        assert!(is_within(&original, &folded) && is_within(&folded, &original));
+        assert!(!is_within(&other, &folded));
+        assert!(folded.is_absolute());
+    }
+
     /// **`resolve` 里那个折叠必须有测试盯着 —— 而且要走 `resolve`。**
     ///
     /// 这条测试的上一版不合格,是一次独立复核用变异测试证明的:它调的是
@@ -1367,6 +1501,7 @@ mod tests {
     /// 而它验的只是那个辅助函数和自己一致。
     ///
     /// 那正是这个仓库反复提防的形状:机制存在、被直接测过、然后什么都没接上。
+    #[cfg(unix)]
     #[test]
     fn resolve在macos模式下折叠数据卷前缀() {
         let ctx = || ResolveContext::with(Some("/home/agent"), Some("/home/agent"));
@@ -1409,6 +1544,7 @@ mod tests {
     ///
     /// 原来的理由是"Linux 上没有 `/System/Volumes/Data` 这种路径" —— 那是对文件系统的
     /// 假设,不是函数的性质,而且没有任何东西在保证它。
+    #[cfg(unix)]
     #[test]
     fn 非macos平台上别名路径不被判成在天花板内() {
         let ctx = || ResolveContext::with(Some("/tmp"), Some("/tmp"));
@@ -1527,6 +1663,7 @@ mod tests {
     }
 
     /// 数据卷根本身折成 `/`,不能折出一个相对路径。
+    #[cfg(unix)]
     #[test]
     fn 数据卷根折成根() {
         assert_eq!(
@@ -1570,10 +1707,15 @@ mod tests {
 
     #[test]
     fn 波浪号展开成家目录() {
-        assert_eq!(resolve("~", ctx()).unwrap(), PathBuf::from("/home/agent"));
+        let context = ctx();
+        let home = context.home.clone().unwrap();
         assert_eq!(
-            resolve("~/proj/a.txt", ctx()).unwrap(),
-            PathBuf::from("/home/agent/proj/a.txt")
+            resolve("~", context.clone()).unwrap(),
+            resolve_absolute(&home)
+        );
+        assert_eq!(
+            resolve("~/proj/a.txt", context).unwrap(),
+            resolve_absolute(&home.join("proj").join("a.txt"))
         );
     }
 
@@ -1587,10 +1729,9 @@ mod tests {
 
     #[test]
     fn 相对路径按基准目录变绝对() {
-        assert_eq!(
-            resolve("build/out", ctx()).unwrap(),
-            PathBuf::from("/home/agent/proj/build/out")
-        );
+        let context = ctx();
+        let expected = resolve_absolute(&context.cwd.as_ref().unwrap().join("build").join("out"));
+        assert_eq!(resolve("build/out", context).unwrap(), expected);
     }
 
     #[test]
@@ -1601,14 +1742,20 @@ mod tests {
 
     #[test]
     fn 双点被解开并且不能越过根() {
-        assert_eq!(
-            resolve("/home/agent/proj/../other", ctx()).unwrap(),
-            PathBuf::from("/home/agent/other")
+        let context = ctx();
+        let cwd = context.cwd.as_ref().unwrap();
+        let home = context.home.as_ref().unwrap();
+        let sibling = cwd.join("..").join("other");
+        assert_same_path(
+            &resolve(&sibling.to_string_lossy(), context.clone()).unwrap(),
+            &resolve_absolute(&home.join("other")),
         );
         // 一串 `..` 顶到根就停住，不会归约出根之外的东西。
-        assert_eq!(
-            resolve("/a/../../../../etc", ctx()).unwrap(),
-            PathBuf::from("/etc")
+        let root = root_of(cwd);
+        let escaped = root.join("a").join("..").join("..").join("..").join("etc");
+        assert_same_path(
+            &resolve(&escaped.to_string_lossy(), context).unwrap(),
+            &resolve_absolute(&root.join("etc")),
         );
     }
 
@@ -1625,6 +1772,32 @@ mod tests {
         // 一个通配符可以展开到授权之外，所以它证明不了包含关系。
         for g in ["~/ws/*", "/tmp/a?.log", "/tmp/[abc]"] {
             assert!(resolve(g, ctx()).is_err(), "{g} 应当归约失败");
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_verbatim_前缀不是通配符而后续通配仍拒绝() {
+        let no_base = ResolveContext::with(None::<&str>, None::<&str>);
+        assert!(
+            resolve(r"\\?\C:\AgentGuard\out.txt", no_base.clone()).is_ok(),
+            "固定的 \\?\\ 前缀不应被当成 glob"
+        );
+        assert!(resolve(r"\\?\C:\AgentGuard\?.txt", no_base.clone()).is_err());
+        assert!(resolve(r"\\?\C:\AgentGuard\*.txt", no_base.clone()).is_err());
+        assert!(
+            resolve(r"\\?\UNC\server\share\out.txt", no_base.clone()).is_ok(),
+            "verbatim UNC 应当可归约"
+        );
+        for unsupported in [
+            r"\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\Windows\System32",
+            r"\\?\Volume{00000000-0000-0000-0000-000000000000}\Windows",
+            r"\\?\PIPE\agentguard",
+        ] {
+            assert!(
+                resolve(unsupported, no_base.clone()).is_err(),
+                "其它 verbatim 命名空间必须 fail-closed：{unsupported}"
+            );
         }
     }
 
@@ -1658,24 +1831,46 @@ mod tests {
         ));
     }
 
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_普通与_verbatim_前缀按真实位置比较() {
+        assert!(is_within(
+            Path::new(r"C:\Windows"),
+            Path::new(r"\\?\C:\Windows\System32")
+        ));
+        assert!(!is_within(
+            Path::new(r"C:\Windows"),
+            Path::new(r"\\?\D:\Windows\System32")
+        ));
+        assert!(is_within(
+            Path::new(r"\\server\share\root"),
+            Path::new(r"\\?\UNC\SERVER\SHARE\root\child")
+        ));
+        assert!(!is_within(
+            Path::new(r"\\server\share\root"),
+            Path::new(r"\\?\UNC\server\other\root\child")
+        ));
+    }
+
     #[test]
     fn 工作区的写授权隐含读授权而反之不然() {
-        let (ws, rejected) = Workspace::new(vec!["/home/agent/docs"], vec!["/home/agent/proj/out"]);
+        let fixture = ctx().home.unwrap();
+        let docs = fixture.join("docs").to_string_lossy().into_owned();
+        let out = fixture
+            .join("proj")
+            .join("out")
+            .to_string_lossy()
+            .into_owned();
+        let (ws, rejected) = Workspace::new(vec![docs], vec![out]);
         assert!(rejected.is_empty(), "{rejected:?}");
+        let docs = &ws.read_grants()[0];
+        let out = &ws.write_grants()[0];
         // 写授权内可读。
-        assert!(ws
-            .contains(Path::new("/home/agent/proj/out/a"), PathIntent::Read)
-            .is_some());
-        assert!(ws
-            .contains(Path::new("/home/agent/proj/out/a"), PathIntent::Write)
-            .is_some());
+        assert!(ws.contains(&out.join("a"), PathIntent::Read).is_some());
+        assert!(ws.contains(&out.join("a"), PathIntent::Write).is_some());
         // 只读授权内不可写。
-        assert!(ws
-            .contains(Path::new("/home/agent/docs/a"), PathIntent::Read)
-            .is_some());
-        assert!(ws
-            .contains(Path::new("/home/agent/docs/a"), PathIntent::Write)
-            .is_none());
+        assert!(ws.contains(&docs.join("a"), PathIntent::Read).is_some());
+        assert!(ws.contains(&docs.join("a"), PathIntent::Write).is_none());
     }
 
     #[test]
@@ -1717,6 +1912,26 @@ mod tests {
         assert!(sensitive_target(Path::new("/etc/hosts"), PathIntent::Write).is_some());
         // 读 /etc/hosts 是正常操作，拒了它会让工具没法用。
         assert!(sensitive_target(Path::new("/etc/hosts"), PathIntent::Read).is_none());
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_verbatim_系统目录仍然敏感() {
+        assert!(sensitive_target(
+            Path::new(r"\\?\C:\Windows\System32\config\SAM"),
+            PathIntent::Write
+        )
+        .is_some());
+        assert!(sensitive_target(
+            Path::new(r"\\?\C:\ProgramData\AgentGuard\state.db"),
+            PathIntent::Delete
+        )
+        .is_some());
+        assert!(sensitive_target(
+            Path::new(r"\\?\C:\Users\agent\Documents\notes.txt"),
+            PathIntent::Write
+        )
+        .is_none());
     }
 
     #[test]

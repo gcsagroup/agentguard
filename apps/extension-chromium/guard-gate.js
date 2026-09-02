@@ -169,6 +169,24 @@
     return { persistent, session, active };
   }
 
+  /**
+   * 清理过期会话主机时保留管理界面需要的规则溯源。
+   *
+   * `mergeBlocklist` 只负责主机集合；后台若直接用它的返回值覆盖状态，会把
+   * `provenance` 静默丢掉。把重建动作集中在这里，两个调用点使用同一语义。
+   */
+  function pruneBlocklist(state, now) {
+    const merged = mergeBlocklist(state, [], [], now);
+    const provenance =
+      state && state.provenance && typeof state.provenance === "object" ? state.provenance : {};
+    return {
+      persistent: merged.persistent,
+      session: merged.session,
+      active: merged.active,
+      provenance,
+    };
+  }
+
   // 一个观察到的主机是否落在允许表条目 `entry` 之内:精确相等,或它的子域(E9)。
   //
   // 这是 Rust 端 `guard_schema::host_in_scope` 的 JS 镜像,**安全攸关**:点边界是关键——裸
@@ -220,6 +238,7 @@
     buildBlockRules,
     classifyRequest,
     mergeBlocklist,
+    pruneBlocklist,
     hostInScope,
     scopeGateHost,
     SESSION_TTL_MS,

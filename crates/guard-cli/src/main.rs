@@ -12,6 +12,7 @@ use android_adapter::{
 use anyhow::{Context, Result};
 use browser_adapter::BrowserAdapter;
 use clap::{Parser, Subcommand};
+use evidence::EvidenceKind;
 use guard_audit::{
     sqlcipher_enabled, AuditSigner, AuditStore, AuditVerifyKey, FileDeviceKey, HeadWitness,
     SessionReport,
@@ -450,6 +451,57 @@ enum Commands {
         #[arg(long, default_value = guard_schema::ANDROID_ENVELOPE_FORMAT)]
         format: String,
     },
+    /// 校验一份固定平台验收报告及其逐项证据，成功时输出唯一机器标记。
+    ManualAcceptance {
+        /// 固定平台名：macos、android、firefox 或 windows。
+        platform: String,
+        /// 对应平台的仓库内固定验收清单路径。
+        checklist: String,
+        /// 对应平台 evidence/ 目录下的验收报告。
+        report: String,
+        /// 仓库根目录；报告和每个逐项证据都必须位于其中。
+        #[arg(long)]
+        repo_root: PathBuf,
+    },
+    /// 生成一份故意不能直接通过门禁的结构化发布证据模板。
+    ///
+    /// 填写实际命令、退出码、时间、输出，以及仓库内产物路径和 SHA-256 后，
+    /// 再用 `evidence-verify` 现场复核。模板本身永远不是发布凭据。
+    EvidenceTemplate {
+        #[arg(long)]
+        kind: EvidenceKind,
+        /// 要绑定的完整 40 位 HEAD；省略时模板保留明确占位值。
+        #[arg(long)]
+        commit: Option<String>,
+    },
+    /// 计算发布证据使用的摘要：普通文件为 SHA-256，`.app` 为确定性 tree-v2 SHA-256。
+    EvidenceDigest {
+        /// 仓库根目录；摘要目标必须位于其中且使用仓库相对路径。
+        #[arg(long)]
+        repo_root: PathBuf,
+        #[arg(long)]
+        path: String,
+    },
+    /// 复核一份结构化发布证据，并现场重算仓库内产物的 SHA-256。
+    EvidenceVerify {
+        #[arg(long)]
+        kind: EvidenceKind,
+        #[arg(long)]
+        file: PathBuf,
+        /// 门禁当前所在仓库的根目录。产物只能使用这个目录下的相对路径。
+        #[arg(long)]
+        repo_root: PathBuf,
+        /// 门禁当前完整 HEAD；证据里的 commit 必须与它精确相等。
+        #[arg(long)]
+        commit: String,
+        /// 当前 HEAD 的提交时间（Unix epoch 秒）；证据不得早于它。
+        #[arg(long)]
+        commit_time: i64,
+        /// 仓库外受控的预期签名者：macOS Team ID，或 Windows/Android 证书 SHA-256。
+        /// 四类签名证据必填；四类验收证据不得填写。
+        #[arg(long)]
+        expected_signer: Option<String>,
+    },
     /// 部署自检:把已记录的限制变成上线之前会看到的东西。
     ///
     /// 有任何 FAIL 时退出码为 1,可以直接当 CI 门禁。
@@ -738,45 +790,29 @@ enum Commands {
         #[arg(long)]
         allow_incomparable: bool,
     },
-    /// 校验一份结构化发布证据(release-gate 的证据检查走这里,不再 grep 关键词)。
-    ///
-    /// 证据必须是 JSON:绑定 commit、产物 SHA-256、命令、退出码、时间。真机报告 P0-1
-    /// 用六个指向 release-gate.sh 自身的变量拿到过"全部通过"——那种证据在这里过不了
-    /// JSON 解析这第一关。防伪边界见 evidence.rs 模块文档:防手滑与懒,不防全字段伪造
-    ///(那需要签名证据,阶段 D)。
-    EvidenceVerify {
-        /// 证据种类,见 evidence::KINDS(macos_codesign / android_sign / acceptance_macos …)。
-        #[arg(long)]
-        kind: String,
-        /// 证据 JSON 文件。
-        #[arg(long)]
-        file: PathBuf,
-    },
-    /// 打印一份证据 JSON 骨架(绑定当前 HEAD),验收与签名流程照着填。
-    EvidenceTemplate {
-        #[arg(long)]
-        kind: String,
-    },
 }
 
-fn head_commit() -> Result<String> {
-    let out = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .map_err(|e| anyhow::anyhow!("跑不了 git rev-parse:{e}"))?;
-    if !out.status.success() {
-        anyhow::bail!("git rev-parse HEAD 失败 —— 不在 git 仓库里,证据无从绑定提交");
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
-}
-
-fn file_sha256(path: &str) -> Option<String> {
-    use sha2::{Digest, Sha256};
-    let bytes = std::fs::read(path).ok()?;
-    Some(format!("{:x}", Sha256::digest(bytes)))
-}
-
+#[cfg(windows)]
 fn main() -> Result<()> {
+    // Windows 可执行文件的默认主线程栈不足以稳定构建当前规模的 clap 命令树；
+    // CLI 会在进入任何子命令前直接 stack overflow。只在 Windows 把同一入口放到
+    // 显式栈大小的线程中，命令语义、标准输入输出与退出码保持不变。
+    let worker = std::thread::Builder::new()
+        .name("guard-cli".to_string())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(run_cli)
+        .context("启动 guard-cli Windows 工作线程")?;
+    worker
+        .join()
+        .map_err(|_| anyhow::anyhow!("guard-cli Windows 工作线程异常终止"))?
+}
+
+#[cfg(not(windows))]
+fn main() -> Result<()> {
+    run_cli()
+}
+
+fn run_cli() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
         Commands::TestRule { rules, rule_id } => {
@@ -1764,6 +1800,47 @@ fn main() -> Result<()> {
                 println!("clean");
             }
         }
+        Commands::ManualAcceptance {
+            platform,
+            checklist,
+            report,
+            repo_root,
+        } => {
+            println!(
+                "{}",
+                evidence::manual_acceptance(&platform, &checklist, &report, &repo_root)?
+            );
+        }
+        Commands::EvidenceTemplate { kind, commit } => {
+            let template = evidence::evidence_template(kind, commit.as_deref());
+            println!("{}", serde_json::to_string_pretty(&template)?);
+        }
+        Commands::EvidenceDigest { repo_root, path } => {
+            println!("{}", evidence::artifact_digest(&repo_root, &path)?);
+        }
+        Commands::EvidenceVerify {
+            kind,
+            file,
+            repo_root,
+            commit,
+            commit_time,
+            expected_signer,
+        } => {
+            let proof = evidence::read_evidence_file(&file)?;
+            evidence::verify_evidence(
+                &proof,
+                kind,
+                &commit,
+                commit_time,
+                expected_signer.as_deref().filter(|value| !value.is_empty()),
+                &repo_root,
+                &file,
+            )?;
+            println!(
+                "VERIFIED kind={} commit={} artifact={} sha256={}",
+                kind, proof.commit, proof.artifact.path, proof.artifact.sha256
+            );
+        }
         Commands::Preflight {
             rules,
             agent_registry,
@@ -2644,41 +2721,6 @@ fn main() -> Result<()> {
                     a.incomparable_reasons.join("; ")
                 );
             }
-        }
-        Commands::EvidenceVerify { kind, file } => {
-            let text = std::fs::read_to_string(&file)
-                .map_err(|e| anyhow::anyhow!("读不了证据文件 {}:{e}", file.display()))?;
-            let head = head_commit()?;
-            match evidence::verify(&kind, &text, &head, &|p| file_sha256(p)) {
-                Ok(v) => {
-                    println!("证据校验通过:{kind} ← {}", file.display());
-                    for n in v.notes {
-                        println!("  备注:{n}");
-                    }
-                }
-                Err(errors) => {
-                    eprintln!("证据校验失败:{kind} ← {}", file.display());
-                    for e in &errors {
-                        eprintln!("  - {e}");
-                    }
-                    eprintln!("{} 个问题;这份证据不能作为发布依据", errors.len());
-                    std::process::exit(1);
-                }
-            }
-        }
-        Commands::EvidenceTemplate { kind } => {
-            let head = head_commit()?;
-            let Some(t) = evidence::template(&kind, &head) else {
-                anyhow::bail!(
-                    "未知证据种类 '{kind}'。可用:{}",
-                    evidence::KINDS
-                        .iter()
-                        .map(|k| k.name)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
-            };
-            println!("{t}");
         }
     }
     Ok(())

@@ -43,6 +43,18 @@ test("两份 manifest 的权限集一致", () => {
   assert.deepEqual([...(firefox.permissions || [])].sort(), [...(chrome.permissions || [])].sort());
 });
 
+test("两份 manifest 的商店版本一致", () => {
+  assert.equal(firefox.version, chrome.version, "Firefox 与 Chromium 的商店版本漂移了");
+});
+
+test("两种浏览器后台都运行同一模块入口", () => {
+  assert.equal(chrome.background?.service_worker, "background.js", "Chromium MV3 后台应使用 service worker");
+  assert.deepEqual(firefox.background?.scripts, ["background.js"], "Firefox MV3 后台应使用 event page scripts");
+  assert.ok(!firefox.background?.service_worker, "Firefox 不支持扩展 background service worker");
+  assert.equal(chrome.background?.type, "module");
+  assert.equal(firefox.background?.type, "module");
+});
+
 test("两份 manifest 都声明了 MAIN world 的 fetch 门", () => {
   for (const [name, m] of [["chrome", chrome], ["firefox", firefox]]) {
     const hasMain = (m.content_scripts || []).some(

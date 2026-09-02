@@ -148,12 +148,14 @@ check-shells:
 	@set -e; find . -name '*.sh' -not -path './target/*' -print0 | xargs -0 -n1 bash -n
 	@echo "shell scripts parse"
 
-# 浏览器执行前阻断的纯决策逻辑单测(E2)+ 跨浏览器 manifest 一致性(E4)+ 人话词典(E16)。
-# DOM 接线只 node --check;真 Chrome/Firefox E2E 未验证。
+# 浏览器执行前阻断的纯决策逻辑单测(E2)+ click→submit DOM 事件链(E2)+
+# 跨浏览器 manifest 一致性(E4)+ 人话词典(E16)。真 Chrome/Firefox E2E 未验证。
 check-extension-gate:
 	node apps/extension-chromium/scripts/gate.test.mjs
+	node apps/extension-chromium/scripts/content-event.test.mjs
 	node apps/extension-chromium/scripts/manifests.test.mjs
 	node apps/extension-chromium/scripts/strings.test.mjs
+	bash apps/extension-chromium/scripts/package-store.test.sh
 
 ## E16 视觉冒烟(开发工具,不进 release-gate:需要 playwright+Chromium)。
 ## 真渲染确认弹层与 popup → 截图到 eval/ui-preview/out/ + 行为断言(先不要挡住/允许重放/可见文本无裸术语)。

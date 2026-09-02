@@ -6,13 +6,13 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-<!-- 信息架构(E16):第一眼是"我被守护着吗 + 今天发生了什么",
-         其次才是最近发现和拦截名单;语言/桌面端转发是设置,收进齿轮,不占首屏。
-         品牌图用 assets/agentguard-mark-white.png(canonical 的打包脚本已带上它)。 -->
+    <!-- 第一眼呈现守护状态与当日摘要；语言和桌面端连接收进设置面板。 -->
     <div class="row header">
-      <img class="brand-mark" src="assets/agentguard-mark-white.png" alt="" />
-      <span class="dot on" id="status-dot"></span>
-      <h1>AgentGuard</h1>
+      <div class="brand">
+        <img class="brand-mark" src="assets/agentguard-mark-white.png" alt="" />
+        <span class="dot on" id="status-dot"></span>
+        <h1 data-i18n="extensionName">AgentGuard Web Shield</h1>
+      </div>
       <button id="btn-settings" class="ghost" data-i18n="settings">Settings</button>
     </div>
 

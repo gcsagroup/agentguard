@@ -1,6 +1,6 @@
 // 副作用导入:执行 guard-gate.js / guard-strings.js 的 IIFE,把纯逻辑挂到
 // self.AgentGuardGate / self.AgentGuardStrings。内容脚本按 manifest 顺序拿到
-// 同一份文件;这里 background(module service worker)靠 import 拿到。
+// 同一份文件;这里 background(module:Chromium service worker / Firefox event page)靠 import 拿到。
 import "./guard-gate.js";
 import "./guard-strings.js";
 
@@ -223,11 +223,11 @@ async function installActive() {
   const Gate = self.AgentGuardGate;
   if (!Gate || !chrome.declarativeNetRequest) return;
   // 用一次空合并把过期项剪掉,拿到当前 active 与清理后的 session。
-  const merged = Gate.mergeBlocklist(blocklist, [], [], Date.now());
+  const merged = Gate.pruneBlocklist(blocklist, Date.now());
   blocklist = {
     persistent: merged.persistent,
     session: merged.session,
-    provenance: blocklist.provenance || {},
+    provenance: merged.provenance,
   };
   try {
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
@@ -326,8 +326,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === "get_blocklist") {
     const Gate = self.AgentGuardGate;
     if (Gate) {
-      const merged = Gate.mergeBlocklist(blocklist, [], [], Date.now());
-      blocklist = { persistent: merged.persistent, session: merged.session };
+      const merged = Gate.pruneBlocklist(blocklist, Date.now());
+      blocklist = {
+        persistent: merged.persistent,
+        session: merged.session,
+        provenance: merged.provenance,
+      };
     }
     const prov = blocklist.provenance || {};
     sendResponse({

@@ -670,9 +670,80 @@ impl SafeShell {
     }
 }
 
+/// 测试里的路径必须使用目标平台真正的绝对路径语法。
+///
+/// 这些测试会交叉编译并在 Windows 真机运行；把 `/home`、`/tmp`、`/etc` 写死会让
+/// `std::path::Path` 在 Windows 上把它们当成相对路径，测到的就不再是 B0/B5 的边界语义。
+#[cfg(test)]
+mod platform_test_paths {
+    pub const HOME: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agent"
+    } else {
+        "/home/agent"
+    };
+    pub const WORKSPACE: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agent\proj"
+    } else {
+        "/home/agent/proj"
+    };
+    pub const WORKSPACE_OUT: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agent\proj\out"
+    } else {
+        "/home/agent/proj/out"
+    };
+    pub const ROOT: &str = if cfg!(target_os = "windows") {
+        r"C:\"
+    } else {
+        "/"
+    };
+    pub const SYSTEM_FILE: &str = if cfg!(target_os = "windows") {
+        r"C:\Windows\System32\drivers\etc\hosts"
+    } else {
+        "/etc/hosts"
+    };
+    pub const SYSTEM_READABLE_FILE: &str = if cfg!(target_os = "windows") {
+        r"C:\Windows\win.ini"
+    } else {
+        "/etc/passwd"
+    };
+    pub const SYSTEM_DESTINATION: &str = if cfg!(target_os = "windows") {
+        r"C:\Windows\Temp\agentguard-evil.conf"
+    } else {
+        "/etc/cron.d/evil"
+    };
+    pub const ORDINARY_FILE: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agent\AppData\Local\Temp\agentguard-test\notes.txt"
+    } else {
+        "/tmp/agentguard-test/notes.txt"
+    };
+    pub const B5_HOME: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agentguard-b5"
+    } else {
+        "/tmp/ag-b5/home"
+    };
+    pub const B5_WORKSPACE: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agentguard-b5\ws"
+    } else {
+        "/tmp/ag-b5/ws"
+    };
+    pub const B5_OUTSIDE: &str = if cfg!(target_os = "windows") {
+        r"C:\Users\agentguard-b5\outside"
+    } else {
+        "/tmp/ag-b5/outside"
+    };
+
+    pub fn join(base: &str, tail: &str) -> String {
+        std::path::Path::new(base)
+            .join(tail)
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform_test_paths as test_paths;
 
     #[test]
     fn allowlisted_read_file() {
@@ -708,7 +779,7 @@ mod tests {
         let verdict = shell.evaluate(&ShellAction {
             tool: "write_file".into(),
             action: None,
-            target: Some("/etc/hosts".into()),
+            target: Some(test_paths::SYSTEM_FILE.into()),
             args: vec![],
         });
         assert_eq!(verdict.decision, ShellDecision::Deny, "{verdict:?}");
@@ -723,7 +794,7 @@ mod tests {
             shell.propose(&ShellAction {
                 tool: "write_file".into(),
                 action: None,
-                target: Some("/tmp/agentguard-test/notes.txt".into()),
+                target: Some(test_paths::ORDINARY_FILE.into()),
                 args: vec![],
             }),
             ShellDecision::Ask
@@ -863,7 +934,7 @@ mod tests {
         let action = ShellAction {
             tool: "grep".into(),
             action: None,
-            target: Some("/Users/me/notes 2026.txt".into()),
+            target: Some(test_paths::join(test_paths::HOME, "notes 2026.txt")),
             args: vec!["-n".into(), "TODO:".into(), "--color=auto".into()],
         };
         let v = shell.evaluate(&action);
@@ -903,15 +974,16 @@ mod tests {
 #[cfg(test)]
 mod b0_四种删除必须分开 {
     use super::*;
+    use crate::platform_test_paths as test_paths;
 
     /// 声明了工作区的守卫，家目录和基准目录都注入，不依赖运行测试的机器。
     fn shell_with_workspace() -> SafeShell {
         let (shell, rejected) = SafeShell::from_default_policy()
-            .with_workspace(vec!["/home/agent/proj"], vec!["/home/agent/proj"]);
+            .with_workspace(vec![test_paths::WORKSPACE], vec![test_paths::WORKSPACE]);
         assert!(rejected.is_empty(), "授权条目应当全部可归约: {rejected:?}");
         shell.with_resolve_context(paths::ResolveContext::with(
-            Some("/home/agent"),
-            Some("/home/agent/proj"),
+            Some(test_paths::HOME),
+            Some(test_paths::WORKSPACE),
         ))
     }
 
@@ -926,7 +998,7 @@ mod b0_四种删除必须分开 {
 
     #[test]
     fn 一_删项目目录_落在授权内_走确认() {
-        let v = shell_with_workspace().evaluate(&find_delete("/home/agent/proj"));
+        let v = shell_with_workspace().evaluate(&find_delete(test_paths::WORKSPACE));
         assert_eq!(v.decision, ShellDecision::Ask, "{v:?}");
         // 落在写授权内，所以路径层没有意见，交给 require_confirm。删除仍然值得问一句。
         assert_eq!(v.rule_id, "SHELL-CONFIRM", "{v:?}");
@@ -934,7 +1006,7 @@ mod b0_四种删除必须分开 {
 
     #[test]
     fn 二_删根目录_无条件拒绝() {
-        let v = shell_with_workspace().evaluate(&find_delete("/"));
+        let v = shell_with_workspace().evaluate(&find_delete(test_paths::ROOT));
         assert_eq!(v.decision, ShellDecision::Deny, "{v:?}");
         assert_eq!(v.rule_id, "SHELL-PATH-SENSITIVE", "{v:?}");
     }
@@ -944,7 +1016,7 @@ mod b0_四种删除必须分开 {
         let v = shell_with_workspace().evaluate(&ShellAction {
             tool: "run_terminal".into(),
             action: Some("rm".into()),
-            target: Some("/".into()),
+            target: Some(test_paths::ROOT.into()),
             args: vec!["-rf".into()],
         });
         assert_eq!(v.decision, ShellDecision::Deny, "{v:?}");
@@ -967,12 +1039,12 @@ mod b0_四种删除必须分开 {
         // （前两种删除都是 SENSITIVE，这是对的——它们本来就是同一类错误。）
         let shell = shell_with_workspace();
         let verdicts = [
-            shell.evaluate(&find_delete("/home/agent/proj")),
-            shell.evaluate(&find_delete("/")),
+            shell.evaluate(&find_delete(test_paths::WORKSPACE)),
+            shell.evaluate(&find_delete(test_paths::ROOT)),
             shell.evaluate(&ShellAction {
                 tool: "run_terminal".into(),
                 action: Some("rm".into()),
-                target: Some("/".into()),
+                target: Some(test_paths::ROOT.into()),
                 args: vec!["-rf".into()],
             }),
             shell.evaluate(&find_delete("")),
@@ -994,7 +1066,8 @@ mod b0_四种删除必须分开 {
 
     #[test]
     fn 授权之外的删除被拒而不是被问() {
-        let v = shell_with_workspace().evaluate(&find_delete("/home/agent/other"));
+        let outside = test_paths::join(test_paths::HOME, "other");
+        let v = shell_with_workspace().evaluate(&find_delete(&outside));
         assert_eq!(v.decision, ShellDecision::Deny, "{v:?}");
         assert_eq!(v.rule_id, "SHELL-PATH-OUTSIDE", "{v:?}");
     }
@@ -1002,7 +1075,8 @@ mod b0_四种删除必须分开 {
     #[test]
     fn 用双点绕出授权也被拒() {
         // 词法上 `/home/agent/proj/../other` 的前缀是授权目录，归约之后不是。
-        let v = shell_with_workspace().evaluate(&find_delete("/home/agent/proj/../other"));
+        let escaped = test_paths::join(test_paths::WORKSPACE, "../other");
+        let v = shell_with_workspace().evaluate(&find_delete(&escaped));
         assert_eq!(v.decision, ShellDecision::Deny, "{v:?}");
         assert_eq!(v.rule_id, "SHELL-PATH-OUTSIDE", "{v:?}");
     }
@@ -1012,14 +1086,15 @@ mod b0_四种删除必须分开 {
         // 没有天花板就证明不了包含关系。这里不能判 Deny——那会让一个没配置策略的宿主
         // 无法做任何删除；也不能判 Allow。理由必须说清是"没声明"。
         let shell = SafeShell::from_default_policy().with_resolve_context(
-            paths::ResolveContext::with(Some("/home/agent"), Some("/home/agent/proj")),
+            paths::ResolveContext::with(Some(test_paths::HOME), Some(test_paths::WORKSPACE)),
         );
-        let v = shell.evaluate(&find_delete("/home/agent/proj/build"));
+        let build = test_paths::join(test_paths::WORKSPACE, "build");
+        let v = shell.evaluate(&find_delete(&build));
         assert_eq!(v.decision, ShellDecision::Ask, "{v:?}");
         assert_eq!(v.rule_id, "SHELL-PATH-UNSCOPED", "{v:?}");
         assert!(v.detail.contains("task-plans"), "要指出去哪里声明: {v:?}");
         // 但即使没声明，根目录仍然被拒。
-        let v = shell.evaluate(&find_delete("/"));
+        let v = shell.evaluate(&find_delete(test_paths::ROOT));
         assert_eq!(v.rule_id, "SHELL-PATH-SENSITIVE", "{v:?}");
     }
 
@@ -1034,7 +1109,8 @@ mod b0_四种删除必须分开 {
 
     #[test]
     fn 通配符删除不放行() {
-        let v = shell_with_workspace().evaluate(&find_delete("/home/agent/proj/*"));
+        let wildcard = test_paths::join(test_paths::WORKSPACE, "*");
+        let v = shell_with_workspace().evaluate(&find_delete(&wildcard));
         assert_ne!(v.decision, ShellDecision::Allow, "{v:?}");
         assert_eq!(v.rule_id, "SHELL-PATH-UNPROVABLE", "{v:?}");
     }
@@ -1044,7 +1120,7 @@ mod b0_四种删除必须分开 {
         let v = shell_with_workspace().evaluate(&ShellAction {
             tool: "read_file".into(),
             action: None,
-            target: Some("/home/agent/.ssh/id_rsa".into()),
+            target: Some(test_paths::join(test_paths::HOME, ".ssh/id_rsa")),
             args: vec![],
         });
         assert_eq!(v.decision, ShellDecision::Deny, "{v:?}");
@@ -1057,7 +1133,7 @@ mod b0_四种删除必须分开 {
         let v = shell_with_workspace().evaluate(&ShellAction {
             tool: "read_file".into(),
             action: None,
-            target: Some("/home/agent/proj/src/main.rs".into()),
+            target: Some(test_paths::join(test_paths::WORKSPACE, "src/main.rs")),
             args: vec![],
         });
         assert_eq!(v.decision, ShellDecision::Allow, "{v:?}");
@@ -1072,14 +1148,15 @@ mod b0_四种删除必须分开 {
 #[cfg(test)]
 mod b0_自查回归 {
     use super::*;
+    use crate::platform_test_paths as test_paths;
 
     fn shell() -> SafeShell {
         let (s, rejected) = SafeShell::from_default_policy()
-            .with_workspace(vec!["/home/agent/proj"], vec!["/home/agent/proj/out"]);
+            .with_workspace(vec![test_paths::WORKSPACE], vec![test_paths::WORKSPACE_OUT]);
         assert!(rejected.is_empty(), "{rejected:?}");
         s.with_resolve_context(paths::ResolveContext::with(
-            Some("/home/agent"),
-            Some("/home/agent/proj"),
+            Some(test_paths::HOME),
+            Some(test_paths::WORKSPACE),
         ))
     }
 
@@ -1090,8 +1167,8 @@ mod b0_自查回归 {
         let v = shell().evaluate(&ShellAction {
             tool: "run_terminal".into(),
             action: Some("cp".into()),
-            target: Some("/etc/passwd".into()),
-            args: vec!["/home/agent/proj/out/passwd.bak".into()],
+            target: Some(test_paths::SYSTEM_READABLE_FILE.into()),
+            args: vec![test_paths::join(test_paths::WORKSPACE_OUT, "passwd.bak")],
         });
         assert_ne!(
             v.rule_id, "SHELL-PATH-SENSITIVE",
@@ -1107,8 +1184,8 @@ mod b0_自查回归 {
         let v = shell().evaluate(&ShellAction {
             tool: "run_terminal".into(),
             action: Some("cp".into()),
-            target: Some("/home/agent/proj/out/evil.conf".into()),
-            args: vec!["/etc/cron.d/evil".into()],
+            target: Some(test_paths::join(test_paths::WORKSPACE_OUT, "evil.conf")),
+            args: vec![test_paths::SYSTEM_DESTINATION.into()],
         });
         assert_eq!(v.decision, ShellDecision::Deny, "{v:?}");
         assert_eq!(v.rule_id, "SHELL-PATH-SENSITIVE", "{v:?}");
@@ -1120,7 +1197,7 @@ mod b0_自查回归 {
         let v = shell().evaluate(&ShellAction {
             tool: "read_file".into(),
             action: None,
-            target: Some("/home/agent/proj/.sshfoo/notes.txt".into()),
+            target: Some(test_paths::join(test_paths::WORKSPACE, ".sshfoo/notes.txt")),
             args: vec![],
         });
         assert_ne!(v.rule_id, "SHELL-PATH-SENSITIVE", "{v:?}");
@@ -1128,7 +1205,7 @@ mod b0_自查回归 {
         let v = shell().evaluate(&ShellAction {
             tool: "read_file".into(),
             action: None,
-            target: Some("/home/agent/.ssh/id_rsa".into()),
+            target: Some(test_paths::join(test_paths::HOME, ".ssh/id_rsa")),
             args: vec![],
         });
         assert_eq!(v.rule_id, "SHELL-PATH-SENSITIVE", "{v:?}");
@@ -1139,7 +1216,7 @@ mod b0_自查回归 {
         // 第一版在函数里读 `$HOME`，`$HOME` 没设时"删家目录"那条检查静默不跑 ——
         // 一个悄悄不执行的检查，在返回值上和一个通过了的检查无法区分。
         use paths::{sensitive_target_with_home, PathIntent};
-        let home = std::path::Path::new("/home/agent");
+        let home = std::path::Path::new(test_paths::HOME);
         assert!(
             sensitive_target_with_home(home, PathIntent::Delete, Some(home)).is_some(),
             "删家目录必须敏感"
@@ -1147,8 +1224,12 @@ mod b0_自查回归 {
         // 不知道家目录时这条检查不成立，但函数仍然要对其他类别给出答案。
         assert!(sensitive_target_with_home(home, PathIntent::Delete, None).is_none());
         assert!(
-            sensitive_target_with_home(std::path::Path::new("/"), PathIntent::Delete, None)
-                .is_some(),
+            sensitive_target_with_home(
+                std::path::Path::new(test_paths::ROOT),
+                PathIntent::Delete,
+                None
+            )
+            .is_some(),
             "根目录不依赖家目录也必须敏感"
         );
     }
@@ -1186,15 +1267,18 @@ mod b0_自查回归 {
 mod b5_路径模型复核 {
     use super::*;
     use crate::paths::ResolveContext;
+    use crate::platform_test_paths as test_paths;
     use std::path::PathBuf;
 
     fn sh() -> SafeShell {
-        let (s, rejected) = SafeShell::from_policy(ShellPolicy::default_embedded())
-            .with_workspace(vec!["/tmp/ag-b5/ws"], vec!["/tmp/ag-b5/ws"]);
+        let (s, rejected) = SafeShell::from_policy(ShellPolicy::default_embedded()).with_workspace(
+            vec![test_paths::B5_WORKSPACE],
+            vec![test_paths::B5_WORKSPACE],
+        );
         assert!(rejected.is_empty(), "夹具授权应当全部归约成功:{rejected:?}");
         s.with_resolve_context(ResolveContext {
-            home: Some(PathBuf::from("/tmp/ag-b5/home")),
-            cwd: Some(PathBuf::from("/tmp/ag-b5/ws")),
+            home: Some(PathBuf::from(test_paths::B5_HOME)),
+            cwd: Some(PathBuf::from(test_paths::B5_WORKSPACE)),
         })
     }
 
@@ -1224,6 +1308,7 @@ mod b5_路径模型复核 {
     #[test]
     fn 携带整条命令的操作数不能被归约成天花板内的路径() {
         let sh = sh();
+        #[cfg(not(target_os = "windows"))]
         for (verb, args) in [
             ("sh", vec!["-c", "rm -rf /"]),
             ("sh", vec!["-c", "find / -depth -delete"]),
@@ -1247,8 +1332,61 @@ mod b5_路径模型复核 {
                 if let Some(r) = &c.resolved {
                     let disp = r.display().to_string();
                     assert!(
-                        !disp.contains(' ') || !disp.starts_with("/tmp/ag-b5/ws"),
+                        !disp.contains(' ')
+                            || !paths::is_within(std::path::Path::new(test_paths::B5_WORKSPACE), r),
                         "把一条命令归约成了天花板内的路径:{disp}"
+                    );
+                }
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        for (verb, args) in [
+            ("cmd", vec!["/C", r"del /S /Q C:\"]),
+            (
+                "powershell",
+                vec!["-Command", r"Remove-Item -Recurse -Force C:\"],
+            ),
+            (
+                "powershell",
+                vec![
+                    "-Command",
+                    r"Get-Content -Path C:\Windows\System32\config\SAM",
+                ],
+            ),
+            (
+                "python",
+                vec![
+                    "-c",
+                    r"open(r'C:\Users\agentguard-b5\outside\p.txt','w').write('X')",
+                ],
+            ),
+            (
+                "powershell",
+                vec![
+                    "-Command",
+                    r"Remove-Item -Force C:\Users\agentguard-b5\outside\*",
+                ],
+            ),
+        ] {
+            let action = act("run_terminal", verb, args[0], &args[1..]);
+            let v = sh.evaluate(&action);
+            assert_ne!(
+                v.decision,
+                ShellDecision::Allow,
+                "{verb} {args:?} 被放行了 —— {}",
+                v.rule_id
+            );
+            for claim in sh.path_claims(&action) {
+                if let Some(resolved) = claim.resolved {
+                    assert!(
+                        !resolved.to_string_lossy().contains(' ')
+                            || !paths::is_within(
+                                std::path::Path::new(test_paths::B5_WORKSPACE),
+                                &resolved
+                            ),
+                        "把一条命令归约成了天花板内的路径:{}",
+                        resolved.display()
                     );
                 }
             }
@@ -1263,21 +1401,30 @@ mod b5_路径模型复核 {
     #[test]
     fn flag_里的路径也要被判() {
         let sh = sh();
+        let target_directory = format!("--target-directory={}", test_paths::SYSTEM_DESTINATION);
+        let output = format!("--output={}", test_paths::SYSTEM_FILE);
         for (verb, args) in [
-            ("cp", vec!["--target-directory=/etc/cron.d", "a.conf"]),
-            ("curl", vec!["--output=/etc/cron.d/x", "https://e.example"]),
-            ("tee", vec!["--output-error=warn", "/etc/hosts"]),
+            ("cp", vec![target_directory.as_str(), "a.conf"]),
+            ("curl", vec![output.as_str(), "https://e.example"]),
+            ("tee", vec!["--output-error=warn", test_paths::SYSTEM_FILE]),
         ] {
             let a = act("run_terminal", verb, args[0], &args[1..]);
             let claims = sh.path_claims(&a);
             let seen: Vec<&str> = claims.iter().map(|c| c.operand.as_str()).collect();
-            let has_etc = claims.iter().any(|c| {
-                c.operand.contains("/etc")
-                    || c.resolved.as_ref().is_some_and(|r| r.starts_with("/etc"))
+            let has_system_path = claims.iter().any(|c| {
+                c.operand.contains(test_paths::SYSTEM_FILE)
+                    || c.operand.contains(test_paths::SYSTEM_DESTINATION)
+                    || c.resolved.as_ref().is_some_and(|r| {
+                        paths::is_within(std::path::Path::new(test_paths::SYSTEM_FILE), r)
+                            || paths::is_within(
+                                std::path::Path::new(test_paths::SYSTEM_DESTINATION),
+                                r,
+                            )
+                    })
             });
             assert!(
-                has_etc,
-                "{verb} {args:?}:写进 /etc 的那个路径在判决里根本没出现 —— 看到的是 {seen:?}"
+                has_system_path,
+                "{verb} {args:?}:写进系统目录的那个路径在判决里根本没出现 —— 看到的是 {seen:?}"
             );
         }
     }
@@ -1298,7 +1445,8 @@ mod b5_路径模型复核 {
     #[test]
     fn 归约不出来的凭据读也不放行() {
         let sh = sh();
-        for p in [
+        #[cfg(not(target_os = "windows"))]
+        let credential_paths = [
             "~/.ssh/*",
             "~root/.ssh/id_rsa",
             "/home/*/.ssh/id_rsa",
@@ -1306,7 +1454,18 @@ mod b5_路径模型复核 {
             "~/.aws/*",
             "~otheruser/.gnupg/secring.gpg",
             "/home/*/.git-credentials",
-        ] {
+        ];
+        #[cfg(target_os = "windows")]
+        let credential_paths = [
+            r"~\.ssh\*",
+            r"~otheruser\.ssh\id_rsa",
+            r"C:\Users\*\.ssh\id_rsa",
+            r"C:\Users\agent\.ssh\id_?sa",
+            r"~\.aws\*",
+            r"~otheruser\.gnupg\secring.gpg",
+            r"C:\Users\*\.git-credentials",
+        ];
+        for p in credential_paths {
             let v = sh.evaluate(&act("read_file", "read", p, &[]));
             assert_eq!(
                 v.decision,
@@ -1321,13 +1480,14 @@ mod b5_路径模型复核 {
     #[test]
     fn 字面凭据判据不误伤普通路径() {
         let sh = sh();
-        for p in [
-            "/tmp/ag-b5/ws/notes.txt",
-            "/tmp/ag-b5/ws/.sshfoo/notes.txt",
-            "/tmp/ag-b5/ws/my-ssh-notes/readme.md",
-            "/tmp/ag-b5/ws/sshconfig.bak",
+        for tail in [
+            "notes.txt",
+            ".sshfoo/notes.txt",
+            "my-ssh-notes/readme.md",
+            "sshconfig.bak",
         ] {
-            let v = sh.evaluate(&act("read_file", "read", p, &[]));
+            let p = test_paths::join(test_paths::B5_WORKSPACE, tail);
+            let v = sh.evaluate(&act("read_file", "read", &p, &[]));
             assert_ne!(
                 v.decision,
                 ShellDecision::Deny,
@@ -1346,14 +1506,14 @@ mod b5_路径模型复核 {
     #[test]
     fn 透明包装器不降低意图() {
         let sh = sh();
-        let bare = sh.evaluate(&act("run_terminal", "rm", "-rf", &["/tmp/ag-b5/outside"]));
+        let bare = sh.evaluate(&act("run_terminal", "rm", "-rf", &[test_paths::B5_OUTSIDE]));
         assert_eq!(bare.decision, ShellDecision::Deny, "基线:直写 rm 应当被拒");
         for wrapper in ["sudo", "env", "nice", "ionice", "busybox", "xargs", "nohup"] {
             let v = sh.evaluate(&act(
                 "run_terminal",
                 wrapper,
                 "rm",
-                &["-rf", "/tmp/ag-b5/outside"],
+                &["-rf", test_paths::B5_OUTSIDE],
             ));
             assert_eq!(
                 v.decision, bare.decision,
@@ -1470,7 +1630,12 @@ mod b5_路径模型复核 {
     #[test]
     fn 超长操作数不拖垮判决() {
         let sh = sh();
-        let long = "a/".repeat(512_000);
+        let component = if cfg!(target_os = "windows") {
+            "a\\"
+        } else {
+            "a/"
+        };
+        let long = component.repeat(512_000);
         let t = std::time::Instant::now();
         let v = sh.evaluate(&act("read_file", "read", &long, &[]));
         let dt = t.elapsed();

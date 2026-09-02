@@ -5,7 +5,7 @@
   - eval/capability-claims.json   (guard-cli capability-claims 生成:能力声明→兑现代码→证明测试)
   - scripts/release-gate.sh       (静态解析出自动检查项 + 需真机的证据项名单)
   - eval/gate-status.json         (可选:最近一次 release-gate 运行的通过/失败/未验证快照,带时间戳)
-  - git                           (HEAD 短哈希)
+  - git                           (生成输入的 HEAD 短哈希 + 工作树状态)
 
 输出 docs/status-dashboard.html(完整独立文档,可直接打开 / SendUserFile),以及
 docs/.status-dashboard.body.html(仅 body 内容,供 Artifact 发布,不含 doctype/head/body)。
@@ -58,7 +58,9 @@ def parse_acceptance(rel):
     done = total = 0
     for line in section.splitlines():
         s = line.strip()
-        if not re.match(r'^\|\s*[WF]?\d+\s*\|', s):
+        # macOS 清单包含 5b/5c；Windows/Firefox 使用 W1/F1。后缀不能被漏计，
+        # 否则清单明明有 16 行，仪表盘却会错误显示 0/14。
+        if not re.match(r'^\|\s*[WF]?\d+[a-z]?\s*\|', s, re.I):
             continue
         cells = [c.strip() for c in s.strip("|").split("|")]
         if len(cells) < 3:
@@ -70,13 +72,19 @@ def parse_acceptance(rel):
     return done, total
 
 
-def git_head():
+def git_source_state():
     try:
-        return subprocess.check_output(
+        head = subprocess.check_output(
             ["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"], text=True
         ).strip()
+        dirty = bool(
+            subprocess.check_output(
+                ["git", "-C", str(ROOT), "status", "--porcelain"], text=True
+            ).strip()
+        )
+        return head, dirty
     except Exception:
-        return "unknown"
+        return "unknown", False
 
 
 AREA_LABEL = {
@@ -150,7 +158,7 @@ def build_body(claims_doc, gate_status):
     claims = claims_doc.get("claims", [])
     report = claims_doc.get("report", {})
     autos, evid = parse_gate_checks()
-    head = git_head()
+    head, dirty = git_source_state()
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
     gs = gate_status or {}
@@ -166,7 +174,8 @@ def build_body(claims_doc, gate_status):
     parts.append(
         f'<p class="sub">数据由 <code>scripts/gen-dashboard.py</code> 从 '
         f'<code>eval/capability-claims.json</code> 与 <code>scripts/release-gate.sh</code> 生成,不手写。'
-        f'生成于 {esc(now)} · commit <code>{esc(head)}</code>'
+        f'生成于 {esc(now)} · 源码基线 <code>{esc(head)}</code>'
+        + (' + 工作树改动' if dirty else ' + 干净工作树')
         + (f' · 门禁快照 {esc(gs_when)}' if gs_when else '') + '</p>'
     )
 

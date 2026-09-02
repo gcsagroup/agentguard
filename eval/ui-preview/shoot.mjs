@@ -49,6 +49,7 @@ const MIME = {
   ".mjs": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",
+  ".png": "image/png",
 };
 const server = createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, "http://x").pathname);

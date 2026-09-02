@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**22 条声明,47 条去重证明测试。**
+**22 条声明,49 条去重证明测试。**
 
 ## android
 
@@ -16,7 +16,7 @@
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
-| 签名、防篡改的审计轨迹——改一行并重算哈希链,签名仍然戳穿它 | `apps/extension-chromium/STORE.md` | guard-audit 每行 Ed25519 签名 + 哈希链;verify 从行重算哈希而非信列里的值 | `rehashed_tamper_passes_chain_but_fails_signatures` |
+| 签名、防篡改的审计轨迹——改一行并重算哈希链,签名仍然戳穿它 | `apps/extension-chromium/STORE.en.md` | guard-audit 每行 Ed25519 签名 + 哈希链;verify 从行重算哈希而非信列里的值 | `rehashed_tamper_passes_chain_but_fails_signatures` |
 
 说明:
 
@@ -26,8 +26,8 @@
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
-| Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行 | `apps/extension-chromium/STORE.md` | guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知 | `critical判决产生notify供扩展弹通知` |
-| 浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知) | `docs/浏览器执行前阻断.md` | content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js | `付款 CTA 要执行前拦下`<br/>`隐私陷阱 PII 提交要执行前拦下` |
+| Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行 | `apps/extension-chromium/STORE.en.md` | guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知 | `critical判决产生notify供扩展弹通知` |
+| 浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知) | `docs/浏览器执行前阻断.md` | content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js | `付款 CTA 要执行前拦下`<br/>`隐私陷阱 PII 提交要执行前拦下`<br/>`付款按钮允许一次只产生一次确认并提交一次` |
 | 拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余) | `docs/浏览器执行前阻断.md` | guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发 | `付款形状的 POST 请求要在发出前拦`<br/>`只读方法不拦(GET/HEAD 不该有副作用)` |
 | Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移 | `docs/跨浏览器.md` | manifest.json 与 manifest.firefox.json 由结构测试钉住一致 | `两份 manifest 装的是同一套内容脚本文件` |
 | 引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR) | `docs/浏览器执行前阻断.md` | guard-nm-host 从 INTEL-DOMAIN / SCOPE-HOST 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则 | `恶意域判决在响应里带上block_hosts`<br/>`只从恶意域判决抠出要拦的主机`<br/>`越界目的地也抠出要拦的主机`<br/>`恶意域累积保留:下一批 benign 判决不会把它清掉`<br/>`越界目的地随会话过期,不永久拦掉用户对该主机的正常访问` |
@@ -36,7 +36,7 @@
 说明:
 
 - **Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行**:这条 claim 说的是**宿主 native-messaging 路径**——异步观测,只能事后通知;但页面内的付款/陷阱动作已由 E2 内容脚本同步门在执行前拦(见 browser-preexec-block)。桌面壳子仍是唯一的阻断式模态
-- **浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)**:只覆盖页面自身 DOM 动作;真 Chrome/Firefox E2E 未验证(DOM 接线只 node --check)
+- **浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)**:只覆盖页面自身 DOM 动作;click→submit 接线有模拟 DOM 事件链测试;MAIN world 的 postMessage 通道可被页面观察/伪造,不能抵抗主动对抗页面;真 Chrome/Firefox E2E 仍未验证
 - **拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)**:MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
 - **Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移**:Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
 - **引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)**:E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;此 DNR 桥的越界只对网络流事件成立,但浏览器侧的越界已由 E9 本地允许表门覆盖(见 browser-local-scope-gate),不再是残余;DNR fail-open;真 Chrome/Firefox E2E 未验证
@@ -63,7 +63,7 @@
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
-| 威胁情报更新是签名的(Ed25519),给了公钥就拒未签名 / sha256 降级 | `apps/extension-chromium/STORE.md` | guard-intel::verify;给公钥即要求真实性,sha256/未签名一律拒 | `有公钥时拒绝未签名`<br/>`有公钥时拒绝sha256冒充签名` |
+| 威胁情报更新是签名的(Ed25519),给了公钥就拒未签名 / sha256 降级 | `apps/extension-chromium/STORE.en.md` | guard-intel::verify;给公钥即要求真实性,sha256/未签名一律拒 | `有公钥时拒绝未签名`<br/>`有公钥时拒绝sha256冒充签名` |
 
 说明:
 
@@ -89,11 +89,11 @@
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
-| macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询) | `docs/macos实时观测.md` | ax_push.rs 合并器(去抖 150ms + 延迟上限 800ms + 3s 兜底);AXObserver FFI 推送 | `延迟上限_持续通知也会强制抓`<br/>`去抖_安静够了才抓` |
+| macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询) | `docs/macos实时观测.md` | 桌面驱动 50ms tick → AXObserver FFI 推送 → ax_push.rs 合并器(去抖 150ms + 延迟上限 800ms + 3s 兜底) | `延迟上限_持续通知也会强制抓`<br/>`去抖_安静够了才抓`<br/>`ax_observer_is_wired_into_desktop_driver` |
 
 说明:
 
-- **macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)**:像素捕获仍采样(压小的是树间隙非像素);AXObserver 注册与回调只 macOS 编译,真机未验证
+- **macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)**:像素捕获仍采样(压小的是树间隙非像素);本机 ad-hoc 候选已验证回调到产品驱动连通,但未做 150ms/800ms 真机延迟分布、签名/公证安装或长时间稳定性验收
 
 ## shell
 
@@ -117,10 +117,9 @@
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
-| 检测隐藏 / 潜意识的提示注入文本 | `apps/extension-chromium/STORE.md` | guard-vision::stego 全行扫描 LSB / chroma+luma 隐写 | `真正的lsb隐写仍然被抓到`<br/>`避开采样行的隐写仍被抓到` |
+| 检测隐藏 / 潜意识的提示注入文本 | `apps/extension-chromium/STORE.en.md` | guard-vision::stego 全行扫描 LSB / chroma+luma 隐写 | `真正的lsb隐写仍然被抓到`<br/>`避开采样行的隐写仍被抓到` |
 | 逐帧摘要区分整屏重绘与局部篡改 | `docs/platform-matrix.md` | guard-vision::framehash 残差聚类,减去每平面中位偏移后再判 | `app_switch_is_a_global_repaint_not_a_tamper` |
 
 说明:
 
 - **检测隐藏 / 潜意识的提示注入文本**:密度地板:极稀疏的隐写率会低于检测阈值,这是速率检测器的固有限
-

@@ -71,6 +71,10 @@ pub const WRITE_SET: u64 = ACCESS_FS_WRITE_FILE
     | ACCESS_FS_MAKE_BLOCK
     | ACCESS_FS_MAKE_SYM;
 
+/// 能直接绑定到单个文件的权限。`READ_DIR`、`REMOVE_*`、`MAKE_*` 只能绑定到目录；把它们
+/// 带到 `/dev/null` 这类文件规则会让 `landlock_add_rule` 以 `EINVAL` 拒绝整份规则集。
+const FILE_ACCESS_SET: u64 = ACCESS_FS_EXECUTE | ACCESS_FS_WRITE_FILE | ACCESS_FS_READ_FILE;
+
 /// ruleset 治理的全部权限。**不在**某条规则里被授予的,就被拒 —— 包括读。
 pub const HANDLED_ALL: u64 = READ_SET | WRITE_SET;
 
@@ -90,6 +94,18 @@ pub struct RulePlan {
     pub handled: u64,
     /// (路径, 访问位),按路径去重、排序,行为可复现。
     pub rules: Vec<(PathBuf, u64)>,
+}
+
+/// 按规则目标的实际类型裁掉不适用的权限位。
+///
+/// 目录规则可以把文件与目录权限向下授予；单文件规则只能携带文件权限。这个裁剪只会缩小授予，
+/// 不会扩大 profile。
+fn applicable_access(bits: u64, is_dir: bool) -> u64 {
+    if is_dir {
+        bits
+    } else {
+        bits & FILE_ACCESS_SET
+    }
 }
 
 /// 从 profile 和目标二进制路径构造规则计划。
@@ -189,7 +205,10 @@ mod sys {
     const SYS_LANDLOCK_CREATE_RULESET: i64 = 444;
     const SYS_LANDLOCK_ADD_RULE: i64 = 445;
     const SYS_LANDLOCK_RESTRICT_SELF: i64 = 446;
+    #[cfg(target_arch = "x86_64")]
     const SYS_PRCTL: i64 = 157;
+    #[cfg(target_arch = "aarch64")]
+    const SYS_PRCTL: i64 = 167;
 
     const LANDLOCK_RULE_PATH_BENEATH: isize = 1;
     const LANDLOCK_RULE_NET_PORT: isize = 2;
@@ -347,8 +366,16 @@ mod sys {
                 Ok(f) => f,
                 Err(_) => continue,
             };
+            let is_dir = file
+                .metadata()
+                .map_err(|e| format!("读取 Landlock 规则目标 {} 类型失败：{e}", path.display()))?
+                .is_dir();
+            let allowed_access = applicable_access(*bits, is_dir);
+            if allowed_access == 0 {
+                continue;
+            }
             let pb = PathBeneathAttr {
-                allowed_access: *bits,
+                allowed_access,
                 parent_fd: file.as_raw_fd(),
             };
             let r = unsafe {
@@ -376,6 +403,19 @@ mod sys {
             return Err(format!("landlock_restrict_self errno {}", -r));
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod arch_tests {
+        use super::SYS_PRCTL;
+
+        #[test]
+        fn prctl_syscall_号与linux架构一致() {
+            #[cfg(target_arch = "x86_64")]
+            assert_eq!(SYS_PRCTL, 157);
+            #[cfg(target_arch = "aarch64")]
+            assert_eq!(SYS_PRCTL, 167);
+        }
     }
 }
 
@@ -442,6 +482,29 @@ mod tests {
         let b = bits_for(&plan, "/data/out").expect("写授权应当有规则");
         assert_eq!(b & WRITE_SET, WRITE_SET, "写授权应当有全部写位");
         assert_eq!(b & READ_SET, READ_SET, "写授权也要能读");
+    }
+
+    #[test]
+    fn 单文件规则剥掉目录专属权限() {
+        assert_eq!(
+            applicable_access(READ_SET | WRITE_SET, false),
+            FILE_ACCESS_SET
+        );
+        assert_eq!(
+            applicable_access(READ_SET | WRITE_SET, true),
+            READ_SET | WRITE_SET,
+            "目录规则必须保留向下授予的全部权限"
+        );
+    }
+
+    /// 真正进入内核，钉住 `prctl` 未使用参数必须显式清零的回归。
+    ///
+    /// 这条测试验证的是项目 CI 所支持的 Linux 环境；部署环境仍可能由上层 seccomp 拒绝
+    /// `prctl`，生产路径会按 fail-closed 返回错误，不能据此宣称所有 Linux 环境都可用。
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn 设置_no_new_privs_使用完整五参数调用() {
+        sys::set_no_new_privs().expect("测试环境应允许 PR_SET_NO_NEW_PRIVS");
     }
 
     fn net_bits_for(plan: &NetPlan, port: u16) -> Option<u64> {

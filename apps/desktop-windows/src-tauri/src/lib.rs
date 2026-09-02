@@ -38,6 +38,12 @@ struct AppState {
     // P0-5:带不可变 request_id 的有界确认队列(与 macOS 壳子共用 guard_core::ConfirmQueue)。
     // 后台观察事件只能入队,不覆盖用户正在看的那条;确认按 request_id compare-and-swap。
     pending: Mutex<ConfirmQueue>,
+    /// Startup snapshot from the dedicated native-probe thread.
+    ///
+    /// Re-probing from a Tauri command would re-enter the WinRT OCR factory cache from the
+    /// UI/IPC thread. The exact Windows host crashed there with `0xC0000005`; later native
+    /// observation still reports warnings through poll events and terminal errors in state.
+    capabilities: AdapterCapabilities,
     /// The real observer. `None` on a non-Windows build, or when UI Automation could not
     /// be created — and [`AppState::observe_error`] then says which.
     #[cfg(windows)]
@@ -406,12 +412,12 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     let pending = state.pending.lock().map_err(|e| e.to_string())?;
     let st = engine.status();
-    let caps = capabilities();
+    let caps = &state.capabilities;
     let score = engine.privacy_score();
     let ent = load_or_free(entitlement_path());
     let device_policy = DevicePolicy::from_path(device_policy_path()).unwrap_or_default();
     let observing = state.polling.load(Ordering::Relaxed);
-    let (protection_mode, protection_summary) = protection_coverage(&caps, observing);
+    let (protection_mode, protection_summary) = protection_coverage(caps, observing);
     let observe_error = state
         .observe_error
         .lock()
@@ -667,7 +673,7 @@ fn start_guard_session(
     // record a user's screen with no agent to attribute it to, which is the opposite of what
     // a session-scoped guard is for.
     drop(adapter);
-    if capabilities().can_observe() {
+    if state.capabilities.can_observe() {
         state
             .observer_started_ms
             .store(now_epoch_ms(), Ordering::Relaxed);
@@ -1063,9 +1069,81 @@ fn start_auto_poller(app: tauri::AppHandle, flag: Arc<AtomicBool>) {
     });
 }
 
+/// Run a probe away from the caller's thread.
+///
+/// On Windows, `capabilities()` creates a UI Automation client and therefore initialises COM
+/// as MTA on the calling thread. Tauri/tao later calls `OleInitialize` (STA) on its main thread
+/// while creating the native file-drop handler; doing both on the same thread panics with
+/// `RPC_E_CHANGED_MODE` before the first window appears.
+#[cfg(any(windows, test))]
+fn on_dedicated_thread<T, F>(name: &str, probe: F) -> T
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_string())
+        .spawn(probe)
+        .unwrap_or_else(|e| panic!("failed to start {name}: {e}"))
+        .join()
+        .unwrap_or_else(|_| panic!("{name} panicked"))
+}
+
+/// Keep the process-wide multithreaded apartment alive for cached WinRT factories.
+///
+/// `windows-core` caches an agile OCR activation factory for the process. The exact Windows
+/// host crashed in that cache after the short-lived startup probe thread exited and a later
+/// observation thread reused it. `CoIncrementMTAUsage` exists for this case: the cookie keeps
+/// MTA support alive even when no MTA-initialised worker is currently running. The cookie stays
+/// in a static for the process lifetime and Windows releases it when the process terminates.
+#[cfg(windows)]
+fn retain_process_mta() -> Result<(), String> {
+    use std::ffi::c_void;
+    use std::sync::OnceLock;
+
+    #[link(name = "ole32")]
+    extern "system" {
+        fn CoIncrementMTAUsage(cookie: *mut *mut c_void) -> i32;
+    }
+
+    static MTA_USAGE: OnceLock<Result<usize, String>> = OnceLock::new();
+    MTA_USAGE
+        .get_or_init(|| {
+            let mut cookie = std::ptr::null_mut();
+            let result = unsafe { CoIncrementMTAUsage(&mut cookie) };
+            if result < 0 {
+                Err(format!(
+                    "CoIncrementMTAUsage failed: HRESULT 0x{:08X}",
+                    result as u32
+                ))
+            } else if cookie.is_null() {
+                Err("CoIncrementMTAUsage returned a null cookie".into())
+            } else {
+                Ok(cookie as usize)
+            }
+        })
+        .as_ref()
+        .map(|_| ())
+        .map_err(Clone::clone)
+}
+
+fn startup_capabilities() -> AdapterCapabilities {
+    #[cfg(windows)]
+    {
+        on_dedicated_thread("agentguard-capability-probe", || {
+            retain_process_mta().unwrap_or_else(|e| panic!("cannot retain the Windows MTA: {e}"));
+            capabilities()
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        capabilities()
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let caps = capabilities();
+    let caps = startup_capabilities();
     // Construct the observer once. Its absence is recorded with a reason, because a shell
     // that silently falls back to simulation is the failure this whole iteration is about.
     let observe_error = if caps.can_observe() {
@@ -1081,6 +1159,7 @@ pub fn run() {
         adapter: Mutex::new(WinAdapter::new()),
         auto_approve: Mutex::new(false),
         pending: Mutex::new(ConfirmQueue::new(64)),
+        capabilities: caps.clone(),
         #[cfg(windows)]
         observer: Mutex::new(
             if caps.uia_native.available || caps.frame_capture.available {
@@ -1282,5 +1361,49 @@ mod packaging_tests {
             src.contains("state.polling.store(false"),
             "the observation loop is never stopped, so it would outlive the session"
         );
+    }
+
+    /// The startup capability probe must not initialise COM on Tauri's main thread.
+    #[test]
+    fn startup_probe_uses_a_different_thread() {
+        let caller = std::thread::current().id();
+        let worker =
+            super::on_dedicated_thread("agentguard-test-probe", || std::thread::current().id());
+        assert_ne!(
+            caller, worker,
+            "running the probe on Tauri's main thread reintroduces RPC_E_CHANGED_MODE"
+        );
+    }
+
+    /// The real capability probe must leave Tauri's thread free for OLE's STA setup.
+    #[cfg(windows)]
+    #[test]
+    fn startup_probe_does_not_change_the_callers_com_apartment() {
+        use std::ffi::c_void;
+
+        #[link(name = "ole32")]
+        extern "system" {
+            fn OleInitialize(reserved: *mut c_void) -> i32;
+            fn OleUninitialize();
+        }
+
+        let _ = super::startup_capabilities();
+        let result = unsafe { OleInitialize(std::ptr::null_mut()) };
+        assert!(
+            result >= 0,
+            "OleInitialize failed after the startup probe: HRESULT 0x{:08X}",
+            result as u32
+        );
+        unsafe { OleUninitialize() };
+    }
+
+    /// A process-wide WinRT factory cached by the startup worker must remain valid when a
+    /// later observation worker uses it. The old lifetime crashed here with `0xC0000005`.
+    #[cfg(windows)]
+    #[test]
+    fn winrt_factory_survives_the_startup_probe_thread() {
+        let _ = super::startup_capabilities();
+        let later = super::on_dedicated_thread("agentguard-later-probe", super::capabilities);
+        assert!(later.simulation);
     }
 }

@@ -37,12 +37,20 @@ const SYS_UNSHARE: i64 = 272;
 const SYS_MOUNT: i64 = 165;
 #[cfg(target_arch = "x86_64")]
 const SYS_PRCTL: i64 = 157;
+#[cfg(target_arch = "x86_64")]
+const SYS_GETUID: i64 = 102;
+#[cfg(target_arch = "x86_64")]
+const SYS_GETGID: i64 = 104;
 #[cfg(target_arch = "aarch64")]
 const SYS_UNSHARE: i64 = 97;
 #[cfg(target_arch = "aarch64")]
 const SYS_MOUNT: i64 = 40;
 #[cfg(target_arch = "aarch64")]
 const SYS_PRCTL: i64 = 167;
+#[cfg(target_arch = "aarch64")]
+const SYS_GETUID: i64 = 174;
+#[cfg(target_arch = "aarch64")]
+const SYS_GETGID: i64 = 176;
 
 const MS_RDONLY: usize = 1;
 const MS_REMOUNT: usize = 32;
@@ -186,8 +194,8 @@ pub fn enter(profile: &crate::Profile) -> Result<(), String> {
     //
     // EPERM 读起来像"权限不够"，实际是"你问错了问题"。这类错误在一个用别的语言写的
     // 探针里不会出现，因为探针的写法不同；只有把顺序写对才行。
-    let outer_uid = unsafe { syscall3(102, 0, 0, 0) }; // getuid
-    let outer_gid = unsafe { syscall3(104, 0, 0, 0) }; // getgid
+    let outer_uid = unsafe { syscall3(SYS_GETUID, 0, 0, 0) };
+    let outer_gid = unsafe { syscall3(SYS_GETGID, 0, 0, 0) };
 
     step!("unshare", unshare_raw(CLONE_NEWUSER | CLONE_NEWNS));
 
@@ -502,6 +510,14 @@ fn install_seccomp(audit_arch: u32, blocked: &[u32]) -> Result<(), String> {
 #[cfg(test)]
 mod b6_挂载约束复核 {
     use super::*;
+
+    #[test]
+    fn 当前架构的_uid_gid_syscall_可以真实调用() {
+        let uid = unsafe { syscall3(SYS_GETUID, 0, 0, 0) };
+        let gid = unsafe { syscall3(SYS_GETGID, 0, 0, 0) };
+        assert!(uid >= 0, "getuid syscall 返回 errno {}", -uid);
+        assert!(gid >= 0, "getgid syscall 返回 errno {}", -gid);
+    }
 
     /// 挂载点枚举必须去重且由深到浅。
     ///

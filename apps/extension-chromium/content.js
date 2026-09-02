@@ -179,6 +179,20 @@ const PAYMENT_CTA_RE = /确认支付|Confirm Payment|Pay now|Complete purchase|�
 // 用这个 WeakSet 认出"这是刚批准的那次"并直接放过,避免死循环。
 const gateApproved = new WeakSet();
 
+function replayApprovedClick(el) {
+  // submit 按钮的默认动作会在这次 click 末尾同步触发 form 的 submit 事件。用户批准的
+  // 是这一条完整动作链，所以元素和所属表单都要各放行一次；否则 click 重放通过后，
+  // submit 门会再次弹窗。finally 会清掉没有实际提交时留下的表单令牌，避免以后误放行。
+  const form = el.form || (el.closest ? el.closest("form") : null);
+  gateApproved.add(el);
+  if (form) gateApproved.add(form);
+  try {
+    el.click();
+  } finally {
+    if (form) gateApproved.delete(form);
+  }
+}
+
 function ctaText(el) {
   return PAYMENT_CTA_RE.test((el && (el.innerText || el.value)) || "");
 }
@@ -249,10 +263,7 @@ document.addEventListener(
       return; // 这是刚批准后重放的那次点击,放过。
     }
     const findings = ctaText(el) ? [{ kind: "payment_cta" }] : [];
-    gateEvent(e, findings, () => {
-      gateApproved.add(el);
-      el.click();
-    });
+    gateEvent(e, findings, () => replayApprovedClick(el));
   },
   true
 );
@@ -270,8 +281,9 @@ document.addEventListener(
     if (e.submitter && ctaText(e.submitter)) findings.push({ kind: "payment_cta" });
     gateEvent(e, findings, () => {
       gateApproved.add(form);
-      // form.submit() 不触发 submit 事件,所以不会再进这个监听器——这里的 WeakSet 只是防御性。
-      form.submit();
+      // requestSubmit 保留原按钮的 formaction/formmethod/name/value,也保留约束校验；下一次
+      // submit 事件由 gateApproved 放过。直接 form.submit() 会绕过这些浏览器语义。
+      form.requestSubmit(e.submitter || undefined);
     });
   },
   true

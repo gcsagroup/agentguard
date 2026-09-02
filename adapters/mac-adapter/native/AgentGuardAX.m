@@ -204,6 +204,7 @@ int agentguard_ax_frontmost_json(char **out_json) {
 
 static AXObserverRef gAxObserver = NULL;
 static AXUIElementRef gAxObservedApp = NULL;
+static pid_t gAxObservedPid = -1;
 static _Atomic(unsigned long long) gAxNotifyCount = 0;
 
 static void ag_ax_observer_cb(AXObserverRef observer, AXUIElementRef element,
@@ -218,7 +219,7 @@ static void ag_ax_observer_cb(AXObserverRef observer, AXUIElementRef element,
 
 void agentguard_ax_observe_stop(void) {
   if (gAxObserver != NULL) {
-    CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
+    CFRunLoopRemoveSource(CFRunLoopGetMain(),
                           AXObserverGetRunLoopSource(gAxObserver),
                           kCFRunLoopDefaultMode);
     CFRelease(gAxObserver);
@@ -228,6 +229,7 @@ void agentguard_ax_observe_stop(void) {
     CFRelease(gAxObservedApp);
     gAxObservedApp = NULL;
   }
+  gAxObservedPid = -1;
 }
 
 int agentguard_ax_observe_start(void) {
@@ -235,14 +237,19 @@ int agentguard_ax_observe_start(void) {
     ag_ax_set_error(@"Accessibility permission not granted");
     return AG_AX_DENIED;
   }
-  agentguard_ax_observe_stop(); // 幂等重启:先卸掉旧的。
-
   NSRunningApplication *front = [[NSWorkspace sharedWorkspace] frontmostApplication];
   if (front == nil) {
     ag_ax_set_error(@"no frontmost application");
     return AG_AX_ERROR;
   }
   pid_t pid = front.processIdentifier;
+  // 驱动循环会定期调用 start 来跟随前台应用。PID 没变就保留现有 observer，避免
+  // 每个 tick 都拆装 run-loop source；切换应用时才真正重绑。
+  if (gAxObserver != NULL && gAxObservedPid == pid) {
+    ag_ax_set_error(@"");
+    return AG_AX_OK;
+  }
+  agentguard_ax_observe_stop();
 
   AXObserverRef obs = NULL;
   if (AXObserverCreate(pid, ag_ax_observer_cb, &obs) != kAXErrorSuccess || obs == NULL) {
@@ -260,10 +267,14 @@ int agentguard_ax_observe_start(void) {
     // 靠兜底轮询兜),不会漏成"以为在推其实没推"。
     AXObserverAddNotification(obs, app, notes[i], NULL);
   }
-  CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(obs),
+  // observer 可能从 Rust 后台驱动线程启动；source 必须挂到真正持续运行的主线程
+  // run loop，不能挂到没有 run loop 的调用线程。
+  CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs),
                      kCFRunLoopDefaultMode);
+  CFRunLoopWakeUp(CFRunLoopGetMain());
   gAxObserver = obs;
   gAxObservedApp = app;
+  gAxObservedPid = pid;
   atomic_store(&gAxNotifyCount, 0ULL);
   ag_ax_set_error(@"");
   return AG_AX_OK;

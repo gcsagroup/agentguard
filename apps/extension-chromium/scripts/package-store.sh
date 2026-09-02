@@ -19,8 +19,15 @@ DEFAULT_OUT="$ROOT/dist/agentguard-extension.zip"
 [[ "$TARGET" == "firefox" ]] && DEFAULT_OUT="$ROOT/dist/agentguard-extension-firefox.zip"
 OUT="${1:-$DEFAULT_OUT}"
 mkdir -p "$(dirname "$OUT")"
-STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
+OUT_DIR="$(cd "$(dirname "$OUT")" && pwd)"
+OUT="$OUT_DIR/$(basename "$OUT")"
+# 始终在同一输出目录构造一个全新的 ZIP，再原子替换目标。直接让 `zip` 写已有 OUT
+# 会进入 update 模式；若 staging 文件保留较旧 mtime，旧条目会被错误地保留下来。
+WORK="$(mktemp -d "$OUT_DIR/.agentguard-package.XXXXXX")"
+STAGE="$WORK/stage"
+TMP_OUT="$WORK/$(basename "$OUT")"
+mkdir -p "$STAGE"
+trap 'rm -rf "$WORK"' EXIT
 
 # manifest 按目标选;装进包里的文件名统一是 manifest.json。
 if [[ "$TARGET" == "firefox" ]]; then
@@ -56,7 +63,11 @@ cp "$brand_asset" "$STAGE/assets/agentguard-mark-white.png"
 # Exclude native-host from store zip (documented separately).
 (
   cd "$STAGE"
-  zip -qr "$OUT" .
+  zip -qr "$TMP_OUT" .
 )
+mv -f -- "$TMP_OUT" "$OUT"
 echo "wrote $OUT"
-unzip -l "$OUT" | head -30
+# `| head -30` 会在 30 行后关掉读端,unzip 被 SIGPIPE 杀掉 → 在 pipefail 下整条命令退出 141。
+# 这是概率事件(取决于 unzip 写完前 head 有没有退出),门禁里真的红过一次而单跑三次都绿。
+# sed 读到 EOF 才退出,不给 unzip 发 SIGPIPE。
+unzip -l "$OUT" | sed -n '1,30p'
