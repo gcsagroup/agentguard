@@ -31,6 +31,24 @@ pub fn mac_capabilities() -> MacCapabilities {
     }
 }
 
+/// 一次 AX 抓取尝试的结果(驱动循环据此决定心跳、配对像素帧)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AxCapture {
+    /// 合并器判定这一拍不该抓(推送没来、兜底周期没到)。
+    NotDue,
+    /// 抓到了别人的窗口并已入队。
+    Captured,
+    /// 前台是 AgentGuard 自己,跳过、不入队。观察器是活的。
+    SkippedSelf,
+}
+
+impl AxCapture {
+    /// 观察器这一拍真的看了一眼(抓到或确认是自己)——壳子据此更新心跳。
+    pub fn observed(self) -> bool {
+        matches!(self, AxCapture::Captured | AxCapture::SkippedSelf)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct MacAdapter {
     inner: WinAdapter,
@@ -194,7 +212,7 @@ impl MacAdapter {
     /// 这就是"实时化"的落点:一次树变化通常在 `DEBOUNCE_MS` 内被抓到,而不是最坏等一整个轮询
     /// 周期;持续变化至少每 `MAX_LATENCY_MS` 抓一次;完全没有推送时,退化成 `FALLBACK_FLOOR_MS`
     /// 的兜底轮询——推送那条命断了也不会漏抓。
-    pub fn maybe_capture_ax(&mut self, now_ms: i64) -> Result<bool, String> {
+    pub fn maybe_capture_ax(&mut self, now_ms: i64) -> Result<AxCapture, String> {
         // 前台应用可能切换。每 500ms 让原生桥核对一次 PID；同 PID 是廉价 no-op，
         // 变化时才重绑 AXObserver。这样不会把 observer 永久留在启用时的那个应用上。
         let refresh_due = self
@@ -210,18 +228,25 @@ impl MacAdapter {
             self.ax_coalescer.note(now_ms);
         }
         if !self.ax_coalescer.due(now_ms) {
-            return Ok(false);
+            return Ok(AxCapture::NotDue);
         }
         let r = self.capture_live_ax();
         // 抓过就 mark(无论快照成功与否):失败也不该让合并器把这次"该抓"一直挂着空转;
         // 下一次变化或兜底周期会再触发。
         self.ax_coalescer.mark_captured(now_ms);
-        r.map(|_| true)
+        r
     }
 
     /// Live AXUIElement capture of the frontmost app into the adapter queue.
-    pub fn capture_live_ax(&mut self) -> Result<(), String> {
+    ///
+    /// 前台是 AgentGuard 自己时返回 [`AxCapture::SkippedSelf`] 且**不**入队:守卫不观察自己
+    ///(见 `UiSnapshot::source_pid` 的注释)。调用方要把它当作一次成功的心跳——观察器活着,
+    /// 只是此刻没有别人的窗口可看。
+    pub fn capture_live_ax(&mut self) -> Result<AxCapture, String> {
         let snap = crate::ax_native::live_ax_snapshot()?;
+        if snap.is_self_observation() {
+            return Ok(AxCapture::SkippedSelf);
+        }
         if let Some(b) = snap.root.bounds.as_ref() {
             if b.width > 0.0 && b.height > 0.0 {
                 self.viewport = Some(guard_overlay::Viewport {
@@ -232,7 +257,7 @@ impl MacAdapter {
             }
         }
         self.ingest_ax_snapshot(snap);
-        Ok(())
+        Ok(AxCapture::Captured)
     }
 
     pub fn has_session(&self) -> bool {

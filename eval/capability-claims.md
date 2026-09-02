@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**22 条声明,49 条去重证明测试。**
+**24 条声明,55 条去重证明测试。**
 
 ## android
 
@@ -107,11 +107,13 @@
 |---|---|---|---|
 | 状态灯只在「会话 + 观察器运行 + 心跳新鲜 + 审计可写」全满足时显示守护中;会话开着但没人在看是「守护不完整」 | `docs/消费者化界面.md` | guard_core::observe_state::derive 纯函数;两个壳子的 get_status 把事实喂给它,前端只信 protection_state | `会话在但观察器没在跑是degraded而不是active`<br/>`心跳过期是degraded_心跳在ttl边界内仍是active`<br/>`审计不可写压过启动中且一定不是active`<br/>`审计写失败留痕为audit_error且写成功后清空` |
 | 同一语义内容的重复观察 30 秒内只过引擎一次;内容变一个字立刻放行;周期摘要带 repeat_count | `docs/消费者化界面.md` | guard_core::event_dedup::Aggregator,只挂在 SCK/AX/UIA 轮询路径;易变元数据键不进指纹 | `风暴仿真_106秒静止画面从上百条折叠到个位数`<br/>`内容变一个字就是新事件_立即放行不等窗口`<br/>`每帧必变的数字不进指纹_语义相同即同一指纹`<br/>`重复观察被折叠_周期摘要带repeat_count` |
+| 观察器跳过 AgentGuard 自己的窗口——守卫的仪表盘树里天生有演示威胁文字,交给引擎只会对着镜子告警 | `docs/windows-observation.md` | UiSnapshot::source_pid(桥如实带 pid)+ is_self_observation();Windows poll_once 整拍跳过并留 SELF_SKIP_NOTE,macOS capture_live_ax 返回 SkippedSelf;壳子把该拍算作心跳 | `只有pid等于自己才算自我观察_未知pid不算`<br/>`只有警告没有事件的一拍不更新心跳` |
 
 说明:
 
 - **状态灯只在「会话 + 观察器运行 + 心跳新鲜 + 审计可写」全满足时显示守护中;会话开着但没人在看是「守护不完整」**:状态机输入在壳子里采集;「真机上灯确实随观察器启停变色」由真机验收判定,不是这些测试
 - **同一语义内容的重复观察 30 秒内只过引擎一次;内容变一个字立刻放行;周期摘要带 repeat_count**:折叠只吃一字不差的重复(AX 文本里一个时钟数字变化就是新事件),所以真机上的折叠率取决于画面静止程度
+- **观察器跳过 AgentGuard 自己的窗口——守卫的仪表盘树里天生有演示威胁文字,交给引擎只会对着镜子告警**:pid 比对在 Rust 侧(可测);原生桥填 pid 那一行(ObjC / UIA)只能在真机上验;SCK 整屏帧无法按 pid 排除
 
 ## vision
 
@@ -119,7 +121,9 @@
 |---|---|---|---|
 | 检测隐藏 / 潜意识的提示注入文本 | `apps/extension-chromium/STORE.en.md` | guard-vision::stego 全行扫描 LSB / chroma+luma 隐写 | `真正的lsb隐写仍然被抓到`<br/>`避开采样行的隐写仍被抓到` |
 | 逐帧摘要区分整屏重绘与局部篡改 | `docs/platform-matrix.md` | guard-vision::framehash 残差聚类,减去每平面中位偏移后再判 | `app_switch_is_a_global_repaint_not_a_tamper` |
+| OVL-010「树里有、屏幕上没有」只在未渲染文字具指令形状时才报——OCR 漏读普通标签不再触发 Critical 阻断 | `docs/windows-observation.md` | guard_vision::viewtree::instruction_shape(强词一个即可、弱词需两个不同),叠加在 15% 占比与 ≥3 token 之上 | `ocr漏读普通标签不算隐藏指令`<br/>`单个弱词不算指令形状_两个不同弱词才算`<br/>`少数派隐藏注入被抓到`<br/>`中文隐藏指令仍被抓到` |
 
 说明:
 
 - **检测隐藏 / 潜意识的提示注入文本**:密度地板:极稀疏的隐写率会低于检测阈值,这是速率检测器的固有限
+- **OVL-010「树里有、屏幕上没有」只在未渲染文字具指令形状时才报——OCR 漏读普通标签不再触发 Critical 阻断**:词表是有限的:用词表外的动词写的隐藏指令会被漏掉,这是精确率换来的召回代价;注入短语规则(OVL-004 等)不受影响,仍对 ui_text 全文生效

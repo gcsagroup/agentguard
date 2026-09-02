@@ -24,9 +24,11 @@
 - [ ] AgentGuard Windows 桌面殼程式已安裝並執行
 - [ ] 規則集為 `crates/guard-schema/rules/p0_rules.yaml`（或發佈套件內等價路徑）
 - [ ] 威脅情報 bundle 已載入
-- [ ] 若驗收瀏覽器擴充功能路徑：`install-host.sh` 的 Windows 等價操作（原生訊息 host manifest 寫入登錄檔
-      `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.agentguard.native`，`path` 指向
-      `guard-nm-host.exe`）——見 platform-matrix「原生訊息」說明
+- [ ] 若驗收瀏覽器擴充功能路徑：執行 `apps/extension-chromium/native-host/install-host.ps1 <擴充功能ID>`
+      （`-Browser edge|firefox` 可選）。它把原生訊息 host manifest 寫到 `%LOCALAPPDATA%\AgentGuard\native-host\`，
+      登錄檔 `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.agentguard.native` 指向它，
+      並在 `guard-nm-host.exe` 旁寫 `allowed-origin`（宿主 fail-closed，沒有它拒絕啟動）。
+      W7 此前記為 BLOCKED (native-messaging-not-installed)，這一步就是它缺的安裝。
 
 ## 驗收案例
 
@@ -43,6 +45,13 @@
 | W7 | 瀏覽器擴充功能 → 原生訊息 host | Chrome/Edge 擴充功能的事件透過登錄檔登記的 `guard-nm-host.exe` 判決並進入簽章稽核；host 的 origin 驗證相符。它是嚴格 Windows 候選驗收的必要項目 | | |
 
 > 補充報告中的阻斷模態、能力狀態與 OCR 週期是 W1/W3/W4/W6 的相鄰證據，但沒有依各列規定的付款 CTA、隱寫、第三方純像素文字或能力失敗情境執行，不能據此將這些列寫成 `PASS (native)`。
+> 另外，補充報告裡兩輪都出現的 `OVL-010` 模態是在 AgentGuard **自己的視窗**為前景時彈出的（樹裡有折疊的示範按鈕文字、像素裡沒有），它證明鏈路能跑，不是一次偵測；此後觀察器跳過自身行程，且 `OVL-010` 要求未渲染的文字具指令形狀。複測時以第三方視窗為前景。
+
+> **W6 執行方法**：一台一切正常的機器上，能力不可用分支無法自然觸發。啟動殼程式前設定
+> `AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia`（可選 `frame`、`ocr`，逗號分隔，例 `uia,frame`），逐項驗證：
+> 介面能力列顯示「不可用」且原因字串含 `forced unavailable for acceptance`；`uia,frame` 同時強制關閉時
+> 狀態燈為「需要授權」、觀察迴圈不啟動（fail-closed 到模擬）；只強制 `ocr` 時 W4 的交叉驗證不執行且介面如實說明。
+> 這個開關只能把可用改成不可用，不能反向——它讓驗收者看「壞了會怎樣」，不能讓一台沒能力的機器冒充有能力。
 
 > 上表只用於逐項執行記錄，不能原樣作為 strict artifact。嚴格閘門報告必須使用[中央真實裝置驗收報告範本](acceptance-report-template.zh-TW.md)，
 > 並維持 `ID | 結果 | 證據` 為前三欄，再將 W1–W7 的結果與證據逐項轉錄進去。

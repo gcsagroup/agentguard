@@ -20,7 +20,7 @@ pub use ax_tree::{
     AxNode, AxSnapshot,
 };
 pub use framehash::{compare as compare_frame_digests, digest_rgba, DigestDelta, FrameDigest};
-pub use native::{mac_capabilities, permissions, MacAdapter, MacCapabilities};
+pub use native::{mac_capabilities, permissions, AxCapture, MacAdapter, MacCapabilities};
 pub use sck_native::{drain_sck_frames, sck_probe, sck_start, sck_stop};
 pub use screencapture::{
     analyze_frame, demo_transparent_overlay_frame, markers_as_ui_text, screencapturekit_available,

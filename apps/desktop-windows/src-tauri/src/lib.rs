@@ -958,7 +958,10 @@ fn aggregate_observed(
     now: u64,
 ) -> Result<(Vec<GuardEvent>, Vec<String>), String> {
     use guard_core::event_dedup::{Verdict, REPEAT_COUNT_KEY};
-    if !events.is_empty() || warnings.is_empty() {
+    // 「前台是守卫自己,跳过」是观察器看了一眼之后的结论,算心跳;别的 warning(树读不到、
+    // 帧抓不到)不算。
+    let only_benign_skips = warnings.iter().all(|w| w == win_adapter::SELF_SKIP_NOTE);
+    if !events.is_empty() || only_benign_skips {
         heartbeat_ms.store(now, Ordering::Relaxed);
     }
     let mut aggregator = aggregator.lock().map_err(|e| e.to_string())?;
@@ -1128,16 +1131,19 @@ fn retain_process_mta() -> Result<(), String> {
 }
 
 fn startup_capabilities() -> AdapterCapabilities {
+    // `.honoring_env()`:验收开关 AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia,frame,ocr 把探测成功的
+    // 能力强制标成不可用(只此一个方向),让 W6「能力不可用分支」在一台好机器上也能走到。
+    // 探测本身仍在专用线程上做(COM apartment 见 on_dedicated_thread)。
     #[cfg(windows)]
     {
         on_dedicated_thread("agentguard-capability-probe", || {
             retain_process_mta().unwrap_or_else(|e| panic!("cannot retain the Windows MTA: {e}"));
-            capabilities()
+            capabilities().honoring_env()
         })
     }
     #[cfg(not(windows))]
     {
-        capabilities()
+        capabilities().honoring_env()
     }
 }
 
@@ -1220,12 +1226,38 @@ mod observation_tests {
     }
 
     /// P0-3:只带 warnings、没有事件的一拍不算心跳;有事件或无警告才算。
+    /// 例外:「前台是守卫自己,跳过」——观察器看过了,算心跳。
     #[test]
     fn 只有警告没有事件的一拍不更新心跳() {
         let agg = Mutex::new(guard_core::event_dedup::Aggregator::for_observers());
         let hb = AtomicU64::new(0);
         aggregate_observed(&agg, &hb, vec![], vec!["UIA: no tree".into()], 1_000).unwrap();
         assert_eq!(hb.load(Ordering::Relaxed), 0, "树读不到的一拍冒充了心跳");
+        aggregate_observed(
+            &agg,
+            &hb,
+            vec![],
+            vec![win_adapter::SELF_SKIP_NOTE.to_string()],
+            1_500,
+        )
+        .unwrap();
+        assert_eq!(
+            hb.load(Ordering::Relaxed),
+            1_500,
+            "跳过自己那一拍观察器是活的,该算心跳"
+        );
+        aggregate_observed(
+            &agg,
+            &hb,
+            vec![],
+            vec![
+                win_adapter::SELF_SKIP_NOTE.to_string(),
+                "UIA: no tree".into(),
+            ],
+            1_700,
+        )
+        .unwrap();
+        assert_eq!(hb.load(Ordering::Relaxed), 1_500, "夹着真警告就不算");
         aggregate_observed(&agg, &hb, vec![], vec![], 2_000).unwrap();
         assert_eq!(hb.load(Ordering::Relaxed), 2_000);
         aggregate_observed(

@@ -32,6 +32,8 @@ pub use ocr::{max_image_dimension, ocr_status, read_text, OCR_TIMEOUT};
 pub use uia::{UiaClient, WalkOutcome, MAX_CHILDREN, MAX_DEPTH, MAX_NODES};
 
 pub use control_types::control_type_name_raw;
+/// 观察器跳过守卫自己窗口时留下的固定说明(壳子据它照常记心跳)。
+pub use guard_vision::uitree::SELF_SKIP_NOTE;
 pub use probe::{capabilities, AdapterCapabilities, Capability};
 
 use anyhow::Result;

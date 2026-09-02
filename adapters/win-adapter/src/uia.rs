@@ -153,11 +153,15 @@ impl UiaClient {
                 .ElementFromHandle(hwnd)
                 .map_err(|e| format!("ElementFromHandle failed: {e}"))?;
             let source_app = process_name_of(&root).unwrap_or_else(|| "unknown".to_string());
+            // pid 一并带上:让 poll_once 认出"前台就是 AgentGuard 自己"并跳过(见
+            // guard_vision::uitree::UiSnapshot::source_pid)。读不到就 None,不猜。
+            let source_pid = process_id_of(&root);
             let mut state = WalkState::default();
             let node = self.walk(&root, 0, &mut state);
             Ok(WalkOutcome {
                 snapshot: UiSnapshot {
                     source_app,
+                    source_pid,
                     root: node,
                 },
                 nodes: state.nodes,
@@ -285,6 +289,15 @@ impl WalkState {
         }
         v
     }
+}
+
+/// 元素所属进程的 pid;读不到或非正数为 `None`。
+unsafe fn process_id_of(el: &IUIAutomationElement) -> Option<u32> {
+    let pid = el.CurrentProcessId().ok()?;
+    if pid <= 0 {
+        return None;
+    }
+    Some(pid as u32)
 }
 
 /// The executable name behind an element, or `None` when it cannot be read.

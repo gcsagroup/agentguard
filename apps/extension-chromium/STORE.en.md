@@ -58,7 +58,7 @@ The resulting ZIP does not contain the Native Messaging host. The extension pack
 
 - Not submitted to the Chrome Web Store.
 - No real-browser store install, upgrade, or permission-prompt acceptance record.
-- The Native Messaging auto-installer currently supports macOS and Linux only; Windows requires manual manifest installation.
+- Native Messaging installers: `install-host.sh` for macOS / Linux, `install-host.ps1` for Windows (writes the registry key under `HKCU\Software\<browser>\NativeMessagingHosts`); neither has real-device store-flow evidence yet.
 - Real store installation and end-to-end pre-action acceptance still require separate evidence for Chrome, Edge, and Firefox; Safari remains a design item.
 
 See the [Chromium Extension README](README.en.md) for technical setup.

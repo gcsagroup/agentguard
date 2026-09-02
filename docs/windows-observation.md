@@ -123,6 +123,16 @@ indistinguishable from a real measurement.
   30 seconds each, reported UIA/GDI/OCR as available, and produced a real `OVL-010` block. This
   does not cover install/upgrade/uninstall, permission-failure paths, Native Messaging, signing,
   or the full W1–W7 suite, so it is not production-release evidence.
+  **Read that `OVL-010` block honestly:** it fired within 30 s of pressing Start, while the
+  foreground window was AgentGuard's own dashboard. The dashboard's UIA tree contains the demo
+  threat buttons ("Payment confirmation", "Intel injection", …) inside a collapsed developer
+  panel — present in the tree, absent from the pixels — which is exactly the shape
+  `TreeTextNotOnScreen` looks for. It proved the UIA→OCR→rule→modal chain runs; it was not a
+  detection. Two changes follow from it: the observer now skips its own process
+  (`UiSnapshot::source_pid`, `SELF_SKIP_NOTE`), and `OVL-010` additionally requires the
+  unrendered tokens to look like an instruction (`guard_vision::viewtree::instruction_shape`),
+  because OCR misses 15–40 % of ordinary UI labels and a ratio alone cannot tell that from a
+  hidden prompt.
 
 ## Desktop startup and process lifetime
 

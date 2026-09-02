@@ -21,7 +21,7 @@ use guard_schema::{Decision, DecisionAction, EventType, GuardEvent};
 use guard_sync::{sync_to_cache, DevicePolicy};
 use mac_adapter::{
     ax_probe, demo_transparent_overlay_frame, mac_capabilities, sck_probe, start_capture_session,
-    stop_capture_session, MacAdapter,
+    stop_capture_session, AxCapture, MacAdapter,
 };
 use serde::Serialize;
 use tauri::menu::{Menu, MenuItem};
@@ -1042,10 +1042,27 @@ fn ax_poll_cmd(state: State<'_, AppState>) -> Result<AxPollDto, String> {
     poll_ax_once(state.inner())
 }
 
+/// 前台是守卫自己时的说明——AX 主路径和一次性抓取都用它,壳子测试也认它。
+const AX_SELF_SKIP_MESSAGE: &str =
+    "frontmost app is AgentGuard itself — skipped (the guard does not observe its own window)";
+
 fn poll_ax_once(state: &AppState) -> Result<AxPollDto, String> {
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     match adapter.capture_live_ax() {
-        Ok(()) => {
+        // capture_live_ax 不经过合并器,不会返回 NotDue;放在同一臂只是为了穷尽枚举。
+        Ok(AxCapture::SkippedSelf) | Ok(AxCapture::NotDue) => {
+            // 守卫不观察自己。观察器是活的:更新心跳,不产事件、不过引擎。
+            *state.ax_message.lock().map_err(|e| e.to_string())? = AX_SELF_SKIP_MESSAGE.into();
+            state.heartbeat_ms.store(now_epoch_ms(), Ordering::Relaxed);
+            Ok(AxPollDto {
+                decisions: vec![],
+                source_app: "AgentGuard".into(),
+                message: AX_SELF_SKIP_MESSAGE.into(),
+                suppressed: 0,
+                summaries: vec![],
+            })
+        }
+        Ok(AxCapture::Captured) => {
             let (decisions, suppressed, summaries) =
                 drain_and_process_observed(state, &mut adapter)?;
             let msg = if suppressed > 0 {
@@ -1087,8 +1104,20 @@ fn now_ms() -> i64 {
 /// current tick was inside the debounce window and intentionally did not capture.
 fn poll_ax_push_once(state: &AppState) -> Result<Option<AxPollDto>, String> {
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
-    if !adapter.maybe_capture_ax(now_ms())? {
-        return Ok(None);
+    match adapter.maybe_capture_ax(now_ms())? {
+        AxCapture::NotDue => return Ok(None),
+        AxCapture::SkippedSelf => {
+            // 用户正停在 AgentGuard 自己的窗口上(比如刚点了「开始会话」):观察器活着,
+            // 心跳照常;不产事件。没有这一笔,状态灯会在用户看着仪表盘 10 秒后转成
+            // 「守护不完整 / 观察没有汇报」——那是对着自己误报。
+            state.heartbeat_ms.store(now_epoch_ms(), Ordering::Relaxed);
+            if let Ok(mut slot) = state.observer_error.lock() {
+                *slot = None;
+            }
+            *state.ax_message.lock().map_err(|e| e.to_string())? = AX_SELF_SKIP_MESSAGE.into();
+            return Ok(None);
+        }
+        AxCapture::Captured => {}
     }
     // 这条是 AX 实时观测的**主路径**(E3 推送 + 兜底),所以 P0-3 心跳 / P2-3 折叠都在这里:
     // 抓到一次快照 = 观察器活着;快照内容一字不差 = 折叠,不过引擎。

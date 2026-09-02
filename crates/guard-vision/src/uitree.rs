@@ -49,13 +49,32 @@ pub struct UiNode {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UiSnapshot {
     pub source_app: String,
+    /// 被观察进程的 pid(原生桥填;仿真 JSON 没有 → `None`)。
+    ///
+    /// 用途只有一个:认出**守卫自己**。Windows 真机验收(2026-09-02)两轮都在会话开始后
+    /// 30 秒内弹出 OVL-010「树里的文字没渲染在屏幕上」——那时前台窗口是 AgentGuard 自己的
+    /// 仪表盘:它的 AX 树里天生有"Payment confirmation / Intel injection / 隐私陷阱"这些演示
+    /// 按钮(默认折叠的开发者面板,树里有、像素里没有),把守卫自己的窗口交给规则引擎,
+    /// 得到的永远是一个对着镜子的告警。按名字认不可靠(dev/release 二进制名不同),按 pid 认。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_pid: Option<u32>,
     pub root: UiNode,
 }
+
+/// 观察器跳过守卫自己窗口时留下的说明。壳子据它把这一拍算作心跳(观察器活着,只是
+/// 没什么该看的),而不是"没在观察"。
+pub const SELF_SKIP_NOTE: &str = "skipped: foreground window belongs to AgentGuard itself";
 
 impl UiSnapshot {
     /// Parse a simulation JSON payload for tests and desktop sim bridge.
     pub fn from_sim_json(json: &str) -> Result<Self> {
         serde_json::from_str(json).context("parse AX simulation JSON")
+    }
+
+    /// 这份快照拍的是守卫自己的窗口。pid 未知(仿真、旧桥)一律当作不是——宁可多看一眼,
+    /// 不能因为不知道 pid 就把别人的窗口当成自己跳过。
+    pub fn is_self_observation(&self) -> bool {
+        self.source_pid == Some(std::process::id())
     }
 }
 
@@ -348,6 +367,34 @@ mod tests {
         }
     }"#;
 
+    /// 守卫不观察自己:pid 相等才算,未知 pid 不算(不能因为不知道就把别人的窗口跳过)。
+    #[test]
+    fn 只有pid等于自己才算自我观察_未知pid不算() {
+        let mine = UiSnapshot {
+            source_app: "AgentGuard".into(),
+            source_pid: Some(std::process::id()),
+            root: UiNode::default(),
+        };
+        assert!(mine.is_self_observation());
+        let other = UiSnapshot {
+            source_app: "AgentGuard".into(), // 同名但不同进程(比如另一份安装)
+            source_pid: Some(std::process::id().wrapping_add(1)),
+            root: UiNode::default(),
+        };
+        assert!(!other.is_self_observation());
+        let unknown = UiSnapshot::from_sim_json(SIM_JSON).unwrap();
+        assert_eq!(unknown.source_pid, None, "仿真 JSON 没有 pid");
+        assert!(!unknown.is_self_observation());
+    }
+
+    /// 桥带了 source_pid 的 JSON 能解析;没带的旧 JSON 也能(向后兼容)。
+    #[test]
+    fn source_pid_可选且能从json读入() {
+        let json = r#"{"source_app":"Safari","source_pid":4242,"root":{"role":"AXWindow","title":"","value":""}}"#;
+        let snap = UiSnapshot::from_sim_json(json).unwrap();
+        assert_eq!(snap.source_pid, Some(4242));
+    }
+
     #[test]
     fn from_sim_json_and_flatten() {
         let snap = UiSnapshot::from_sim_json(SIM_JSON).unwrap();
@@ -445,6 +492,7 @@ mod b6_节点文本上限 {
         let huge = "A".repeat(4 * 1024 * 1024);
         let snap = UiSnapshot {
             source_app: "App".into(),
+            source_pid: None,
             root: UiNode {
                 role: "AXTextField".into(),
                 title: huge.clone(),
@@ -479,6 +527,7 @@ mod b6_节点文本上限 {
     fn 正常标题不被截断() {
         let snap = UiSnapshot {
             source_app: "App".into(),
+            source_pid: None,
             root: UiNode {
                 role: "AXStaticText".into(),
                 title: "Confirm payment of $99.00 to Acme Corp".into(),
@@ -496,6 +545,7 @@ mod b6_节点文本上限 {
         let huge = "确认".repeat(3 * 1024 * 1024); // 每个字 3 字节
         let snap = UiSnapshot {
             source_app: "App".into(),
+            source_pid: None,
             root: UiNode {
                 role: "AXStaticText".into(),
                 title: huge,

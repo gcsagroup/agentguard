@@ -76,7 +76,47 @@ impl AdapterCapabilities {
     pub fn can_observe(&self) -> bool {
         self.uia_native.available || self.frame_capture.available
     }
+
+    /// 验收用:按 `AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia,frame,ocr` 把探测**成功**的能力
+    /// 强制标成不可用,原因串写明"是验收强制的"。
+    ///
+    /// 为什么要有它:Windows 真机验收 W6(2026-09-02)记为 BLOCKED——"未逐项触发 UIA / 捕获 /
+    /// OCR 不可用状态并验证原因串与 fail-closed 行为"。在一台一切正常的机器上,这些分支
+    /// **没有办法**自然触发(总不能卸掉 UI Automation)。这个开关让验收者不改代码就能走到
+    /// 每一条失败分支,看界面上的原因串、看 fail-closed 是不是真的关上。
+    ///
+    /// 边界:只能把 true 改成 false,不能把 false 改成 true——它是让验收者看"坏了会怎样",
+    /// 不是让一台没能力的机器冒充有能力。变量为空 / 未设 → 原样返回。
+    pub fn with_forced_unavailable(mut self, spec: &str) -> Self {
+        for item in spec.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            let target = match item.to_ascii_lowercase().as_str() {
+                "uia" | "tree" => Some(&mut self.uia_native),
+                "frame" | "capture" | "gdi" => Some(&mut self.frame_capture),
+                "ocr" => Some(&mut self.ocr),
+                _ => None,
+            };
+            if let Some(cap) = target {
+                if cap.available {
+                    *cap = Capability::no(format!(
+                        "forced unavailable for acceptance (AGENTGUARD_FORCE_CAP_UNAVAILABLE={item})"
+                    ));
+                }
+            }
+        }
+        self
+    }
+
+    /// [`Self::with_forced_unavailable`] 读环境变量的版本。
+    pub fn honoring_env(self) -> Self {
+        match std::env::var(FORCE_UNAVAILABLE_ENV) {
+            Ok(spec) => self.with_forced_unavailable(&spec),
+            Err(_) => self,
+        }
+    }
 }
+
+/// 验收开关的环境变量名(见 [`AdapterCapabilities::with_forced_unavailable`])。
+pub const FORCE_UNAVAILABLE_ENV: &str = "AGENTGUARD_FORCE_CAP_UNAVAILABLE";
 
 #[cfg(windows)]
 pub fn capabilities() -> AdapterCapabilities {
@@ -130,6 +170,49 @@ pub fn capabilities() -> AdapterCapabilities {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn all_available() -> AdapterCapabilities {
+        AdapterCapabilities {
+            simulation: true,
+            uia_native: Capability::yes("probe ok"),
+            frame_capture: Capability::yes("probe ok"),
+            graphics_capture: Capability::no("GDI path"),
+            ocr: Capability::yes("en-US pack"),
+        }
+    }
+
+    /// W6:强制不可用只朝一个方向,原因串写明是验收强制的,未知名字忽略,空串原样。
+    #[test]
+    fn 验收开关只能把可用改成不可用并写明原因() {
+        let c = all_available().with_forced_unavailable("uia, ocr");
+        assert!(!c.uia_native.available);
+        assert!(c
+            .uia_native
+            .detail
+            .contains("forced unavailable for acceptance"));
+        assert!(c.uia_native.detail.contains("uia"));
+        assert!(!c.ocr.available);
+        assert!(c.frame_capture.available, "没点名的不动");
+        assert!(c.can_observe(), "frame 还在 → 仍可观察");
+
+        let c = all_available().with_forced_unavailable("frame");
+        assert!(!c.frame_capture.available);
+        assert!(c.uia_native.available);
+
+        let c = all_available().with_forced_unavailable("uia,frame");
+        assert!(!c.can_observe(), "两路都强制掉 → fail-closed 到仿真");
+
+        // 反方向不行:本来不可用的不会被改成可用,原因串也不被覆盖。
+        let base = capabilities();
+        let c = base.clone().with_forced_unavailable("uia,frame,ocr");
+        assert_eq!(c, base, "对本来就不可用的能力不做任何事");
+
+        assert_eq!(all_available().with_forced_unavailable(""), all_available());
+        assert_eq!(
+            all_available().with_forced_unavailable("bogus"),
+            all_available()
+        );
+    }
 
     #[test]
     fn a_non_windows_host_reports_no_observation_and_says_why() {

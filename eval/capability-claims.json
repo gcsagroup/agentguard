@@ -481,11 +481,61 @@
         "anchor": "内容变一个字就是新事件,立刻放行",
         "doc": "docs/消费者化界面.md"
       }
+    },
+    {
+      "area": "shells",
+      "claim": "观察器跳过 AgentGuard 自己的窗口——守卫的仪表盘树里天生有演示威胁文字,交给引擎只会对着镜子告警",
+      "id": "guard-does-not-observe-itself",
+      "mechanism": "UiSnapshot::source_pid(桥如实带 pid)+ is_self_observation();Windows poll_once 整拍跳过并留 SELF_SKIP_NOTE,macOS capture_live_ax 返回 SkippedSelf;壳子把该拍算作心跳",
+      "note": "pid 比对在 Rust 侧(可测);原生桥填 pid 那一行(ObjC / UIA)只能在真机上验;SCK 整屏帧无法按 pid 排除",
+      "proven_by": [
+        {
+          "file": "crates/guard-vision/src/uitree.rs",
+          "test": "只有pid等于自己才算自我观察_未知pid不算"
+        },
+        {
+          "file": "apps/desktop-windows/src-tauri/src/lib.rs",
+          "test": "只有警告没有事件的一拍不更新心跳"
+        }
+      ],
+      "source": {
+        "anchor": "the observer now skips its own process",
+        "doc": "docs/windows-observation.md"
+      }
+    },
+    {
+      "area": "vision",
+      "claim": "OVL-010「树里有、屏幕上没有」只在未渲染文字具指令形状时才报——OCR 漏读普通标签不再触发 Critical 阻断",
+      "id": "ovl-010-instruction-shape",
+      "mechanism": "guard_vision::viewtree::instruction_shape(强词一个即可、弱词需两个不同),叠加在 15% 占比与 ≥3 token 之上",
+      "note": "词表是有限的:用词表外的动词写的隐藏指令会被漏掉,这是精确率换来的召回代价;注入短语规则(OVL-004 等)不受影响,仍对 ui_text 全文生效",
+      "proven_by": [
+        {
+          "file": "crates/guard-vision/src/viewtree.rs",
+          "test": "ocr漏读普通标签不算隐藏指令"
+        },
+        {
+          "file": "crates/guard-vision/src/viewtree.rs",
+          "test": "单个弱词不算指令形状_两个不同弱词才算"
+        },
+        {
+          "file": "crates/guard-vision/src/viewtree.rs",
+          "test": "少数派隐藏注入被抓到"
+        },
+        {
+          "file": "crates/guard-vision/src/viewtree.rs",
+          "test": "中文隐藏指令仍被抓到"
+        }
+      ],
+      "source": {
+        "anchor": "unrendered tokens to look like an instruction",
+        "doc": "docs/windows-observation.md"
+      }
     }
   ],
   "report": {
-    "distinct_tests": 49,
+    "distinct_tests": 55,
     "problems": [],
-    "total_claims": 22
+    "total_claims": 24
   }
 }

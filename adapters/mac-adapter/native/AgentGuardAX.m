@@ -173,8 +173,12 @@ int agentguard_ax_frontmost_json(char **out_json) {
   }
 
   NSString *appName = front.localizedName ?: front.bundleIdentifier ?: @"Unknown";
+  // source_pid:让 Rust 侧能认出"前台就是 AgentGuard 自己"并跳过——守卫的仪表盘树里天生
+  // 有演示威胁按钮的文字,交给规则引擎只会对着镜子告警(Windows 真机验收 2026-09-02 的
+  // OVL-010 就是这样来的)。判断放在 Rust(可测),这里只如实带上 pid。
   NSDictionary *snap = @{
     @"source_app" : appName,
+    @"source_pid" : @((unsigned int)pid),
     @"root" : tree,
   };
 

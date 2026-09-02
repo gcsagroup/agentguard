@@ -58,7 +58,7 @@ host 除了依赖 Chrome manifest 的 `allowed_origins`，还会校验 Chrome �
 
 - 未提交 Chrome Web Store 审核。
 - 没有商店安装、升级或权限提示的真实浏览器验收记录。
-- Native Messaging 自动安装脚本目前只支持 macOS 和 Linux；Windows 需手工安装 manifest。
+- Native Messaging 安装脚本:macOS / Linux 用 `install-host.sh`,Windows 用 `install-host.ps1`(写注册表 `HKCU\Software\<浏览器>\NativeMessagingHosts`);两者都未在商店真机流程中留证。
 - Chrome、Edge 和 Firefox 的真实商店安装及端到端执行前阻断仍需分别留证；Safari 仅有设计说明。
 
 技术说明见 [Chromium Extension README](README.md)。

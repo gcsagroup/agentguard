@@ -184,6 +184,19 @@ impl NativeWinAdapter {
         let mut ax_text: Option<String> = None;
         let mut source_app: Option<String> = None;
 
+        // 守卫不观察自己。前台是 AgentGuard 自己的窗口时整拍跳过——树不入队、像素也不抓
+        //(抓的也是自己的窗口)。仪表盘树里天生有演示威胁按钮的文字("Payment confirmation"、
+        // "Intel injection"),折叠的开发者面板树里有、像素里没有:交给规则引擎就是 2026-09-02
+        // 真机验收里那个对着镜子弹出来的 OVL-010。留一条固定说明,壳子据它照常记心跳。
+        if walk
+            .as_ref()
+            .is_some_and(|w| w.snapshot.is_self_observation())
+        {
+            out.warnings
+                .push(guard_vision::uitree::SELF_SKIP_NOTE.to_string());
+            return out;
+        }
+
         if let Some(walk) = walk {
             source_app = Some(walk.snapshot.source_app.clone());
             let flat = guard_vision::uitree::flatten_text(&walk.snapshot);

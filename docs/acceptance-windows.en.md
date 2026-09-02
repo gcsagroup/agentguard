@@ -27,10 +27,12 @@ UI Automation / GDI / OCR interactions and cannot replace per-case manual eviden
 - [ ] The AgentGuard Windows desktop shell is installed and running
 - [ ] The rule set is `crates/guard-schema/rules/p0_rules.yaml` (or an equivalent path in the release package)
 - [ ] The threat-intelligence bundle is loaded
-- [ ] If testing the browser-extension path: perform the Windows equivalent of `install-host.sh` (write the
-      native-messaging host manifest to
-      `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.agentguard.native`, with `path` pointing to
-      `guard-nm-host.exe`)—see the “Native messaging” notes in platform-matrix
+- [ ] If testing the browser-extension path: run `apps/extension-chromium/native-host/install-host.ps1 <extension-id>`
+      (`-Browser edge|firefox` optional). It writes the native-messaging host manifest under
+      `%LOCALAPPDATA%\AgentGuard\native-host\`, points the registry key
+      `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.agentguard.native` at it, and writes
+      `allowed-origin` next to `guard-nm-host.exe` (the host is fail-closed and refuses to start without it).
+      W7 was previously BLOCKED (native-messaging-not-installed); this is the missing install step.
 
 ## Acceptance Cases
 
@@ -47,6 +49,14 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 | W7 | Browser extension → native-messaging host | Chrome/Edge extension events are decided by the registry-registered `guard-nm-host.exe` and enter the signed audit trail; the host's origin validation matches. This is required for strict Windows candidate acceptance | | |
 
 > The supplemental report's blocking modal, capability status, and OCR cycles are adjacent evidence for W1/W3/W4/W6, but the payment CTA, steganography, third-party pixel-only text, and capability-failure scenarios specified by those rows were not executed. They therefore cannot be recorded as `PASS (native)`.
+> Also, the `OVL-010` modal seen in both rounds of that report fired while AgentGuard's **own window** was in the foreground (demo-button text in a collapsed panel: in the tree, not in the pixels). It proves the chain runs; it was not a detection. The observer now skips its own process, and `OVL-010` requires the unrendered text to have instruction shape. Re-test with a third-party window in the foreground.
+
+> **How to execute W6**: on a healthy machine the capability-failure branches cannot be triggered naturally. Before launching the shell set
+> `AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia` (optionally `frame`, `ocr`, comma-separated, e.g. `uia,frame`) and verify item by item:
+> the capability row shows "unavailable" with a reason containing `forced unavailable for acceptance`; with `uia,frame` both forced off the
+> status pill reads "Permission needed" and the observation loop does not start (fail-closed to simulation); with only `ocr` forced off the
+> W4 cross-validation does not run and the UI says so. The switch can only turn available into unavailable, never the reverse — it lets the
+> tester see what breakage looks like; it cannot let an incapable machine pose as capable.
 
 > The table above is only an execution record and cannot be used unchanged as a strict artifact. A strict-gate report
 > must use the [central real-device acceptance report template](acceptance-report-template.en.md), preserve `ID | Result | Evidence`
