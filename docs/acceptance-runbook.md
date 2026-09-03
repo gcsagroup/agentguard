@@ -111,7 +111,7 @@ Chromium 侧的 F1–F5 等价用例有机器判据:`make e2e-extension` 把扩�
 
 ---
 
-## 3. 平台 B:Windows 桌面壳子(W1–W10)
+## 3. 平台 B:Windows 桌面壳子(W1–W11)
 
 ### B.1 构建与运行
 
@@ -127,7 +127,7 @@ npm run tauri dev        # 起托盘壳子(dev)
 
 ### B.2 逐条执行
 
-判据以 `acceptance-windows.md` 的 W1–W10 为准。**每条先记录运行时 capability 与权限状态,再区分
+判据以 `acceptance-windows.md` 的 W1–W11 为准。**每条先记录运行时 capability 与权限状态,再区分
 "仿真"还是"原生观测"**(看托盘/日志的能力标志与实际事件/帧/OCR 输出):
 
 - **判决链路类(W1 阻断模态)**:用壳子的仿真注入触发一次 `CRIT-001`(付款文案)。PASS 判据:弹出
@@ -210,7 +210,7 @@ targetSdk,设备 API ≥ 35 且 A1–A4、L 全过才 PASS;API < 35 的设备只
 
 1. **填写独立报告**:把 `docs/acceptance-report-template.md` 复制到对应 `evidence/<平台>/report.md`,逐条写
    `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (原因)` 和仓库相对证据路径。作为严格门禁 artifact 时，
-   Firefox 的 F1–F8、Windows 的 W1–W10、Android 的 A1–A4，以及 macOS 的 1、2、3、4、5、5b、5c、6–17
+   Firefox 的 F1–F8、Windows 的 W1–W11、Android 的 A1–A4，以及 macOS 的 1、2、3、4、5、5b、5c、6–18
    必须各自恰好一行；第二列必须精确为 `PASS (native)`，第三列必须指向对应 `evidence/<平台>/` 下真实存在的
    仓库相对非空普通文件，且每个用例必须使用唯一证据路径。引用不能是报告自身或当前证据 JSON 源文件，路径不能含符号链接或越出仓库；
    路径只用 `/`，每个组件必须匹配可移植 ASCII `[A-Za-z0-9._-]+`，不能含空白或 shell glob／展开字符。`PASS (sim)`、FAIL、BLOCKED、N/A、

@@ -127,7 +127,7 @@ E2E installs no host. Firefox has no equivalent automation (Playwright cannot lo
 
 ---
 
-## 3. Platform B: Windows Desktop Shell (W1–W10)
+## 3. Platform B: Windows Desktop Shell (W1–W11)
 
 ### B.1 Build and Run
 
@@ -143,7 +143,7 @@ For the native-messaging host (when testing the W7 browser path), write `com.age
 
 ### B.2 Execute Each Case
 
-Use W1–W10 in `acceptance-windows.md` as the criteria. **For every case, record the runtime capability and
+Use W1–W11 in `acceptance-windows.md` as the criteria. **For every case, record the runtime capability and
 permission state first, then distinguish simulation from native observation** using capability indicators
 in the tray/logs and actual event/frame/OCR output:
 
@@ -248,8 +248,8 @@ For each case:
 
 1. **Complete a separate report:** copy `docs/acceptance-report-template.en.md` to the corresponding
    `evidence/<platform>/report.md`. Record `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (reason)` and a
-   repository-relative evidence path for every case. As a strict-gate artifact, Firefox F1–F8, Windows W1–W10,
-   Android A1–A4, and macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–17 must each appear exactly once. Column two must be
+   repository-relative evidence path for every case. As a strict-gate artifact, Firefox F1–F8, Windows W1–W11,
+   Android A1–A4, and macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–18 must each appear exactly once. Column two must be
    exactly `PASS (native)`, and column three must identify an existing repository-relative nonempty regular file under the
    matching `evidence/<platform>/` directory. Every case must use a unique evidence path. It cannot reference the report
    itself or the current evidence JSON source file, contain a symbolic-link path, or resolve outside the repository.

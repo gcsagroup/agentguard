@@ -113,7 +113,7 @@ Chromium 側的 F1–F5 等價案例有機器判據：`make e2e-extension` 把�
 
 ---
 
-## 3. 平台 B：Windows 桌面殼程式（W1–W10）
+## 3. 平台 B：Windows 桌面殼程式（W1–W11）
 
 ### B.1 建置與執行
 
@@ -129,7 +129,7 @@ npm run tauri dev        # 啟動系統匣殼程式（dev）
 
 ### B.2 逐項執行
 
-判據以 `acceptance-windows.md` 的 W1–W10 為準。**每一項都先記錄執行階段 capability 與權限狀態，再區分
+判據以 `acceptance-windows.md` 的 W1–W11 為準。**每一項都先記錄執行階段 capability 與權限狀態，再區分
 「模擬」或「原生觀測」**（查看系統匣/日誌的能力標誌與實際事件/影格/OCR 輸出）：
 
 - **判決鏈路類（W1 阻斷模態）**：使用殼程式的模擬注入觸發一次 `CRIT-001`（付款文案）。PASS 判據：彈出
@@ -212,8 +212,8 @@ targetSdk，裝置 API ≥ 35 且 A1–A4、L 全過才 PASS；API < 35 的裝�
 
 1. **填寫獨立報告**：將 `docs/acceptance-report-template.zh-TW.md` 複製到對應
    `evidence/<平台>/report.md`，逐項寫入 `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (原因)` 與儲存庫相對
-   證據路徑。作為嚴格閘門 artifact 時，Firefox 的 F1–F8、Windows 的 W1–W10、Android 的 A1–A4，以及
-   macOS 的 1、2、3、4、5、5b、5c、6–17 必須各自恰好一列；第二欄必須精確為 `PASS (native)`，
+   證據路徑。作為嚴格閘門 artifact 時，Firefox 的 F1–F8、Windows 的 W1–W11、Android 的 A1–A4，以及
+   macOS 的 1、2、3、4、5、5b、5c、6–18 必須各自恰好一列；第二欄必須精確為 `PASS (native)`，
    第三欄必須指向對應 `evidence/<平台>/` 下真實存在的儲存庫相對非空普通檔案，且每個案例必須使用唯一證據路徑。引用不能是報告本身或目前證據 JSON 來源檔案，
    路徑不能包含符號連結或超出儲存庫；路徑只使用 `/`，每個元件必須符合可攜式 ASCII `[A-Za-z0-9._-]+`，不能包含空白或 shell glob／展開字元。
    `PASS (sim)`、FAIL、BLOCKED、N/A、缺失、重複、重複使用路徑或引用檔案不存在都不能冒充真實裝置 PASS。

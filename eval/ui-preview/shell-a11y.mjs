@@ -88,14 +88,17 @@ const TAURI_STUB = `
       sck_streaming: false, sck_native_ok: false, sck_auto_poll: false, ax_auto: false, native_polling: false,
     },
   };
+  let tcc = { accessibility: true, screen_capture: true, protection_mode: "full" };
   const responses = {
     get_status: () => state.status,
     get_pending_confirm: () => state.pending,
     resolve_confirm: () => { state.pending = null; return { resolved: true, has_next: false }; },
     list_audit: () => [],
     security_status: () => ({ auto_approve_allowed: true, auto_approve: false, sqlcipher: false, audit_signing: false, intel_verified: false }),
-    get_tcc_status: () => ({ accessibility: true, screen_capture: true, protection_mode: "full" }),
-    probe_permissions: () => ({ accessibility: true, screen_capture: true }),
+    get_tcc_status: () => tcc,
+    probe_permissions: () => ({ accessibility: tcc.accessibility, screen_capture: tcc.screen_capture }),
+    open_privacy_settings: () => null,
+    inject_demo_threat: () => [],
     export_session_report: () => "",
   };
   window.__TAURI__ = {
@@ -106,6 +109,10 @@ const TAURI_STUB = `
     calls,
     setPending: (p) => { state.pending = p; },
     setState: (s) => { state.status = { ...state.status, protection_state: s }; },
+    // 「怎么用」那一节要测首次使用(什么都没授权、还没开会话)与守护中两种态,
+    // 所以桩要能整片改 status,也要能改 TCC/能力探测的回答。
+    patchStatus: (patch) => { state.status = { ...state.status, ...patch }; },
+    patchTcc: (patch) => { tcc = { ...tcc, ...patch }; },
   };
 })();
 `;
@@ -215,6 +222,85 @@ for (const shell of ["macos", "windows"]) {
   await page.waitForTimeout(400);
   const stateAnn = await page.evaluate(() => document.getElementById("sr-announce").textContent);
   check("状态从 active → permission_required 有播报且是人话", stateAnn.length > 0 && !stateAnn.includes("permission_required") && !stateAnn.includes("a11y."), JSON.stringify(stateAnn));
+
+  // ---------------------------------------------------------------------------
+  // 6. 「用户看得懂吗」(真机反馈)。原来主界面只有一个「开始会话」按钮和一行
+  //    `AX=false · Capture=false · SCK=idle`,没有任何说明:这是什么、该点什么、
+  //    点了会发生什么、怎么知道它真的会拦。下面几条钉住修复后的合同。
+  // ---------------------------------------------------------------------------
+  // 首次使用的真实处境:两项权限都没授、还没开会话。
+  await page.evaluate(() => {
+    window.__agTest.patchTcc({ accessibility: false, screen_capture: false, protection_mode: "sim" });
+    window.__agTest.patchStatus({
+      protection_state: "stopped", session_active: false, accessibility: false, screen_capture: false,
+      protection_mode: "sim", uia_native: false, frame_capture: false, ocr: false,
+      sck_streaming: false, sck_auto_poll: false, ax_auto_poll: false,
+      capabilities: { uia: false, capture: false, ocr: false },
+    });
+  });
+  await page.click("#btn-refresh");
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: join(OUT, `shell-${shell}-firstrun.png`), fullPage: true });
+
+  const howto = await page.evaluate(() => {
+    const card = document.getElementById("howto");
+    if (!card) return null;
+    const steps = [...card.querySelectorAll(".steps > li")];
+    return {
+      steps: steps.length,
+      // 每一步都得有可见的标题**和**说明,不能是空段落(词条漏了就是空的)。
+      headed: steps.every((li) => (li.querySelector("strong")?.innerText || "").trim().length > 0),
+      explained: steps.every((li) => [...li.querySelectorAll("p")].some((x) => x.innerText.trim().length > 20)),
+      chips: [...card.querySelectorAll(".chip")].map((c) => c.innerText.trim()),
+      // 卡片必须在主界面上,不能藏在 <details> 里。
+      inDetails: !!card.closest("details"),
+      selftest: !!card.querySelector("#btn-selftest") && !card.querySelector("#btn-selftest").closest("details"),
+      text: card.innerText,
+    };
+  });
+  check("主界面有「怎么用」三步卡片(不在开发者面板里)", !!howto && howto.steps === 3 && !howto.inDetails, JSON.stringify(howto && { steps: howto.steps, inDetails: howto.inDetails }));
+  if (howto) {
+    check("三步各有标题与说明(没有漏词条留下的空段落)", howto.headed && howto.explained, JSON.stringify({ headed: howto.headed, explained: howto.explained }));
+    check("每步带实时状态徽章,且徽章是人话不是 key 名", howto.chips.length >= 2 && howto.chips.every((c) => c.length > 0 && !c.includes("chip")), JSON.stringify(howto.chips));
+    check("「自检」按钮在主界面(不进开发者面板就能看到它工作)", howto.selftest);
+  }
+
+  // 未开始守护时,"在看什么"必须说"什么都没在看" —— 不能空着,更不能说在看。
+  const watching = await page.evaluate(() => {
+    const el = document.getElementById("watching");
+    return el ? el.innerText.trim() : null;
+  });
+  check("主界面有一行人话说明「现在在看什么」", !!watching && watching.length > 10, JSON.stringify(watching));
+
+  // 裸术语:主界面(把默认折叠的开发者面板整段排除后)的可见文本里不许出现这些。
+  // ScreenCaptureKit / UI Automation 这类**括号补充**是 E16 允许的,禁的是
+  // `AX=false`、`SCK=idle`、`Capture=false` 这种键值对和内部状态枚举。
+  const raw = await page.evaluate(() => {
+    const main = document.getElementById("app-main").cloneNode(true);
+    main.querySelectorAll("details").forEach((d) => d.remove());
+    return main.innerText;
+  });
+  const BANNED = [/\bAX\s*=/, /\bSCK\s*=/, /\bCapture\s*=/, /\bprotection_state\b/, /\bsession_active\b/, /\bax_auto_poll\b/, /\buia_native\b/];
+  const hit = BANNED.find((re) => re.test(raw));
+  check("主界面可见文本里没有裸的键值对/内部字段名", !hit, hit ? `命中 ${hit}` : "");
+
+  // 守护中(两项都授权、观察器在跑):同一行必须换成"正在看…",否则它就只是句装饰。
+  await page.evaluate(() => {
+    window.__agTest.patchTcc({ accessibility: true, screen_capture: true, protection_mode: "full" });
+    window.__agTest.patchStatus({
+      protection_state: "active", session_active: true, accessibility: true, screen_capture: true,
+      protection_mode: "full", uia_native: true, frame_capture: true, ocr: true,
+      sck_streaming: true, sck_auto_poll: true, ax_auto_poll: true,
+      capabilities: { uia: true, capture: true, ocr: true },
+    });
+  });
+  await page.click("#btn-refresh");
+  await page.waitForTimeout(400);
+  const watching2 = await page.evaluate(() => document.getElementById("watching").innerText.trim());
+  const chips2 = await page.evaluate(() => [...document.querySelectorAll("#howto .chip")].map((c) => c.innerText.trim()));
+  check("开始守护后「在看什么」这行确实变了(不是一句装饰)", watching2 !== watching && watching2.length > 10, JSON.stringify([watching, watching2]));
+  check("徽章跟着状态变(未开始 → 进行中)", JSON.stringify(chips2) !== JSON.stringify(howto ? howto.chips : []), JSON.stringify([howto && howto.chips, chips2]));
+  await page.screenshot({ path: join(OUT, `shell-${shell}-protecting.png`), fullPage: true });
   await page.close();
 }
 

@@ -24,7 +24,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [Project README (Simplified Chinese)](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 release notes (Simplified Chinese)](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 real-device acceptance report (Simplified Chinese)](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — Historical snapshot separating `bd7bb2f` from the integration candidate that was uncommitted at the time. It does not prove real-device acceptance for this commit; the release decision remains No-Go.
-- [2026-09-02 Windows partial real-device acceptance report (Simplified Chinese)](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — Automation, Release-artifact, and independent RDP interaction evidence for candidate `89dadf9`. W1–W10 are incomplete, and production release remains No-Go.
+- [2026-09-02 Windows partial real-device acceptance report (Simplified Chinese)](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — Automation, Release-artifact, and independent RDP interaction evidence for candidate `89dadf9`. W1–W11 are incomplete, and production release remains No-Go.
 - [Changelog (Simplified Chinese)](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [Privacy disclosure (Simplified Chinese)](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -50,6 +50,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [platform-matrix.md](platform-matrix.md) — Original language: primarily English; status: platform reference whose real-device state must be read with the release notes.
 - [status-dashboard.html](status-dashboard.html) — A generated Simplified-Chinese machine view of capability claims and gate data; this English portal carries the translated conclusion. Regenerate it on the current commit, and do not treat it as real-device evidence.
 - [capability-matrix.en.md](capability-matrix.en.md) — Trilingual capability matrix generated from source by `scripts/gen-capability-matrix.py`: the events each platform actually emits, static test counts, version strings; `cargo test` compares it byte for byte, and hand-written documents defer to it for those figures.
+- [desktop-guide.en.md](desktop-guide.en.md) — Desktop guide: which permissions, how to start protecting, what each status light means, how the self-test shows you it works, and what it cannot do. The long form of the app's “How to use it” card.
 - [macos-release.md](macos-release.md) — Original language: Simplified Chinese; status: signing, notarization, and packaging guide, not proof of execution.
 - [roadmap-status.md](roadmap-status.md) — Original language: primarily English; status: needs reconciliation because some metrics and completed boxes are historical snapshots.
 - [privacy-policy.md](privacy-policy.md) — Trilingual technical-disclosure draft; legal review and real contact details are still required before publication.
@@ -63,7 +64,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [architecture.md](architecture.md) — Original language: mixed Chinese and English; status: technical reference.
 - [android-completeness.md](android-completeness.md) — Original language: primarily English; status: Android capability and gap reference.
 - [android-env-survey.md](android-env-survey.md) — Original language: English; status: Android environment-survey reference.
-- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with partial real-device evidence for startup, continuous observation, and the blocking modal; full W1–W10 end-to-end acceptance remains open.
+- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with partial real-device evidence for startup, continuous observation, and the blocking modal; full W1–W11 end-to-end acceptance remains open.
 - [ios-limited-sku.md](ios-limited-sku.md) — Original language: primarily English; status: limited scaffold description, not a complete product.
 - [local-api.md](local-api.md) — Original language: mixed Chinese and English; status: local API reference.
 - [billing.md](billing.md) — Original language: mixed Chinese and English; status: billing and entitlement reference.

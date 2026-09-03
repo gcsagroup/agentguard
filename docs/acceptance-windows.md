@@ -2,22 +2,22 @@
 
 # Windows 真机验收清单（Launch Readiness）
 
-本文档用于在**真实 Windows 设备**上对 AgentGuard 桌面壳子做发布前人工验收，并定义尚待完成的 W1–W10。
+本文档用于在**真实 Windows 设备**上对 AgentGuard 桌面壳子做发布前人工验收，并定义尚待完成的 W1–W11。
 `windows` CI 作业现已覆盖 Windows 工作区、`win-adapter`、桌面测试和真实窗口启动 smoke，但不会驱动
-真实 UI Automation / GDI / OCR 交互，也不能替代 W1–W10 的逐项人工证据。
+真实 UI Automation / GDI / OCR 交互，也不能替代 W1–W11 的逐项人工证据。
 
 > 本清单全绿只是发布的必要非充分条件；它不能替代 Authenticode 签名、安装包身份、其余平台证据或完整发布门禁。
 
 > **前置的自动化门禁**：先在仓库根运行 `make acceptance` 与 `cargo test --workspace`；在 Windows 上还要构建
 > `win-adapter`、以 `-D warnings` 运行 Clippy，并运行桌面测试、桌面 Clippy 和 Release 构建。CI 的窗口启动
-> smoke 会确认进程未立即退出且建立了原生窗口。全绿是必要非充分条件：它不证明 W1–W10 的真实交互结果。
+> smoke 会确认进程未立即退出且建立了原生窗口。全绿是必要非充分条件：它不证明 W1–W11 的真实交互结果。
 
 ## 当前执行状态（2026-09-02）
 
 - 候选 `89dadf960a558d35dc3c6c557eadbc19d3a162d0` 已在 Windows 11 build 26200 上完成桌面测试 5/5、桌面 Clippy `-D warnings` 与 Release 构建；GitHub Actions run `33551495621` 全绿。
 - Release EXE 的 SHA-256 为 `47A420C6A5FA88C406C18DD7F8A189B6D21183143A2DA69578FA02C559AB5119`，Authenticode 状态为 `NotSigned`。
 - 独立 RDP 交互测试中，窗口空闲超过 30 秒并连续刷新；两轮会话各跨过 OCR 周期运行超过 30 秒，UIA/GDI/OCR 均显示可用，真实触发 `OVL-010` 阻断模态，拒绝后执行 End/Resume/Start 的第二轮仍稳定，且未出现新的 Event 1000。
-- 本轮结论是**部分真机验收**。付款 CTA、第三方表单与像素 OCR、隐写、overlay 边界、能力失败分支与 Native Messaging 未按 W1–W10 的规定场景执行，因此下表不标记 PASS。WinRM 自动化只属于前置门禁；本轮另有独立 RDP 交互证据。详见[补充报告](acceptance-report-windows-2026-09-02.md)。
+- 本轮结论是**部分真机验收**。付款 CTA、第三方表单与像素 OCR、隐写、overlay 边界、能力失败分支与 Native Messaging 未按 W1–W11 的规定场景执行，因此下表不标记 PASS。WinRM 自动化只属于前置门禁；本轮另有独立 RDP 交互证据。详见[补充报告](acceptance-report-windows-2026-09-02.md)。
 
 ## 前置条件
 
@@ -46,6 +46,7 @@
 | W8 | **验收 trace 判据**：整场用 `AGENTGUARD_ACCEPTANCE_TRACE=evidence\windows\trace.jsonl` 启动壳子；跑完 W1–W7 与 W9、W10 后执行 `guard-cli acceptance-trace-check --trace evidence/windows/trace.jsonl --audit-db <审计库>` | 六项全 `PASS`，打印整行 `AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS`；任一 FAIL 本项即 FAIL | | |
 | W9 | **结束后不再采集**（报告第 3 条）：点「结束会话」，等 ≥60 s，再切几个窗口 | 审计库最后一条是 `SESSION-END`，其后零观察记录；trace 会话结束后无 `events>0` 的 tick；状态灯「已停止」 | | |
 | W10 | **状态灯与事实一致**（报告 P0-3）：会话中截图「保护中」；`AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia` 重启壳子并开会话截图；去掉变量再截图 | 「保护中」→「需要授权/降级」（原因串点名 UIA）→「保护中」；trace-check 第 5 项 PASS | | |
+| W11 | **「开始守护」自己就够了**（真机反馈)：全新启动应用 → **不展开开发者面板** → 点「开始守护」 | ≤10 s 内状态灯变「保护中」，主界面那行变成「正在看这台机器…」；「实时观察」卡片里三样能力各自的可用/不可用与原因与原始状态行一致。点「结束守护」后灯回「未在守护」、那行回「什么都没在看」。两张截图（守护中 / 结束后）+ 开发者面板原始状态行截图 | | |
 
 > 补充报告中的阻断模态、能力状态和 OCR 周期是 W1/W3/W4/W6 的相邻证据，但没有按各行规定的付款 CTA、隐写、第三方纯像素文本或能力失败场景执行，不能据此把这些行写成 `PASS (native)`。
 > 另外,补充报告里两轮都出现的 `OVL-010` 模态是在 AgentGuard **自己的窗口**为前台时弹出的(树里有折叠的演示按钮文字、像素里没有),它证明链路能跑,不是一次检测;此后观察器跳过自身进程,且 `OVL-010` 要求未渲染的文字具指令形状。复测时以第三方窗口为前台。
@@ -57,7 +58,7 @@
 > 这个开关只能把可用改成不可用,不能反向——它让验收者看"坏了会怎样",不能让一台没能力的机器冒充有能力。
 
 > 上表只用于逐项执行记录，不能原样作为 strict artifact。严格门禁报告必须使用[中央真机验收报告模板](acceptance-report-template.md)，
-> 并保持 `ID | 结果 | 证据` 为前三列，再把 W1–W10 的结果与证据逐项转录进去。
+> 并保持 `ID | 结果 | 证据` 为前三列，再把 W1–W11 的结果与证据逐项转录进去。
 
 ## 这些用例分别验证 platform-matrix 的哪条"未验证"
 
@@ -75,7 +76,7 @@
   下列命令实际校验、计算闭包摘要并填写 JSON。`output` 必须使用命令成功时打印的精确标记
   `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`,JSON 还须绑定当前完整 commit 和
   `agentguard-acceptance-closure-sha256-v1`。
-  W1–W10 在报告中必须各恰好一行,结果精确为 `PASS (native)`,证据列须指向 `evidence/windows/` 下真实存在的
+  W1–W11 在报告中必须各恰好一行,结果精确为 `PASS (native)`,证据列须指向 `evidence/windows/` 下真实存在的
   仓库相对非空普通文件；路径不得复用,不能引用报告自身或当前证据 JSON 源文件,也不能经过符号链接或越出仓库。
   路径只用 `/`,每个组件须匹配 `[A-Za-z0-9._-]+`,不能含空白或 shell glob／展开字符。闭包绑定报告与每个唯一引用的路径、长度和内容,
   但仍是未签名自证,不能证明截图或日志的真实来源。

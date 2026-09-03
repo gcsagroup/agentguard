@@ -8,7 +8,7 @@
 > `make acceptance` 或 `cargo run -p guard-cli -- acceptance-run`。
 > 此命令會執行 `eval/acceptance/manifest.yaml` 列出的離線情境，並產生 `eval/acceptance-report.json` / `eval/acceptance-report.md`。全部 PASS 是 macOS 發佈的必要非充分條件。
 
-> 本清單全綠只是發佈的必要非充分條件，不能取代 Developer ID 簽署、公證、發佈套件身分、其他平台證據或完整發佈閘門。作為 `acceptance_macos` 嚴格閘門證據時，1、2、3、4、5、5b、5c 及 6–17 必須全部精確記錄為 `PASS (native)`；`PASS (sim)`、FAIL、BLOCKED 或 N/A 都不能通過。
+> 本清單全綠只是發佈的必要非充分條件，不能取代 Developer ID 簽署、公證、發佈套件身分、其他平台證據或完整發佈閘門。作為 `acceptance_macos` 嚴格閘門證據時，1、2、3、4、5、5b、5c 及 6–18 必須全部精確記錄為 `PASS (native)`；`PASS (sim)`、FAIL、BLOCKED 或 N/A 都不能通過。
 
 ## 前置條件
 
@@ -51,6 +51,7 @@
 | 15 | | | **驗收 trace 判據**：整場以 `AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl` 啟動殼程式；跑完 1–14 與 16、17 後執行 `guard-cli acceptance-trace-check --trace evidence/macos/trace.jsonl --audit-db <稽核庫>` | 六項全 `PASS`，印出整行 `AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS`；任一 FAIL（回執落錯紀錄、結束後仍擷取、狀態與心跳不符…）本項即 FAIL，不得以肉眼補正 |
 | 16 | | | **結束後不再擷取**（報告 P0-4）：按「結束會話」，等 ≥60 s，再切換幾個視窗 | 稽核庫最後一筆是 `SESSION-END`，其後**零**觀察紀錄；trace 中會話結束後沒有 `events>0` 的 tick；狀態燈「已停止」。截圖儀表板 + `audit-report` 尾段 |
 | 17 | | | **狀態燈與事實一致**（報告 P0-3）：會話中截圖「保護中」；在系統設定撤銷輔助使用授權，≤10 s 內再截圖；恢復授權，≤10 s 再截圖 | 三張截圖依序為「保護中」→「需要授權」（原因字串寫明 AX）→「保護中」；trace 的 `state` 行與之對應，trace-check 第 5 項 PASS |
+| 18 | | | **「開始守護」自己就夠了**（真機回饋)：全新啟動應用 → 按第一步授權兩項 → **不展開開發者面板** → 點「開始守護」 | ≤10 s 內狀態燈變「守護中」,主介面那行變成「正在看:視窗內容 + 螢幕畫面」;期間**沒有**點過「AX 即時觀察」或「開始抓螢幕」。再點「結束守護」,燈回「未在守護」、那行回「什麼都沒在看」。兩張截圖（守護中 / 結束後）+ 開發者面板原始狀態行截圖（`AX=true · Capture=true · SCK=streaming`） |
 
 ### SCK / TCC 說明
 

@@ -3,9 +3,9 @@
 # Windows Real-Device Acceptance Checklist (Launch Readiness)
 
 This document covers pre-release manual acceptance testing of the AgentGuard desktop shell on a
-**real Windows device** and defines the remaining W1–W10 work. The `windows` CI job now covers the Windows
+**real Windows device** and defines the remaining W1–W11 work. The `windows` CI job now covers the Windows
 workspace, `win-adapter`, desktop tests, and a real-window startup smoke, but it does not drive real
-UI Automation / GDI / OCR interactions and cannot replace per-case manual evidence for W1–W10.
+UI Automation / GDI / OCR interactions and cannot replace per-case manual evidence for W1–W11.
 
 > A fully green checklist is necessary but not sufficient for release. It does not replace Authenticode
 > signing, installer identity, evidence for the other platforms, or the complete release gate.
@@ -13,14 +13,14 @@ UI Automation / GDI / OCR interactions and cannot replace per-case manual eviden
 > **Automated prerequisite gate:** first run `make acceptance` and `cargo test --workspace` at the repository
 > root. On Windows, also build `win-adapter`, run Clippy with `-D warnings`, and run desktop tests, desktop
 > Clippy, and the Release build. CI's window-startup smoke confirms that the process does not exit immediately
-> and creates a native window. A green result is necessary but not sufficient: it does not prove W1–W10 interactions.
+> and creates a native window. A green result is necessary but not sufficient: it does not prove W1–W11 interactions.
 
 ## Current Execution Status (2026-09-02)
 
 - Candidate `89dadf960a558d35dc3c6c557eadbc19d3a162d0` completed desktop tests 5/5, desktop Clippy with `-D warnings`, and a Release build on Windows 11 build 26200. GitHub Actions run `33551495621` was fully green.
 - The Release EXE has SHA-256 `47A420C6A5FA88C406C18DD7F8A189B6D21183143A2DA69578FA02C559AB5119` and Authenticode status `NotSigned`.
 - During independent RDP interaction testing, the window remained idle for more than 30 seconds and continued refreshing. Two sessions each ran for more than 30 seconds across OCR cycles; UIA/GDI/OCR all reported available; a real `OVL-010` blocking modal fired; and a second End/Resume/Start cycle remained stable after rejection. No new Event 1000 appeared.
-- This run is **partial real-device acceptance**. Payment CTA, third-party form and pixel OCR, steganography, overlay-boundary, capability-failure, and Native Messaging scenarios were not executed as specified by W1–W10, so the table below remains unmarked. WinRM automation is prerequisite-gate evidence only; this run also has separate RDP interaction evidence. See the [supplemental report](acceptance-report-windows-2026-09-02.en.md).
+- This run is **partial real-device acceptance**. Payment CTA, third-party form and pixel OCR, steganography, overlay-boundary, capability-failure, and Native Messaging scenarios were not executed as specified by W1–W11, so the table below remains unmarked. WinRM automation is prerequisite-gate evidence only; this run also has separate RDP interaction evidence. See the [supplemental report](acceptance-report-windows-2026-09-02.en.md).
 
 ## Prerequisites
 
@@ -50,6 +50,7 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 | W8 | **Acceptance trace check:** launch the shell for the whole session with `AGENTGUARD_ACCEPTANCE_TRACE=evidence\windows\trace.jsonl`; after W1–W7, W9 and W10 run `guard-cli acceptance-trace-check --trace evidence/windows/trace.jsonl --audit-db <audit db>` | All six checks `PASS`; the full line `AGENTGUARD_ACCEPTANCE_TRACE_CHECK=PASS` is printed; any FAIL fails this case | | |
 | W9 | **No observation after end** (report item 3): click “End session”, wait ≥60 s, switch through a few windows | Last audit row is `SESSION-END` with zero observation rows after it; no tick with `events>0` after the end in the trace; status light “Stopped” | | |
 | W10 | **Status light matches reality** (report P0-3): screenshot “Protecting” mid-session; restart the shell with `AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia`, start a session, screenshot; remove the variable, screenshot again | “Protecting” → “Permission required / Degraded” (reason names UIA) → “Protecting”; trace-check #5 passes | | |
+| W11 | **“Start protecting” is enough on its own** (real-device feedback): launch the app fresh → **do not expand the developer panel** → press “Start protecting” | Within 10 s the light reads “Protecting” and the main line reads “Watching this machine…”; the three capabilities on the “Live observation” card, with their reasons, agree with the raw state line. After “Stop protecting” the light returns to “Not protecting” and the line to “Not watching anything yet”. Two screenshots (protecting / after stopping) plus a screenshot of the developer panel's raw state line | | |
 
 > The supplemental report's blocking modal, capability status, and OCR cycles are adjacent evidence for W1/W3/W4/W6, but the payment CTA, steganography, third-party pixel-only text, and capability-failure scenarios specified by those rows were not executed. They therefore cannot be recorded as `PASS (native)`.
 > Also, the `OVL-010` modal seen in both rounds of that report fired while AgentGuard's **own window** was in the foreground (demo-button text in a collapsed panel: in the tree, not in the pixels). It proves the chain runs; it was not a detection. The observer now skips its own process, and `OVL-010` requires the unrendered text to have instruction shape. Re-test with a third-party window in the foreground.
@@ -63,7 +64,7 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 
 > The table above is only an execution record and cannot be used unchanged as a strict artifact. A strict-gate report
 > must use the [central real-device acceptance report template](acceptance-report-template.en.md), preserve `ID | Result | Evidence`
-> as its first three columns, and transcribe the W1–W10 results and evidence into it.
+> as its first three columns, and transcribe the W1–W11 results and evidence into it.
 
 ## Which “Pending Validation” Item in platform-matrix Each Case Covers
 
@@ -80,7 +81,7 @@ Run every case manually on **real Windows** and retain evidence (screenshots / e
 - After all required cases pass, save the completed report as a repository-relative regular file such as
   `evidence/windows/report.md`, then actually validate it, compute its closure digest, and complete JSON with the
   commands below. JSON `output` must use the exact success marker `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`, and the
-  evidence must bind the full current commit and `agentguard-acceptance-closure-sha256-v1`. W1–W10 must each appear
+  evidence must bind the full current commit and `agentguard-acceptance-closure-sha256-v1`. W1–W11 must each appear
   in exactly one report row with result `PASS (native)`. The evidence column must identify a unique existing nonempty
   repository-relative regular file under `evidence/windows/`; it cannot be the report itself or the current evidence
   JSON source file, traverse a symbolic link, or resolve outside the repository. Paths use only `/`; every component

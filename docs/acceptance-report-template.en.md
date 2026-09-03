@@ -59,6 +59,7 @@ Windows version: __________　Shell mode: ☐ Simulation ☐ Native available �
 | W8 Acceptance trace check |  |  |  |
 | W9 No observation after end |  |  |  |
 | W10 Status light matches reality |  |  |  |
+| W11 “Start protecting” is enough on its own |  |  |  |
 
 ## macOS Desktop Shell
 
@@ -85,6 +86,7 @@ macOS version: __________　Shell mode: ☐ Simulation ☐ Native available ☐ 
 | 15 Acceptance trace check |  |  |  |
 | 16 No observation after end |  |  |  |
 | 17 Status light matches reality |  |  |  |
+| 18 “Start protecting” is enough on its own |  |  |  |
 
 ## Android Companion
 

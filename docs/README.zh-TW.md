@@ -24,7 +24,7 @@
 - [專案 README（簡體）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 發佈說明（簡體）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 真實裝置驗收報告（簡體）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 歷史快照，區分 `bd7bb2f` 與當時未提交的整合候選；不代表本次提交已完成真實裝置驗收，發佈結論仍為 No-Go。
-- [2026-09-02 Windows 部分真機驗收報告（簡體）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候選 `89dadf9` 的自動化、Release 產物與獨立 RDP 互動證據；W1–W10 未完整執行，正式環境發佈仍為 No-Go。
+- [2026-09-02 Windows 部分真機驗收報告（簡體）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候選 `89dadf9` 的自動化、Release 產物與獨立 RDP 互動證據；W1–W11 未完整執行，正式環境發佈仍為 No-Go。
 - [CHANGELOG（簡體）](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [隱私說明（簡體）](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -50,6 +50,7 @@
 - [platform-matrix.md](platform-matrix.md) — 原始語言：英文為主；狀態：平台能力參考，真實裝置狀態須結合發佈說明。
 - [status-dashboard.html](status-dashboard.html) — 從能力聲明、閘門與狀態資料產生的簡體中文機器頁面；本繁體入口已翻譯其結論，該頁必須在目前提交上重新產生，且不能取代真實裝置證據。
 - [capability-matrix.zh-TW.md](capability-matrix.zh-TW.md) — 由 `scripts/gen-capability-matrix.py` 從原始碼產生的三語能力矩陣：各端真正發出的事件、靜態測試數、版本字串；`cargo test` 逐字核對，手寫文件裡的這些數字以它為準。
+- [desktop-guide.zh-TW.md](desktop-guide.zh-TW.md) — 桌面端使用說明:怎麼授權、怎麼開始守護、狀態燈各是什麼意思、怎麼用自我檢查看到它工作、它做不到什麼。應用內「怎麼用」卡片的完整版。
 - [macos-release.md](macos-release.md) — 原始語言：簡體中文；狀態：簽署、公證與封裝指南，不是已執行證明。
 - [roadmap-status.md](roadmap-status.md) — 原始語言：英文為主；狀態：需對齊，部分指標與完成勾選是歷史快照。
 - [privacy-policy.md](privacy-policy.md) — 三語技術揭露草稿；公開前仍需法務複核並補真實聯絡資訊。
@@ -63,7 +64,7 @@
 - [architecture.md](architecture.md) — 原始語言：中英混合；狀態：技術參考。
 - [android-completeness.md](android-completeness.md) — 原始語言：英文為主；狀態：Android 能力與缺口參考。
 - [android-env-survey.md](android-env-survey.md) — 原始語言：英文；狀態：Android 環境調查技術參考。
-- [windows-observation.md](windows-observation.md) — 原始語言：英文；狀態：Windows 實作參考，已有啟動、連續觀測與阻斷模態的部分真機證據；完整 W1–W10 端對端驗收仍未完成。
+- [windows-observation.md](windows-observation.md) — 原始語言：英文；狀態：Windows 實作參考，已有啟動、連續觀測與阻斷模態的部分真機證據；完整 W1–W11 端對端驗收仍未完成。
 - [ios-limited-sku.md](ios-limited-sku.md) — 原始語言：英文為主；狀態：有限骨架說明，不是完整產品。
 - [local-api.md](local-api.md) — 原始語言：中英混合；狀態：本機 API 技術參考。
 - [billing.md](billing.md) — 原始語言：中英混合；狀態：計費與授權技術參考。

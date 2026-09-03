@@ -201,3 +201,18 @@ details.dev[open] > summary { margin-bottom: 0.75rem; }
   outline: 3px solid var(--accent, #2f6df6);
   outline-offset: 2px;
 }
+
+/* 「怎么用」三步卡片(真机反馈:主界面看不出这是什么、该点什么、点了会发生什么)。 */
+.howto{border-color:#3a4a6a;background:linear-gradient(160deg,#151d2a,#131a24)}
+.howto .steps{margin:.6rem 0 0;padding-left:1.4rem}
+.howto .steps>li{margin-bottom:1rem}
+.howto .steps>li:last-child{margin-bottom:.2rem}
+.step-head{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.step-head strong{font-size:.95rem}
+/* 步骤徽章。颜色与状态灯同一套语义:绿=可用/进行中,橙=部分,灰=不可用/未开始。 */
+.chip{font-size:.72rem;padding:.1rem .5rem;border-radius:999px;background:#243044;color:#9fb2cb;white-space:nowrap}
+.chip.done,.chip.on{background:#143528;color:#3dd68c}
+.chip.partial{background:#3a2210;color:#f0a35a}
+.chip.todo,.chip.off{background:#243044;color:#9fb2cb}
+.muted.small{font-size:.8rem}
+.subhead{font-size:.9rem;margin:.9rem 0 .2rem;color:#9fb2cb}

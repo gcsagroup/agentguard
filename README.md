@@ -52,9 +52,14 @@ npm install
 npm run tauri dev
 ~~~
 
+**装好之后怎么用**(授权哪两项、「开始守护」到底做了什么、状态灯各是什么意思、怎么用自检在 5 秒内
+看到它拦一次、什么都没发生时按什么顺序查):见 [桌面端使用说明](docs/desktop-guide.md)。
+应用主界面里也有同一套三步速览。
+
 ## 文档
 
 - [文档门户](docs/README.md)
+- [桌面端使用说明](docs/desktop-guide.md)
 - [1.0.0-rc.1 发布说明](docs/RELEASE-1.0.0-rc.1.md)
 - [变更记录](CHANGELOG.md)
 - [范围与非目标](docs/scope-and-non-goals.md)

@@ -52,9 +52,15 @@ npm install
 npm run tauri dev
 ~~~
 
+**Once it is installed** — which two permissions, what “Start protecting” actually does, what each
+status light means, how the self-test shows you one block in five seconds, and what to check when
+nothing happens: see the [desktop guide](docs/desktop-guide.en.md). The app's main window carries the
+same three-step summary.
+
 ## Documentation
 
 - [Documentation portal](docs/README.en.md)
+- [Desktop guide](docs/desktop-guide.en.md)
 - [1.0.0-rc.1 release notes](docs/RELEASE-1.0.0-rc.1.en.md)
 - [Changelog](CHANGELOG.en.md)
 - [Scope and non-goals](docs/scope-and-non-goals.md)

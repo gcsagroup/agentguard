@@ -315,6 +315,20 @@ claims:
       - { test: "minimizeUrl:非 http(s) 与畸形输入不外传", file: apps/extension-chromium/scripts/gate.test.mjs }
     note: 令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字
 
+  - id: guard-starts-when-you-press-start
+    claim: 点「开始守护」就开始观察——授权过的观察器随会话启动、随会话停;主界面用人话说出现在在看什么,并有三步使用说明与一个自检
+    area: shells
+    source:
+      doc: docs/desktop-guide.md
+      anchor: "启动你授权过的观察器"
+    mechanism: macOS 壳子 observers_for_session(授权矩阵 → 该开什么)+ start_guard_session 在 drop(adapter) 后调 arm_ax_observer / arm_sck_capture(Windows 壳子一直如此);主界面 #watching 与三步「怎么用」卡片(含自检按钮)由 shell-a11y harness 在真 Chromium 里断言
+    proven_by:
+      - { test: 授权过的观察器随会话武装_没授权的不武装, file: apps/desktop-macos/src-tauri/src/lib.rs }
+      - { test: 未授权时不武装任何观察器_但会话仍可开始, file: apps/desktop-macos/src-tauri/src/lib.rs }
+      - { test: 会话开始真的武装观察器_且在放掉adapter锁之后, file: apps/desktop-macos/src-tauri/src/lib.rs }
+      - { test: 隐私面板锚点只认那两个已知面板, file: apps/desktop-macos/src-tauri/src/lib.rs }
+    note: 修的是真机反馈的功能缺陷——以前 start_guard_session 不武装任何观察器,唯一入口是折叠的开发者面板;Rust 侧钉决策与接线,界面侧由 shell-a11y(不进 release-gate,CI 单跑)钉"主界面有三步说明、有自检、无裸键值对、在看什么会随状态变";AXObserver 注册与 TCC 授权本身仍只有真机能验(macOS 清单第 18 项 / Windows W11)
+
   - id: extension-alert-storm-control
     claim: 同一页里同一条发现只上报一次,页面不停变化不刷屏;内容变一个字就是新发现,后到的注入仍会报;两轮扫描至少隔 1.5 s,突发打包;指纹集有上限
     area: extension

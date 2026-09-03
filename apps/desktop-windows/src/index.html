@@ -35,6 +35,42 @@
       </header>
       <section id="state-why" class="card state-why" role="status" hidden></section>
 
+      <!-- 「怎么用」(真机反馈):主界面原来只有一个「开始会话」按钮和一行 规则/intel/plan/privacy,
+           用户看不出这是什么、该点什么、点了会发生什么。三步各带一个实时状态徽章;
+           第三步的自检按钮让人不进开发者面板就能亲眼看到一次拦截。
+           Windows 与 macOS 的第一步不同:这里不需要授权任何系统权限(UI Automation / GDI 不走
+           TCC 那套),该确认的是"这台机器上这三样能力到底可不可用"——所以指向下面那张观察卡。 -->
+      <section id="howto" class="card howto">
+        <h2 data-i18n="howtoTitle">How to use it</h2>
+        <p class="muted" data-i18n="howtoLede">AgentGuard watches what an AI agent does on this PC.</p>
+        <ol class="steps">
+          <li>
+            <div class="step-head">
+              <strong data-i18n="howtoS1">Check what this machine can observe</strong>
+              <span id="chip-caps" class="chip"></span>
+            </div>
+            <p class="muted small" data-i18n="howtoS1why"></p>
+          </li>
+          <li>
+            <div class="step-head">
+              <strong data-i18n="howtoS2">Press “Start protecting”</strong>
+              <span id="chip-session" class="chip"></span>
+            </div>
+            <p class="muted small" data-i18n="howtoS2why"></p>
+          </li>
+          <li>
+            <div class="step-head">
+              <strong data-i18n="howtoS3">What happens when something risky shows up</strong>
+            </div>
+            <p class="muted small" data-i18n="howtoS3why"></p>
+            <div class="btn-row wrap">
+              <button id="btn-selftest" class="secondary" data-i18n="howtoSelftest">Self-test: simulate one payment block</button>
+            </div>
+            <p class="muted small" data-i18n="howtoSelftestNote"></p>
+          </li>
+        </ol>
+      </section>
+
       <section class="grid">
         <div class="card">
           <h2 data-i18n="guard">Guard controls</h2>
@@ -61,7 +97,9 @@
           <div class="btn-row">
             <button id="btn-reload-intel" class="secondary" data-i18n="reloadIntel">Update threat intelligence</button>
           </div>
-          <p id="caps" class="muted"></p>
+          <!-- 人话:现在在看什么。原始状态行(规则数 / intel 版本 / plan / privacy 分)
+               挪进开发者面板的 #caps —— 那些是给开发者看的。 -->
+          <p id="watching" class="muted"></p>
         </div>
 
         <div class="card">
@@ -93,6 +131,8 @@
           <div class="btn-row wrap">
             <button id="btn-sync-policy" class="secondary" data-i18n="syncPolicy">Sync enterprise policy</button>
           </div>
+          <h3 class="subhead" data-i18n="devRawState">Raw state line</h3>
+          <p id="caps" class="muted small"></p>
           <ul id="decisions" class="log"></ul>
         </details>
       </section>

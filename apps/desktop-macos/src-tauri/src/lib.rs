@@ -685,7 +685,11 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     if state.trace.enabled() {
         state.trace.write(&TraceLine {
             protection_state: Some(derived.state.as_str().to_string()),
-            reasons: derived.reasons.iter().map(|r| r.as_str().to_string()).collect(),
+            reasons: derived
+                .reasons
+                .iter()
+                .map(|r| r.as_str().to_string())
+                .collect(),
             ..trace_line("state")
         });
     }
@@ -764,6 +768,59 @@ fn get_tcc_status(state: State<'_, AppState>) -> Result<TccStatusDto, String> {
 #[tauri::command]
 fn probe_permissions() -> Result<mac_adapter::MacCapabilities, String> {
     Ok(mac_capabilities())
+}
+
+/// 一次守护会话该武装哪些观察器:`(AX 树观察, 屏幕抓取)` —— 授权了就开,没授权就不开,
+/// 但**绝不因为没授权而拒绝开会话**(未授权时仿真与浏览器扩展路径仍然有效,那正是
+/// 「防护范围:部分 / 仿真」的含义)。
+///
+/// 为什么抽成纯函数:真机上 TCC 授权与 AXObserver 注册在这个容器里都测不到,但"授权矩阵 →
+/// 该开什么"这一步能测,而它恰好是 macOS 壳子以前**整个缺失**的一步。Windows 壳子的
+/// `start_guard_session` 里一直写着 "Observation begins with the session and ends with it";
+/// macOS 这边只登记会话,真正打开监控的两个按钮(AX 实时观察 / 开始抓屏)埋在
+/// 「开发者面板(演示与诊断)」里 —— 于是用户授权、点「开始守护」,却没有任何东西在看,
+/// 状态灯停在"守护不完整",而唯一的出路被标成了开发者诊断。这是功能缺陷,不是文案问题。
+fn observers_for_session(caps: &mac_adapter::MacCapabilities) -> (bool, bool) {
+    (caps.accessibility, caps.screen_capture)
+}
+
+/// 系统设置里两个隐私面板的 anchor。抽出来是为了在非 macOS 上也能测这张映射表
+/// (`open` 本身只有 macOS 有)。
+fn privacy_pane_anchor(which: &str) -> Option<&'static str> {
+    match which {
+        "accessibility" => Some("Privacy_Accessibility"),
+        "screen" => Some("Privacy_ScreenCapture"),
+        _ => None,
+    }
+}
+
+/// 直接把用户送到该点的那一页。以前界面只印一行"系统设置 → 隐私与安全性 → 辅助功能 → 允许
+/// AgentGuard",四层路径要用户自己找。
+#[cfg(target_os = "macos")]
+fn open_settings_pane(anchor: &str) -> Result<(), String> {
+    let url = format!("x-apple.systempreferences:com.apple.preference.security?{anchor}");
+    let status = std::process::Command::new("open")
+        .arg(&url)
+        .status()
+        .map_err(|e| e.to_string())?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("open {url} exited with {status}"))
+    }
+}
+
+/// 非 macOS 上没有这个面板。壳子只发 macOS,这一支只是让整棵树在 Linux 上也能编过、能测
+/// 上面那张映射表(和仓库里其他 `#[cfg]` 双支同一种写法)。
+#[cfg(not(target_os = "macos"))]
+fn open_settings_pane(_anchor: &str) -> Result<(), String> {
+    Err("opening System Settings is only available on macOS".into())
+}
+
+#[tauri::command]
+fn open_privacy_settings(which: String) -> Result<(), String> {
+    let anchor = privacy_pane_anchor(&which).ok_or_else(|| format!("unknown pane: {which}"))?;
+    open_settings_pane(anchor)
 }
 
 #[tauri::command]
@@ -1115,6 +1172,7 @@ fn resume_session(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 fn start_guard_session(
+    app: AppHandle,
     state: State<'_, AppState>,
     task_profile: Option<String>,
     task_apps: Option<Vec<String>>,
@@ -1146,13 +1204,37 @@ fn start_guard_session(
         .bump_generation();
     persist_pending(state.inner());
     reset_observation_memory(state.inner())?;
-    // 观察器若已在跑(用户先开了 AX 自动轮询再开会话),从现在起算启动宽限;心跳很快会来。
+    drain_and_process(state.inner(), &mut adapter)?;
+    // 下面要用到 state.adapter(arm_ax_observer 会锁它),先放掉这把锁。
+    drop(adapter);
+
+    // 观察随会话开始 —— 和 Windows 壳子("Observation begins with the session and ends with it")
+    // 对齐。以前这里只有"观察器若已在跑就重置启动宽限",也就是说:**开始守护不会开始观察**,
+    // 用户必须先去开发者面板打开 AX/抓屏。会话结束一直是会停掉观察器的(P0-3),
+    // 只有开始这一半没接上,于是"开始"和"结束"不对称,状态灯永远停在"守护不完整"。
+    //
+    // 武装失败不阻止会话开始:会话是策略与审计的边界,拒绝开会话比少一个观察器更糟;
+    // 而"少一个观察器"不会被瞒着 —— 状态机按 observers_running 判 degraded,
+    // 失败原因写进 ax_message / sck_message 显示在界面上。
+    let caps = mac_capabilities();
+    let (arm_ax, arm_sck) = observers_for_session(&caps);
+    if arm_ax {
+        if let Err(e) = arm_ax_observer(app.clone(), &state) {
+            *state.ax_message.lock().map_err(|le| le.to_string())? =
+                format!("AX observation could not start: {e}");
+        }
+    }
+    if arm_sck {
+        if let Err(e) = arm_sck_capture(app, &state) {
+            *state.sck_message.lock().map_err(|le| le.to_string())? =
+                format!("screen capture could not start: {e}");
+        }
+    }
     if state.ax_auto_poll.load(Ordering::Relaxed) || state.sck_auto_poll.load(Ordering::Relaxed) {
         state
             .observer_started_ms
             .store(now_epoch_ms(), Ordering::Relaxed);
     }
-    drain_and_process(state.inner(), &mut adapter)?;
     Ok(sid)
 }
 
@@ -1329,19 +1411,7 @@ fn sck_probe_cmd() -> Result<SckProbeDto, String> {
 
 #[tauri::command]
 fn sck_start_cmd(app: AppHandle, state: State<'_, AppState>) -> Result<CaptureSessionDto, String> {
-    let info = start_capture_session().map_err(|e| e.to_string())?;
-    *state.sck_streaming.lock().map_err(|e| e.to_string())? = info.native;
-    *state.sck_native_ok.lock().map_err(|e| e.to_string())? = info.native;
-    *state.sck_message.lock().map_err(|e| e.to_string())? = info.message.clone();
-    if info.native {
-        start_sck_auto_poller(app, &state);
-    } else {
-        state.sck_auto_poll.store(false, Ordering::Relaxed);
-    }
-    Ok(CaptureSessionDto {
-        native: info.native,
-        message: info.message,
-    })
+    arm_sck_capture(app, &state)
 }
 
 #[tauri::command]
@@ -1582,6 +1652,52 @@ fn poll_ax_push_once(state: &AppState) -> Result<Option<AxPollDto>, String> {
     }))
 }
 
+/// 打开 AX 树观察(AXObserver 推送 + 兜底轮询),返回写进状态行的那句话。
+///
+/// 从 `ax_auto_cmd` 抽出来,因为现在有两个调用方:开发者面板的手动开关,和
+/// `start_guard_session` —— 会话开始就该开始看(见 `observers_for_session`)。
+fn arm_ax_observer(app: AppHandle, state: &AppState) -> Result<String, String> {
+    // Start the real observer before the driver. If registration itself is unavailable,
+    // keep the 3s fallback alive; capture permission errors still surface immediately.
+    let push_result = state
+        .adapter
+        .lock()
+        .map_err(|e| e.to_string())?
+        .start_ax_push();
+    if let Err(e) = poll_ax_push_once(state) {
+        state
+            .adapter
+            .lock()
+            .map_err(|lock_err| lock_err.to_string())?
+            .stop_ax_push();
+        return Err(e);
+    }
+    start_ax_auto_poller(app, state);
+    let message = match &push_result {
+        Ok(()) => "AXObserver push on (150ms debounce, 800ms ceiling, 3s fallback)".to_string(),
+        Err(e) => format!("AXObserver unavailable ({e}); 3s fallback polling on"),
+    };
+    *state.ax_message.lock().map_err(|e| e.to_string())? = message.clone();
+    Ok(message)
+}
+
+/// 打开屏幕抓取(SCK)。同样有两个调用方:开发者面板与会话开始。
+fn arm_sck_capture(app: AppHandle, state: &AppState) -> Result<CaptureSessionDto, String> {
+    let info = start_capture_session().map_err(|e| e.to_string())?;
+    *state.sck_streaming.lock().map_err(|e| e.to_string())? = info.native;
+    *state.sck_native_ok.lock().map_err(|e| e.to_string())? = info.native;
+    *state.sck_message.lock().map_err(|e| e.to_string())? = info.message.clone();
+    if info.native {
+        start_sck_auto_poller(app, state);
+    } else {
+        state.sck_auto_poll.store(false, Ordering::Relaxed);
+    }
+    Ok(CaptureSessionDto {
+        native: info.native,
+        message: info.message,
+    })
+}
+
 #[tauri::command]
 fn ax_auto_cmd(
     app: AppHandle,
@@ -1589,26 +1705,7 @@ fn ax_auto_cmd(
     enable: bool,
 ) -> Result<AxAutoDto, String> {
     if enable {
-        // Start the real observer before the driver. If registration itself is unavailable,
-        // keep the 3s fallback alive; capture permission errors still surface immediately.
-        let push_result = state
-            .adapter
-            .lock()
-            .map_err(|e| e.to_string())?
-            .start_ax_push();
-        if let Err(e) = poll_ax_push_once(state.inner()) {
-            state
-                .adapter
-                .lock()
-                .map_err(|lock_err| lock_err.to_string())?
-                .stop_ax_push();
-            return Err(e);
-        }
-        start_ax_auto_poller(app, &state);
-        *state.ax_message.lock().map_err(|e| e.to_string())? = match &push_result {
-            Ok(()) => "AXObserver push on (150ms debounce, 800ms ceiling, 3s fallback)".into(),
-            Err(e) => format!("AXObserver unavailable ({e}); 3s fallback polling on"),
-        };
+        arm_ax_observer(app, &state)?;
     } else {
         state.ax_auto_poll.store(false, Ordering::Relaxed);
         state
@@ -2069,6 +2166,7 @@ pub fn run() {
             ax_probe_cmd,
             ax_poll_cmd,
             ax_auto_cmd,
+            open_privacy_settings,
             set_tray_locale,
         ])
         .run(tauri::generate_context!())
@@ -2230,5 +2328,103 @@ mod packaging_tests {
         assert_eq!(sqlcipher_audit_db_path(&encrypted), encrypted);
 
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod session_observer_tests {
+    use super::{observers_for_session, privacy_pane_anchor};
+    use mac_adapter::MacCapabilities;
+
+    fn caps(accessibility: bool, screen_capture: bool) -> MacCapabilities {
+        MacCapabilities {
+            simulation: true,
+            accessibility,
+            screen_capture,
+        }
+    }
+
+    /// 授权了什么就武装什么。
+    ///
+    /// 这条测试存在的原因是一个真实缺陷:`start_guard_session` 以前**不武装任何观察器**,
+    /// 只有开发者面板里的两个按钮会。用户授权、点「开始守护」,状态灯停在"守护不完整",
+    /// 而"打开监控"的唯一入口被标成开发者诊断——一个叫「开始守护」的按钮没做它名字承诺的事。
+    #[test]
+    fn 授权过的观察器随会话武装_没授权的不武装() {
+        assert_eq!(observers_for_session(&caps(true, true)), (true, true));
+        assert_eq!(observers_for_session(&caps(true, false)), (true, false));
+        assert_eq!(observers_for_session(&caps(false, true)), (false, true));
+    }
+
+    /// 一个权限都没有时:不武装任何观察器,但**这不是拒绝开会话的理由**。
+    ///
+    /// 未授权时仿真与浏览器扩展路径仍然有效(这正是"防护范围:仿真"的含义),而会话本身是
+    /// 策略与审计的边界。这条钉住的是"什么都不开"而不是"什么都不做":调用方
+    /// (`start_guard_session`)据此不设 `observer_started_ms`,状态机于是如实报
+    /// permission_required / degraded,而不是绿灯。
+    #[test]
+    fn 未授权时不武装任何观察器_但会话仍可开始() {
+        assert_eq!(observers_for_session(&caps(false, false)), (false, false));
+    }
+
+    /// 决策对了不等于被调用了:上面那条测试只钉"授权矩阵 → 该开什么",删掉
+    /// `start_guard_session` 里的武装那一段它照样绿。这条按仓库既有的接线测试写法
+    /// (见 `ax_observer_is_wired_into_desktop_driver`)对源码断言:会话开始真的调用了
+    /// 两个武装函数,且**在放掉 adapter 锁之后**(它们内部要再锁 adapter —— 不放会死锁)。
+    #[test]
+    fn 会话开始真的武装观察器_且在放掉adapter锁之后() {
+        let source = include_str!("lib.rs");
+        let start = source
+            .find("fn start_guard_session(")
+            .expect("找不到 start_guard_session —— 接线测试需要跟着改");
+        let end = source[start..]
+            .find("\n#[tauri::command]")
+            .map(|i| start + i)
+            .unwrap_or(source.len());
+        let body = &source[start..end];
+        assert!(
+            body.contains("observers_for_session(&caps)"),
+            "会话开始没有按授权矩阵决定要开哪些观察器"
+        );
+        assert!(
+            body.contains("arm_ax_observer("),
+            "会话开始没有武装 AX 树观察 —— 「开始守护」又变回只登记会话不看任何东西"
+        );
+        assert!(
+            body.contains("arm_sck_capture("),
+            "会话开始没有武装屏幕抓取"
+        );
+        let drop_at = body
+            .find("drop(adapter);")
+            .expect("会话开始没有显式放掉 adapter 锁");
+        let arm_at = body.find("arm_ax_observer(").unwrap();
+        assert!(
+            drop_at < arm_at,
+            "必须先 drop(adapter) 再武装:两个武装函数内部会重新锁 state.adapter,不放会死锁"
+        );
+        // 会话**结束**停观察器这一半一直是对的(P0-3),别在改开始的时候把它弄坏:
+        // 开始与结束必须对称,否则又会出现"结束了还在采集"或"开始了没在看"。
+        let end_start = source
+            .find("fn end_guard_session(")
+            .expect("找不到 end_guard_session");
+        let end_body = &source[end_start..];
+        assert!(
+            end_body.contains("state.ax_auto_poll.store(false, Ordering::SeqCst)")
+                && end_body.contains("state.sck_auto_poll.store(false, Ordering::SeqCst)"),
+            "会话结束没有停掉两个观察器"
+        );
+    }
+
+    /// 两个隐私面板的 anchor 表:界面上的「打开系统设置」按钮靠它把用户直接送到该点的那一页,
+    /// 而不是只印一行四层路径让人自己找。未知面板名必须是 None(而不是随便打开一个页面)。
+    #[test]
+    fn 隐私面板锚点只认那两个已知面板() {
+        assert_eq!(
+            privacy_pane_anchor("accessibility"),
+            Some("Privacy_Accessibility")
+        );
+        assert_eq!(privacy_pane_anchor("screen"), Some("Privacy_ScreenCapture"));
+        assert_eq!(privacy_pane_anchor("Privacy_AllFiles"), None);
+        assert_eq!(privacy_pane_anchor(""), None);
     }
 }

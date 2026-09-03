@@ -166,6 +166,34 @@ function renderStateReasons(st, span) {
   }
 }
 
+/** 一句话说清"现在在看什么"。真机反馈:主界面原来只有 `规则 27 · intel … · plan … · privacy 1.00`。
+ *
+ * 说的是**此刻的实况**:没开会话就不能说在看。Windows 的观察随会话启动
+ * (start_guard_session 里 "Observation begins with the session and ends with it"),
+ * 所以 session_active 就是"在看",但能看到多少受三样能力限制,由下面那张卡逐项说明。 */
+function renderWatching(st) {
+  const el = document.getElementById("watching");
+  if (!el) return;
+  const anyCap = !!(st.uia_native || st.frame_capture || st.ocr);
+  const suffix = ` ${t("watchingRules", { rules: st.rules_loaded, intel: st.intel_version })}`;
+  if (!st.session_active) {
+    el.textContent = t("watchingNone") + suffix;
+  } else {
+    el.textContent = t(anyCap ? "watchingOn" : "watchingNoCaps") + suffix;
+  }
+  setChip("chip-session", st.session_active ? "On" : "Off");
+  const nCaps = [st.uia_native, st.frame_capture, st.ocr].filter(Boolean).length;
+  setChip("chip-caps", nCaps === 3 ? "Done" : nCaps > 0 ? "Partial" : "Todo");
+}
+
+/** 步骤徽章:Done / Partial / Todo / On / Off。文案走词典,颜色走 class。 */
+function setChip(id, kind) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = t(`chip${kind}`);
+  el.className = `chip ${kind.toLowerCase()}`;
+}
+
 function policyLine(p) {
   if (!p || !p.policy_id) return t("policyNone");
   if (p.enforced) {
@@ -186,8 +214,10 @@ async function refreshStatus() {
   const timedOut = st.confirms_timed_out > 0 ? ` · ${t("timedOut", { n: st.confirms_timed_out })}` : "";
   const orphaned = st.orphaned_confirms > 0 ? ` · ${t("orphaned", { n: st.orphaned_confirms })}` : "";
   // P1-9:策略是"验过并生效"还是"只下载了":两种情况必须说出来,不能都显示成一个 ID。
+  // 这一整行是**原始状态行**,只出现在开发者面板里。主界面看 #watching(人话)。
   caps().textContent =
     `${t("rules")} ${st.rules_loaded} · intel ${st.intel_version} · ${t("plan")} ${st.plan}${st.pro_active ? "✓" : ""} · ${policyLine(st.policy)} · ${t("privacy")} ${st.privacy_composite.toFixed(2)}${folded}${pendingN}${timedOut}${orphaned}`;
+  renderWatching(st);
 
   // Every capability renders with its reason. A bare cross told the user nothing and let a
   // compile flag pass for a probe.
@@ -412,6 +442,18 @@ window.addEventListener("DOMContentLoaded", async () => {
       await refreshAudit();
     };
   });
+
+  // 自检:喂一条本机构造的付款固件,让确认层真的弹出来。以前这个按钮只在开发者面板里,
+  // 于是"我怎么知道它真的会拦"在主界面上没有答案。
+  const selftest = document.getElementById("btn-selftest");
+  if (selftest) {
+    selftest.onclick = async () => {
+      const out = await invoke("inject_demo_threat", { kind: "payment" });
+      pushDecisions(out);
+      await refreshStatus();
+      await refreshAudit();
+    };
+  }
 
   try {
     await refreshStatus();

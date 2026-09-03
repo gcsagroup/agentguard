@@ -1203,6 +1203,11 @@ fn 公开文档三语成组() {
             "docs/capability-matrix.en.md",
         ],
         &[
+            "docs/desktop-guide.md",
+            "docs/desktop-guide.zh-TW.md",
+            "docs/desktop-guide.en.md",
+        ],
+        &[
             "docs/privacy-policy.md",
             "docs/privacy-policy.zh-TW.md",
             "docs/privacy-policy.en.md",

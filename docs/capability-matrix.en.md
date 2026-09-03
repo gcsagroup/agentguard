@@ -45,16 +45,16 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/mac-adapter | 10 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/win-adapter | 7 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 7 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 11 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 9 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust total** | **1068** | |
+| **Rust total** | **1072** | |
 | apps/extension-chromium/scripts/*.test.mjs | 50 | node `test(` |
 | eval/e2e-extension/run.mjs | 24 | real-browser E2E checks `record(` |
 | apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test` |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test` (needs a device) |
 | apps/ios-webshield | 0 | Swift `func test*(` |
 | eval/scenarios | 134 | offline evaluation scenarios (YAML) |
-| eval/capability-claims.yaml | 38 | user-facing capability claims (each pinned to a proving test) |
+| eval/capability-claims.yaml | 39 | user-facing capability claims (each pinned to a proving test) |
 
 ## Version strings
 

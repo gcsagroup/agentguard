@@ -45,16 +45,16 @@
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/mac-adapter | 10 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/win-adapter | 7 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 7 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 11 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 9 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合計** | **1068** | |
+| **Rust 合計** | **1072** | |
 | apps/extension-chromium/scripts/*.test.mjs | 50 | node `test(` |
 | eval/e2e-extension/run.mjs | 24 | 真瀏覽器 E2E 判據 `record(` |
 | apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test` |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需裝置) |
 | apps/ios-webshield | 0 | Swift `func test*(` |
 | eval/scenarios | 134 | 離線評測場景(YAML) |
-| eval/capability-claims.yaml | 38 | 使用者能力聲明(每條掛證明測試) |
+| eval/capability-claims.yaml | 39 | 使用者能力聲明(每條掛證明測試) |
 
 ## 版本字串
 

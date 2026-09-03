@@ -169,10 +169,10 @@ async function refreshTcc() {
     li.textContent = tip;
     list.appendChild(li);
   }
-  if (tcc.acknowledged) {
-    tccPanel().classList.add("done");
-  } else {
-    tccPanel().classList.remove("done");
+  // 「权限设置」独立卡片已合进「怎么用」第一步(见 index.html),这里对它的存在不作假设。
+  const panel = tccPanel();
+  if (panel) {
+    panel.classList.toggle("done", !!tcc.acknowledged);
   }
   await refreshCoverage(null, tcc);
   return tcc;
@@ -211,6 +211,37 @@ function renderStateReasons(st) {
   }
 }
 
+/** 一句话说清"现在在看什么"。真机反馈:主界面原来只有 `AX=false · Capture=false · SCK=idle`。
+ *
+ * 说的是**观察器此刻的实况**,不是授权矩阵:授权了但观察器没跑(会话没开、或武装失败)
+ * 就不能说"正在看"。所以先看 session_active,再看两个 auto_poll 标志。 */
+function renderWatching(st) {
+  const el = document.getElementById("watching");
+  if (!el) return;
+  const suffix = ` ${t("watching.rules", { rules: st.rules_loaded, intel: st.intel_version })}`;
+  if (!st.session_active) {
+    el.textContent = t("watching.none") + suffix;
+  } else {
+    const ax = !!st.ax_auto_poll;
+    const cap = !!(st.sck_streaming && st.sck_auto_poll);
+    const key = ax && cap ? "watching.full" : ax ? "watching.axOnly" : cap ? "watching.captureOnly" : "watching.simOnly";
+    el.textContent = t(key) + suffix;
+  }
+  setChip("chip-session", st.session_active ? "on" : "off");
+  setChip(
+    "chip-perm",
+    st.accessibility && st.screen_capture ? "done" : st.accessibility || st.screen_capture ? "partial" : "todo",
+  );
+}
+
+/** 步骤徽章:done / partial / todo / on / off。文案走词典,颜色走 class。 */
+function setChip(id, kind) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = t(`chip.${kind}`);
+  el.className = `chip ${kind}`;
+}
+
 function policyLine(p) {
   if (!p || !p.policy_id) return t("policy.none");
   if (p.enforced) {
@@ -238,8 +269,10 @@ async function refreshStatus() {
   const timedOut = st.confirms_timed_out > 0 ? ` · ${t("status.timedOut", { n: st.confirms_timed_out })}` : "";
   const orphaned = st.orphaned_confirms > 0 ? ` · ${t("status.orphaned", { n: st.orphaned_confirms })}` : "";
   // P1-9:策略是"验过并生效"还是"只下载了":两种情况必须说出来,不能都显示成一个 ID。
+  // 这一整行是**原始状态行**,只出现在开发者面板里。主界面看 #watching(人话)。
   caps().textContent =
     `${t("status.rules")} ${st.rules_loaded} · intel ${st.intel_version} · AX=${st.accessibility} · Capture=${st.screen_capture} · ${sckPart}${sckMsg}${axMsg}${folded}${pendingN}${timedOut}${orphaned} · ${policyLine(st.policy)}`;
+  renderWatching(st);
   const tcc = await invoke("get_tcc_status");
   await refreshCoverage(st, tcc);
   await maybeShowConfirm();
@@ -327,6 +360,32 @@ window.addEventListener("DOMContentLoaded", async () => {
     await refreshTcc();
     await refreshStatus();
   };
+
+  // 「打开系统设置」:直接跳到该点的那一页,而不是让用户按着一行四层路径自己找。
+  for (const [id, pane] of [["btn-open-ax", "accessibility"], ["btn-open-screen", "screen"]]) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.onclick = async () => {
+      try {
+        await invoke("open_privacy_settings", { which: pane });
+      } catch (err) {
+        // 打不开(非 macOS / 系统拒绝)不是静默失败:界面上说出来,用户还能照文字路径自己走。
+        pushDecisions([{ action: "LogOnly", rule_id: "TCC-OPEN", human_message: String(err) }]);
+      }
+    };
+  }
+
+  // 自检:喂一条本机构造的付款事件,让确认层真的弹出来。以前这个按钮只在开发者面板里,
+  // 于是"我怎么知道它真的会拦"没有答案。
+  const selftest = document.getElementById("btn-selftest");
+  if (selftest) {
+    selftest.onclick = async () => {
+      const out = await invoke("inject_demo_threat", { kind: "payment" });
+      pushDecisions(out);
+      await refreshStatus();
+      await refreshAudit();
+    };
+  }
 
   document.getElementById("btn-reload-intel").onclick = async () => {
     const ver = await invoke("reload_intel");

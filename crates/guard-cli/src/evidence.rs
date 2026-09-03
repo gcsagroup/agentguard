@@ -765,7 +765,7 @@ fn parse_acceptance_report(kind: EvidenceKind, report: &str) -> Result<Vec<Strin
         EvidenceKind::AcceptanceMacos => (
             &[
                 "1", "2", "3", "4", "5", "5b", "5c", "6", "7", "8", "9", "10", "11", "12", "13",
-                "14", "15", "16", "17",
+                "14", "15", "16", "17", "18",
             ],
             "evidence/macos/",
         ),
@@ -775,7 +775,9 @@ fn parse_acceptance_report(kind: EvidenceKind, report: &str) -> Result<Vec<Strin
             "evidence/firefox/",
         ),
         EvidenceKind::AcceptanceWindows => (
-            &["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10"],
+            &[
+                "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11",
+            ],
             "evidence/windows/",
         ),
         EvidenceKind::MacosCodesign
@@ -2110,7 +2112,7 @@ mod tests {
                 "AGENTGUARD_ACCEPTANCE_MACOS=PASS",
                 vec![
                     "1", "2", "3", "4", "5", "5b", "5c", "6", "7", "8", "9", "10", "11", "12",
-                    "13", "14", "15", "16", "17",
+                    "13", "14", "15", "16", "17", "18",
                 ],
                 "macos",
             ),
@@ -2126,7 +2128,9 @@ mod tests {
             ),
             EvidenceKind::AcceptanceWindows => (
                 "AGENTGUARD_ACCEPTANCE_WINDOWS=PASS",
-                vec!["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10"],
+                vec![
+                    "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11",
+                ],
                 "windows",
             ),
             _ => panic!("只给验收 kind 生成报告"),

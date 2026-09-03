@@ -115,6 +115,40 @@ for (const shell of SHELLS) {
     }
   });
 
+  test(`${shell.dir}:「怎么用」三步与实时徽章/在看什么的动态键都在词表里`, () => {
+    // 真机反馈:主界面看不出这是什么、该点什么、点了会发生什么,于是加了三步「怎么用」卡片
+    // (每步一个实时徽章)和一行人话的"现在在看什么"。徽章与在看什么都是**动态键**——
+    // t(`chip.${kind}`) / t(变量),字面量提取看不见它们,漏一条界面就显示 key 名。
+    // 两个壳子的键命名不同(macOS 带点,Windows 驼峰),所以两套都认。
+    const dotted = /chip\.\$\{/.test(mainSrc);
+    assert(dotted || /chip\$\{/.test(mainSrc), "main.js 不再用 chip 动态键?测试需要跟着改");
+    const chipKeys = dotted
+      ? ["chip.done", "chip.todo", "chip.partial", "chip.on", "chip.off"]
+      : ["chipDone", "chipTodo", "chipPartial", "chipOn", "chipOff"];
+    for (const k of chipKeys) {
+      assert(k in dict.en, `词表缺 "${k}"(步骤徽章会显示 key 名)`);
+    }
+    const watchKeys = dotted
+      ? ["watching.none", "watching.full", "watching.axOnly", "watching.captureOnly", "watching.simOnly", "watching.rules"]
+      : ["watchingNone", "watchingOn", "watchingNoCaps", "watchingRules"];
+    for (const k of watchKeys) {
+      assert(k in dict.en, `词表缺 "${k}"(主界面"在看什么"那行会显示 key 名)`);
+    }
+    // 三步文案本身:标题 + 每步的"为什么",少一条卡片上就是空段落。
+    const howtoKeys = dotted
+      ? ["howto.title", "howto.lede", "howto.s1", "howto.s1why", "howto.s2", "howto.s2why", "howto.s3", "howto.s3why", "howto.selftest", "howto.selftestNote"]
+      : ["howtoTitle", "howtoLede", "howtoS1", "howtoS1why", "howtoS2", "howtoS2why", "howtoS3", "howtoS3why", "howtoSelftest", "howtoSelftestNote"];
+    for (const k of howtoKeys) {
+      assert(k in dict.en, `词表缺 "${k}"`);
+    }
+    // 每一条都必须三语齐全且非空(键集合一致由上面那条测试保证,这里盯"空字符串占位")。
+    for (const loc of locales) {
+      for (const k of [...chipKeys, ...watchKeys, ...howtoKeys]) {
+        assert((dict[loc][k] || "").trim().length > 0, `${loc} 的 "${k}" 是空的`);
+      }
+    }
+  });
+
   test(`${shell.dir}:中文词表无未翻译的英文残留`, () => {
     for (const loc of locales.filter((l) => l !== "en")) {
       for (const [key, v] of Object.entries(dict[loc])) {

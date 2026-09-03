@@ -267,7 +267,7 @@ need_evidence \
 need_evidence \
   "真机端到端验收(Windows 桌面)" \
   "需要一台真 Windows(UI Automation 取树、GDI 抓帧、Windows.Media.Ocr 读屏、阻断式模态只有真机能验)" \
-  "docs/acceptance-windows.md 的 W1–W10 逐条走完并留记录" \
+  "docs/acceptance-windows.md 的 W1–W11 逐条走完并留记录" \
   AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS \
   acceptance_windows \
   -

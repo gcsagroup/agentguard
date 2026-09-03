@@ -24,7 +24,7 @@
 - [项目 README（简体）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 发布说明（简体）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 真机验收报告（简体）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 历史快照，区分 `bd7bb2f` 与当时未提交的整合候选；不代表本次提交已完成真机验收，发布结论仍为 No-Go。
-- [2026-09-02 Windows 部分真机验收报告（简体）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候选 `89dadf9` 的自动化、Release 产物与独立 RDP 交互证据；W1–W10 未完整执行，生产发布仍为 No-Go。
+- [2026-09-02 Windows 部分真机验收报告（简体）](acceptance-report-windows-2026-09-02.md) · [繁體](acceptance-report-windows-2026-09-02.zh-TW.md) · [English](acceptance-report-windows-2026-09-02.en.md) — 候选 `89dadf9` 的自动化、Release 产物与独立 RDP 交互证据；W1–W11 未完整执行，生产发布仍为 No-Go。
 - [CHANGELOG（简体）](../CHANGELOG.md) · [繁體](../CHANGELOG.zh-TW.md) · [English](../CHANGELOG.en.md)
 - [隐私说明（简体）](privacy-policy.md) · [繁體](privacy-policy.zh-TW.md) · [English](privacy-policy.en.md)
 
@@ -50,6 +50,7 @@
 - [platform-matrix.md](platform-matrix.md) — 原始语言：英文为主；状态：平台能力参考，真机状态须结合发布说明。
 - [status-dashboard.html](status-dashboard.html) — 从能力声明、门禁与状态数据生成；必须在当前提交上重生成，不能替代真机证据。
 - [capability-matrix.md](capability-matrix.md) — 由 `scripts/gen-capability-matrix.py` 从源码生成的三语能力矩阵：各端真正发出的事件、静态测试数、版本字符串；`cargo test` 逐字核对，手写文档里的这些数字以它为准。
+- [desktop-guide.md](desktop-guide.md) — 桌面端使用说明:怎么授权、怎么开始守护、状态灯各是什么意思、怎么用自检看到它工作、它做不到什么。应用内「怎么用」卡片的完整版。
 - [macos-release.md](macos-release.md) — 原始语言：简体中文；状态：签名、公证与打包指南，不是已执行证明。
 - [roadmap-status.md](roadmap-status.md) — 原始语言：英文为主；状态：需对齐，部分指标和“已完成”勾选是历史快照。
 - [privacy-policy.md](privacy-policy.md) — 三语技术披露草稿；公开前仍需法务复核并补真实联系信息。
@@ -63,7 +64,7 @@
 - [architecture.md](architecture.md) — 原始语言：中英混合；状态：技术参考。
 - [android-completeness.md](android-completeness.md) — 原始语言：英文为主；状态：Android 能力与缺口参考。
 - [android-env-survey.md](android-env-survey.md) — 原始语言：英文；状态：Android 环境调查技术参考。
-- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与阻断模态的部分真机证据；完整 W1–W10 端到端验收仍未完成。
+- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与阻断模态的部分真机证据；完整 W1–W11 端到端验收仍未完成。
 - [ios-limited-sku.md](ios-limited-sku.md) — 原始语言：英文为主；状态：有限脚手架说明，不是完整产品。
 - [local-api.md](local-api.md) — 原始语言：中英混合；状态：本地 API 技术参考。
 - [billing.md](billing.md) — 原始语言：中英混合；状态：计费与授权技术参考。

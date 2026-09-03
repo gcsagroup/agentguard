@@ -40,14 +40,47 @@
         <ul id="state-why" class="state-why" hidden></ul>
       </section>
 
-      <section id="tcc-panel" class="card tcc">
-        <h2 data-i18n="tcc.title">Permissions</h2>
-        <p class="muted" data-i18n="tcc.description">Without permission, only simulation and extension protection are active.</p>
-        <ul id="tcc-hints" class="tcc-list"></ul>
-        <div class="btn-row">
-          <button id="btn-tcc" data-i18n="tcc.probe">Check permissions</button>
-          <button id="btn-reload-intel" class="secondary" data-i18n="intel.reload">Reload threat intel</button>
-        </div>
+      <!-- 「怎么用」(真机反馈):以前主界面只有一个「开始会话」按钮和一行 AX=false·SCK=idle,
+           用户看不出这是什么、该点什么、点了会发生什么。三步各带一个实时状态徽章,
+           第三步给一个自检按钮 —— 不用去开发者面板就能在 5 秒内亲眼看到一次拦截。 -->
+      <section id="howto" class="card howto">
+        <h2 data-i18n="howto.title">How to use it</h2>
+        <p class="muted" data-i18n="howto.lede">AgentGuard watches what an AI agent does on this Mac.</p>
+        <ol class="steps">
+          <li>
+            <div class="step-head">
+              <strong data-i18n="howto.s1">Grant two system permissions</strong>
+              <span id="chip-perm" class="chip"></span>
+            </div>
+            <p class="muted small" data-i18n="howto.s1why"></p>
+            <!-- 每项权限的现状 + 该走的路径。以前这是页面上另一张独立的「权限设置」卡,
+                 和这一步字对字重复;合进来之后整页从上到下就是一条路。 -->
+            <ul id="tcc-hints" class="tcc-list"></ul>
+            <div class="btn-row wrap">
+              <button id="btn-open-ax" class="secondary" data-i18n="howto.openAx">Open Accessibility settings</button>
+              <button id="btn-open-screen" class="secondary" data-i18n="howto.openScreen">Open Screen Recording settings</button>
+              <button id="btn-tcc" class="secondary" data-i18n="tcc.probe">Check permissions</button>
+            </div>
+            <p class="muted small" data-i18n="howto.s1unsigned"></p>
+          </li>
+          <li>
+            <div class="step-head">
+              <strong data-i18n="howto.s2">Press “Start protecting”</strong>
+              <span id="chip-session" class="chip"></span>
+            </div>
+            <p class="muted small" data-i18n="howto.s2why"></p>
+          </li>
+          <li>
+            <div class="step-head">
+              <strong data-i18n="howto.s3">What happens when something risky shows up</strong>
+            </div>
+            <p class="muted small" data-i18n="howto.s3why"></p>
+            <div class="btn-row wrap">
+              <button id="btn-selftest" class="secondary" data-i18n="howto.selftest">Self-test: simulate one payment block</button>
+            </div>
+            <p class="muted small" data-i18n="howto.selftestNote"></p>
+          </li>
+        </ol>
       </section>
 
       <section class="grid">
@@ -76,7 +109,12 @@
             <button id="btn-end" class="secondary" data-i18n="guard.end">End session</button>
             <button id="btn-resume" class="secondary" data-i18n="guard.resume">Resume</button>
           </div>
-          <p id="caps" class="muted"></p>
+          <div class="btn-row wrap">
+            <button id="btn-reload-intel" class="secondary" data-i18n="intel.reload">Reload threat intel</button>
+          </div>
+          <!-- 人话:现在在看什么。原来这里是 `AX=false · Capture=false · SCK=idle`——
+               那是给开发者看的,已挪进开发者面板的 #caps。 -->
+          <p id="watching" class="muted"></p>
         </div>
 
         <!-- 开发者面板(E16):AX/SCK 探测轮询、仿真注入、企业策略、决策原始日志是
@@ -116,6 +154,8 @@
           <div class="btn-row wrap">
             <button id="btn-sync-policy" class="secondary" data-i18n="policy.sync">Sync enterprise policy</button>
           </div>
+          <h3 class="subhead" data-i18n="dev.rawState">Raw state line</h3>
+          <p id="caps" class="muted small"></p>
           <ul id="decisions" class="log"></ul>
         </details>
       </section>
