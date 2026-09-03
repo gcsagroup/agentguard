@@ -4,12 +4,12 @@ import android.accessibilityservice.AccessibilityService
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationCompat
-import org.json.JSONObject
+import androidx.core.content.edit
 import java.util.UUID
+import org.json.JSONObject
 
 /**
  * AccessibilityService: form fills + UI text → envelope file + local risk notification.
@@ -343,6 +343,10 @@ class GuardAccessibilityService : AccessibilityService() {
                     surveyWindows(app, packageName, events)
                 }
             }
+            // 其余事件类型(点击、焦点、滚动、手势、通知状态……)刻意不处理:服务只订阅了
+            // accessibility_service_config 里声明的那几类;这里的 else 让 lint(SwitchIntDef)
+            // 和读代码的人都知道"没处理"是决定,不是遗漏。
+            else -> Unit
         }
 
         if (events.isEmpty()) return
@@ -407,15 +411,14 @@ class GuardAccessibilityService : AccessibilityService() {
 
     private fun notifyRisk(hit: LocalRiskScanner.Hit, notifyId: Int = RISK_NOTIFY_ID) {
         val mgr = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mgr.createNotificationChannel(
-                NotificationChannel(
-                    RISK_CHANNEL,
-                    LocaleController.text(this, R.string.notification_channel_name),
-                    NotificationManager.IMPORTANCE_HIGH,
-                ),
-            )
-        }
+        // minSdk 26:通知渠道 API 恒可用,不再包 SDK_INT 判断(lint ObsoleteSdkInt)。
+        mgr.createNotificationChannel(
+            NotificationChannel(
+                RISK_CHANNEL,
+                LocaleController.text(this, R.string.notification_channel_name),
+                NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
         val n = NotificationCompat.Builder(this, RISK_CHANNEL)
             .setContentTitle("AgentGuard: ${hit.ruleId}")
             .setContentText(hit.message)
@@ -526,11 +529,10 @@ object SessionState {
     }
 
     private fun persist(context: android.content.Context) {
-        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_ACTIVE, active)
-            .putString(KEY_ID, sessionId)
-            .putLong(KEY_STARTED, startedAtMs)
-            .apply()
+        context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit {
+            putBoolean(KEY_ACTIVE, active)
+            putString(KEY_ID, sessionId)
+            putLong(KEY_STARTED, startedAtMs)
+        }
     }
 }

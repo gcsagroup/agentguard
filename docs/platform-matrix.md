@@ -17,7 +17,7 @@ claim is pinned to a test that must exist and prose that must still appear in th
 | | **macOS** | **Windows** | **Android** | **Chromium** | **iOS** |
 |---|---|---|---|---|---|
 | **Observation source** | `AXUIElement` walker + ScreenCaptureKit (Obj-C bridges) | UI Automation tree walk + GDI `BitBlt` | AccessibilityService + `PackageManager` + window list | MV3 content script | none |
-| **Event kinds produced** | 4 — `UiTreeDelta`, `FormFill`, `ScreenFrame`, session | 3 — `UiTreeDelta`, `FormFill`, `ScreenFrame` | 8 — `ui_text`, `form_fill`, `env_survey`, `overlay_marker`, `permission_request`, `network_meta`, `session_start`, `session_end` | 2 — `ui_text`, `form_fill` | 0 |
+| **Event kinds produced** | see [capability-matrix.md](./capability-matrix.md) — extracted from source, regenerated under `cargo test` (this row used to be hand-typed and drifted) | ″ | ″ | ″ | ″ |
 | **Pixel analysis** | ✅ subliminal bands, chroma+luma stego, frame digest, Vision OCR | ✅ same code (`guard-vision`), OCR via `Windows.Media.Ocr` | ❌ an accessibility service cannot read pixels | ❌ | ❌ |
 | **Session scope (Aura §4.4)** | ✅ | ✅ | ✅ | ❌ no session concept | ❌ |
 | **App attestation (§3.5)** | ❌ no signing digest collected | ❌ | ✅ `PackageManager` signer SHA-256 | ❌ | ❌ |
@@ -28,7 +28,7 @@ claim is pinned to a test that must exist and prose that must still appear in th
 | **Auto-poller** | 1.5 s frames; tree now **AXObserver push** + ≤3 s 兜底 — see note 5 | 2.5 s, tied to the session | event-driven | event-driven | — |
 | **Runtime capability probe** | ✅ TCC preflight | ✅ real probe with a reason string | ✅ a11y-enabled + notification permission | — | — |
 | **Compiled in CI** | ✅ `macos-shell` job | ✅ `windows` job | ✅ `android` job | 🟡 syntax only (`frontend` job) | ❌ nothing to compile |
-| **Tests** | 3 packaging | 2 packaging + 5 adapter | 24 unit | 0 | 0 |
+| **Tests** | see [capability-matrix.md](./capability-matrix.md) — static counts per crate / adapter / shell / extension / companion, regenerated under `cargo test` | ″ | ″ | ″ | ″ |
 
 **Legend:** ✅ works · 🟡 works with a stated limit · ❌ absent
 

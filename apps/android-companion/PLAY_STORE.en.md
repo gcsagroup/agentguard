@@ -14,7 +14,7 @@ Observe Android AI-agent sessions and notify users after payment, privacy, or UI
 
 ## Full description
 
-After the user explicitly enables the Accessibility service and starts a guard session, AgentGuard Companion observes UI text, form fills, deep links, and window overlays. It can identify payment or transfer prompts, privacy traps, unnecessary personal-data entry, suspicious deep links, and prompt-injection markers, then record events and display risk notifications on the device.
+After the user explicitly enables the Accessibility service and starts a guard session, AgentGuard Companion observes UI text, form fills, permission dialogs, and window overlays. It can identify payment or transfer prompts, privacy traps, unnecessary personal-data entry, suspicious deep-link strings appearing in on-screen text, and prompt-injection markers, then record events and display risk notifications on the device. It does not observe deep links themselves (an Accessibility service does not see intents); the events each platform actually emits are listed in the generated [docs/capability-matrix.en.md](../../docs/capability-matrix.en.md), and store copy must not claim beyond it.
 
 Users may optionally relay events to a desktop AgentGuard local API they control. The relay uses a Bearer token, and the Android companion signs request bodies with an ECDSA P-256 key held by Android Keystore. The user must register the device public key with the desktop adapter registry.
 
@@ -22,8 +22,8 @@ Users may optionally relay events to a desktop AgentGuard local API they control
 
 ## Current release blockers
 
-- The current configuration is `compileSdk = 34` and `targetSdk = 34`.
-- As of 2026-08-28, ordinary mobile-app submissions and updates on Google Play must target at least API 35; the requirement rises to API 36 on 2026-08-31. The current build cannot be submitted as a compliant new app or update. See Google's [official target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878).
+- The current configuration is `compileSdk = 36` and `targetSdk = 36` (AGP 8.11.1; lint is clean with warnings treated as errors). Google Play requires API 36 from 2026-08-31, so the configuration now complies; see Google's [official target API requirements](https://support.google.com/googleplay/android-developer/answer/11926878).
+- The behaviour changes that come with targetSdk 35/36 (enforced edge-to-edge, foreground-service and accessibility-service restrictions) are handled at the source level only and **have not been regression-tested on an Android 15/16 device** — item T of `scripts/acceptance/android-e2e.sh` can only PASS on a device running API 35+. Until then this remains a blocker; a correct version number is not compliance.
 - The repository contains no production upload keystore, verified release-signed AAB evidence, Play Console review result, or physical-device end-to-end acceptance record.
 - The final Accessibility API declaration, Data safety form, and store assets have not been reviewed.
 

@@ -6,11 +6,36 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Remediation of the real-device report (2026-08-31, plus the 2026-09-02 Windows supplement)
+
+Handled item by item under the report's P0 / P1 / P2 numbering, each with red-green-mutation tests; the parts that can only happen on real devices, certificates or store accounts remain marked unverified — see [docs/release-evidence.en.md](docs/release-evidence.en.md).
+
+- **P0-1 gate forgery**: release evidence is now structurally validated (bound to the full commit, real command, exit code, criterion output and artifact identity); keyword-only files are refused.
+- **P0-2 two CI root causes**: Windows extension-path fallback; a stale trailing argument in the Landlock `prctl` call.
+- **P0-3 / P0-5 sessions and confirmations**: the confirm queue is keyed by `request_id` (race removed); observers really stop at session end; the protection state is derived by a state machine from "session + observer + heartbeat + writable audit" (active / degraded) instead of "a session is open, so we are guarding"; the Windows observer is bound to the session with a generation number and backs off into degraded on failure.
+- **P0-4 machine-checkable real-device criteria**: the shells write JSONL under `AGENTGUARD_ACCEPTANCE_TRACE`; `guard-cli acceptance-trace-check` runs six checks against the audit database; macOS cases 15–17 and Windows W8–W10 plus the required-evidence lists are synchronised in three languages.
+- **P1-1 / P1-2 / P1-3 extension**: Native Messaging forwarding is off by default and queues fail-closed until settings load; outbound and local URLs are minimised; a long-lived host connection with backoff, persisted pause state; per-connection nonce + monotonic seq reject replay and reordering.
+- **P1-4 background Critical**: a pending confirmation brings the window forward and counts in the menu bar / title; two minutes without a decision is a refusal with a Timeout receipt; pending confirmations are persisted and receipted one by one after a restart. No system-level notifications yet.
+- **P1-6 Android**: guard / relay state comes from a state machine; the session is persisted and rebuilt on `START_STICKY` restart; the token lives in the Keystore and is never echoed; event JSONL rotates at 14 days / 20 files / 50 MiB / 5 MiB, with a clear button.
+- **P1-7 Local API / webhook**: the audit database defaults to a private directory and refuses symlinks and shared-writable directories; request bodies capped at 256 KiB, `limit` at 1000; tokens masked; webhooks must carry `event_id / created_ms / version` — idempotent, ±10 minutes, monotonic version.
+- **P1-8 / P1-9**: the CI signing step performs and verifies a real ad-hoc signature on a stand-in artifact; device policy is installed only after signature verification, only ever tightens, and unverified policy is displayed but not enforced.
+- **Windows supplement**: the observer skips AgentGuard's own window by pid; OVL-010 requires unrendered text to look like an instruction; a W6 force-unavailable switch; W7 `install-host.ps1` (not yet executed on a real machine).
+- **P2-1 coverage**: iMy `ask_user` enters the engine as a `user_query` event (USER-QUERY / PRIV-GUESS), closing the last uncovered surface; duplicate glyphs in the icon corpus fixed and the channel measurement re-derived.
+- **P2-3 alert storms**: desktop observation dedupe (`event_dedup`, same content once per 30 s, a one-character change passes immediately) and the UI-REVALIDATE cross-source root cause fixed; extension finding dedupe, incremental scanning and a 1.5 s throttle, with a mutation-storm regression M1–M4 in the real-browser E2E.
+- **P2-4 accessibility and localisation**: desktop dialog `alertdialog` + focus trap + Esc + focus restore + live region; Android TalkBack and other system services no longer count as "input observed"; Traditional Chinese resources corrected; launcher label localised.
+- **P2-5 documentation drift**: a trilingual [docs/capability-matrix.en.md](docs/capability-matrix.en.md) generated from source (events each platform actually emits, static test counts, version strings), compared byte for byte under `cargo test`; Android copy no longer says it "observes deep links" (it reports deep-link-shaped strings in on-screen text; the code never emits `deeplink`); the iOS page now says what exists today versus the target; the release notes and this file no longer keep their own claim counts.
+- **P2-6 reproducibility and supply chain**: `rust-toolchain.toml`, `.nvmrc`, Actions pinned to commit SHAs; both desktop-shell lockfiles pass cargo-deny separately under `deny.shells.toml` (per-crate MPL-2.0 exceptions pending legal review).
+- **P2-7 commercial boundary**: enterprise features unlock only for a vendor-Ed25519-signed licence (expiry required, 7-day offline grace, signed revocation list); HMAC / webhook / fixture-signed entitlements show as demo and do not unlock.
+- **Stage D cloud preparation**: a real-browser Chrome E2E (24 machine checks) with a trilingual `acceptance-chrome.en.md`; deterministic Windows W3–W5 fixtures with a rendering-contract test; an Android adb acceptance script; the Local API exposes the signature verdict for every signed body.
+
+**Still unverified (needs your side)**: Developer ID signing and notarization, Authenticode, the Android release key, and the real-device matrix for macOS / Windows / Android / Chrome C6–C8 / Firefox, walked case by case and archived as strict evidence.
+
+
 ### Added
 
 - Adopted the bright D brand direction with shared logo and app-icon masters; refreshed macOS, Windows, Android, and Chromium icons (including menu-bar, adaptive/themed, and notification assets); and added the unified mark to trilingual READMEs, documentation portals, conformance statement, and product headers.
 - Added `guard-trust`, giving six inbound trust boundaries a shared constant-time comparison, `InboundOutcome` vocabulary, and inventory test while preserving protocol-appropriate cryptographic primitives and trust anchors.
-- Added machine-checkable mappings for the current 20 user-facing capability claims and a dashboard generated from the claims, release gate, and status data. These verify that claim anchors and tests exist; they do not replace real-device acceptance.
+- Added machine-checkable mappings from user-facing capability claims to proving tests (current count in the generated [docs/capability-matrix.en.md](docs/capability-matrix.en.md)) and a dashboard generated from the claims, release gate, and status data. These verify that claim anchors and tests exist; they do not replace real-device acceptance.
 - Added an opt-in `scope.net` ceiling to `guard-jail`: on Landlock ABI v4 (Linux kernel 6.7+), only explicitly listed TCP connect/bind ports are allowed. An undeclared ceiling leaves networking unconstrained; a declared but unenforceable ceiling refuses to launch.
 - Added limited pre-execution browser confirmation gates for payment CTAs, trap forms, and payment-shaped fetch/XHR calls, plus DNR blocking of known-malicious and session-out-of-scope hosts with persistence/expiry semantics, blocklist management, and rule provenance.
 - Added a separate Firefox manifest, packaging path, and Native Messaging host integration scaffold, plus Edge installation compatibility. Safari remains a design item requiring an Xcode wrapper and Swift handler.

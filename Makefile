@@ -1,7 +1,7 @@
 # check-macos-cfg 用:能在无 Apple 工具链下对 darwin 目标 cargo check 的 crate(不经 ring)。
 DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
 
-.PHONY: ui-preview shell-a11y e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: capability-matrix ui-preview shell-a11y e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -22,6 +22,11 @@ coverage:
 # Verify the user-facing capability-claims → tests map against the repo and render it (X-2).
 capability-claims:
 	cargo run -p guard-cli -- capability-claims
+
+# 从源码生成能力矩阵(各端真正发出的事件、静态测试数、版本字符串)三语 Markdown(P2-5)。
+# `cargo test` 里的仓库不变量会以 --check 重跑并逐字比对:代码变了没重生成就红。
+capability-matrix: capability-claims
+	python3 scripts/gen-capability-matrix.py
 
 # 从真实来源(capability-claims.json + release-gate.sh + gate-status.json)生成状态仪表盘 HTML。
 # 不手写、不漂移。先跑 capability-claims 刷新 JSON。
@@ -130,7 +135,7 @@ check-jail:
 
 ## Kotlin unit tests + APK. Needs ANDROID_HOME and JDK 21 (verified; Gradle minimum is 17).
 check-android:
-	cd apps/android-companion && ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+	cd apps/android-companion && ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
 
 ## Both shells' front ends, and every shell script. Nothing checked these before: a syntax
 ## error in main.js produced a window whose buttons did nothing while Rust stayed green.

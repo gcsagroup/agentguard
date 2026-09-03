@@ -79,8 +79,9 @@ object AppAttestor {
      * from — which is precisely the key most likely to have leaked.
      */
     @Suppress("DEPRECATION")
-    fun attest(context: Context, packageName: String): Attestation {
-        val pm = context.packageManager
+    fun attest(context: Context, packageName: String): Attestation = attest(context.packageManager, packageName)
+
+    fun attest(pm: PackageManager, packageName: String): Attestation {
         return try {
             val signatures: Array<Signature> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val info = pm.getPackageInfo(
@@ -156,12 +157,16 @@ object AppAttestor {
      * outside our `<queries>` list is *permanently* invisible to us, so retrying it
      * on every screen change would be a binder call per frame that always fails.
      */
-    class SignerCache(private val context: Context) {
+    // 持有 PackageManager 而不是 Context:这个缓存挂在 PayloadSerializer 的静态字段上
+    // (进程生命周期),静态引用 Context 会被 lint 标 StaticFieldLeak——它需要的本来只有 PackageManager。
+    class SignerCache(private val pm: PackageManager) {
+        constructor(context: Context) : this(context.applicationContext.packageManager)
+
         private val cache = HashMap<String, Attestation>()
 
         @Synchronized
         fun attestation(packageName: String): Attestation =
-            cache.getOrPut(packageName) { attest(context, packageName) }
+            cache.getOrPut(packageName) { attest(pm, packageName) }
 
         @Synchronized
         fun clear() = cache.clear()

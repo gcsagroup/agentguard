@@ -253,7 +253,7 @@ jobs:
           # Explicit rather than relying on AGP's auto-download: an implicit fetch is a
           # network dependency inside the build step, and when it fails the error is a
           # Gradle stack trace about a missing platform rather than "the SDK is not here".
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
       - name: JVM unit tests (no device, no instrumented tests)
         # The Kotlin half had zero tests. These include the cross-language dHash contract:
         # the Rust comparator and the Kotlin producer both assert against
@@ -261,6 +261,18 @@ jobs:
         # silently turning every icon comparison into noise.
         working-directory: apps/android-companion
         run: ./gradlew --no-daemon :app:testDebugUnitTest
+      - name: Android lint (warnings are errors — real-device report P2-2)
+        # 14 warnings were cleared and `lint { warningsAsErrors = true }` is set in
+        # app/build.gradle.kts, so a new warning fails this job instead of sitting in an HTML
+        # report nobody opens. The report is still uploaded below for the failing case.
+        working-directory: apps/android-companion
+        run: ./gradlew --no-daemon :app:lintDebug
+      - name: Upload the lint report (only useful when the step above failed)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agentguard-companion-lint
+          path: apps/android-companion/app/build/reports/lint-results-debug.*
       - name: Assemble the DEBUG APK (Android debug certificate — not a release artifact)
         working-directory: apps/android-companion
         run: ./gradlew --no-daemon :app:assembleDebug

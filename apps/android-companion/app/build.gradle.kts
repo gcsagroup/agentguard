@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.agentguard.companion"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.agentguard.companion"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1000001
         versionName = "1.0.0-rc.1"
     }
@@ -55,6 +55,25 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    bundle {
+        language {
+            // 运行时切换语言(LocaleController)而不接 Play Core 的按需语言下载:
+            // 关掉语言拆分,三语资源全部随基础 APK 走(lint AppBundleLocaleChanges,真机报告 P2-2)。
+            enableSplit = false
+        }
+    }
+
+    lint {
+        // 真机报告 P2-2:14 条 lint warning 清零之后,warning 就是 error——再冒出一条就红,
+        // 不再靠人去读 HTML 报告。`make check-android` 与 CI 的 android job 都跑 lintDebug。
+        warningsAsErrors = true
+        abortOnError = true
+        // 三条"有更新版本可用"的检查刻意关掉:它们查的是**网络上**此刻有什么,别人发一个新版本
+        // 这里就红——那不是本仓库的状态,而且离线(--offline / 最小容器)跑法根本查不到。
+        // 依赖版本由 lockfile 与 cargo-deny/gradle 的显式钉住管;升级是一次有人点头的提交,不是 lint 的事。
+        disable += setOf("AndroidGradlePluginVersion", "GradleDependency", "NewerVersionAvailable")
     }
 
     testOptions {

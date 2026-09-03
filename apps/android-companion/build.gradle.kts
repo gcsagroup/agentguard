@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.application") version "8.5.2" apply false
+    id("com.android.application") version "8.11.1" apply false
     id("org.jetbrains.kotlin.android") version "2.0.0" apply false
     // Kotlin 2.0 moved the Compose compiler into the Kotlin repo: it is versioned
     // with Kotlin and applied as a plugin. The old

@@ -49,6 +49,7 @@
 - [release-security.md](release-security.md) — 原始语言：中英混合；状态：历史发布门禁设计说明；当前结构化格式以三语《结构化发布证据》为准。
 - [platform-matrix.md](platform-matrix.md) — 原始语言：英文为主；状态：平台能力参考，真机状态须结合发布说明。
 - [status-dashboard.html](status-dashboard.html) — 从能力声明、门禁与状态数据生成；必须在当前提交上重生成，不能替代真机证据。
+- [capability-matrix.md](capability-matrix.md) — 由 `scripts/gen-capability-matrix.py` 从源码生成的三语能力矩阵：各端真正发出的事件、静态测试数、版本字符串；`cargo test` 逐字核对，手写文档里的这些数字以它为准。
 - [macos-release.md](macos-release.md) — 原始语言：简体中文；状态：签名、公证与打包指南，不是已执行证明。
 - [roadmap-status.md](roadmap-status.md) — 原始语言：英文为主；状态：需对齐，部分指标和“已完成”勾选是历史快照。
 - [privacy-policy.md](privacy-policy.md) — 三语技术披露草稿；公开前仍需法务复核并补真实联系信息。

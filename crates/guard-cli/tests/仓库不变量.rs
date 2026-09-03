@@ -1120,6 +1120,59 @@ fn 发布版本元数据一致() {
     assert_eq!(firefox["version"], "1.0.0.1");
 }
 
+/// 能力矩阵(docs/capability-matrix{,.en,.zh-TW}.md)是 `scripts/gen-capability-matrix.py` 从源码
+/// 生成的:各端真正发出的事件种类、静态测试数、版本字符串。真机报告 P2-5 列的漂移(Android 文案
+/// 说观察 deeplink 而代码从未发出、发布说明写 20 条声明而实际 38、iOS 列着"我们交付")都是手写
+/// 数字过期。这条以 `--check` 重新生成并逐字比对——改了代码没跑 `make capability-matrix` 就红。
+///
+/// 需要 python3(dashboard 与验收固件早已依赖它);没有就失败并说明,不静默跳过。
+#[test]
+fn 能力矩阵是从源码生成的_与仓库逐字一致() {
+    let out = std::process::Command::new("python3")
+        .arg(root().join("scripts/gen-capability-matrix.py"))
+        .arg("--check")
+        .output()
+        .expect("python3 不可用:能力矩阵脚本需要它(Makefile 的 dashboard 目标同样依赖 python3)");
+    assert!(
+        out.status.success(),
+        "能力矩阵与源码不一致,跑 `make capability-matrix` 重新生成:\n{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    // 生成物三语成组,且每份都自称生成物(手改的人先看到这句)。
+    for rel in [
+        "docs/capability-matrix.md",
+        "docs/capability-matrix.zh-TW.md",
+        "docs/capability-matrix.en.md",
+    ] {
+        let text = read(rel);
+        assert!(
+            text.contains("scripts/gen-capability-matrix.py"),
+            "{rel} 必须声明自己由 scripts/gen-capability-matrix.py 生成"
+        );
+    }
+    // 手写文档里引用矩阵而不是自己写数字:这几份以前各写了一套过期的数。
+    for rel in [
+        "docs/RELEASE-1.0.0-rc.1.md",
+        "docs/RELEASE-1.0.0-rc.1.zh-TW.md",
+        "docs/RELEASE-1.0.0-rc.1.en.md",
+        "apps/android-companion/PLAY_STORE.md",
+        "apps/android-companion/PLAY_STORE.zh-TW.md",
+        "apps/android-companion/PLAY_STORE.en.md",
+        "docs/ios-limited-sku.md",
+        "docs/android-completeness.md",
+        "docs/platform-matrix.md",
+        "README.md",
+        "README.zh-TW.md",
+        "README.en.md",
+    ] {
+        assert!(
+            read(rel).contains("capability-matrix"),
+            "{rel} 应指向生成的能力矩阵(docs/capability-matrix*.md),而不是自己维护一套会过期的数字"
+        );
+    }
+}
+
 /// GitHub 入口、变更记录、核心发布说明和每个组件 README 必须成组三语存在。
 ///
 /// 深层研究与审计材料保留原始语言，由三语文档门户标注；这里盯的是用户会直接
@@ -1143,6 +1196,11 @@ fn 公开文档三语成组() {
             "docs/release-evidence.md",
             "docs/release-evidence.zh-TW.md",
             "docs/release-evidence.en.md",
+        ],
+        &[
+            "docs/capability-matrix.md",
+            "docs/capability-matrix.zh-TW.md",
+            "docs/capability-matrix.en.md",
         ],
         &[
             "docs/privacy-policy.md",

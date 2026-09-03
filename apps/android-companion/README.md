@@ -8,8 +8,8 @@ Android 伴生应用使用 Kotlin、Jetpack Compose 和 `AccessibilityService` �
 
 ## 能做什么
 
-- 观察文本变化、界面文本、深层链接、权限对话框和窗口覆盖情况。
-- 检测支付/转账文字、隐私陷阱、非必要个人信息和提示词注入标记。
+- 观察文本变化、界面文本、权限对话框和窗口覆盖情况（各端真正发出的事件以源码生成的 [docs/capability-matrix.md](../../docs/capability-matrix.md) 为准）。
+- 检测支付/转账文字、隐私陷阱、非必要个人信息、提示词注入标记，以及界面文字里出现的可疑深层链接**字样**（`intent://` 一类）。它不观察深层链接本身——无障碍服务看不到 intent。
 - 调查可见的文本输入广播接收器及其他已启用的无障碍服务。
 - 将每个会话的信封追加到应用私有目录 `files/events/session-<id>.jsonl`。
 - 通过用户明确配置的 HTTP 中继把信封发到桌面本地 API，并显示引擎返回的高风险通知。
@@ -17,7 +17,7 @@ Android 伴生应用使用 Kotlin、Jetpack Compose 和 `AccessibilityService` �
 
 ## 构建与测试
 
-使用 JDK 21（本项目已验证）以及包含 API 34 的 Android SDK。Gradle 至少要求 JDK 17，但本项目不承诺任意更高版本都兼容；已知默认 JDK 25 会失败。可以在 Android Studio 中打开 `apps/android-companion`，或从仓库根目录运行：
+使用 JDK 21（本项目已验证）以及包含 API 36 平台与 36.0.0 build-tools 的 Android SDK（AGP 8.11）。Gradle 至少要求 JDK 17，但本项目不承诺任意更高版本都兼容；已知默认 JDK 25 会失败。可以在 Android Studio 中打开 `apps/android-companion`，或从仓库根目录运行：
 
 ```bash
 cd apps/android-companion
@@ -99,6 +99,6 @@ X-AgentGuard-Signature: <DER 签名十六进制>
 - Android 的高风险提示是事后通知，不是执行前确认框。
 - 没有 instrumented test、真机权限生命周期测试或真实 Agent 端到端记录。
 - 没有正式发布 keystore 签名证据，也未提交 Google Play 审核。
-- 当前 `targetSdk = 34` 不满足 Google Play 对新应用和更新的现行要求；见 [Google Play 草案](PLAY_STORE.md)。
+- `compileSdk / targetSdk = 36` 已满足 Google Play 的目标 API 要求，但 Android 15/16 的行为变化（边到边、前台服务、无障碍限制）只在源码层处理（`enableEdgeToEdge` + `safeDrawingPadding`），**尚未在 API 35+ 真机上回归**——`scripts/acceptance/android-e2e.sh` 的 T 项在 API < 35 的设备上只会 BLOCKED；见 [Google Play 草案](PLAY_STORE.md)。
 
 跨语言签名格式由 `eval/fixtures/adapter_signature_vectors.json` 固定，设计细节见 [适配器断言签名](../../docs/适配器断言签名.md)。

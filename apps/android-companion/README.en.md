@@ -8,8 +8,8 @@ The Android companion uses Kotlin, Jetpack Compose, and an `AccessibilityService
 
 ## What it does
 
-- Observes text changes, UI text, deep links, permission dialogs, and window overlays.
-- Detects payment/transfer text, privacy traps, unnecessary personal data, and prompt-injection markers.
+- Observes text changes, UI text, permission dialogs, and window overlays (the events each platform actually emits are listed in the generated [docs/capability-matrix.en.md](../../docs/capability-matrix.en.md)).
+- Detects payment/transfer text, privacy traps, unnecessary personal data, prompt-injection markers, and suspicious deep-link **strings** appearing in on-screen text (`intent://` and the like). It does not observe deep links themselves — an Accessibility service does not see intents.
 - Surveys visible text-input broadcast receivers and other enabled accessibility services.
 - Appends each session's envelopes to the private `files/events/session-<id>.jsonl` path.
 - Optionally relays envelopes to a user-configured desktop local API and displays high-risk verdict notifications.
@@ -17,7 +17,7 @@ The Android companion uses Kotlin, Jetpack Compose, and an `AccessibilityService
 
 ## Build and test
 
-Use JDK 21 (the version verified for this project) and an Android SDK containing API 34. Gradle requires at least JDK 17, but this project does not claim compatibility with every newer JDK; the default JDK 25 is known to fail. Open `apps/android-companion` in Android Studio, or run from the repository root:
+Use JDK 21 (the version verified for this project) and an Android SDK containing the API 36 platform and build-tools 36.0.0 (AGP 8.11). Gradle requires at least JDK 17, but this project does not claim compatibility with every newer JDK; the default JDK 25 is known to fail. Open `apps/android-companion` in Android Studio, or run from the repository root:
 
 ```bash
 cd apps/android-companion
@@ -99,6 +99,6 @@ Without the registered public key, the desktop treats companion surveys as unsig
 - Android high-risk prompts are after-the-event notifications, not pre-action confirmation dialogs.
 - There is no instrumented test, physical-device permission-lifecycle test, or real-agent end-to-end record.
 - There is no release-keystore signing evidence and no Google Play submission.
-- The current `targetSdk = 34` does not meet Google Play's present requirement for new apps and updates; see the [Google Play draft](PLAY_STORE.en.md).
+- `compileSdk / targetSdk = 36` now meets Google Play's target-API requirement, but the Android 15/16 behaviour changes (edge-to-edge, foreground services, accessibility limits) are handled at the source level only (`enableEdgeToEdge` + `safeDrawingPadding`) and **have not been regression-tested on an API 35+ device** — item T of `scripts/acceptance/android-e2e.sh` can only be BLOCKED on a device below API 35; see the [Google Play draft](PLAY_STORE.en.md).
 
 The cross-language signature format is fixed by `eval/fixtures/adapter_signature_vectors.json`; see [adapter assertion signing](../../docs/适配器断言签名.md) for the design.

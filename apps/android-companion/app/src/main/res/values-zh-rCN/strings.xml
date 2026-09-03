@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="accessibility_service_description">在 AgentGuard 会话期间观察界面节点，并将检测结果序列化为 JSON。</string>
     <string name="notification_channel_name">AgentGuard 会话</string>
     <string name="notification_title">AgentGuard 会话运行中</string>
@@ -16,7 +16,8 @@
     <string name="relay_off">桌面转发：已关闭</string>
     <string name="desktop_api_url">桌面 API 地址</string>
     <string name="bearer_token">Bearer 令牌（来自桌面 CLI）</string>
-    <string name="relay_help">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <!-- 两个双短横是 CLI 参数(bind / allow-lan 前缀)本身,不是排版破折号:换成 — 复制粘贴就坏了。 -->
+    <string name="relay_help" tools:ignore="TypographyDashes">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
     <string name="last_risk_none">最近风险：无</string>
     <string name="last_risk">最近风险：%1$s — %2$s</string>
     <string name="last_risk_raw">最近风险：%1$s</string>
@@ -32,8 +33,6 @@
     <string name="risk_overlay">检测到浮层或提示词注入标记</string>
     <string name="risk_engine_confirm">守护引擎要求确认此操作</string>
     <string name="task_profile_label">任务名（留空 = 不限定范围）</string>
-    <string name="relay_offline">中继未连上引擎：%1$s</string>
-    <string name="relay_connected">中继已连上引擎</string>
     <string name="guard_stopped">未在守护——没有会话</string>
     <string name="guard_permission_required">会话已开始，但无障碍服务没有连上——什么都没被观察。请打开无障碍设置。</string>
     <string name="guard_degraded">守护不完整：%1$s</string>
@@ -46,7 +45,9 @@
     <string name="save">保存</string>
     <string name="token_missing">还没有保存令牌</string>
     <string name="clear_events">删除本地事件记录（%1$s）</string>
-    <string name="events_cleared">已删除 %1$d 个文件</string>
+    <plurals name="events_cleared">
+        <item quantity="other">已删除 %1$d 个文件</item>
+    </plurals>
     <string name="notif_permission_rationale">需要确认时是靠通知找到你的。不给通知权限，被拦下的操作只会写进日志。</string>
     <string name="risk_deeplink">检测到可疑深层链接</string>
     <string name="risk_broadcast_input_sink">另一个应用（%1$s）正在监听智能体的文本输入广播 — 键入的所有内容都可被读取</string>

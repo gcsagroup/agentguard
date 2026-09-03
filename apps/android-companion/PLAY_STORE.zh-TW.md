@@ -14,7 +14,7 @@ AgentGuard Companion
 
 ## 完整說明
 
-AgentGuard Companion 在使用者明確啟用輔助使用服務並開始守護工作階段後，觀察介面文字、表單填寫、深層連結與視窗覆蓋情況。它可以識別付款或轉帳提示、隱私陷阱、非必要個資填寫、可疑深層連結與提示詞注入標記，並在裝置上記錄事件與顯示風險通知。
+AgentGuard Companion 在使用者明確啟用輔助使用服務並開始守護工作階段後，觀察介面文字、表單填寫、權限對話框與視窗覆蓋情況。它可以識別付款或轉帳提示、隱私陷阱、非必要個資填寫、介面文字裡出現的可疑深層連結字樣與提示詞注入標記，並在裝置上記錄事件與顯示風險通知。它不觀察深層連結本身（輔助使用服務看不到 intent）；各端真正發出的事件以原始碼產生的 [docs/capability-matrix.zh-TW.md](../../docs/capability-matrix.zh-TW.md) 為準，商店文案不得超出它。
 
 使用者可選擇把事件轉送到自己控制的桌面 AgentGuard 本機 API。中繼使用 Bearer 權杖，Android 伴生應用程式也會使用 Android Keystore 中的 ECDSA P-256 金鑰簽署請求 body；裝置公開金鑰必須由使用者登記到桌面介面卡註冊表。
 
@@ -22,8 +22,8 @@ AgentGuard Companion 在使用者明確啟用輔助使用服務並開始守護�
 
 ## 目前發布阻塞項
 
-- 目前設定為 `compileSdk = 34`、`targetSdk = 34`。
-- 截至 2026-08-28，Google Play 對一般行動應用程式的新應用程式與更新要求至少 API 35；自 2026-08-31 起要求 API 36。目前建置不能作為合規的新應用程式或更新提交。請參閱 [Google Play 官方目標 API 要求](https://support.google.com/googleplay/android-developer/answer/11926878)。
+- 目前設定為 `compileSdk = 36`、`targetSdk = 36`（AGP 8.11.1；lint 零警告且 warning 即 error）。Google Play 自 2026-08-31 起要求 API 36，設定層面已符合；請參閱 [Google Play 官方目標 API 要求](https://support.google.com/googleplay/android-developer/answer/11926878)。
+- 但 targetSdk 35/36 帶來的行為變化（強制邊到邊、前景服務與無障礙服務限制）只在原始碼層處理，**尚未在 Android 15/16 真機上回歸**——`scripts/acceptance/android-e2e.sh` 的 T 項只在 API ≥ 35 的裝置上才可能 PASS。在那之前，這仍是一個阻塞項，不能因為版本號對了就當作已合規。
 - 儲存庫沒有正式上傳 keystore、正式簽章 AAB 的驗證記錄、Play Console 審核結果或實機端到端驗收。
 - 尚未完成輔助使用 API 使用聲明、資料安全表與商店素材的最終審核。
 

@@ -2,6 +2,7 @@ package com.agentguard.companion
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.core.content.edit
 import java.util.Locale
 
 object LocaleController {
@@ -19,10 +20,9 @@ object LocaleController {
 
     fun setMode(context: Context, mode: String) {
         require(mode in modes)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY, mode)
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(KEY, mode)
+        }
     }
 
     fun wrap(base: Context): Context {

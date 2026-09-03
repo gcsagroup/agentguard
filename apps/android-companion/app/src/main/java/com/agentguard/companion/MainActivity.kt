@@ -10,10 +10,12 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -22,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -68,6 +71,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         // Ask before the first session, not on first risk: the permission is what makes a
         // confirmation reachable, and finding out it is missing at the moment a payment needs
         // approving is finding out too late.
@@ -99,6 +103,10 @@ class MainActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            // targetSdk 35+ 强制边到边:内容会画到状态栏 / 导航栏底下。safeDrawingPadding
+                            // 把系统栏(与刘海、IME)的区域让出来;onCreate 里的 enableEdgeToEdge 让 API 35
+                            // 以下也走同一套布局,而不是两种版本两种样子(真机报告 P2-2 的 Android 15/16 回归项)。
+                            .safeDrawingPadding()
                             .verticalScroll(rememberScrollState())
                             .padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
@@ -255,7 +263,7 @@ class MainActivity : ComponentActivity() {
 
                         // P1-6:本地事件记录的清除入口(以前只能靠 adb 删文件)。
                         var eventBytes by remember {
-                            mutableStateOf(EnvelopeSink.totalBytes(this@MainActivity))
+                            mutableLongStateOf(EnvelopeSink.totalBytes(this@MainActivity))
                         }
                         var clearedNote by remember { mutableStateOf<String?>(null) }
                         Button(
@@ -263,7 +271,7 @@ class MainActivity : ComponentActivity() {
                                 val n = EnvelopeSink.clearAll(this@MainActivity)
                                 eventBytes = EnvelopeSink.totalBytes(this@MainActivity)
                                 envelopePath = null
-                                clearedNote = getString(R.string.events_cleared, n)
+                                clearedNote = resources.getQuantityString(R.plurals.events_cleared, n, n)
                             },
                         ) {
                             Text(stringResource(R.string.clear_events, "${eventBytes / 1024} KB"))

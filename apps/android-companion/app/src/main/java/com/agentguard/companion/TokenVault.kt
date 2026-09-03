@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.core.content.edit
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -32,11 +33,11 @@ object TokenVault {
     fun store(context: Context, token: String) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (token.isEmpty()) {
-            prefs.edit().remove(KEY_ENC).remove(KEY_LEGACY_PLAIN).apply()
+            prefs.edit { remove(KEY_ENC); remove(KEY_LEGACY_PLAIN) }
             return
         }
         val packed = encrypt(token)
-        prefs.edit().putString(KEY_ENC, packed).remove(KEY_LEGACY_PLAIN).apply()
+        prefs.edit { putString(KEY_ENC, packed); remove(KEY_LEGACY_PLAIN) }
     }
 
     /** 读令牌;读不出(密钥丢了、损坏)返回空串,调用方按"没配令牌"处理。 */
@@ -46,9 +47,9 @@ object TokenVault {
         prefs.getString(KEY_LEGACY_PLAIN, null)?.let { plain ->
             if (plain.isNotEmpty()) {
                 runCatching { store(context, plain) }
-                    .onFailure { prefs.edit().remove(KEY_LEGACY_PLAIN).apply() }
+                    .onFailure { prefs.edit { remove(KEY_LEGACY_PLAIN) } }
             } else {
-                prefs.edit().remove(KEY_LEGACY_PLAIN).apply()
+                prefs.edit { remove(KEY_LEGACY_PLAIN) }
             }
         }
         val packed = prefs.getString(KEY_ENC, null) ?: return ""

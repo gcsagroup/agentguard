@@ -27,7 +27,10 @@
 #   A3  打开付款固件页后,桌面审计出现 platform=android、rule_id 以 CRIT- 开头的判决;
 #   A4  设备 prefs 的 last_risk_json 带上那个 rule_id,且引擎确认通知(id 1005)在;
 #   L   进程被杀后:进程回来、session_active 仍为 true、前台通知回来、无障碍服务仍启用(P0-3);
-#   S   prefs 里没有明文 relay_token、有 relay_token_enc;事件日志总量 ≤ 上限(P1-6)。
+#   S   prefs 里没有明文 relay_token、有 relay_token_enc;事件日志总量 ≤ 上限(P1-6);
+#   T   targetSdk 36 行为回归(报告 P2-2):设备 API ≥ 35 时才算跑过——A1–A4 与 L 都是在边到边、
+#       Android 15/16 的前台服务与无障碍限制下发生的;API < 35 的设备只能 BLOCKED,不能拿 API 34 的
+#       通过冒充 15/16 的通过。安装的 APK 的 targetSdk 从 dumpsys 读,不信源码。
 #
 # 模拟器上也能跑,但最后一行会标 device=emulator —— runbook 要求真机,那种结果只能记 PASS (sim)。
 #
@@ -334,6 +337,23 @@ if [ "$RUNAS" -eq 1 ]; then
 else
   record S1 "BLOCKED(run-as unavailable)" "cannot inspect prefs"
   record S2 "BLOCKED(run-as unavailable)" "cannot measure files/events"
+fi
+
+echo "== 8. targetSdk 36 行为回归(P2-2)"
+# 从设备上装好的包读 targetSdk(不是源码里写的):这是"跑在真机上的那个 APK"的事实。
+TARGET_SDK=$("${ADB[@]}" shell dumpsys package "$PKG" | tr -d '\r' | grep -o "targetSdk=[0-9]*" | head -1 | cut -d= -f2)
+A1_TO_L_OK=1
+grep -E "^(A1[a-e]|A2|A3|A4|L)\s" "$RESULTS" | awk '{print $2}' | grep -qv '^PASS' && A1_TO_L_OK=0
+if [ -z "$TARGET_SDK" ]; then
+  record T "BLOCKED(targetSdk unreadable)" "dumpsys package did not report targetSdk"
+elif [ "$TARGET_SDK" -lt 35 ]; then
+  record T FAIL "installed APK targets API $TARGET_SDK (< 35): Play requires 35+/36 and the edge-to-edge / FGS behaviour was never exercised"
+elif [ "$SDK" -lt 35 ]; then
+  record T "BLOCKED(device API $SDK < 35)" "targetSdk=$TARGET_SDK but the device runs API $SDK: Android 15/16 behaviour (edge-to-edge, FGS, a11y limits) not exercised — rerun on an API 35+ device"
+elif [ "$A1_TO_L_OK" -eq 1 ]; then
+  record T PASS "targetSdk=$TARGET_SDK on device API $SDK: A1–A4 and L passed under Android 15/16 behaviour changes"
+else
+  record T FAIL "targetSdk=$TARGET_SDK on device API $SDK but A1–A4 / L did not all pass (see above)"
 fi
 
 cp "$RESULTS" "$EVIDENCE/e2e-results.$(date +%Y%m%d-%H%M%S).tsv" 2>/dev/null || true

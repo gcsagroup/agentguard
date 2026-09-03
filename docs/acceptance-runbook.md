@@ -195,7 +195,9 @@ A2(桌面 `/v1/status` 的 `adapter_ingress.verified` 增加且 `rejected` 不�
 写进回应、状态与 stderr,以前这条在桌面侧没有任何可读证据)、A3(审计出现 `platform=android` 的 `CRIT-*` 判决)、
 A4(设备 prefs 的 `last_risk_json` 带同一 rule_id 且引擎通知 id 1005 在)、L(`am crash` 杀进程后进程回来、
 `session_active` 仍 true、前台通知回来、无障碍仍启用——报告 P0-3)、S(prefs 无明文 `relay_token`、有 `relay_token_enc`;
-`files/events` ≤ 50 MiB——报告 P1-6)。每步打 PASS / FAIL / BLOCKED(原因),证据落 `evidence/android/`,最后一行
+`files/events` ≤ 50 MiB——报告 P1-6)、T(targetSdk 36 行为回归——报告 P2-2:从设备 `dumpsys package` 读已安装 APK 的
+targetSdk,设备 API ≥ 35 且 A1–A4、L 全过才 PASS;API < 35 的设备只能 BLOCKED——Android 14 上的通过不能冒充 15/16 的通过)。
+每步打 PASS / FAIL / BLOCKED(原因),证据落 `evidence/android/`,最后一行
 `AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED device=real|emulator`——`device=emulator` 时只能记 `PASS (sim)`。
 需要人做的只有三件事:粘公钥、在应用里填地址与令牌并开转发、点「开始守护会话」(私钥与令牌都在 Keystore 里,adb 碰不到,
 这是设计使然)。脚本的结论仍要由人转录进报告模板,`manual-acceptance android` 只认那份报告。

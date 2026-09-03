@@ -40,10 +40,15 @@ Eight of the nine kinds, each from a real observation source.
 `deeplink` is the ninth and is **still not emitted**, deliberately: an `AccessibilityService` does
 not see intents, and the only way to observe `ACTION_VIEW` is to register as a handler for it —
 intercepting the user's links, a far larger intrusion than this project will make for one event
-type. The function is kept because the desktop relay uses the same envelope format and does have a
-source. It is documented at the function rather than left as an unexplained unused symbol, because
-four unexplained unused symbols are what made this file's previous state look like seven working
-kinds.
+type. The function is kept because the envelope format is shared with the adapter and the offline
+corpus, which do carry `deeplink` events; **no shipped observer on any platform emits one today**
+(an earlier version of this paragraph said the desktop relay "does have a source" — it does not;
+the generated [capability-matrix.md](capability-matrix.md) lists what each platform actually emits
+and is regenerated under `cargo test`). What the companion *does* report is `intent://`-shaped
+strings in on-screen text, through `LocalRiskScanner` — a text rule, not a deeplink event, and the
+store copy now says so. The function is documented at the function rather than left as an
+unexplained unused symbol, because four unexplained unused symbols are what made this file's
+previous state look like seven working kinds.
 
 ### Why `session_start` matters more than it looks
 
@@ -108,7 +113,9 @@ plainly offline.
 
 ## Tests, and the cross-language contract
 
-24 JVM unit tests, where there were none. The load-bearing one is the dHash contract.
+JVM unit tests where there were none (the current count is in the generated
+[capability-matrix.md](capability-matrix.md); the number written here went stale once already).
+The load-bearing one is the dHash contract.
 
 `AppFace.kt`'s header calls its difference hash **normative**: the Rust comparator in
 `guard_schema::visual` and this Kotlin producer must agree bit for bit or every icon comparison is

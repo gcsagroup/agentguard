@@ -8,8 +8,8 @@ Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityServ
 
 ## 能做什麼
 
-- 觀察文字變更、介面文字、深層連結、權限對話框與視窗覆蓋情況。
-- 偵測付款/轉帳文字、隱私陷阱、非必要個資及提示詞注入標記。
+- 觀察文字變更、介面文字、權限對話框與視窗覆蓋情況（各端真正發出的事件以原始碼產生的 [docs/capability-matrix.zh-TW.md](../../docs/capability-matrix.zh-TW.md) 為準）。
+- 偵測付款/轉帳文字、隱私陷阱、非必要個資、提示詞注入標記，以及介面文字裡出現的可疑深層連結**字樣**（`intent://` 一類）。它不觀察深層連結本身——輔助使用服務看不到 intent。
 - 調查可見的文字輸入廣播接收器及其他已啟用的輔助使用服務。
 - 將每個工作階段的信封附加到應用程式私有目錄 `files/events/session-<id>.jsonl`。
 - 透過使用者明確設定的 HTTP 中繼把信封送到桌面本機 API，並顯示引擎回傳的高風險通知。
@@ -17,7 +17,7 @@ Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityServ
 
 ## 建置與測試
 
-使用 JDK 21（本專案已驗證）以及包含 API 34 的 Android SDK。Gradle 至少要求 JDK 17，但本專案不承諾任意更高版本都相容；已知預設 JDK 25 會失敗。可在 Android Studio 開啟 `apps/android-companion`，或從儲存庫根目錄執行：
+使用 JDK 21（本專案已驗證）以及包含 API 36 平台與 36.0.0 build-tools 的 Android SDK（AGP 8.11）。Gradle 至少要求 JDK 17，但本專案不承諾任意更高版本都相容；已知預設 JDK 25 會失敗。可在 Android Studio 開啟 `apps/android-companion`，或從儲存庫根目錄執行：
 
 ```bash
 cd apps/android-companion
@@ -99,6 +99,6 @@ X-AgentGuard-Signature: <DER 簽章十六進位>
 - Android 的高風險提示是事後通知，不是執行前確認框。
 - 沒有 instrumented test、實機權限生命週期測試或真實 Agent 端到端記錄。
 - 沒有正式發布 keystore 簽章證據，也未提交 Google Play 審核。
-- 目前 `targetSdk = 34` 不符合 Google Play 對新應用程式與更新的現行要求；請參閱 [Google Play 草案](PLAY_STORE.zh-TW.md)。
+- `compileSdk / targetSdk = 36` 已符合 Google Play 的目標 API 要求，但 Android 15/16 的行為變化（邊到邊、前景服務、無障礙限制）只在原始碼層處理（`enableEdgeToEdge` + `safeDrawingPadding`），**尚未在 API 35+ 真機上回歸**——`scripts/acceptance/android-e2e.sh` 的 T 項在 API < 35 的裝置上只會 BLOCKED；請參閱 [Google Play 草案](PLAY_STORE.zh-TW.md)。
 
 跨語言簽章格式由 `eval/fixtures/adapter_signature_vectors.json` 固定，設計細節請參閱 [介面卡斷言簽章](../../docs/适配器断言签名.md)。

@@ -49,6 +49,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [release-security.md](release-security.md) — Original language: mixed Chinese and English; status: historical gate-design note; use the trilingual Structured Release Evidence document for the current format.
 - [platform-matrix.md](platform-matrix.md) — Original language: primarily English; status: platform reference whose real-device state must be read with the release notes.
 - [status-dashboard.html](status-dashboard.html) — A generated Simplified-Chinese machine view of capability claims and gate data; this English portal carries the translated conclusion. Regenerate it on the current commit, and do not treat it as real-device evidence.
+- [capability-matrix.en.md](capability-matrix.en.md) — Trilingual capability matrix generated from source by `scripts/gen-capability-matrix.py`: the events each platform actually emits, static test counts, version strings; `cargo test` compares it byte for byte, and hand-written documents defer to it for those figures.
 - [macos-release.md](macos-release.md) — Original language: Simplified Chinese; status: signing, notarization, and packaging guide, not proof of execution.
 - [roadmap-status.md](roadmap-status.md) — Original language: primarily English; status: needs reconciliation because some metrics and completed boxes are historical snapshots.
 - [privacy-policy.md](privacy-policy.md) — Trilingual technical-disclosure draft; legal review and real contact details are still required before publication.

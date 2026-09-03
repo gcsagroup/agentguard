@@ -9,6 +9,8 @@ Release date: 2026-08-28
 
 These notes include subsequent source updates on the candidate branch. The version remains `1.0.0-rc.1`; no new installer has been produced or published as a result.
 
+> **`1.0.0-rc.1` is the version string written in the source tree, not something that has been released.** There is no matching git tag and no signed artifact in the repository; everything merged after the date above (the D brand scheme, the P0/P1/P2 remediation from the real-device report) lives in the source tree that carries this version string. These notes therefore describe "the current source carrying this version", not a frozen snapshot — they move with the source. Every figure of the form "what a platform observes, how many tests, how many capability claims, which version" is owned by the generated [docs/capability-matrix.en.md](capability-matrix.en.md); these notes no longer keep their own copy.
+
 ## Positioning
 
 This candidate is intended for research and evaluation, development or staging, and controlled internal pilots with informed operators. AgentGuard primarily provides out-of-band observation, risk decisions, and accountable audit records. The tool gateway is a bypassable cooperative control; browser page gates and DNR provide pre-execution control over limited vectors; and Linux `guard-jail` provides a narrow kernel boundary for processes it launches itself.
@@ -24,7 +26,7 @@ This candidate is intended for research and evaluation, development or staging, 
 - A cooperative MCP tool gateway and Linux `guard-jail` filesystem constraints with an opt-in `scope.net` TCP-port ceiling.
 - Hash-chained audit records, optional per-record signatures and SQLCipher, Ed25519 threat intelligence, a local API, signed policy sync, and authenticated billing webhooks.
 - The bright D logo and cross-platform app icons; trilingual macOS, Windows, and Chromium interfaces with first-run onboarding, plain-language risks, an accessible confirmation layer, keyboard operation, and dark mode.
-- Machine-checkable mappings for the current 20 user-facing capability claims, a generated status dashboard, reproducible offline evaluation, an attack-surface coverage matrix, preflight checks, and a release-evidence gate.
+- Machine-checkable mappings from user-facing capability claims to proving tests (count in [capability-matrix.en.md](capability-matrix.en.md)), a generated status dashboard, reproducible offline evaluation, an attack-surface coverage matrix, preflight checks, and a release-evidence gate.
 - Firefox, Windows, and macOS acceptance checklists, an executable real-device runbook, browser fixtures, and a report template. They define how acceptance must be run; they do not mean acceptance has completed.
 
 ## Security hardening
@@ -39,7 +41,7 @@ This candidate is intended for research and evaluation, development or staging, 
 
 ## Verification baseline
 
-The repository contains offline scenarios, attack-surface coverage claims, and machine-checkable mappings from the current 20 capability claims to concrete tests. `docs/status-dashboard.html` is generated from capability claims, the release gate, and status data; it is not a hand-written conclusion.
+The repository contains offline scenarios, attack-surface coverage claims, and machine-checkable mappings from capability claims to concrete tests (the current count, the events each platform actually emits and the static test counts are in the generated [capability-matrix.en.md](capability-matrix.en.md)). `docs/status-dashboard.html` is generated from capability claims, the release gate, and status data; it is not a hand-written conclusion.
 
 Any generated figures and statuses are snapshots of the commit on which they were produced, **not proof that this publication run has revalidated them**. Before publishing the current commit, rerun:
 

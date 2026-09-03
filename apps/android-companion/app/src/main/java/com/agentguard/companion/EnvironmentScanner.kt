@@ -233,6 +233,11 @@ object EnvironmentScanner {
      * not look" must not be the same answer, since the engine is allowed to clear a latched
      * risk with the first and not with the second.
      */
+    // lint QueryPermissionsNeeded:API 30+ 上 getInstalledPackages 只返回**对我们可见**的包
+    // (manifest <queries> 里的 LAUNCHER intent 与钉扎的包)。这是刻意的:另一条路是 Play 受限的
+    // QUERY_ALL_PACKAGES。所以这项调查的结论是"可见的包里没有 READ_LOGS 持有者",不是"设备上没有";
+    // docs/android-env-survey.md「Package visibility caps what we can see」如实写着。压掉的是提示,不是事实。
+    @android.annotation.SuppressLint("QueryPermissionsNeeded")
     private fun logReaders(
         context: Context,
         self: String,

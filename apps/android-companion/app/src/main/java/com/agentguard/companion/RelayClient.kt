@@ -1,9 +1,10 @@
 package com.agentguard.companion
 
 import android.content.Context
-import org.json.JSONObject
+import androidx.core.content.edit
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
 
 /**
  * Optional relay of event envelopes to the desktop local API.
@@ -23,7 +24,7 @@ object RelayClient {
         prefs(context).getBoolean(KEY_ENABLED, false)
 
     fun setEnabled(context: Context, enabled: Boolean) {
-        prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+        prefs(context).edit { putBoolean(KEY_ENABLED, enabled) }
     }
 
     fun url(context: Context): String =
@@ -31,7 +32,7 @@ object RelayClient {
 
     /** URL 进 prefs;令牌进 Keystore 封装([TokenVault]),不再明文。空令牌 = 不改动已存的。 */
     fun setEndpoint(context: Context, url: String, token: String) {
-        prefs(context).edit().putString(KEY_URL, url).apply()
+        prefs(context).edit { putString(KEY_URL, url) }
         if (token.isNotEmpty()) {
             TokenVault.store(context, token)
         }
@@ -46,7 +47,7 @@ object RelayClient {
     fun lastOkMs(context: Context): Long = prefs(context).getLong(KEY_LAST_OK, 0L)
 
     private fun recordOk(context: Context) {
-        prefs(context).edit().putLong(KEY_LAST_OK, System.currentTimeMillis()).apply()
+        prefs(context).edit { putLong(KEY_LAST_OK, System.currentTimeMillis()) }
     }
 
     /** One decision the engine returned for a posted event. */

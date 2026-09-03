@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="accessibility_service_description">Observes UI nodes during an active AgentGuard session and serializes findings to JSON for the Rust android-adapter.</string>
     <string name="notification_channel_name">AgentGuard Session</string>
     <string name="notification_title">AgentGuard session active</string>
@@ -16,7 +16,8 @@
     <string name="relay_off">Desktop relay: OFF</string>
     <string name="desktop_api_url">Desktop API URL</string>
     <string name="bearer_token">Bearer token (from desktop CLI)</string>
-    <string name="relay_help">USB: adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi: api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <!-- The two double dashes are literal CLI flags (bind / allow-lan), not typography: an em dash would break copy-paste. -->
+    <string name="relay_help" tools:ignore="TypographyDashes">USB: adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi: api-serve --bind 0.0.0.0:8788 --allow-lan</string>
     <string name="last_risk_none">Last risk: none</string>
     <string name="last_risk">Last risk: %1$s — %2$s</string>
     <string name="last_risk_raw">Last risk: %1$s</string>
@@ -32,8 +33,6 @@
     <string name="risk_overlay">Overlay or injection marker detected</string>
     <string name="risk_engine_confirm">The guard engine requires confirmation for this action</string>
     <string name="task_profile_label">Task (blank = unscoped)</string>
-    <string name="relay_offline">Relay not reaching the engine: %1$s</string>
-    <string name="relay_connected">Relay connected to the engine</string>
     <string name="guard_stopped">Not protecting — no session</string>
     <string name="guard_permission_required">Session started, but the accessibility service is not connected — nothing is being observed. Open accessibility settings.</string>
     <string name="guard_degraded">Protection incomplete: %1$s</string>
@@ -46,7 +45,10 @@
     <string name="save">Save</string>
     <string name="token_missing">No bearer token saved</string>
     <string name="clear_events">Delete local event log (%1$s)</string>
-    <string name="events_cleared">Deleted %1$d files</string>
+    <plurals name="events_cleared">
+        <item quantity="one">Deleted %1$d file</item>
+        <item quantity="other">Deleted %1$d files</item>
+    </plurals>
     <string name="notif_permission_rationale">Notifications are how a required confirmation reaches you. Without them a blocked action is only written to the log.</string>
     <string name="risk_deeplink">Suspicious deeplink detected</string>
     <string name="risk_broadcast_input_sink">Another app (%1$s) is listening on the agent’s text-input broadcast — everything typed is readable</string>

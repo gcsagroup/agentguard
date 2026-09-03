@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="accessibility_service_description">在 AgentGuard 工作階段期間觀察介面節點，並將偵測結果序列化為 JSON。</string>
     <string name="notification_channel_name">AgentGuard 工作階段</string>
     <string name="notification_title">AgentGuard 工作階段執行中</string>
@@ -16,7 +16,8 @@
     <string name="relay_off">桌面轉送：已關閉</string>
     <string name="desktop_api_url">桌面 API 位址</string>
     <string name="bearer_token">Bearer 權杖（來自桌面 CLI）</string>
-    <string name="relay_help">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <!-- 兩個雙短橫是 CLI 參數(bind / allow-lan 前綴)本身,不是排版破折號:換成 — 複製貼上就壞了。 -->
+    <string name="relay_help" tools:ignore="TypographyDashes">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
     <string name="last_risk_none">最近風險：無</string>
     <string name="last_risk">最近風險：%1$s — %2$s</string>
     <string name="last_risk_raw">最近風險：%1$s</string>
@@ -32,8 +33,6 @@
     <string name="risk_overlay">偵測到浮層或提示詞注入標記</string>
     <string name="risk_engine_confirm">守護引擎要求確認此操作</string>
     <string name="task_profile_label">任務名（留空 = 不限定範圍）</string>
-    <string name="relay_offline">中繼未連上引擎：%1$s</string>
-    <string name="relay_connected">中繼已連上引擎</string>
     <string name="guard_stopped">未在守護——沒有工作階段</string>
     <string name="guard_permission_required">工作階段已開始，但無障礙服務沒有連上——什麼都沒被觀察。請開啟無障礙設定。</string>
     <string name="guard_degraded">守護不完整：%1$s</string>
@@ -46,7 +45,9 @@
     <string name="save">儲存</string>
     <string name="token_missing">還沒有儲存權杖</string>
     <string name="clear_events">刪除本機事件記錄（%1$s）</string>
-    <string name="events_cleared">已刪除 %1$d 個檔案</string>
+    <plurals name="events_cleared">
+        <item quantity="other">已刪除 %1$d 個檔案</item>
+    </plurals>
     <string name="notif_permission_rationale">需要確認時是靠通知找到你的。不給通知權限，被攔下的操作只會寫進日誌。</string>
     <string name="risk_deeplink">偵測到可疑深層連結</string>
     <string name="risk_broadcast_input_sink">另一個應用程式（%1$s）正在監聽代理的文字輸入廣播 — 鍵入的所有內容都可被讀取</string>

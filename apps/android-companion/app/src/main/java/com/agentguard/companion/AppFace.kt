@@ -2,11 +2,12 @@ package com.agentguard.companion
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
 /**
  * The **display identity** of an observed app: its label and its icon (AgentScan §3.6).
@@ -83,8 +84,9 @@ object AppFace {
      * it. A failure is silence, never a guess: an absent appearance produces no finding,
      * whereas a wrong one would accuse an innocent app.
      */
-    fun read(context: Context, packageName: String): Face {
-        val pm = context.packageManager
+    fun read(context: Context, packageName: String): Face = read(context.packageManager, packageName)
+
+    fun read(pm: PackageManager, packageName: String): Face {
         var error: String? = null
         val label = try {
             val info = pm.getApplicationInfo(packageName, 0)
@@ -117,9 +119,9 @@ object AppFace {
         // pixel row flips bits.
         val side = 72
         val bitmap = if (drawable is BitmapDrawable && drawable.bitmap != null) {
-            Bitmap.createScaledBitmap(drawable.bitmap, side, side, true)
+            drawable.bitmap.scale(side, side)
         } else {
-            Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888).also { bmp ->
+            createBitmap(side, side).also { bmp ->
                 val canvas = Canvas(bmp)
                 canvas.drawColor(Color.WHITE)
                 drawable.setBounds(0, 0, side, side)
@@ -202,11 +204,14 @@ object AppFace {
      * `<queries>` list is permanently invisible, so retrying per frame would be a guaranteed
      * failure per frame.
      */
-    class FaceCache(private val context: Context) {
+    // 同 AppAttestor.SignerCache:静态缓存只持有 PackageManager(lint StaticFieldLeak)。
+    class FaceCache(private val pm: PackageManager) {
+        constructor(context: Context) : this(context.applicationContext.packageManager)
+
         private val cache = HashMap<String, Face>()
 
         @Synchronized
-        fun face(packageName: String): Face = cache.getOrPut(packageName) { read(context, packageName) }
+        fun face(packageName: String): Face = cache.getOrPut(packageName) { read(pm, packageName) }
 
         @Synchronized
         fun clear() = cache.clear()

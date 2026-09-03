@@ -6,11 +6,36 @@
 
 ## [未發佈]
 
+### 真機報告（2026-08-31，含 2026-09-02 Windows 補充）整改
+
+按報告的 P0 / P1 / P2 編號逐項處理，每項帶紅-綠-突變測試；只能在真機、憑證或商店帳號上發生的部分仍標為未驗證，見 [docs/release-evidence.zh-TW.md](docs/release-evidence.zh-TW.md)。
+
+- **P0-1 閘門偽證**：發佈證據改為結構化校驗（綁定完整提交號、真實命令、退出碼、判據輸出與產物身份），只含關鍵字的檔案一律拒。
+- **P0-2 CI 兩處根因**：Windows 擴充功能路徑降級、Landlock `prctl` 尾參數殘值。
+- **P0-3 / P0-5 工作階段與確認**：確認佇列按 `request_id` 排隊消競態；工作階段結束觀察器真的停；防護狀態由狀態機從「工作階段 + 觀察器 + 心跳 + 稽核可寫」推出（active / degraded）；Windows 觀察器綁工作階段並帶代際號、失敗退避進 degraded。
+- **P0-4 真機判據機器化**：殼子在 `AGENTGUARD_ACCEPTANCE_TRACE` 下寫 JSONL，`guard-cli acceptance-trace-check` 對照稽核庫做六項檢查；macOS 15–17、Windows W8–W10 用例與證據必填清單三語同步。
+- **P1-1 / P1-2 / P1-3 擴充功能**：Native Messaging 轉送預設關閉且設定載入前 fail-closed 排隊；外送與本機 URL 最小化；宿主長連線、退避重連、暫停狀態持久化；連線級 nonce + 單調 seq 拒重放/亂序。
+- **P1-4 背景 Critical**：確認到達拉前視窗、選單列 / 標題計數；兩分鐘未拍板按拒絕寫 Timeout 回執；待確認落盤並在重啟後逐條寫回執。未接系統級通知。
+- **P1-6 Android**：守護 / 中繼狀態由狀態機推出；工作階段落盤並在 `START_STICKY` 重啟時重建；權杖進 Keystore、不回顯；事件 JSONL 14 天 / 20 檔 / 50 MiB / 5 MiB 輪轉 + 清除按鈕。
+- **P1-7 Local API / webhook**：稽核庫預設私有目錄並拒符號連結與共享可寫目錄；請求體 256 KiB、`limit` 1000；權杖脫敏；webhook 必帶 `event_id / created_ms / version`，冪等、±10 分鐘、版本單調。
+- **P1-8 / P1-9**：CI 簽名步驟在替身產物上真跑 ad-hoc 簽名並驗；裝置策略只裝驗過簽的且只收緊不放寬，未驗證的只顯示。
+- **Windows 補充報告**：觀察器按 pid 跳過 AgentGuard 自己的視窗；OVL-010 加「未渲染文字須像一段指令」判據；W6 能力強制不可用開關；W7 `install-host.ps1`（未在真機執行）。
+- **P2-1 覆蓋面**：iMy `ask_user` 以 `user_query` 事件進引擎（USER-QUERY / PRIV-GUESS），最後一個 uncovered surface 關閉；圖示語料的重複字形修正，通道度量重算。
+- **P2-3 告警風暴**：桌面觀察去重（`event_dedup`，同內容 30 s 一次，改一字即放行）並修 UI-REVALIDATE 跨來源誤判根因；擴充功能 finding 去重、增量掃描、1.5 s 節流，真瀏覽器 E2E 加變異風暴回歸 M1–M4。
+- **P2-4 無障礙與在地化**：桌面彈層 `alertdialog` + 焦點圈 + Esc + 焦點還原 + live region；Android TalkBack 等系統服務不再算「輸入被觀察」；繁中資源修正；launcher 標籤在地化。
+- **P2-5 文件漂移**：新增原始碼產生的三語 [docs/capability-matrix.zh-TW.md](docs/capability-matrix.zh-TW.md)（各端真正發出的事件、靜態測試數、版本字串），`cargo test` 逐字核對；Android 文案不再說「觀察深層連結」（只回報介面文字裡的深層連結字樣，程式碼從未發出 `deeplink`）；iOS 頁面從「我們交付」改為「今天有什麼 / 目標是什麼」；發佈說明與本檔不再自寫聲明條數。
+- **P2-6 重現與供應鏈**：`rust-toolchain.toml`、`.nvmrc`、Actions 釘 commit SHA；兩個桌面殼子的 lockfile 用 `deny.shells.toml` 單獨過 cargo-deny（MPL-2.0 逐 crate 例外待法務確認）。
+- **P2-7 商業邊界**：企業功能只對廠商 Ed25519 簽名的授權解鎖（到期必填、7 天離線寬限、簽名撤銷名單）；HMAC / webhook / 夾具簽名的授權顯示為示範、不解鎖。
+- **階段 D 雲端準備**：Chrome 真瀏覽器 E2E（24 條機器判據）與三語 `acceptance-chrome.zh-TW.md`；Windows W3–W5 確定性固件與渲染契約測試；Android adb 驗收腳本；Local API 對每份簽名 body 的驗簽結論可讀。
+
+**仍未驗證（需你側）**：Developer ID 簽名與公證、Authenticode、Android release key、macOS / Windows / Android / Chrome C6–C8 / Firefox 真機矩陣逐條走完並歸檔 strict 證據。
+
+
 ### Added
 
 - 接入 D 亮色品牌方案：新增共用 Logo 與 App 圖示母版；更新 macOS、Windows、Android 與 Chromium 圖示（含選單列、Adaptive/主題及通知小圖示）；並在三語 README、文件入口、符合性說明與各前端頁首顯示統一品牌標誌。
 - 新增 `guard-trust`，以統一的常數時間比較、`InboundOutcome` 詞彙與入站面清冊測試約束六類入站信任邊界；各協定仍保留適合自身的密碼學原語與信任錨。
-- 新增目前 20 條「使用者能力聲明 ↔ 證明測試」機器可核對映射，以及從能力聲明、發佈閘門與狀態資料產生的儀表板；它們證明聲明錨點與測試存在，不取代真實裝置驗收。
+- 新增「使用者能力聲明 ↔ 證明測試」機器可核對映射（目前條數見原始碼產生的 [docs/capability-matrix.zh-TW.md](docs/capability-matrix.zh-TW.md)），以及從能力聲明、發佈閘門與狀態資料產生的儀表板；它們證明聲明錨點與測試存在，不取代真實裝置驗收。
 - `guard-jail` 新增選用 `scope.net` 網路天花板：在 Landlock ABI v4（Linux 核心 6.7+）上只允許明確列出的 TCP connect/bind 連接埠；未宣告時不約束網路，已宣告但無法強制時拒絕啟動。
 - 瀏覽器擴充功能新增付款 CTA、陷阱表單及付款形狀 fetch/XHR 的有限執行前確認閘門；新增對已知惡意與超出工作階段範圍主機的 DNR 阻擋、持久化/到期語意、名單管理與規則溯源。
 - 新增 Firefox 獨立 manifest、封裝與 Native Messaging host 接入骨架，並補 Edge 安裝相容；Safari 維持為需要 Xcode/Swift handler 的設計項。

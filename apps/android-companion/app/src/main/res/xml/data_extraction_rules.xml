@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ 备份 / 设备迁移规则(lint DataExtractionRules,真机报告 P2-2)。
+
+  全部排除,和 allowBackup="false" 同一个决定、两套机制:
+    * 事件 JSONL(files/events/)是这台设备上守护会话的私有审计记录,不该跟着云备份走;
+    * bearer 令牌由 Android Keystore 里的设备绑定密钥封装,离开这台设备就是一段解不开的字节——
+      备份它只会让迁移后的应用带着一个永远失败的令牌;
+    * 语言 / 会话偏好(shared prefs)重装后由用户重设,不值得带着上面两样一起走。
+  allowBackup="false" 继续留着:Android 11 及以下只认它;12+ 认这份文件。两边说的是同一句话。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

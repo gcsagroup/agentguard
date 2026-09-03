@@ -1,8 +1,9 @@
 package com.agentguard.companion
 
 import android.content.Context
-import org.json.JSONObject
+import androidx.core.content.edit
 import java.io.File
+import org.json.JSONObject
 
 /** Append envelopes to filesDir for desktop/adb pull; keep last risk in prefs. */
 object EnvelopeSink {
@@ -22,10 +23,9 @@ object EnvelopeSink {
             file = File(dir, "session-${SessionState.sessionId}.jsonl")
         }
         file.appendText(envelope.toString() + "\n")
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_LAST_ENVELOPE, file.absolutePath)
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(KEY_LAST_ENVELOPE, file.absolutePath)
+        }
         applyRetention(dir, file.name)
     }
 
@@ -44,10 +44,9 @@ object EnvelopeSink {
         val dir = File(context.filesDir, "events")
         var n = 0
         dir.listFiles()?.forEach { if (it.delete()) n += 1 }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_LAST_ENVELOPE)
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            remove(KEY_LAST_ENVELOPE)
+        }
         return n
     }
 
@@ -65,10 +64,9 @@ object EnvelopeSink {
             // braces: a second call is harmless, `LogSafe.redact` being idempotent.
             .put("excerpt", LogSafe.excerpt(excerpt, 120))
             .put("ts", System.currentTimeMillis())
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_LAST_RISK, json.toString())
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(KEY_LAST_RISK, json.toString())
+        }
     }
 
     /**
@@ -79,15 +77,14 @@ object EnvelopeSink {
      * identical whether or not anything was receiving its events.
      */
     fun recordRelayError(context: Context, message: String) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_RELAY_ERROR, "${System.currentTimeMillis()}|${LogSafe.excerpt(message, 200)}")
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(KEY_RELAY_ERROR, "${System.currentTimeMillis()}|${LogSafe.excerpt(message, 200)}")
+        }
     }
 
     /** Clears on a successful post, so a stale error cannot look current. */
     fun clearRelayError(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_RELAY_ERROR).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { remove(KEY_RELAY_ERROR) }
     }
 
     fun lastRelayError(context: Context): String? =

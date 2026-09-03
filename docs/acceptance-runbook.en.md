@@ -230,7 +230,10 @@ the response, the status snapshot and stderr; previously A2 had no readable desk
 `platform=android` `CRIT-*` verdict appears in the audit), A4 (the device's `last_risk_json` carries the same rule_id and the
 engine notification id 1005 is present), L (after `am crash` the process returns, `session_active` stays true, the
 foreground notification is restored, accessibility stays enabled — report P0-3), S (no plaintext `relay_token` in prefs,
-`relay_token_enc` present; `files/events` ≤ 50 MiB — report P1-6). Every step prints PASS / FAIL / BLOCKED(reason),
+`relay_token_enc` present; `files/events` ≤ 50 MiB — report P1-6), T (targetSdk 36 behaviour regression — report P2-2:
+the installed APK's targetSdk is read from the device's `dumpsys package`; PASS only on a device running API 35+ with A1–A4
+and L all passing; a device below API 35 can only be BLOCKED — a pass on Android 14 must not impersonate one on 15/16).
+Every step prints PASS / FAIL / BLOCKED(reason),
 evidence lands in `evidence/android/`, and the last line is `AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED device=real|emulator` —
 `device=emulator` can only ever be recorded as `PASS (sim)`. Only three things need a human: pasting the public key,
 entering URL + token in the app and enabling forwarding, tapping "Start guard session" (private key and token live in the
