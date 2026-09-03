@@ -104,8 +104,8 @@ mkdir -p evidence/{firefox,windows,macos,android}
 ### A.3 Chrome / Edge:先跑真浏览器 E2E,再做 C6–C8
 
 Chromium 侧的 F1–F5 等价用例有机器判据:`make e2e-extension` 把扩展原样装进真 Chromium,对上面同一批固件页
-断言"付款点击先被拦、允许一次才重放、直发 fetch 到服务器前被拦、只读方法不误拦、popup 无裸术语"等 20 条,
-最后一行 `AGENTGUARD_E2E_EXTENSION=PASS`,结论落 `eval/e2e-extension/out/report.json`(附两张截图)。把这三个
+断言"付款点击先被拦、允许一次才重放、直发 fetch 到服务器前被拦、只读方法不误拦、持续变异的页面不刷屏也不失聪、popup 无裸术语"等 24 条,
+最后一行 `AGENTGUARD_E2E_EXTENSION=PASS`,结论落 `eval/e2e-extension/out/report.json`(附三张截图)。把这四个
 文件拷进 `evidence/chrome/`。F6–F8 的 Chrome 等价用例(C6–C8,原生消息 / DNR)仍按 [acceptance-chrome.md](acceptance-chrome.md)
 在真 Chrome/Edge 上人工做——E2E 不装宿主。Firefox 没有等价的自动化(Playwright 装不了 Firefox 扩展),F1–F8 仍全手工。
 

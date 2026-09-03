@@ -100,6 +100,9 @@
     const opener = document.activeElement; // 关闭后焦点还原到这里
 
     const host = document.createElement("div");
+    // 内容脚本的 MutationObserver 据此跳过我们自己的弹层:弹层插入/移除不是页面变化,
+    // 以前每次弹出都触发一轮整页重扫(真机报告 P2-3 的告警风暴有它一份)。dataset,不走 setAttribute。
+    host.dataset.agentguardHost = "1";
     Object.assign(host.style, {
       position: "fixed",
       inset: "0",

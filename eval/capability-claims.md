@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**37 条声明,91 条去重证明测试。**
+**38 条声明,95 条去重证明测试。**
 
 ## acceptance
 
@@ -86,11 +86,13 @@
 |---|---|---|---|
 | 用户界面不出现无解释的裸术语——finding 种类/规则 ID 都有三语人话词条,技术标识收进详情 | `docs/消费者化界面.md` | guard-strings.js 单一词表;覆盖率测试从 content.js/events.rs 源码提取标识符对词典点名 | `content.js 上报的每个 finding kind 在词典里都有三语人话词条`<br/>`guard-schema events.rs 里的每个规则 ID 在词典里都有三语人话词条`<br/>`guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)` |
 | 转发给宿主与本地最近列表里的 URL 都最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不外传 | `apps/extension-chromium/STORE.en.md` | guard-gate.js minimizeUrl(默认 query 白名单为空,写死并有测试钉住),background.js 所有 url 出口经它 | `minimizeUrl:去掉 userinfo / fragment / 全部 query,只留 origin+path`<br/>`minimizeUrl:path 里像 token 的段打成 …`<br/>`minimizeUrl:非 http(s) 与畸形输入不外传` |
+| 同一页里同一条发现只上报一次,页面不停变化不刷屏;内容变一个字就是新发现,后到的注入仍会报;两轮扫描至少隔 1.5 s,突发打包;指纹集有上限 | `apps/extension-chromium/README.md` | guard-gate.js fingerprintOf / newFindingDeduper / scanDelayMs(纯逻辑);content.js 接线:增量注入扫描 + 400 ms 防抖 + 1.5 s 节流 + 跳过自家弹层;真浏览器 E2E(eval/e2e-extension M1–M4,固件 mutation-storm.html)钉用户可见行为 | `同一finding在同一页只报一次_内容变一个字就是新finding`<br/>`两段不同的隐藏注入不因常量marker被并成一条`<br/>`指纹集有上限_满了整体清空而不是无界增长`<br/>`scanDelayMs:至少防抖400ms_两轮扫描至少隔1500ms` |
 
 说明:
 
 - **用户界面不出现无解释的裸术语——finding 种类/规则 ID 都有三语人话词条,技术标识收进详情**:覆盖率靠源码字面量提取,动态拼接的标识符看不见;翻译质量测试保证不了(见文档边界节)
 - **转发给宿主与本地最近列表里的 URL 都最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不外传**:令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字
+- **同一页里同一条发现只上报一次,页面不停变化不刷屏;内容变一个字就是新发现,后到的注入仍会报;两轮扫描至少隔 1.5 s,突发打包;指纹集有上限**:去重是每页(内容脚本生命周期)的,刷新页面会重报;增量扫描与跳过自家弹层是成本优化,E2E 关掉它们仍绿(不声称已钉);E2E 不进 release-gate,CI 单跑
 
 ## intel
 

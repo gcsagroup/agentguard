@@ -20,6 +20,7 @@
   <li><a href="payment-cta.html">payment-cta.html</a> — 付款 CTA 按钮(F2 · 执行前拦点击)</li>
   <li><a href="trap-pii.html">trap-pii.html</a> — 陷阱控件 + 非必要 PII 表单(F3 · 执行前拦提交)</li>
   <li><a href="fetch-gate.html">fetch-gate.html</a> — 页面直发 fetch:付款形状拦、只读放行、普通放行(F4/F5)</li>
+  <li><a href="mutation-storm.html">mutation-storm.html</a> — 持续变异的页面:告警不重复、不失聪、突发打包(M1–M4,告警风暴回归)</li>
 </ul>
 <p class="warn">注意:fetch 用例发往**本机同源**的假路径(如 <code>/pay/checkout</code>),被本地服务器 404/501 挡下——
 不会真的付款。要验证的是"请求在发出**之前**是否被门拦住",不是请求本身。</p>

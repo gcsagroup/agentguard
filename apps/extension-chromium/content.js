@@ -45,9 +45,9 @@ function textNodesUnder(root) {
   return out;
 }
 
-function scanHiddenInjection() {
+function scanHiddenInjection(root) {
   const findings = [];
-  for (const node of textNodesUnder(document.body || document.documentElement)) {
+  for (const node of textNodesUnder(root || document.body || document.documentElement)) {
     const parent = node.parentElement;
     if (!parent) continue;
     const text = node.nodeValue || "";
@@ -133,12 +133,42 @@ function scanPaymentCta() {
   return findings;
 }
 
-function runScan() {
-  const findings = [
-    ...scanHiddenInjection(),
-    ...scanFormOverfill(),
-    ...scanPaymentCta(),
-  ];
+/* ---------------------------------------------------------------------------
+ * 告警风暴(真机报告 P2-3):以前任何 DOM 变化都在 400 ms 后重扫整页,finding 不去重、不限速。
+ * 一个每秒改几次 DOM 的页面就是每秒一条 agentguard_findings,同一个隐藏注入被上报几十遍,
+ * 淹没真正的告警、灌满 recent 列表。现在三件事:
+ *
+ *   1. **稳定的 finding 指纹 + 去重。** 同一 (kind, field_id, 文本前 80 字) 在本页只上报一次;
+ *      内容变了一个字就是新 finding。指纹集有上限,满了整体清空(宁可多报一次,不无界增长)。
+ *   2. **增量扫描。** 由 mutation 触发的注入扫描只走**新增的节点子树**与被改动的文本节点,不走整页;
+ *      表单/付款 CTA 扫描仍是整页(它们是 querySelectorAll,便宜),但受 3 的节流。
+ *      我们自己的确认弹层(guard-modal 的 host,dataset.agentguardHost)插入/移除**不算**页面变化。
+ *   3. **节流。** 400 ms 防抖之上,两次扫描至少间隔 Gate.MIN_SCAN_INTERVAL_MS(1.5 s);风暴期间最多每 1.5 s 一轮。
+ *
+ * 用户输入(input/change)仍走整页扫描——那是我们最关心的时刻,但同样受去重与节流。
+ *
+ * 真浏览器 E2E(eval/e2e-extension,固件 mutation-storm.html)的 M1–M4 钉的是**用户可见的行为**:
+ * 5 秒风暴只多一条;每秒重渲染的注入与整页都能看到的付款按钮各只报一次;后到的不同注入仍会报;
+ * 30 段突发全部计数但 ≤4 条。变异检查:去掉去重 → M1–M4 红;去掉节流 → M4 红;指纹退回 marker → M3/M4 红。
+ * 增量扫描(2)和跳过自家弹层是**成本**优化,E2E 看不出差别(把它们关掉 24 条仍绿)——如实说明,不冒充已钉。
+ * ------------------------------------------------------------------------- */
+// 指纹、去重器、节流间隔都是 guard-gate.js 的纯逻辑(node 单测钉着);这里只接线。
+// Gate 没加载到(不该发生)就不去重——方向是"多报",不是"漏报"。
+const scanGate = self.AgentGuardGate || null;
+const deduper = scanGate ? scanGate.newFindingDeduper() : { onlyNew: (f) => f };
+function onlyNew(findings) {
+  return deduper.onlyNew(findings);
+}
+
+/** `roots`:为 null 时整页扫注入;否则只扫这些子树(增量)。 */
+function runScan(roots) {
+  const injection = [];
+  if (roots) {
+    for (const r of roots) injection.push(...scanHiddenInjection(r));
+  } else {
+    injection.push(...scanHiddenInjection(null));
+  }
+  const findings = onlyNew([...injection, ...scanFormOverfill(), ...scanPaymentCta()]);
   if (findings.length === 0) return;
   chrome.runtime.sendMessage({
     type: "agentguard_findings",
@@ -150,15 +180,54 @@ function runScan() {
 }
 
 let debounceTimer = null;
-function scheduleScan() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(runScan, 400);
+let lastScanAt = 0;
+let pendingRoots = new Set();
+let pendingFull = false;
+
+function flushScan() {
+  debounceTimer = null;
+  lastScanAt = Date.now();
+  const full = pendingFull;
+  const roots = full ? null : Array.from(pendingRoots);
+  pendingFull = false;
+  pendingRoots = new Set();
+  if (!full && roots.length === 0) return;
+  runScan(roots);
 }
 
-runScan();
-document.addEventListener("input", scheduleScan, true);
-document.addEventListener("change", scheduleScan, true);
-const mo = new MutationObserver(scheduleScan);
+function scheduleScan(roots) {
+  if (roots === null || roots === undefined) pendingFull = true;
+  else for (const r of roots) pendingRoots.add(r);
+  if (debounceTimer) return;
+  const since = Date.now() - lastScanAt;
+  const wait = scanGate ? scanGate.scanDelayMs(since) : 400;
+  debounceTimer = setTimeout(flushScan, wait);
+}
+
+function insideOwnUi(node) {
+  const el = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+  return !!(el && el.closest && el.closest("[data-agentguard-host]"));
+}
+
+runScan(null);
+lastScanAt = Date.now();
+document.addEventListener("input", () => scheduleScan(null), true);
+document.addEventListener("change", () => scheduleScan(null), true);
+const mo = new MutationObserver((records) => {
+  const roots = [];
+  for (const rec of records) {
+    if (insideOwnUi(rec.target)) continue;
+    if (rec.type === "characterData") {
+      if (rec.target.parentElement) roots.push(rec.target.parentElement);
+    } else {
+      for (const n of rec.addedNodes) {
+        if (n.nodeType === Node.ELEMENT_NODE && !insideOwnUi(n)) roots.push(n);
+        else if (n.nodeType === Node.TEXT_NODE && n.parentElement && !insideOwnUi(n)) roots.push(n.parentElement);
+      }
+    }
+  }
+  if (roots.length > 0) scheduleScan(roots);
+});
 if (document.body) {
   mo.observe(document.body, { childList: true, subtree: true, characterData: true });
 }

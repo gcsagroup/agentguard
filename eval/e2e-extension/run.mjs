@@ -3,8 +3,8 @@
  * # 这是什么、不是什么
  *
  * 把 `apps/extension-chromium` **原样**作为未打包扩展装进真 Chromium(Playwright 持久化上下文,
- * `--load-extension`),对着 `eval/acceptance-fixtures/` 的五个页面跑 Chrome 验收清单
- * (docs/acceptance-chrome.md)F1–F5 的等价用例,每一条都是机器判据:
+ * `--load-extension`),对着 `eval/acceptance-fixtures/` 的六个页面跑 Chrome 验收清单
+ * (docs/acceptance-chrome.md)F1–F5 的等价用例与 P2-3 的告警风暴回归,每一条都是机器判据:
  *
  *   F1  隐藏注入文本 → background 的 `recent` 出现 invisible_injection,popup「最近」列表有条目;
  *   F2  付款 CTA 点击 → 页面处理器**没有**运行、确认层(role=alertdialog)出现;
@@ -13,6 +13,9 @@
  *   F4  页面直发 POST /pay/checkout → 本地服务器**一个字节都没收到**就弹了确认;拒绝 → 页面拿到
  *       AbortError、服务器仍没收到;允许 → 服务器收到、页面拿到 HTTP 501;
  *   F5  GET /pay/status、POST /api/search → 不弹、直达服务器(不误拦);
+ *   M   变异风暴(真机报告 P2-3):每 50 ms 改 DOM、每秒重渲染同一段隐藏注入、页面有个付款按钮 →
+ *       5 秒只多一条(M1)、注入与按钮各只报一次(M2)、后到的另一段注入仍报且只报一次(M3)、
+ *       30 段突发全部计数但 ≤4 条(M4,两轮扫描 ≥1.5 s);
  *   P   popup:默认不转发(#native 未勾、link 行是「关」的文案)、今日计数行有数、可见文本无裸术语。
  *
  * 它**不是**真机验收本身:跑在容器里的 Chromium 141,不是用户的 Chrome/Edge;没有 Native Messaging
@@ -271,6 +274,69 @@ try {
   await waitUntil(() => (sawHit("POST", "/api/search") ? true : null), { what: "POST /api/search" }).catch(() => null);
   const f5bDialog = await page.locator(DIALOG).count();
   record("F5b", "POST /api/search is not gated (no payment shape, no scope declared)", sawHit("POST", "/api/search") && f5bDialog === 0, `hits=${JSON.stringify(hits)} dialog=${f5bDialog}`);
+
+  // ---------------- M 变异风暴(P2-3) ----------------
+  // 页面每 50 ms 改一次 DOM,正文藏一段隐藏注入。以前:每次变化 400 ms 后整页重扫、不去重,
+  // 5 秒 ≈ 10 条同样的告警。判据全部看 background 的 recent(内容脚本每发一条 agentguard_findings
+  // 就多一条 entry;entry.count = 这一批 finding 数)。
+  // 不清空 recent(popup 用例还要看前面留下的「已拦截」条目);recent 是 unshift 的,新条目在前,
+  // 所以"本节新增"就是前 (len - base0) 条。
+  const base0 = (await readRecent()).length;
+  const newSince = (r) => r.slice(0, Math.max(0, r.length - base0));
+  const invisibleEntries = (list) => list.filter((e) => (e.kinds || []).includes("invisible_injection"));
+  const sumCount = (list) => list.reduce((a, e) => a + (e.count || 0), 0);
+  await page.goto(fixture("mutation-storm.html"));
+  const firstStorm = await waitUntil(async () => {
+    const r = newSince(await readRecent());
+    return invisibleEntries(r).length >= 1 ? r : null;
+  }, { what: "initial invisible_injection on storm page" }).catch(() => []);
+  await page.waitForTimeout(5000);
+  const afterStorm = newSince(await readRecent());
+  record(
+    "M1",
+    "5 s of continuous DOM mutation adds exactly one recent entry (the initial scan), not one per mutation",
+    firstStorm.length >= 1 && afterStorm.length === 1,
+    `entries after 5 s=${afterStorm.length} ${JSON.stringify(afterStorm.map((e) => ({ kinds: e.kinds, count: e.count })))}`
+  );
+  // 首次扫描恰好两条 finding:隐藏注入一条、页面上那个 Pay now 按钮一条(payment_cta 是整页扫描,
+  // 每轮都会看到它——没有去重它就是每 1.5 s 一条)。注入每秒被重渲染成新节点,同样只能算一次。
+  record(
+    "M2",
+    "hidden injection (re-rendered every second) and the visible Pay-now CTA (seen by every whole-page scan) are each reported exactly once",
+    invisibleEntries(afterStorm).length === 1 && sumCount(afterStorm) === 2 && (afterStorm[0].kinds || []).includes("payment_cta"),
+    `sum(count)=${sumCount(afterStorm)} kinds=${JSON.stringify(afterStorm.map((e) => e.kinds))}`
+  );
+  // M3:节流/去重不能变成耳聋——后到的、文本不同的第二段必须再报一次,且只报一次。
+  await page.click("#late");
+  const afterLate = await waitUntil(async () => {
+    const r = newSince(await readRecent());
+    return invisibleEntries(r).length >= 2 ? r : null;
+  }, { timeout: 5000, what: "second distinct hidden injection reported" }).catch(async () => newSince(await readRecent()));
+  await page.waitForTimeout(2000);
+  const afterLateSettled = newSince(await readRecent());
+  record(
+    "M3",
+    "a second, distinct hidden injection added mid-storm is still reported — exactly once, within the throttle window",
+    invisibleEntries(afterLate).length === 2 && afterLateSettled.length === 2 && afterLateSettled[0].count === 1,
+    `entries=${afterLateSettled.length} counts=${JSON.stringify(afterLateSettled.map((e) => e.count))}`
+  );
+  // M4:30 段互不相同的注入在 3 秒内陆续插入 → 30 段全部计数(不丢),但打包进 ≤4 条(≥1.5 s 一轮),
+  // 不是 30 条,也不是每 400 ms 一条(~8 条)。
+  const baseline = afterLateSettled.length;
+  const baselineCount = sumCount(afterLateSettled);
+  await page.click("#burst");
+  const afterBurst = await waitUntil(async () => {
+    const r = newSince(await readRecent());
+    return sumCount(r) >= baselineCount + 30 ? r : null;
+  }, { timeout: 10000, what: "all 30 burst injections counted" }).catch(async () => newSince(await readRecent()));
+  const burstEntries = afterBurst.length - baseline;
+  record(
+    "M4",
+    "30 distinct injections in 3 s are all counted but batched into at most 4 entries (scan interval ≥ 1.5 s)",
+    sumCount(afterBurst) === baselineCount + 30 && burstEntries >= 1 && burstEntries <= 4,
+    `sum(count)=${sumCount(afterBurst)} burst entries=${burstEntries} counts=${JSON.stringify(afterBurst.slice(0, burstEntries).map((e) => e.count))}`
+  );
+  await page.screenshot({ path: join(OUT, "m-mutation-storm.png") });
 
   // ---------------- P popup ----------------
   const popup = await context.newPage();

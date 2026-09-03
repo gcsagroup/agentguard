@@ -31,6 +31,7 @@ Proven (re-proven on every run):
 | C3 | PII form submit under a trap label is held: URL unchanged; after “Allow once” the URL carries `?phone=…` (it really submitted) | F3 |
 | C4 | Page-issued `POST /pay/checkout`: the local server **never received a byte** before the dialog; deny → page gets `AbortError`, server still nothing; allow → server receives it and the page sees 501 | F4 |
 | C5 | `GET /pay/status` and `POST /api/search` are not gated and reach the server (no false positives) | F5 |
+| CM | Alert-storm regression (real-device report P2-3, fixture `mutation-storm.html`): the page mutates the DOM every 50 ms, re-renders the same hidden injection every second and carries a visible payment button → 5 s of storm adds exactly **one** recent entry (M1); the injection and the button are each reported **once** (M2); a second, distinct injection added later is still reported, once (M3); a burst of 30 distinct injections is fully counted but batched into ≤4 entries (M4, scans ≥1.5 s apart). Mutation checks: dedupe off → M1–M4 red; throttle off → M4 red; fingerprint back to the constant marker → M3/M4 red | — |
 | CP | Popup: forwarding off by default (checkbox unchecked, copy says so), today line has counts, recent list has a “Blocked:” entry, visible text has no raw machine terms | — |
 
 Not proven (honest boundary):
@@ -39,6 +40,7 @@ Not proven (honest boundary):
 - No Native Messaging host is installed; C6–C8 (F6–F8 twins) are not automated.
 - Firefox: Playwright cannot load extensions into Firefox; real Firefox E2E stays **BLOCKED** (see the Firefox checklist).
 - A page script that captured the original `fetch` before `document_start` bypasses the fetch gate — the boundary stated in the `guard-page.js` header; the E2E does not claim to cover it.
+- CM pins user-visible behaviour (no duplicates, no deafness, batching). Incremental scanning (only added subtrees) and skipping our own dialog are **cost** optimisations; CM stays green with them switched off — the E2E does not claim to pin them.
 
 ## Prerequisites (real-device C6–C8)
 
@@ -52,7 +54,7 @@ Not proven (honest boundary):
 
 | # | Steps | Expected | Actual | Evidence |
 |---|-------|----------|--------|----------|
-| C1–C5 | `make e2e-extension` | Last line `AGENTGUARD_E2E_EXTENSION=PASS`, `all_pass: true` in `report.json`; copy `out/report.json`, `out/f2-payment-dialog.png`, `out/popup.png` into `evidence/chrome/` | | |
+| C1–C5, CM | `make e2e-extension` | Last line `AGENTGUARD_E2E_EXTENSION=PASS`, `all_pass: true` in `report.json` (24 cases); copy `out/report.json`, `out/f2-payment-dialog.png`, `out/m-mutation-storm.png`, `out/popup.png` into `evidence/chrome/` | | |
 | C6 | Navigate to `https://evil.example/` (a malicious domain in the built-in intel) | Engine verdict `INTEL-DOMAIN` Block → host returns `block_hosts` → DNR rule installed → later requests to that host are blocked at the network layer (Network panel shows blocked) | | |
 | C7 | Observe the native-messaging round trip of C6 | The host accepts the caller (`chrome-extension://<id>/` origin matches `allowed-origin`; `guard-nm-host` did not refuse to start), the verdict lands in the signed audit; the popup link line reads “connected · last success …” | | |
 | C8 | Number of DNR dynamic rules | Within Chromium’s dynamic-rule quota (installing rules does not error; the list is truncated to the quota when necessary) | | |
@@ -63,9 +65,9 @@ Not proven (honest boundary):
 # Offline gate (must PASS first)
 make check-extension-gate
 
-# Real-browser E2E (C1–C5 + popup)
+# Real-browser E2E (C1–C5 + CM storm regression + popup)
 make e2e-extension
-# → eval/e2e-extension/out/report.json, f2-payment-dialog.png, popup.png
+# → eval/e2e-extension/out/report.json, f2-payment-dialog.png, m-mutation-storm.png, popup.png
 
 # Build the Chrome package
 apps/extension-chromium/scripts/package-store.sh

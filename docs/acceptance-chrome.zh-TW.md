@@ -27,6 +27,7 @@
 | C3 | 陷阱語境下的 PII 表單提交被攔：URL 不變；允許一次後 URL 帶上 `?phone=…`（真的提交了） | F3 |
 | C4 | 頁面直發 `POST /pay/checkout`：**本地伺服器一個位元組都沒收到**就彈了確認；拒絕 → 頁面拿到 `AbortError`、伺服器仍未收到；允許 → 伺服器收到、頁面拿到 501 | F4 |
 | C5 | `GET /pay/status`、`POST /api/search` 不彈、直達伺服器（不誤攔） | F5 |
+| CM | 告警風暴回歸（真機報告 P2-3，固件 `mutation-storm.html`）：頁面每 50 ms 改 DOM、每秒重渲染同一段隱藏注入、頁面上有個付款按鈕 → 5 秒只多**一條**「最近」（M1）；注入與按鈕各只報**一次**（M2）；後到的另一段注入仍會報、且只報一次（M3）；30 段突發全部計數但打包進 ≤4 條（M4，兩輪掃描 ≥1.5 s）。變異檢查：去掉去重 → M1–M4 紅，去掉節流 → M4 紅，指紋退回常量 marker → M3/M4 紅 | — |
 | CP | popup：預設不轉送（開關未勾、文案說明）、今日計數行有數、最近列表有「已攔截：」條目、可見文字無裸術語 | — |
 
 沒證明（如實邊界）：
@@ -35,6 +36,7 @@
 - 不安裝 Native Messaging 宿主；F6/F7/F8 的等價案例（C6–C8）沒有自動化。
 - Firefox：Playwright 不能向 Firefox 載入擴充功能，Firefox 真 E2E 仍 **BLOCKED**，見 Firefox 清單。
 - 一段在 `document_start` 之前就抓走原始 `fetch` 參考的頁面腳本能繞過 fetch 門——這是 `guard-page.js` 檔頭寫明的邊界，E2E 不聲稱涵蓋它。
+- CM 釘的是使用者可見的行為（不重複、不失聰、打包）。增量掃描（只掃新增子樹）與跳過自家彈層是**成本**最佳化，把它們關掉 CM 仍綠——E2E 不聲稱釘住它們。
 
 ## 前置條件（真機 C6–C8）
 
@@ -48,7 +50,7 @@
 
 | # | 步驟 | 期望 | 實測 | 證據 |
 |---|------|------|------|------|
-| C1–C5 | `make e2e-extension` | 最後一行 `AGENTGUARD_E2E_EXTENSION=PASS`，`report.json` 中 `all_pass: true`；把 `out/report.json`、`out/f2-payment-dialog.png`、`out/popup.png` 複製到 `evidence/chrome/` | | |
+| C1–C5, CM | `make e2e-extension` | 最後一行 `AGENTGUARD_E2E_EXTENSION=PASS`，`report.json` 中 `all_pass: true`（24 條）；把 `out/report.json`、`out/f2-payment-dialog.png`、`out/m-mutation-storm.png`、`out/popup.png` 複製到 `evidence/chrome/` | | |
 | C6 | 導覽到 `https://evil.example/`（內建情報的惡意網域） | 引擎判 `INTEL-DOMAIN` Block → 宿主回 `block_hosts` → DNR 規則裝上 → 該主機後續請求在網路層被攔（Network 面板顯示 blocked） | | |
 | C7 | 觀察 C6 的原生訊息往返 | 宿主接受呼叫方（`chrome-extension://<id>/` origin 對上 `allowed-origin`，`guard-nm-host` 未因 origin 拒絕啟動），判決進入簽章稽核；popup link 行顯示「已連線 · 上次成功 …」 | | |
 | C8 | DNR 動態規則數量 | 未超過 Chromium 的動態規則配額（安裝規則不報錯；必要時按配額上限截斷名單） | | |
@@ -59,9 +61,9 @@
 # 離線閘門（必須先 PASS）
 make check-extension-gate
 
-# 真瀏覽器 E2E（C1–C5 + popup）
+# 真瀏覽器 E2E（C1–C5 + CM 風暴回歸 + popup）
 make e2e-extension
-# → eval/e2e-extension/out/report.json, f2-payment-dialog.png, popup.png
+# → eval/e2e-extension/out/report.json, f2-payment-dialog.png, m-mutation-storm.png, popup.png
 
 # 出 Chrome 套件
 apps/extension-chromium/scripts/package-store.sh

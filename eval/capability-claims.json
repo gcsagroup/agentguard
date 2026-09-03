@@ -558,6 +558,35 @@
       }
     },
     {
+      "area": "extension",
+      "claim": "同一页里同一条发现只上报一次,页面不停变化不刷屏;内容变一个字就是新发现,后到的注入仍会报;两轮扫描至少隔 1.5 s,突发打包;指纹集有上限",
+      "id": "extension-alert-storm-control",
+      "mechanism": "guard-gate.js fingerprintOf / newFindingDeduper / scanDelayMs(纯逻辑);content.js 接线:增量注入扫描 + 400 ms 防抖 + 1.5 s 节流 + 跳过自家弹层;真浏览器 E2E(eval/e2e-extension M1–M4,固件 mutation-storm.html)钉用户可见行为",
+      "note": "去重是每页(内容脚本生命周期)的,刷新页面会重报;增量扫描与跳过自家弹层是成本优化,E2E 关掉它们仍绿(不声称已钉);E2E 不进 release-gate,CI 单跑",
+      "proven_by": [
+        {
+          "file": "apps/extension-chromium/scripts/gate.test.mjs",
+          "test": "同一finding在同一页只报一次_内容变一个字就是新finding"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/gate.test.mjs",
+          "test": "两段不同的隐藏注入不因常量marker被并成一条"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/gate.test.mjs",
+          "test": "指纹集有上限_满了整体清空而不是无界增长"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/gate.test.mjs",
+          "test": "scanDelayMs:至少防抖400ms_两轮扫描至少隔1500ms"
+        }
+      ],
+      "source": {
+        "anchor": "同一页里同一条发现只上报一次，页面不停变化不会刷屏",
+        "doc": "apps/extension-chromium/README.md"
+      }
+    },
+    {
       "area": "native-host",
       "claim": "扩展↔宿主长连接带连接级 nonce 与单调 seq,宿主拒绝重放、乱序、nonce 不符的帧;hello 带回暂停状态",
       "id": "native-link-replay-protection",
@@ -847,8 +876,8 @@
     }
   ],
   "report": {
-    "distinct_tests": 91,
+    "distinct_tests": 95,
     "problems": [],
-    "total_claims": 37
+    "total_claims": 38
   }
 }

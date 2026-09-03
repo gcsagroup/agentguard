@@ -307,9 +307,57 @@
     return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   }
 
+  // ---------------------------------------------------------------------------
+  // P2-3 告警风暴:finding 去重与扫描节流的纯部分。content.js 用;node 单测钉。
+  // ---------------------------------------------------------------------------
+
+  /** 一条 finding 的稳定指纹:kind + 字段 + 文本前 80 字。用文本而不是 marker——隐藏注入的 marker
+   *  是常量 "[AG_INVISIBLE_TEXT]",拿它当键会把同页两段**不同**的隐藏指令并成一条。 */
+  const FINGERPRINT_TEXT_MAX = 80;
+  function fingerprintOf(f) {
+    const key = ((f && (f.text || f.marker)) || "").slice(0, FINGERPRINT_TEXT_MAX);
+    return `${(f && f.kind) || ""}|${(f && f.field_id) || ""}|${(f && f.profile_key) || ""}|${key}`;
+  }
+
+  /** 每页一个去重器:同一指纹只放行一次;指纹集满 `max` 条整体清空——宁可某条多报一次,不无界增长。 */
+  const MAX_FINGERPRINTS = 500;
+  function newFindingDeduper(max = MAX_FINGERPRINTS) {
+    const seen = new Set();
+    return {
+      onlyNew(findings) {
+        const out = [];
+        for (const f of findings || []) {
+          const fp = fingerprintOf(f);
+          if (seen.has(fp)) continue;
+          if (seen.size >= max) seen.clear();
+          seen.add(fp);
+          out.push(f);
+        }
+        return out;
+      },
+      size() {
+        return seen.size;
+      },
+    };
+  }
+
+  /** 下一轮扫描要等多久:至少 `debounce`(把一连串变化合成一轮),且离上一轮不少于 `minInterval`。 */
+  const SCAN_DEBOUNCE_MS = 400;
+  const MIN_SCAN_INTERVAL_MS = 1500;
+  function scanDelayMs(sinceLastScanMs, minInterval = MIN_SCAN_INTERVAL_MS, debounce = SCAN_DEBOUNCE_MS) {
+    const since = Math.max(0, Number(sinceLastScanMs) || 0);
+    return Math.max(debounce, minInterval - since);
+  }
+
   const Gate = {
     gateForFinding,
     gateForFindings,
+    fingerprintOf,
+    newFindingDeduper,
+    scanDelayMs,
+    MAX_FINGERPRINTS,
+    SCAN_DEBOUNCE_MS,
+    MIN_SCAN_INTERVAL_MS,
     buildBlockRules,
     classifyRequest,
     mergeBlocklist,

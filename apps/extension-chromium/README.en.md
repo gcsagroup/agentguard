@@ -82,9 +82,10 @@ cargo run -p guard-cli -- ingest-browser \
 make e2e-extension        # needs playwright + Chromium (preinstalled in the container / CI)
 ```
 
-Loads this directory unpacked into a real Chromium and runs 20 machine assertions against `eval/acceptance-fixtures/`
+Loads this directory unpacked into a real Chromium and runs 24 machine assertions against `eval/acceptance-fixtures/`
 (hidden injection reported; payment click held before execution and replayed exactly once after "Allow once"; trap form
-submit held; page-issued fetch held **before a single byte leaves**; read-only methods not gated; popup forwarding off by
+submit held; page-issued fetch held **before a single byte leaves**; read-only methods not gated; a continuously mutating
+page reports the same alert once while a later injection is still reported; popup forwarding off by
 default and free of raw terms). Results land in `eval/e2e-extension/out/report.json`; the last line is
 `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. It installs no Native Messaging host and is not the real-device acceptance itself —
 mapping and boundaries in `docs/acceptance-chrome.en.md`.
@@ -96,5 +97,6 @@ mapping and boundaries in `docs/acceptance-chrome.en.md`.
 - The extension has `http://*/*` and `https://*/*` host permissions so its content script can run on pages the user visits.
 - The page gate is a best-effort client control. A previously captured original `fetch`, a clean iframe, cross-frame actions, or native-app behavior can bypass it.
 - DNR fails open when rules cannot be installed. Chrome, Edge, and Firefox still require separate real-browser acceptance; Safari remains a design item.
+- The same finding on the same page is reported once; a page that never stops changing does not flood the recent list. A one-character change is a new finding, and an injection that arrives later is still reported. Scans are at least 1.5 s apart and a burst of findings is batched. The fingerprint set is capped (500) and cleared when full — a finding may then be reported a second time, the price of bounded memory.
 
 See the [privacy policy](../../docs/privacy-policy.en.md) and [store-listing draft](STORE.en.md).

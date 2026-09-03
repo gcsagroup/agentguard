@@ -82,8 +82,9 @@ cargo run -p guard-cli -- ingest-browser \
 make e2e-extension        # 需要 playwright + Chromium(容器/CI 已预装)
 ```
 
-把本目录原样装进真 Chromium,对 `eval/acceptance-fixtures/` 跑 20 条机器判据(隐藏注入上报、付款点击执行前拦住并只在
-「允许这一次」后重放一次、陷阱表单拦提交、页面直发 fetch 在**一个字节都没发出**前拦住、只读方法不误拦、popup 默认不转发且无裸术语)。
+把本目录原样装进真 Chromium,对 `eval/acceptance-fixtures/` 跑 24 条机器判据(隐藏注入上报、付款点击执行前拦住并只在
+「允许这一次」后重放一次、陷阱表单拦提交、页面直发 fetch 在**一个字节都没发出**前拦住、只读方法不误拦、持续变异的页面同一告警只报一次而
+后到的注入仍会报、popup 默认不转发且无裸术语)。
 结论落 `eval/e2e-extension/out/report.json`,最后一行 `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`。它不装 Native Messaging 宿主,
 也不是真机验收本身——对应关系与边界见 `docs/acceptance-chrome.md`。
 
@@ -94,5 +95,6 @@ make e2e-extension        # 需要 playwright + Chromium(容器/CI 已预装)
 - 扩展有 `http://*/*` 与 `https://*/*` host 权限，用于在用户访问的页面执行内容脚本。
 - 页面门是尽力而为的客户端控制：提前保存的原始 `fetch`、干净 iframe、跨框架动作或原生应用行为可能绕过它。
 - DNR 安装失败时会如实 fail-open；Chrome、Edge、Firefox 仍需分别完成真实浏览器验收，Safari 目前只有设计说明。
+- 同一页里同一条发现只上报一次，页面不停变化不会刷屏；内容变一个字就是新发现，后到的注入仍会报。两轮扫描至少隔 1.5 秒，突发的多条发现打包上报。指纹集有上限（500），满了整体清空——代价是某条可能再报一次，换的是内存有界。
 
 参见 [隐私政策](../../docs/privacy-policy.md) 和 [商店文案草案](STORE.md)。

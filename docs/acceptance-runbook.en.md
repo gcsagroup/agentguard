@@ -117,10 +117,11 @@ evidence specified by the criterion.
 ### A.3 Chrome / Edge: run the real-browser E2E first, then do C6–C8
 
 The Chromium twins of F1–F5 have machine criteria: `make e2e-extension` loads the extension unpacked into a real
-Chromium and asserts 20 things against the same fixture pages (payment click held before the handler runs, replayed
+Chromium and asserts 24 things against the same fixture pages (payment click held before the handler runs, replayed
 exactly once after "Allow once", page-issued fetch held before a byte reaches the server, read-only methods not gated,
-popup without raw terms, …). It ends with `AGENTGUARD_E2E_EXTENSION=PASS` and writes `eval/e2e-extension/out/report.json`
-plus two screenshots; copy those three files into `evidence/chrome/`. The Chrome twins of F6–F8 (C6–C8: native
+a continuously mutating page neither floods the recent list nor goes deaf, popup without raw terms, …). It ends with
+`AGENTGUARD_E2E_EXTENSION=PASS` and writes `eval/e2e-extension/out/report.json` plus three screenshots; copy those four
+files into `evidence/chrome/`. The Chrome twins of F6–F8 (C6–C8: native
 messaging / DNR) are still done by hand on real Chrome/Edge per [acceptance-chrome.en.md](acceptance-chrome.en.md) — the
 E2E installs no host. Firefox has no equivalent automation (Playwright cannot load Firefox extensions); F1–F8 stay manual.
 
