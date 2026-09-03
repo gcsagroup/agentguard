@@ -54,6 +54,6 @@
     <string name="env_clean">環境：沒有可見應用程式監聽輸入廣播，也沒有其他無障礙服務被啟用</string>
     <string name="env_risk">環境風險：%1$s</string>
     <string name="env_unknown">環境檢查不可用（%1$s）</string>
-    <string name="show_adapter_key">显示适配器公钥</string>
-    <string name="adapter_key_help">把它填到 policies/adapter-registry.yaml 里 adapter_id: android-companion 那张卡上,并写 key_algorithm: ecdsa-p256。不填的话桌面会把这个伴生应用的调查当成未签名:可以增加风险,但清不掉风险。</string>
+    <string name="show_adapter_key">顯示轉接器公鑰</string>
+    <string name="adapter_key_help">把它填到 policies/adapter-registry.yaml 中 adapter_id: android-companion 那張卡上，並寫 key_algorithm: ecdsa-p256。不填的話桌面會把這個伴生應用程式的調查當成未簽章：可以增加風險，但清不掉風險。</string>
 </resources>

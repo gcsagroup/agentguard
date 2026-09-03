@@ -158,6 +158,7 @@ object PayloadSerializer {
         .put("broadcast_input_receivers", JSONArray(survey.broadcastInputReceivers))
         .put("foreign_a11y_services", JSONArray(survey.foreignA11yServices))
         .put("text_capturing_services", JSONArray(survey.textCapturingServices))
+        .put("assistive_system_services", JSONArray(survey.assistiveSystemServices))
         // AgentScan §3.8: who can read what the agent, the host and this guard log.
         .put("log_readers", JSONArray(survey.logReaders))
         // Whether the enumeration behind `log_readers` could actually run. An empty list

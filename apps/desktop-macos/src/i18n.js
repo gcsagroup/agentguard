@@ -104,7 +104,13 @@ const messages = {
     "policy.enforced": "Policy {id}@{ver} verified and enforced (signer {signer})",
     "policy.notEnforced": "Policy {id}@{ver} NOT enforced — {why}",
     "policy.none": "No device policy",
-    "observe.summary": "Repeated observation ended: {detail}"
+    "observe.summary": "Repeated observation ended: {detail}",
+    "a11y.timeline": "Activity timeline",
+    "a11y.confirmPending": "A high-risk action needs your decision: {msg}",
+    "a11y.stateChanged": "Protection status: {state}",
+    "a11y.confirmClosed": "Confirmation closed: {outcome}",
+    "a11y.allowed": "allowed once",
+    "a11y.denied": "not now, task paused"
   },
   "zh-Hans": {
     "subtitle": "实时守护 AI 智能体在这台 Mac 上的操作",
@@ -209,7 +215,13 @@ const messages = {
     "policy.enforced": "策略 {id}@{ver} 已验签并生效（签名者 {signer}）",
     "policy.notEnforced": "策略 {id}@{ver} 未生效——{why}",
     "policy.none": "没有设备策略",
-    "observe.summary": "重复观察结束：{detail}"
+    "observe.summary": "重复观察结束：{detail}",
+    "a11y.timeline": "活动时间线",
+    "a11y.confirmPending": "有一个高危操作等你决定：{msg}",
+    "a11y.stateChanged": "保护状态：{state}",
+    "a11y.confirmClosed": "确认已关闭：{outcome}",
+    "a11y.allowed": "已允许这一次",
+    "a11y.denied": "先不要，任务已暂停"
   },
   "zh-Hant": {
     "subtitle": "即時守護 AI 代理在這台 Mac 上的操作",
@@ -314,7 +326,13 @@ const messages = {
     "policy.enforced": "原則 {id}@{ver} 已驗簽並生效（簽署者 {signer}）",
     "policy.notEnforced": "原則 {id}@{ver} 未生效——{why}",
     "policy.none": "沒有裝置原則",
-    "observe.summary": "重複觀察結束：{detail}"
+    "observe.summary": "重複觀察結束：{detail}",
+    "a11y.timeline": "活動時間線",
+    "a11y.confirmPending": "有一個高風險操作等你決定：{msg}",
+    "a11y.stateChanged": "保護狀態：{state}",
+    "a11y.confirmClosed": "確認已關閉：{outcome}",
+    "a11y.allowed": "已允許這一次",
+    "a11y.denied": "先不要，任務已暫停"
   }
 };
 
@@ -346,6 +364,11 @@ export function applyTranslations() {
   document.documentElement.lang = locale === "zh-Hans" ? "zh-CN" : locale === "zh-Hant" ? "zh-TW" : "en";
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     el.textContent = t(el.dataset.i18n);
+  });
+  // P2-4:aria-label 也要跟语言走,否则读屏用户听到的是英文键值或上一种语言。
+  // 走反射属性(ariaLabel),不走 setAttribute(仓库不变量禁用)。
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    el.ariaLabel = t(el.dataset.i18nAria);
   });
   const select = document.getElementById("locale-select");
   if (select) select.value = localStorage.getItem(STORAGE_KEY) || "system";

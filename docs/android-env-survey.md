@@ -56,7 +56,7 @@ survey for **display** only.
 | Rule | Action | Why |
 |---|---|---|
 | `ENV-A5` | **Block + confirm** (critical) | Everything the agent types is being copied out by an app that needed no permission to do it. Proceeding is a decision the user should make explicitly |
-| `ENV-A6` | **Alert** (high) | A legitimate screen reader is also on this list, so a hard block would be wrong. The user is told, and the block comes at the moment it matters |
+| `ENV-A6` | **Alert** (high) | Presence is not proof of malice, so a hard block would be wrong. The user is told, and the block comes at the moment it matters. **System assistive technology is not on this list** — see below |
 | `ENV-INPUT-OBSERVED` | **Block + confirm** (critical) | Composition: a HIGH-tier field being filled *while* input is observed. Alerting once at survey time is not enough — the interesting moment is when the phone number or password is actually typed |
 | `ENV-CLEAN` | LogOnly | A *complete* clean survey is reported too, so the engine can **clear** a latched risk instead of staying pessimistic after the user disables the offending service |
 | `ENV-UNKNOWN` | Alert (low) | Survey incomplete, or none seen yet. Unknown is not clean: only a complete survey may clear a latch, and `EnvRisk::is_clean()` requires `surveyed == true` |
@@ -70,6 +70,29 @@ block with the environment reason appended, rather than being relabelled
 `ENV-INPUT-OBSERVED` and losing the more specific explanation. LOW-tier data is
 not upgraded at all, so the guard does not become a blanket block the moment any
 other accessibility service exists.
+
+### Assistive technology is not a sniffer (real-device report P2-4)
+
+The first version put TalkBack on the A6 list. A blind user's screen reader is enabled by
+definition and reads typed text by design; treating it as a credential sniffer would have made
+the guard raise a High alert on every session of exactly the people who most need accessible
+software. The companion now splits enabled services by a fact the **platform** enforces, not by
+a name list:
+
+- a service whose app is on the system image (`ApplicationInfo.FLAG_SYSTEM`), or a Play update
+  of one (`FLAG_UPDATED_SYSTEM_APP` — Android refuses an update of a system app that is not
+  signed by the same signer), goes to `assistive_system_services`; it is forwarded and shows up
+  in the `ENV-CLEAN` message ("a system screen reader is on … not counted as a sniffer") and in
+  `EnvRisk::summary()`, but `EnvRisk::input_is_observed()` never counts it;
+- everything else stays on `foreign_a11y_services` and is A6. A sideloaded app that merely calls
+  itself "TalkBack" is not a system app;
+- a service whose app flags cannot be read (enabled but not bound, so no `ResolveInfo`) stays
+  foreign — the conservative side.
+
+`EnvironmentScanner.classifyForeignServices` is the pure function that does the split, covered
+by `EnvironmentScannerClassifyTest` (JVM); the engine side is
+`系统读屏在开不算输入被观察` in `guard-core`. The flags themselves are only observable on a
+device — the JVM test exercises the classifier with the constants, not a real `PackageManager`.
 
 ## Limits — what a clean survey does and does not mean
 

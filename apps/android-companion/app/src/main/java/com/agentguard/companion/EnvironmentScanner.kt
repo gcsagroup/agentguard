@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityManager
@@ -42,9 +43,20 @@ import android.view.accessibility.AccessibilityManager
  *    positioned to read the rest.
  *
  * This is deliberately observation only: the survey reports, the engine decides.
- * Presence on either list is not proof of malice (a legitimate screen reader is
- * on the A6 list), which is why A6 alerts while A5 blocks, and why the hard block
- * lands when HIGH-tier data is actually typed.
+ * Presence on either list is not proof of malice, which is why A6 alerts while A5 blocks,
+ * and why the hard block lands when HIGH-tier data is actually typed.
+ *
+ * **Assistive technology is not a sniffer** (real-device report P2-4). The first version put
+ * TalkBack on the A6 list: a blind user's screen reader is enabled by definition, reads typed
+ * text by design, and would have made the guard raise a High alert on every session of the
+ * people who most need accessible software. The split is by a fact the platform enforces,
+ * not by a name list: a service whose app is on the **system image** (`FLAG_SYSTEM`), or a
+ * Play update of one (`FLAG_UPDATED_SYSTEM_APP` — Android refuses an update of a system app
+ * that is not signed by the same signer), goes to [Survey.assistiveSystemServices] and is
+ * *reported*, not counted as a foreign observer. A sideloaded app that merely calls itself
+ * "TalkBack" is not a system app and stays on the foreign list. When the app flags cannot be
+ * read (the service is enabled but not bound, so no `ResolveInfo`), the service stays foreign —
+ * the conservative side.
  */
 object EnvironmentScanner {
 
@@ -57,10 +69,19 @@ object EnvironmentScanner {
     data class Survey(
         /** `package/component` of every receiver registered for an input action. */
         val broadcastInputReceivers: List<String>,
-        /** `package/component` of every enabled accessibility service but ours. */
+        /**
+         * `package/component` of every enabled accessibility service but ours **and but the
+         * system's own assistive technology** (see class doc). These are the A6 candidates.
+         */
         val foreignA11yServices: List<String>,
         /** Subset of [foreignA11yServices] that requests text-change events. */
         val textCapturingServices: List<String>,
+        /**
+         * Enabled accessibility services whose app is on the system image (or a signed update of
+         * it): TalkBack, Select to Speak, Switch Access, Voice Access… Reported so the record
+         * says a screen reader was on; **not** an input observer for the risk verdict.
+         */
+        val assistiveSystemServices: List<String> = emptyList(),
         /**
          * Packages holding `READ_LOGS` (AgentScan §3.8).
          *
@@ -122,6 +143,10 @@ object EnvironmentScanner {
                         append(" (${textCapturingServices.size} on the typed-text stream)")
                     }
                 }
+                if (assistiveSystemServices.isNotEmpty()) {
+                    if (isNotEmpty()) append("; ")
+                    append("${assistiveSystemServices.size} system assistive service(s) on (screen reader), not counted as a sniffer")
+                }
                 if (logReaders.isNotEmpty()) {
                     if (isNotEmpty()) append("; ")
                     append("${logReaders.size} app(s) can read the device log")
@@ -139,21 +164,59 @@ object EnvironmentScanner {
         val errors = mutableListOf<String>()
         // One binder round-trip for the service list, shared by both checks.
         val enabled = enabledServices(context, errors)
+        val allForeign = foreignA11yServices(context, self, enabled, errors)
+        // 每个已启用服务的应用 flags(能拿到的话):来自 getEnabledAccessibilityServiceList 的
+        // ResolveInfo,不需要额外的 PackageManager 查询(也就不受 package visibility 限制)。
+        val flagsById: Map<String, Int> = enabled
+            .mapNotNull { info ->
+                val id = info.id ?: return@mapNotNull null
+                val flags = info.resolveInfo?.serviceInfo?.applicationInfo?.flags ?: return@mapNotNull null
+                id to flags
+            }
+            .toMap()
+        val split = classifyForeignServices(allForeign, flagsById)
         return Survey(
             broadcastInputReceivers = broadcastInputReceivers(context, self, errors),
-            foreignA11yServices = foreignA11yServices(context, self, enabled, errors),
+            foreignA11yServices = split.foreign,
             textCapturingServices = enabled
                 .filter { info ->
                     val pkg = packageOf(info.id)
                     pkg != null && pkg != self &&
+                        info.id in split.foreign &&
                         (info.eventTypes and AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) != 0
                 }
                 .mapNotNull { it.id }
                 .distinct(),
+            assistiveSystemServices = split.assistive,
             logReaders = logReaders(context, self, errors),
             logReadersEnumerable = canEnumeratePackages(context),
             scanErrors = errors,
         )
+    }
+
+    /** [classifyForeignServices] 的结果:哪些是第三方观察者,哪些是系统自带的辅助技术。 */
+    data class ServiceSplit(val foreign: List<String>, val assistive: List<String>)
+
+    /**
+     * 把"不是我们的已启用无障碍服务"分成两堆(见类文档"Assistive technology is not a sniffer")。
+     *
+     * 纯函数,JVM 单测覆盖:`flagsById` 是每个服务 id 到其应用 `ApplicationInfo.flags` 的映射;
+     * 拿不到 flags 的服务(启用了但没绑定)**留在 foreign**——保守方向。判据只有系统镜像 /
+     * 系统应用的签名更新两个 flag,没有名字表:名字是攻击者可以随便起的。
+     */
+    fun classifyForeignServices(
+        services: List<String>,
+        flagsById: Map<String, Int>,
+    ): ServiceSplit {
+        val assistive = mutableListOf<String>()
+        val foreign = mutableListOf<String>()
+        for (id in services) {
+            val flags = flagsById[id]
+            val system = flags != null &&
+                (flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+            if (system) assistive.add(id) else foreign.add(id)
+        }
+        return ServiceSplit(foreign = foreign, assistive = assistive)
     }
 
     /**

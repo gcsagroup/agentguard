@@ -23,11 +23,107 @@ function actionClass(action) {
 // ——用户拒绝的是他看到的那一条,不是"此刻队首碰巧是哪条"。
 let shownRequestId = null;
 
+// ---------------------------------------------------------------------------
+// P2-4:弹层的读屏与键盘可达性。
+//
+// 真机报告:桌面弹层缺 aria-labelledby、焦点转入/回退、focus trap 和 Escape;键盘用户要穿过
+// 11–12 个背景控件才到确认按钮;审计列表不是 live region。现在:
+//   * 打开:记住开启前的焦点元素,<main> 置 inert(背景控件既不可点也不可 Tab 到),焦点落在
+//     「先不要」(安全的默认),读屏播报一条「有一个高危操作等你决定:…」;
+//   * 开着:Tab / Shift+Tab 只在弹层内的可聚焦元素之间循环;Esc = 先不要;
+//   * 关闭:撤 inert、卸载键盘监听、焦点还原到开启前的元素(不在了就回状态灯),播报结果。
+// 全部走 DOM 属性与 textContent,不用 setAttribute / innerHTML(仓库不变量禁 sink)。
+// ---------------------------------------------------------------------------
+let modalOpener = null;
+let modalKeyHandler = null;
+let lastAnnouncedState = null;
+
+function announce(text) {
+  const el = document.getElementById("sr-announce");
+  if (!el) return;
+  // 同一句连播两次读屏会吞掉;先清空再写,确保每次都播。
+  el.textContent = "";
+  setTimeout(() => {
+    el.textContent = text;
+  }, 30);
+}
+
+function modalFocusables() {
+  return Array.from(modal().querySelectorAll("button, [href], input, select, textarea, [tabindex]"))
+    .filter((el) => !el.disabled && el.tabIndex >= 0 && el.offsetParent !== null);
+}
+
+function openModalA11y(message) {
+  const main = document.getElementById("app-main");
+  const wasOpen = !modal().classList.contains("hidden");
+  if (!wasOpen) {
+    modalOpener = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    if (main) main.inert = true;
+  }
+  modal().classList.remove("hidden");
+  if (!wasOpen) {
+    const deny = document.getElementById("confirm-deny");
+    if (deny) deny.focus();
+    announce(t("a11y.confirmPending", { msg: message || "" }));
+  }
+  if (!modalKeyHandler) {
+    modalKeyHandler = (e) => {
+      if (modal().classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        document.getElementById("confirm-deny")?.click();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = modalFocusables();
+      if (items.length === 0) return;
+      const i = items.indexOf(document.activeElement);
+      const next = e.shiftKey
+        ? (i <= 0 ? items.length - 1 : i - 1)
+        : (i === -1 || i === items.length - 1 ? 0 : i + 1);
+      e.preventDefault();
+      items[next].focus();
+    };
+    document.addEventListener("keydown", modalKeyHandler, true);
+  }
+}
+
+function closeModalA11y(outcomeKey) {
+  const wasOpen = !modal().classList.contains("hidden");
+  modal().classList.add("hidden");
+  const main = document.getElementById("app-main");
+  if (main) main.inert = false;
+  if (modalKeyHandler) {
+    document.removeEventListener("keydown", modalKeyHandler, true);
+    modalKeyHandler = null;
+  }
+  if (wasOpen) {
+    const target = modalOpener && document.contains(modalOpener) ? modalOpener : pill();
+    try {
+      if (target && typeof target.focus === "function") {
+        if (target === pill() && target.tabIndex < 0) target.tabIndex = -1;
+        target.focus();
+      }
+    } catch (_) {}
+    if (outcomeKey) announce(t("a11y.confirmClosed", { outcome: t(outcomeKey) }));
+  }
+  modalOpener = null;
+}
+
+function announceStateChange(state) {
+  if (state === lastAnnouncedState) return;
+  const first = lastAnnouncedState === null;
+  lastAnnouncedState = state;
+  if (first) return; // 首屏不播,只播转换。
+  announce(t("a11y.stateChanged", { state: t(`state.${state}`) }));
+}
+
 async function maybeShowConfirm() {
   const pending = await invoke("get_pending_confirm");
   if (!pending) {
     shownRequestId = null;
-    modal().classList.add("hidden");
+    closeModalA11y(null);
     return;
   }
   shownRequestId = pending.request_id;
@@ -35,7 +131,7 @@ async function maybeShowConfirm() {
   document.getElementById("confirm-meta").textContent =
     `${pending.rule_id} · ${pending.severity} · ${pending.source_app}` +
     (pending.ui_excerpt ? ` · ${pending.ui_excerpt}` : "");
-  modal().classList.remove("hidden");
+  openModalA11y(pending.human_message);
 }
 
 async function refreshCoverage(st, tcc) {
@@ -129,6 +225,7 @@ async function refreshStatus() {
   const state = st.protection_state || "stopped";
   pill().textContent = t(`state.${state}`);
   pill().className = `pill ${PILL_CLASS[state] || "idle"}`;
+  announceStateChange(state);
   renderStateReasons(st);
   const sckPart = st.sck_streaming
     ? `SCK=streaming(native=${st.sck_native_ok}${st.sck_auto_poll ? ",auto" : ""})`
@@ -436,11 +533,11 @@ window.addEventListener("DOMContentLoaded", async () => {
   // 说明这条已过期(新会话清了 / 被挤出)——不当作成功,重新拉 pending 让用户看当前那条。
   const resolvePending = async (approve) => {
     if (shownRequestId == null) {
-      modal().classList.add("hidden");
+      closeModalA11y(null);
       return;
     }
     const res = await invoke("resolve_confirm", { requestId: shownRequestId, approve });
-    modal().classList.add("hidden");
+    closeModalA11y(approve ? "a11y.allowed" : "a11y.denied");
     await refreshStatus();
     await refreshAudit();
     // 队列里还有下一条(或这条已过期需要重看),再弹一次。

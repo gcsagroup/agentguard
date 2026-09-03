@@ -1,0 +1,12 @@
+# 钉死构建工具链(真机报告 P2-6:缺 rust-toolchain.toml → 每台机器的 "stable" 各不相同,
+# 一次可复现构建无从谈起)。
+#
+# `channel` 是**具体版本**不是 "stable":stable 每六周换一次,两台机器同一天也能拿到不同的
+# 编译器。升级它是一次显式提交(顺手跑一遍门禁),不是某台机器碰巧 rustup update 了。
+# MSRV(Cargo.toml 的 rust-version = 1.87)是另一条线:那是"最低能编",这里是"发布用哪一版"。
+# CI 的 msrv job 用 RUSTUP_TOOLCHAIN=1.87 显式压过这个文件,`make check-msrv` 直接调 1.87 的
+# cargo 二进制,两处都不受这里影响。
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

@@ -77,6 +77,13 @@ pub struct AndroidEvent {
     /// `TYPE_VIEW_TEXT_CHANGED`, i.e. those really on the typed-text stream.
     #[serde(default)]
     pub text_capturing_services: Option<Vec<String>>,
+    /// Enabled accessibility services whose app is on the **system image** (or a signed
+    /// update of one): TalkBack, Select to Speak, Switch Access… The companion keeps them
+    /// **off** `foreign_a11y_services` (real-device report P2-4: a blind user's screen reader
+    /// is not a credential sniffer, and the split rests on a flag the platform enforces,
+    /// not on a name list). Forwarded so the audit record says a screen reader was on.
+    #[serde(default)]
+    pub assistive_system_services: Option<Vec<String>>,
     /// Packages holding `READ_LOGS` (AgentScan §3.8): who can read what the agent,
     /// its host and this guard write to logcat.
     #[serde(default)]
@@ -326,6 +333,11 @@ impl AndroidAdapter {
                 if let Some(t) = &ev.text_capturing_services {
                     metadata.insert("text_capturing_services".into(), t.join(","));
                 }
+                if let Some(a) = &ev.assistive_system_services {
+                    if !a.is_empty() {
+                        metadata.insert("assistive_system_services".into(), a.join(","));
+                    }
+                }
                 if let Some(l) = &ev.log_readers {
                     metadata.insert("log_readers".into(), l.join(","));
                 }
@@ -425,6 +437,7 @@ mod tests {
             "broadcast_input_receivers",
             "foreign_a11y_services",
             "text_capturing_services",
+            "assistive_system_services",
             "log_readers",
             "log_readers_enumerable",
             "broadcast_actions",

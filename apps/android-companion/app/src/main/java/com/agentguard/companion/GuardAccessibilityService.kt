@@ -97,6 +97,7 @@ class GuardAccessibilityService : AccessibilityService() {
             TAG,
             "env survey: receivers=${survey.broadcastInputReceivers.size} " +
                 "a11y=${survey.foreignA11yServices.size} " +
+                "assistive=${survey.assistiveSystemServices.size} " +
                 "logReaders=${survey.logReaders.size} " +
                 "enumerable=${survey.logReadersEnumerable} " +
                 "errors=${survey.scanErrors.size}",

@@ -12,7 +12,10 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-npm install --no-audit --no-fund 2>/dev/null || true
+# `npm ci`,不是 `npm install … || true`(真机报告 P2-6):以前装依赖失败会被吞掉,然后拿着上一次
+# 留下的 node_modules 继续打包 —— 一份"成功"的发布构建里前端依赖是哪一版,没人说得清。
+# `npm ci` 严格按 package-lock.json 装,lock 与 package.json 不一致或网络失败都**在这里停下**。
+npm ci --no-audit --no-fund
 
 # Secure audit: SQLCipher. Override with AGENTGUARD_AUDIT_PLAIN=1 for plaintext release (not recommended).
 CARGO_FEATURE_ARGS=(--no-default-features --features audit-sqlcipher)

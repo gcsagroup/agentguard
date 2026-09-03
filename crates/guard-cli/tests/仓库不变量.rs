@@ -1288,3 +1288,356 @@ fn 发布门禁的证据检查走结构化校验而不是关键词() {
         "release-gate.sh 的严格模式不再跑无 baseline 的 preflight 门(生产姿态零 FAIL)"
     );
 }
+
+// ---------------------------------------------------------------------------
+// 构建可复现与供应链范围(真机报告 P2-6)
+// ---------------------------------------------------------------------------
+
+/// 从 TOML 文本里抠出一个 `[section]` 到下一个 `[`… 段头之间的正文,去掉注释行与空行。
+/// 不引 toml 解析库:这里比的是**逐字**一致,解析后再比会把注释差异吞掉——而注释里写着理由。
+fn toml_section(text: &str, header: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut inside = false;
+    for line in text.lines() {
+        let t = line.trim();
+        if t.starts_with('[') && t.ends_with(']') {
+            inside = t == header;
+            continue;
+        }
+        if inside && !t.is_empty() && !t.starts_with('#') {
+            // 行尾注释不参与比较:两边对同一条目的解释允许不同,条目本身不允许。
+            let code = t.split(" #").next().unwrap_or(t).trim_end();
+            out.push(code.to_string());
+        }
+    }
+    out
+}
+
+/// deny.shells.toml 是根 deny.toml 的抄件加显式差异。共享的三段——许可放行表、架构禁用表、
+/// 来源——必须逐字一致,否则壳子那份会静默漂成一套更松的策略。差异段(`[graph].targets`、
+/// `[advisories].ignore`、`[licenses].exceptions`)每一条必须带理由。
+#[test]
+fn 两份deny配置的共享策略段逐字一致() {
+    let root_cfg = read("deny.toml");
+    let shells = read("deny.shells.toml");
+    for section in ["[bans]", "[sources]"] {
+        assert_eq!(
+            toml_section(&root_cfg, section),
+            toml_section(&shells, section),
+            "deny.shells.toml 的 {section} 与 deny.toml 不一致 —— 壳子的供应链策略漂了"
+        );
+    }
+    // [licenses]:根文件没有 exceptions;壳子多的必须**只是** exceptions,allow 表一致。
+    let root_lic: Vec<String> = toml_section(&root_cfg, "[licenses]");
+    let shell_lic: Vec<String> = toml_section(&shells, "[licenses]");
+    let mut shell_without_exceptions = Vec::new();
+    let mut skipping = false;
+    for l in &shell_lic {
+        if l.starts_with("exceptions = [") {
+            skipping = true;
+            continue;
+        }
+        if skipping {
+            if l == "]" {
+                skipping = false;
+            }
+            continue;
+        }
+        shell_without_exceptions.push(l.clone());
+    }
+    assert_eq!(
+        root_lic, shell_without_exceptions,
+        "deny.shells.toml 的 [licenses] 除 exceptions 外必须与 deny.toml 一致(不许把 MPL 塞进 allow)"
+    );
+    assert!(
+        !shell_without_exceptions.iter().any(|l| l.contains("MPL")),
+        "MPL 只能作为逐 crate 例外出现,不能进 allow 表"
+    );
+    assert!(
+        shell_lic
+            .iter()
+            .any(|l| l.starts_with("{ name = ") && l.contains("\"MPL-2.0\"")),
+        "壳子配置应当以逐 crate exceptions 的形式记录 MPL 依赖(它们确实存在于 Tauri 的树里)"
+    );
+    // 差异段每条都要有 reason / 文件头有撤销条件。
+    let ignores: Vec<&str> = shells
+        .lines()
+        .filter(|l| l.trim_start().starts_with("{ id = \"RUSTSEC"))
+        .collect();
+    assert!(
+        !ignores.is_empty(),
+        "壳子配置的 advisories.ignore 空了?那就该删掉这一节而不是留个空表"
+    );
+    for l in &ignores {
+        assert!(
+            l.contains("reason = \""),
+            "advisories.ignore 条目缺理由:{l}"
+        );
+    }
+    assert!(
+        shells.contains("待法务确认"),
+        "MPL 例外必须标明是待法务确认,不是结论"
+    );
+    assert!(
+        toml_section(&root_cfg, "[advisories]")
+            .iter()
+            .any(|l| l == "ignore = []"),
+        "根 deny.toml 的 advisories.ignore 必须保持为空——例外只许出现在壳子那份里并写明理由"
+    );
+    // Makefile 与 CI 真的对两棵壳子树跑了它。
+    let mk = read("Makefile");
+    let ci = read(".github/workflows/ci.yml");
+    for m in [
+        "apps/desktop-macos/src-tauri/Cargo.toml",
+        "apps/desktop-windows/src-tauri/Cargo.toml",
+    ] {
+        assert!(
+            mk.contains(&format!(
+                "--config deny.shells.toml --manifest-path {m} check"
+            )),
+            "Makefile check-supply-chain 没有对 {m} 跑 cargo deny"
+        );
+        assert!(
+            ci.contains(&format!("manifest-path: {m}")),
+            "CI 没有对 {m} 跑 cargo deny"
+        );
+    }
+}
+
+/// 每个 `uses:` 都钉在 40 位 commit SHA 上,尾注写 tag。浮动 tag 让流水线的一半代码可被第三方随时替换。
+#[test]
+fn ci的每个action都钉在commit_sha上() {
+    let ci = read(".github/workflows/ci.yml");
+    let mut seen = 0;
+    for (n, line) in ci.lines().enumerate() {
+        let t = line.trim();
+        let Some(rest) = t.strip_prefix("uses: ") else {
+            continue;
+        };
+        if t.starts_with("- uses: ") {
+            continue; // handled below via the "- uses:" form
+        }
+        seen += 1;
+        check_pinned(rest, n + 1);
+    }
+    for (n, line) in ci.lines().enumerate() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("- uses: ") {
+            seen += 1;
+            check_pinned(rest, n + 1);
+        }
+    }
+    assert!(
+        seen >= 10,
+        "ci.yml 里只找到 {seen} 个 uses:?文件结构变了,这条检查可能在空转"
+    );
+}
+
+fn check_pinned(spec: &str, line_no: usize) {
+    let (action, tail) = spec
+        .split_once('@')
+        .unwrap_or_else(|| panic!("ci.yml:{line_no}: `uses: {spec}` 没有 @ref"));
+    let sha = tail.split_whitespace().next().unwrap_or("");
+    assert!(
+        sha.len() == 40 && sha.bytes().all(|b| b.is_ascii_hexdigit()),
+        "ci.yml:{line_no}: {action}@{sha} 不是 40 位 commit SHA —— 浮动 tag 让这条流水线的代码由第三方随时可换(P2-6)"
+    );
+    assert!(
+        tail.contains('#'),
+        "ci.yml:{line_no}: {action} 钉了 SHA 但没有尾注说明对应的 tag/分支,下次升级没人知道它是什么"
+    );
+}
+
+/// 工具链与前端运行时都钉了版本;MSRV job 不会被发布工具链的钉子静默带走。
+#[test]
+fn 工具链与node版本已钉且msrv_job不受发布钉子影响() {
+    let tc = read("rust-toolchain.toml");
+    let channel = tc
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("channel = \""))
+        .map(|r| r.trim_end_matches('"'))
+        .expect("rust-toolchain.toml 缺 channel");
+    assert!(
+        channel.split('.').count() == 3 && channel.chars().all(|c| c.is_ascii_digit() || c == '.'),
+        "rust-toolchain.toml 的 channel 必须是具体版本(x.y.z),不是 {channel:?}——\"stable\" 每六周换一次,不是钉子"
+    );
+    assert!(
+        tc.contains("\"rustfmt\"") && tc.contains("\"clippy\""),
+        "钉的工具链要带 rustfmt 与 clippy,否则门禁第一步就装不出来"
+    );
+    let msrv = read("Cargo.toml")
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("rust-version = \""))
+        .map(|r| r.trim_end_matches('"').to_string())
+        .expect("Cargo.toml 缺 rust-version");
+    let ci = read(".github/workflows/ci.yml");
+    assert!(
+        ci.contains(&format!("RUSTUP_TOOLCHAIN: '{msrv}'")),
+        "CI 的 MSRV job 必须用 RUSTUP_TOOLCHAIN={msrv} 压过 rust-toolchain.toml,否则它在发布工具链上跑而名字还叫 MSRV"
+    );
+    let nvmrc = read(".nvmrc");
+    let node_major = nvmrc.trim();
+    assert!(!node_major.is_empty());
+    assert!(
+        ci.contains(&format!("node-version: '{node_major}'")),
+        ".nvmrc({node_major})与 CI 的 node-version 不一致"
+    );
+    // 发布构建脚本:严格按 lock 装依赖,失败即停,不再 `npm install … || true`。
+    let build: String = read("apps/desktop-macos/scripts/build-release.sh")
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(build.contains("npm ci"), "build-release.sh 不再用 npm ci");
+    assert!(
+        !build.contains("npm install"),
+        "build-release.sh 又出现了 npm install(|| true 吞掉失败后拿旧 node_modules 打包,是 P2-6 点名的形态)"
+    );
+    // 壳子 Cargo.toml 与根 workspace 一致的三行。
+    for m in [
+        "apps/desktop-macos/src-tauri/Cargo.toml",
+        "apps/desktop-windows/src-tauri/Cargo.toml",
+    ] {
+        let t = read(m);
+        for needle in [
+            "license = \"Apache-2.0\"",
+            "publish = false",
+            &format!("rust-version = \"{msrv}\""),
+        ] {
+            assert!(t.contains(needle), "{m} 缺 {needle}");
+        }
+    }
+}
+
+/// 每个 Makefile 目标都在 .PHONY 里:一个同名文件出现在仓库根就会让那条目标静默不跑。
+#[test]
+fn makefile的每个目标都在phony里() {
+    let mk = read("Makefile");
+    let phony: std::collections::BTreeSet<&str> = mk
+        .lines()
+        .find(|l| l.starts_with(".PHONY:"))
+        .expect("Makefile 没有 .PHONY 行")
+        .split_whitespace()
+        .skip(1)
+        .collect();
+    let mut missing = Vec::new();
+    for line in mk.lines() {
+        if line.starts_with(|c: char| c.is_ascii_alphanumeric()) {
+            if let Some((name, rest)) = line.split_once(':') {
+                let name = name.trim();
+                // `MSRV := 1.87` 是变量赋值,不是目标。
+                if rest.starts_with('=')
+                    || name.contains(' ')
+                    || name.contains('=')
+                    || name.contains('$')
+                {
+                    continue;
+                }
+                if !phony.contains(name) {
+                    missing.push(name.to_string());
+                }
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "这些 Makefile 目标不在 .PHONY 里:{missing:?}(sim-mac / check-shell-apps 曾漏掉——报告 P2-6)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Android 伴生应用的本地化(真机报告 P2-4:launcher 标签英文、繁中资源夹里有简体文案)
+// ---------------------------------------------------------------------------
+
+fn android_strings(rel: &str) -> std::collections::BTreeMap<String, String> {
+    let xml = read(rel);
+    let mut out = std::collections::BTreeMap::new();
+    for line in xml.lines() {
+        let t = line.trim();
+        let Some(rest) = t.strip_prefix("<string name=\"") else {
+            continue;
+        };
+        let Some((name, rest)) = rest.split_once("\">") else {
+            continue;
+        };
+        let Some((value, _)) = rest.rsplit_once("</string>") else {
+            continue;
+        };
+        out.insert(name.to_string(), value.to_string());
+    }
+    out
+}
+
+/// 三个 strings.xml 键集合一致;繁中资源夹里没有简体字形;launcher 标签走资源(随语言)。
+#[test]
+fn android三语词表键一致且繁中无简体字形且launcher标签本地化() {
+    let base = "apps/android-companion/app/src/main/res";
+    let en = android_strings(&format!("{base}/values/strings.xml"));
+    let cn = android_strings(&format!("{base}/values-zh-rCN/strings.xml"));
+    let tw = android_strings(&format!("{base}/values-zh-rTW/strings.xml"));
+    assert!(en.len() > 20, "英文词表只有 {} 条?解析可能坏了", en.len());
+    let en_keys: Vec<&String> = en.keys().collect();
+    assert_eq!(
+        en_keys,
+        cn.keys().collect::<Vec<_>>(),
+        "values-zh-rCN 的键与 values 不一致"
+    );
+    assert_eq!(
+        en_keys,
+        tw.keys().collect::<Vec<_>>(),
+        "values-zh-rTW 的键与 values 不一致"
+    );
+    // 一批**只在简体里出现**的字形(繁体对应字不同)。不是完整表,是这个词表里最容易漏的那些;
+    // 报告点名的两条(显示适配器公钥 / 把它填到…)就是靠 显/适/钥/这/应/签 抓到的。
+    const SIMPLIFIED_ONLY: &str = "显适钥这们个为让请设权记录应开关启务护连该态绿线际证择继续传输络监测问题级别导页认备网执确暂结运种电邮账处获键统计视询图检说术数库软钮击时间闭没转败验况动阅读载复错断卫签发响联点";
+    let mut leaks = Vec::new();
+    for (k, v) in &tw {
+        let bad: String = v.chars().filter(|c| SIMPLIFIED_ONLY.contains(*c)).collect();
+        if !bad.is_empty() {
+            leaks.push(format!("{k}: [{bad}] {v}"));
+        }
+    }
+    assert!(
+        leaks.is_empty(),
+        "values-zh-rTW 里有简体字形(繁中用户看到的是简体文案):\n{}",
+        leaks.join("\n")
+    );
+    // 简体词表反过来不该出现明显的繁体专用字形(对称检查,防止两份贴反)。
+    const TRADITIONAL_ONLY: &str = "顯適鑰這們個為讓請設權記錄應開關啟務護連該態綠線際證擇繼續傳輸絡監測問題級別導頁認備網執確暫結運種電郵賬處獲鍵統計視詢圖檢說術數庫軟鈕擊時間閉沒轉敗驗況動閱讀載復錯斷衛簽發響聯點";
+    let mut leaks = Vec::new();
+    for (k, v) in &cn {
+        let bad: String = v
+            .chars()
+            .filter(|c| TRADITIONAL_ONLY.contains(*c))
+            .collect();
+        if !bad.is_empty() {
+            leaks.push(format!("{k}: [{bad}] {v}"));
+        }
+    }
+    assert!(
+        leaks.is_empty(),
+        "values-zh-rCN 里有繁体字形:\n{}",
+        leaks.join("\n")
+    );
+    // launcher 标签必须是资源引用,否则桌面图标下的名字永远是英文。
+    let manifest = read("apps/android-companion/app/src/main/AndroidManifest.xml");
+    let label_lines: Vec<&str> = manifest
+        .lines()
+        .filter(|l| l.contains("android:label="))
+        .collect();
+    assert!(
+        !label_lines.is_empty(),
+        "AndroidManifest.xml 里没有 android:label"
+    );
+    for l in label_lines {
+        assert!(
+            l.contains("android:label=\"@string/"),
+            "android:label 必须引用 @string/ 资源(随语言),不能写死英文:{}",
+            l.trim()
+        );
+    }
+    assert!(
+        en.contains_key("app_title") && !tw["app_title"].is_empty(),
+        "app_title 三语都要有"
+    );
+}

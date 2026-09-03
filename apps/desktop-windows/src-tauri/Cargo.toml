@@ -4,6 +4,11 @@ version = "1.0.0-rc.1"
 description = "AgentGuard desktop shell (Phase 2)"
 authors = ["AgentGuard Contributors"]
 edition = "2021"
+# 和根 workspace 一致(P2-6):壳子不在根 workspace 里,这两行以前缺着 —— cargo-deny 把它记成
+# "unlicensed" 和 "public crate with wildcard deps",两条都是真的。
+license = "Apache-2.0"
+publish = false
+rust-version = "1.87"
 
 [lib]
 name = "desktop_windows_lib"

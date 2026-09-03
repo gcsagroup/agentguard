@@ -1,7 +1,7 @@
 # check-macos-cfg 用:能在无 Apple 工具链下对 darwin 目标 cargo check 的 crate(不经 ring)。
 DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
 
-.PHONY: ui-preview e2e-extension acceptance-fixtures release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: ui-preview shell-a11y e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -164,6 +164,12 @@ check-extension-gate:
 ui-preview:
 	node eval/ui-preview/shoot.mjs
 
+## 桌面壳子确认弹层的读屏/键盘可达性(真机报告 P2-4;开发工具,不进 release-gate:需要 playwright)。
+## 用桩顶替 window.__TAURI__,在真 Chromium 里断言:alertdialog 语义、焦点落「先不要」、<main> inert、
+## Tab 焦点圈、Esc=先不要(回传展示过的 request_id)、焦点还原、读屏播报通道有人话。两个壳子同一套断言。
+shell-a11y:
+	node eval/ui-preview/shell-a11y.mjs
+
 ## Chromium 扩展真浏览器 E2E(开发工具,不进 release-gate:需要 playwright+Chromium)。
 ## 把 apps/extension-chromium 原样装进真 Chromium,对 eval/acceptance-fixtures 跑 F1–F5 等价机器判据
 ## (注入上报 / 付款点击拦住→允许一次重放 / 陷阱表单拦提交 / 直发 fetch 到服务器前拦住 / 不误拦 / popup)。
@@ -296,10 +302,15 @@ check-fmt:
 #
 # 需要 `cargo install cargo-deny --locked`。没装的时候**明确失败**并说怎么装 ——
 # 一条静默跳过的供应链检查和一条不存在的没有区别。
+## 三棵树都查(真机报告 P2-6):根 workspace 用 deny.toml;两个 Tauri 壳子是独立 workspace,
+## 以前它们的 lockfile 从来没被 CVE / 许可检查过。壳子用 deny.shells.toml(只发 macOS/Windows 目标;
+## 每条例外都写了理由与撤销条件;共享策略段由仓库不变量测试盯着和根文件逐字一致)。
 check-supply-chain:
 	@command -v cargo-deny >/dev/null 2>&1 || { \
 		echo "cargo-deny 没装。装:cargo install cargo-deny --locked" >&2; exit 1; }
 	cargo deny check
+	cargo deny --config deny.shells.toml --manifest-path apps/desktop-macos/src-tauri/Cargo.toml check
+	cargo deny --config deny.shells.toml --manifest-path apps/desktop-windows/src-tauri/Cargo.toml check
 
 check-clippy:
 	cargo clippy --workspace --all-targets -- -D warnings

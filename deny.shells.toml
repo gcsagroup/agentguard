@@ -1,0 +1,95 @@
+# 桌面壳子(apps/desktop-macos、apps/desktop-windows 两个独立 Cargo workspace)的供应链门禁。
+#
+# # 为什么是第二份文件
+#
+# 根 workspace 刻意把两个 Tauri 壳子排除在外(它们要 GTK/WebKit 才能在 Linux 上编),于是
+# `cargo deny check` 只看根 Cargo.lock ——**两份壳子 lockfile 从来没被 CVE / 许可检查过**
+# (真机报告 P2-6)。这份配置由 `make check-supply-chain` 用 `--config deny.shells.toml
+# --manifest-path apps/desktop-*/src-tauri/Cargo.toml` 对两棵树各跑一次。
+#
+# cargo-deny 不支持 include,所以策略段落是抄的。`crates/guard-cli/tests/仓库不变量.rs` 的
+# `两份deny配置的共享策略段逐字一致` 盯着 `[licenses].allow`、`[bans].deny`、`[sources]`
+# 三段和根 deny.toml 逐字相同 —— 抄件漂移就红。**这份文件相对根文件只多不少**:多的每一条
+# 都在下面写了为什么、什么时候撤。
+#
+# # 与根文件的差别(每条都是刻意的)
+#
+# 1. `[graph].targets` 钉到壳子真正**发布**的三个目标。根文件查全平台,因为引擎在 Linux 上也发
+#    (jail / CLI);壳子不发 Linux,Tauri 在 Linux 上拖进来的 gtk-rs 0.18(GTK3,RUSTSEC-2024-0411…0420
+#    "no longer maintained")和 glib-macros 的 proc-macro-error(RUSTSEC-2024-0370)于是不在图里。
+#    这不是 ignore:那些 crate 不会出现在任何一份我们签名分发的二进制里。哪天壳子要发 Linux,
+#    删掉这一节,这些公告会原样回来。
+# 2. `[advisories].ignore` 有五条 —— 根文件那里是**空的**。unic-* 五个 Unicode 数据 crate 被
+#    tauri-utils → urlpattern 拖进来(所有平台,含构建期 codegen),RustSec 把它们标为 unmaintained
+#    (不是漏洞)。上游 tauri-apps/tauri 追踪 urlpattern 换掉 unic;每次 Tauri 升级后重跑一次不带
+#    ignore 的检查,消失就删条目。
+# 3. `[licenses].exceptions` 有五条 MPL-2.0。根文件的原则是**不放行任何 copyleft**;这里没有
+#    把 MPL 加进 `allow`,而是逐 crate 例外:cssparser / cssparser-macros / selectors / dtoa-short /
+#    option-ext 都是 Tauri webview 栈的**未修改**上游依赖。MPL-2.0 是文件级 copyleft,分发二进制
+#    不触发我们自己源码的开放义务,但"未修改的 MPL 文件"这一前提需要法务点头 —— 所以这五条
+#    是**待法务确认**的例外,不是结论。删掉任何一条会让对应壳子的门禁变红,这是想要的效果。
+#
+# 与根文件相同的段落见根文件的注释,这里不重复。
+
+[graph]
+all-features = true
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+
+[advisories]
+unmaintained = "all"
+yanked = "deny"
+ignore = [
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range:tauri-utils → urlpattern 的 Unicode 数据 crate,unmaintained 而非漏洞;Tauri 升级后复查,消失即删" },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common:同上" },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property:同上" },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version:同上" },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident:同上" },
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-1-Clause",              # fiat-crypto(curve25519-dalek 的域运算)
+    "BSD-2-Clause",              # zerocopy
+    "BSD-3-Clause",              # curve25519-dalek / ed25519-dalek / subtle —— 审计签名那条链
+    "ISC",                       # ring / rustls / untrusted —— TLS 那条链
+    "0BSD",                      # adler2
+    "BSL-1.0",                   # ryu(浮点格式化)
+    "Unicode-3.0",               # icu_* —— url 归一化用的
+    "Zlib",                      # miniz_oxide
+    "Unlicense",                 # memchr(MIT OR Unlicense)
+    "CDLA-Permissive-2.0",       # webpki-roots —— 根证书集合,不是代码
+]
+unused-allowed-license = "warn"
+confidence-threshold = 0.9
+# 待法务确认的逐 crate 例外(见文件头第 3 条)。不是 allow-list:MPL 仍然不许出现在别的 crate 上。
+exceptions = [
+    { name = "cssparser", allow = ["MPL-2.0"] },
+    { name = "cssparser-macros", allow = ["MPL-2.0"] },
+    { name = "selectors", allow = ["MPL-2.0"] },
+    { name = "dtoa-short", allow = ["MPL-2.0"] },
+    { name = "option-ext", allow = ["MPL-2.0"] },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+deny = [
+    # TLS 走 rustls。openssl 冒出来意味着某个新依赖把一个 C 库和一套完全不同的
+    # 证书验证路径拖进来了 —— 对一个安全产品,那是需要有人点头的决定,
+    # 不是一次 `cargo add` 的副作用。
+    { name = "openssl-sys", reason = "TLS 统一走 rustls;引入 openssl 需要显式决策" },
+    { name = "native-tls", reason = "同上" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

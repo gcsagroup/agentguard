@@ -43,7 +43,13 @@ const dictionaries = {
     confirmTimeoutHint: "If you do nothing for 2 minutes, this counts as “Not now”.",
     policyEnforced: "Policy {id}@{ver} verified and enforced (signer {signer})",
     policyNotEnforced: "Policy {id}@{ver} NOT enforced — {why}",
-    policyNone: "No device policy"
+    policyNone: "No device policy",
+    "a11y.timeline": "Activity timeline",
+    "a11y.confirmPending": "A high-risk action needs your decision: {msg}",
+    "a11y.stateChanged": "Protection status: {state}",
+    "a11y.confirmClosed": "Confirmation closed: {outcome}",
+    "a11y.allowed": "allowed once",
+    "a11y.denied": "not now, task paused"
   },
   "zh-Hans": {
     subtitle: "实时守护 AI 智能体在这台电脑上的操作",
@@ -86,7 +92,13 @@ const dictionaries = {
     confirmTimeoutHint: "两分钟内不处理，将按「先不要」处理。",
     policyEnforced: "策略 {id}@{ver} 已验签并生效（签名者 {signer}）",
     policyNotEnforced: "策略 {id}@{ver} 未生效——{why}",
-    policyNone: "没有设备策略"
+    policyNone: "没有设备策略",
+    "a11y.timeline": "活动时间线",
+    "a11y.confirmPending": "有一个高危操作等你决定：{msg}",
+    "a11y.stateChanged": "保护状态：{state}",
+    "a11y.confirmClosed": "确认已关闭：{outcome}",
+    "a11y.allowed": "已允许这一次",
+    "a11y.denied": "先不要，任务已暂停"
   },
   "zh-Hant": {
     subtitle: "即時守護 AI 代理在這台電腦上的操作",
@@ -129,7 +141,13 @@ const dictionaries = {
     confirmTimeoutHint: "兩分鐘內不處理，將按「先不要」處理。",
     policyEnforced: "原則 {id}@{ver} 已驗簽並生效（簽署者 {signer}）",
     policyNotEnforced: "原則 {id}@{ver} 未生效——{why}",
-    policyNone: "沒有裝置原則"
+    policyNone: "沒有裝置原則",
+    "a11y.timeline": "活動時間線",
+    "a11y.confirmPending": "有一個高風險操作等你決定：{msg}",
+    "a11y.stateChanged": "保護狀態：{state}",
+    "a11y.confirmClosed": "確認已關閉：{outcome}",
+    "a11y.allowed": "已允許這一次",
+    "a11y.denied": "先不要，任務已暫停"
   }
 };
 
@@ -149,6 +167,8 @@ export function t(key, vars = {}) {
 export function applyTranslations() {
   document.documentElement.lang = locale === "zh-Hans" ? "zh-CN" : locale === "zh-Hant" ? "zh-TW" : "en";
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  // P2-4:aria-label 也跟语言走;反射属性,不走 setAttribute。
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.ariaLabel = t(el.dataset.i18nAria); });
   const select = document.getElementById("locale-select");
   if (select) select.value = localStorage.getItem(KEY) || "system";
 }
