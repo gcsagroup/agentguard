@@ -1179,6 +1179,7 @@ fn to_event(se: &ScenarioEvent, idx: i64, agent_id: &str) -> GuardEvent {
         "declassify" => EventType::Declassify,
         "process_focus" => EventType::ProcessFocus,
         "deeplink" => EventType::Deeplink,
+        "user_query" | "ask_user" => EventType::UserQuery,
         _ => EventType::UiTreeDelta,
     };
     GuardEvent {

@@ -921,6 +921,8 @@ fn to_guard_event(se: &ScenarioEvent, idx: i64, scenario: &Scenario) -> Result<G
         "deeplink_open" => EventType::Deeplink,
         "screen_frame" => EventType::ScreenFrame,
         "clipboard_change" => EventType::ClipboardChange,
+        // MyPhoneBench `ask_user`(§2.2)。
+        "user_query" | "ask_user" => EventType::UserQuery,
         // **Not a catch-all.** `_ => UiTreeDelta` meant a typo, or a name nobody had mapped, became
         // a different event type without a word — the scenario still ran, still passed or failed, and
         // said nothing about the thing it named. Every `EventType` now has a name here, and an
@@ -931,7 +933,7 @@ fn to_guard_event(se: &ScenarioEvent, idx: i64, scenario: &Scenario) -> Result<G
                  permission_request, ui_tree_delta, screen_frame, clipboard_change, process_focus, \
                  deeplink, deeplink_open, network_meta, network_flow, agent_session_start, \
                  agent_session_end, memory_write, memory_read, data_derive, data_flow, declassify, \
-                 environment_survey.",
+                 environment_survey, user_query.",
                 scenario.scenario_id
             ))
         }

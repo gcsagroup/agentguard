@@ -59,6 +59,22 @@ pub enum EventType {
     /// A human lowered a value's label (Aura HITL declassification). The only
     /// downward move in the lattice, and always recorded.
     Declassify,
+    /// The agent asked the **user** a clarifying question instead of guessing (MyPhoneBench
+    /// iMy 的第四个契约工具 `ask_user`,§2.2)。
+    ///
+    /// 这不是一次对设备的动作,而是一次**没有**动作:智能体缺一个个人信息值(生日、护照号、
+    /// 地址),它选择问而不是编。在这之前引擎对这条路径**没有任何事件**——一个问了的智能体和
+    /// 一个编了的智能体在审计里看起来一样;而"编"正是 MyPhoneBench 点名的失败模式
+    /// (hallucinated personal information)。
+    ///
+    /// metadata:`profile_key`(问的是哪个键;可空)、`outcome` = `asked` | `answered` |
+    /// `declined`(默认 asked)。**不带问题原文**——问题里往往复述了屏幕上的字段与上下文,
+    /// 进签名审计前没有理由带着它。
+    ///
+    /// 它的另一半是 `form_fill` 上的 `value_source`(`user` | `memory` | `generated`):填进去
+    /// 的值从哪来。`generated` 的 HIGH 层键 = 编出来的个人信息 → `PRIV-GUESS`。见
+    /// `guard_privacy::field::ValueSource`。
+    UserQuery,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,6 +128,7 @@ impl EventType {
             Self::ProcessExec => "process_exec",
             Self::DataFlow => "data_flow",
             Self::Declassify => "declassify",
+            Self::UserQuery => "user_query",
         }
     }
 }
@@ -146,6 +163,7 @@ mod event_type_tests {
             EventType::ProcessExec,
             EventType::DataFlow,
             EventType::Declassify,
+            EventType::UserQuery,
         ] {
             let via_serde = serde_json::to_string(&v).unwrap();
             let via_serde = via_serde.trim_matches('"');
@@ -176,6 +194,7 @@ mod event_type_tests {
             EventType::ProcessExec,
             EventType::DataFlow,
             EventType::Declassify,
+            EventType::UserQuery,
         ];
         let mut names: Vec<&str> = all.iter().map(|v| v.as_str()).collect();
         names.sort_unstable();

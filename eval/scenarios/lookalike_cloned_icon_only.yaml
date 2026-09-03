@@ -13,9 +13,10 @@ goal: >
 
   And the icon channel cannot intervene. That is a measurement, not caution: over 30 generated
   icons in the dominant real style — one bold glyph, dark on white — 28 of which are comparable,
-  the Hamming distances between *unrelated* pairs run 0 to 27, 6.6 % of the 378 pairs are within
-  4 bits, and four pairs hash identically because an 8×8 difference grid cannot resolve a single
-  stroke. These are the figures `guard_schema::visual`'s
+  the Hamming distances between *unrelated* pairs run 0 to 27, 5.6 % of the 378 pairs are within
+  4 bits, and two pairs hash identically because an 8×8 difference grid cannot resolve a single
+  stroke. (An earlier figure of 6.6 % / four identical pairs counted a glyph the corpus listed
+  twice; the test now asserts the corpus is duplicate-free.) These are the figures `guard_schema::visual`'s
   `the_icon_channel_false_match_rate_is_measured_not_assumed` regenerates; this prose is the
   second place they are written, so it is the one that goes stale. Meanwhile the same
   icon hashed by the companion and by `guard-cli icon-dhash` diverges by up to 4 bits. The two
@@ -35,7 +36,7 @@ verification:
   # Recorded — the rule fires and names the channel.
   - type: decision_message_contains
     contains: ["dressed as 'WeChat'", "advisory"]
-  # But never surfaced. A perceptual threshold with a measured 4.9% false-match rate must not
+  # But never surfaced. A perceptual threshold with a measured 5.6% false-match rate must not
   # spend an operator's attention.
   - type: no_intervention
 agent_under_test: auto

@@ -182,8 +182,19 @@ to re-derive them.
 | comparable glyphs | 28 of 30 (2 refused as degenerate) |
 | unrelated pairs | 378 |
 | maximum distance | **27**, not "near 32" |
-| pairs within 4 bits (the shipped threshold) | 25 — **6.6 %** |
-| pairs at distance **0** | 4 — an 8×8 grid cannot resolve the middle bar of an `E` |
+| pairs within 4 bits (the shipped threshold) | 21 — **5.6 %** |
+| pairs at distance **0** | 2 — an 8×8 grid cannot resolve the middle bar of an `E` |
+
+An earlier version of this table said 25 / 6.6 % / 4: the generator listed one glyph twice (`[0,1,5,3,2]`
+and `[0,1,3,5,2]` are the same strokes), so one "identical unrelated pair" was the corpus colliding with
+itself. The test now asserts the corpus is duplicate-free. The conclusion does not move.
+
+A second measurement, made while re-deriving these numbers: adding the orthogonal (vertical) difference
+hash — 128 bits — brings the within-4 rate down to 2.6 % but leaves the two identical pairs identical, and at
+16×16 in both directions (512 bits) the smallest unrelated distance is 12 while the *same* icon rendered at
+72×72 by a nearest-neighbour resampler moves by 28 and by a box filter by 22. Producer divergence, not hash
+width, is what keeps the distributions overlapping; only a producer-side agreement on one resampling pipeline
+would change that, and it is not built.
 | same icon, two producers | diverges by up to **4** bits |
 
 Raising the information floor makes the *rate* worse, not better, because it removes the

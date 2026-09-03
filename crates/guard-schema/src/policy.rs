@@ -94,6 +94,16 @@ pub struct GuardContract {
     /// the taint lattice already refuses to let that content authorise anything critical.
     #[serde(default = "default_drift_mode")]
     pub on_text_anomaly: EnforcementMode,
+    /// MyPhoneBench iMy `ask_user`(§2.2)的反面:一个 **HIGH 层**个人字段被填进了一个
+    /// 智能体**自己生成**的值(`form_fill` 的 `value_source: generated`)——它没有问用户
+    /// (`user_query`)、没有从用户批准的记忆里读(`memory`),而是编了一个生日/护照号/地址。
+    ///
+    /// `Alert` by default。理由和 `on_plan_drift` 一样是边界而不是保守:provenance 由宿主
+    /// 声明,守卫看不见模型的内部;一个如实标 `generated` 的宿主已经在合作,把它拦死只会让
+    /// 宿主停止标注。真正的执法在 `on_high_access` / 表单层;这条是让"编"在审计里**可见**且
+    /// 有名字。
+    #[serde(default = "default_drift_mode")]
+    pub on_generated_pii_fill: EnforcementMode,
 }
 
 fn default_drift_mode() -> EnforcementMode {
@@ -165,6 +175,7 @@ impl Default for GuardContract {
             on_plan_drift: default_drift_mode(),
             on_context_breakout: default_drift_mode(),
             on_text_anomaly: default_drift_mode(),
+            on_generated_pii_fill: default_drift_mode(),
         }
     }
 }
@@ -607,7 +618,7 @@ impl KnownAppsPolicy {
             // For those that do opt in, the requirement is a face that can produce an
             // **intervention**, which means a label. An icon-only face satisfied the first version
             // of this check and cannot ever block: icon evidence is advisory, because its
-            // false-match rate is measured at 6.6% over unrelated simple icons. So `AMap` —
+            // false-match rate is measured at 5.6% over unrelated simple icons. So `AMap` —
             // four Latin letters, below the information floor, with an icon — passed the "no
             // usable face" net while having no interventional protection against the paper's exact
             // attack, and the docs claimed its icon protected it.

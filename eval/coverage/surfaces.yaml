@@ -309,7 +309,7 @@ surfaces:
       the other.
 
       Label evidence blocks (Critical). Icon-only evidence is **advisory** — `LogOnly`, recorded
-      and never surfaced — because the perceptual channel's false-match rate is measured at 6.6%
+      and never surfaced — because the perceptual channel's false-match rate is measured at 5.6%
       over unrelated simple icons. `APP-FACE-UNPROVEN` reports an unproved claim to a registered
       face; `APP-FACE-UNREADABLE` reports that the appearance could not be read at all, so an
       inert check is distinguishable from a clean one.
@@ -335,8 +335,8 @@ surfaces:
 
       **The hash is a tripwire for exact clones, and cannot intervene.** Measured over 30 generated glyphs in
       the dominant real style (28 comparable), by a test in `guard-schema` so the figures are
-      reproducible from the artifact, unrelated-pair distances run 0–27 (not "near 32"), 6.6% of pairs
-      are within 4 bits, and four pairs hash identically because an 8x8 grid cannot resolve one
+      reproducible from the artifact, unrelated-pair distances run 0–27 (not "near 32"), 5.6% of pairs
+      are within 4 bits, and two pairs hash identically because an 8x8 grid cannot resolve one
       stroke; the same icon hashed by two producers diverges by up to 4 bits. The distributions
       overlap, so no threshold separates them, and widening to 256 bits was measured and does not
       fix it. Hence icon-only evidence is LogOnly, and
@@ -956,8 +956,24 @@ surfaces:
     section: "2.2"
     name: "`ask_user`: clarifying instead of guessing"
     paper_result: "one of the four iMy contract tools"
-    status: none
-    mechanism: ""
-    rules: []
-    scenarios: []
-    note: "No event or credit for an agent that asks rather than assumes."
+    status: partial
+    mechanism: >
+      `EventType::UserQuery`(metadata `profile_key`, `outcome` = asked | answered | declined)让"问了"
+      成为一条有名字的审计记录(`USER-QUERY`, Allow/Info),并记进 `PrivacySession.clarifications`;
+      `form_fill` 新增宿主声明的 `value_source` = user | memory | generated。HIGH 层(`flow_tier_for_key`,
+      未列出的键 fail-closed 到 HIGH)键上填入 `generated` 的值 → `PRIV-GUESS`(`on_generated_pii_fill`,
+      默认 Alert/Medium);用户对同一键 `declined` 之后仍生成 → High;问了没等回答 → Medium 并点名。
+      `PrivacyScore` 新增 `clarifications_asked` / `generated_high_fills` 两个计数,**不进 composite**
+      (论文的 OP/TR/FM 公式里没有它们,掺进去会让我们的分数更不可比)。
+    rules: [PRIV-GUESS, USER-QUERY]
+    scenarios: [pii_guess_generated_high, pii_guess_after_user_declined, benign_ask_user_then_fill, benign_generated_low_key_not_pii]
+    note: >
+      `partial`,理由是信任模型而不是实现深度。(1) **provenance 是宿主声明的。** 守卫看不见模型的内部,
+      分不出"这个生日是用户说的"和"这个生日是模型编的";只有把引擎嵌进智能体运行时的宿主知道。所以
+      `value_source` 和 `data_flow` 的 `value_id` 标签是同一个信任模型:守卫核对宿主说的话之间是否一致
+      (问过 / 拒绝过 / 记忆里有没有),不核对宿主有没有说谎。一个不标注的宿主什么也触发不了 ——
+      这是刻意的:从无障碍树 / DOM 抓填表的适配器没有 provenance 可声明,省略即判决不变,
+      而不是逼它们瞎填。(2) **没有"credit"。** 论文里 `ask_user` 是智能体的工具,评测的是它用不用;
+      这里的对应物是让"问"可见、让"编"有名字,两个计数分开报,composite 不动。(3) **只管 HIGH 层。**
+      编一个 `destination` 是正确性问题,不是编造个人信息;`name` 在契约里是 LOW,所以编一个名字也不报 ——
+      这条边界写在这里而不是悄悄扩。

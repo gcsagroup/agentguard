@@ -129,7 +129,7 @@ pub const MAX_FOLDED_LEN: usize = 64;
 /// `the_icon_channel_false_match_rate_is_measured_not_assumed`, which generates its corpus so the
 /// figures are reproducible from the artifact rather than from a scratch program. Over 30 glyphs in
 /// the dominant real style (one bold mark, dark on white, 192×192): **28 comparable, 378 unrelated
-/// pairs, maximum distance 27, 6.6 % within 4 bits, 4 pairs identical** — because an 8×8 difference
+/// pairs, maximum distance 27, 5.6 % within 4 bits, 2 pairs identical** — because an 8×8 difference
 /// grid cannot resolve a single stroke, such as the middle bar of an `E`. Widening the hash to 256
 /// bits was measured too and does not fix it.
 ///
@@ -658,7 +658,7 @@ impl Evidence {
     ///
     /// Label evidence is positive and discrete: the folded name either equals a registered one
     /// or it does not. Icon evidence is a threshold on a perceptual hash whose false-match rate is
-    /// measured at **6.6 % over unrelated simple icons** (see [`ICON_MATCH_MAX_DISTANCE`]), so it
+    /// measured at **5.6 % over unrelated simple icons** (see [`ICON_MATCH_MAX_DISTANCE`]), so it
     /// can corroborate a label finding and cannot make one.
     pub fn is_conclusive(&self) -> bool {
         matches!(self, Self::Label(_) | Self::Both { .. })
@@ -667,7 +667,7 @@ impl Evidence {
     /// Whether this evidence may only be **recorded**, not surfaced as an intervention.
     ///
     /// True for icon-only evidence. The first version alerted on it at `High`, latched, on
-    /// every event — on a channel that false-matches one unrelated simple icon pair in twenty.
+    /// every event — on a channel that false-matches one unrelated simple icon pair in eighteen.
     /// An operator who is interrupted by that once stops reading the alerts, and the next
     /// finding is the one that mattered. It is still written to the signed audit record, where
     /// it costs nothing and is there when someone is looking.
@@ -680,7 +680,7 @@ impl Evidence {
             Self::Label(m) => format!("its display name is {} the registered one", m.as_str()),
             Self::Icon { distance } => format!(
                 "its icon is within {distance} of 64 bits of the registered one (advisory: this \
-                 channel false-matches unrelated simple icons about one pair in fifteen)"
+                 channel false-matches unrelated simple icons about one pair in eighteen)"
             ),
             Self::Both { label, distance } => format!(
                 "its display name is {} the registered one and its icon is a {distance}/64-bit match",
@@ -1740,7 +1740,8 @@ mod tests {
                 _ => (x + y - 1.0).abs() < 0.08 && y > 0.2 && y < 0.8, // anti-diagonal
             }
         };
-        // Distinct stroke sets: crude letterforms plus geometric marks. No two are identical.
+        // Distinct stroke sets: crude letterforms plus geometric marks. No two are identical —
+        // and that is now asserted below rather than promised in a comment.
         let glyphs: Vec<Vec<usize>> = vec![
             vec![0, 1, 3, 5],
             vec![0, 1, 5, 3, 2],
@@ -1755,7 +1756,10 @@ mod tests {
             vec![0, 2],
             vec![0, 1, 4, 6],
             vec![0, 1, 4],
-            vec![0, 1, 3, 5, 2],
+            // 曾是 `[0, 1, 3, 5, 2]` —— 和上面第二个 `[0, 1, 5, 3, 2]` 是**同一个**笔画集,只是
+            // 顺序不同。于是"4 对完全相同"里有一对是语料自己重复,不是哈希失效;下面的数字
+            // 是修掉它之后重新量的。
+            vec![1, 4, 6],
             vec![0, 1, 2, 4, 5],
             vec![0, 1, 3, 4, 5],
             vec![2, 3, 5, 1],
@@ -1773,6 +1777,14 @@ mod tests {
             vec![1, 5, 7],
             vec![0, 5, 7],
         ];
+        {
+            let mut seen = std::collections::BTreeSet::new();
+            for set in &glyphs {
+                let mut k = set.clone();
+                k.sort_unstable();
+                assert!(seen.insert(k), "duplicate glyph in the corpus: {set:?} — a duplicate counts as an 'identical unrelated pair' and inflates the false-match rate");
+            }
+        }
         let mut hashes: Vec<IconHash> = Vec::new();
         let mut degenerate = 0usize;
         for set in &glyphs {

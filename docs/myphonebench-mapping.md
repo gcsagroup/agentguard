@@ -9,6 +9,7 @@ This document maps [MyPhoneBench](https://arxiv.org/abs/2604.00986) / iMy concep
 | Permissioned access | LOW default / HIGH needs `request_permission` then `read_profile` | `DataTier::{Low,High}` + `on_high_access: require_confirm` |
 | Minimal disclosure | Do not fill optional personal fields; avoid trap widgets | `on_optional_pii_fill: alert`, `on_trap_widget_fill: block` |
 | User-controlled memory | `save_profile` + user-editable iMy UI | `on_memory_write: require_confirm` (UI later) |
+| Clarify instead of guessing | `ask_user` — ask the user for a missing personal value rather than hallucinate one | `EventType::UserQuery` (`profile_key`, `outcome`) recorded as `USER-QUERY`; `form_fill.value_source: generated` on a HIGH-tier key → `PRIV-GUESS` (`on_generated_pii_fill: alert`; High after the user `declined`) |
 
 AgentGuard enforces these **out-of-band** (旁路): adapters emit `GuardEvent`s; the engine decides Allow/Alert/Block. Agents are not required to call iMy tools.
 
@@ -77,8 +78,14 @@ values quoted from the paper.
   pairs (save in session A, reuse in session B). `memory_use` here is measured
   within a single session, so it captures correctness of reuse but not retention
   across sessions.
-- **`ask_user`.** iMy exposes four tools; clarifying instead of guessing earns
-  no credit here.
+- **`ask_user` credit.** iMy exposes four tools; the fourth is now *visible* here
+  (`user_query` → `USER-QUERY`, counted in `PrivacyScore.clarifications_asked`) and
+  its failure mode is *named* (`PRIV-GUESS`, counted in `generated_high_fills`), but
+  neither number enters the composite — the paper's OP/TR/FM formulas do not contain
+  them, and mixing them in would make our score less comparable, not more. Provenance
+  (`value_source`) is **host-declared**: the guard cannot see inside the model, so an
+  adapter that does not know where a value came from omits the field and nothing
+  changes. This is the same trust model as `data_flow`'s `value_id` labels.
 - **Scale.** 300 tasks / 10 apps / 9 domains in the paper vs 52 scenarios and 2
   form policies here — our numbers are not comparable to the published ones.
 
@@ -90,6 +97,7 @@ values quoted from the paper.
 | Label → field semantics | `guard-privacy::classify` + `policies/forms/*.yaml` (required / optional / trap) |
 | AX tree → fills | `mac-adapter::form_fills_from_snapshot` on `ingest_ax_snapshot` |
 | Python `AccessLog` middleware | `EventType::PermissionRequest` + `PrivacySession.access_events` |
+| iMy `ask_user` tool call | `EventType::UserQuery` + `PrivacySession.clarifications`; the answer's use is `form_fill` with `value_source: user` |
 | Deterministic SQL task verification | `eval/scenarios/*.yaml` rules (Phase 1: offline fixtures) |
 | AndroidWorld episode runner | `guard-cli` + future `guard-eval` batch |
 

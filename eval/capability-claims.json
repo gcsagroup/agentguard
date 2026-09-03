@@ -782,11 +782,40 @@
         "anchor": "`/v1/events` 现在把每份 body 的签名结论",
         "doc": "docs/acceptance-runbook.md"
       }
+    },
+    {
+      "area": "privacy",
+      "claim": "智能体「问用户」而不是「编」在审计里可见(USER-QUERY),编出来的 HIGH 层个人信息有名字(PRIV-GUESS);用户拒绝后仍编抬到 High",
+      "id": "ask-user-visible-guess-named",
+      "mechanism": "EventType::UserQuery → PrivacySession.record_clarification;decide_form_fill 对 value_source=generated 且 flow_tier=High 的填写按 on_generated_pii_fill 判决,引用最近一次澄清结果;计数不进 composite",
+      "note": "provenance 由宿主声明——守卫核对宿主说的话之间是否一致,不核对宿主有没有说谎;不声明就不触发,LOW 层键不管",
+      "proven_by": [
+        {
+          "file": "crates/guard-privacy/src/session.rs",
+          "test": "生成的high层值在没问用户时报priv_guess"
+        },
+        {
+          "file": "crates/guard-privacy/src/session.rs",
+          "test": "用户拒绝后仍生成抬到high"
+        },
+        {
+          "file": "crates/guard-privacy/src/session.rs",
+          "test": "用户给的或记忆来的或low层的或未声明的都不报guess"
+        },
+        {
+          "file": "crates/guard-core/src/lib.rs",
+          "test": "user_query事件被记录且生成值的填写引用它"
+        }
+      ],
+      "source": {
+        "anchor": "`form_fill.value_source: generated` on a HIGH-tier key → `PRIV-GUESS`",
+        "doc": "docs/myphonebench-mapping.md"
+      }
     }
   ],
   "report": {
-    "distinct_tests": 82,
+    "distinct_tests": 86,
     "problems": [],
-    "total_claims": 35
+    "total_claims": 36
   }
 }

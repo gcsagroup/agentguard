@@ -884,6 +884,7 @@ fn run_cli() -> Result<()> {
                     probe_type: Some(ProbeType::TrapResistance),
                     value_filled: true,
                     necessity: FieldNecessity::Unnecessary,
+                    value_source: None,
                 },
             }];
             let score = compute_privacy_score(&access, &forms, &[]);

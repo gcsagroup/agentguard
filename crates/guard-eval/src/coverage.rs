@@ -130,6 +130,8 @@ pub const ENGINE_EMITTED_RULE_IDS: &[&str] = &[
     "PRIV-MEM-READ",
     "PRIV-MEM-USE",
     "PRIV-XAPP",
+    "PRIV-GUESS",
+    "USER-QUERY",
     "FLOW-CONF",
     "FLOW-DERIVE",
     "FLOW-DERIVE-ABUSE",

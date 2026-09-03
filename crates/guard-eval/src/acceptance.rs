@@ -291,10 +291,10 @@ mod tests {
             "lookalike_cloned_icon_only_001",
             "AgentScan §3.6 icon-only evidence. A clone that keeps its own name and steals only \
              the icon is recorded (APP-LOOKALIKE, LogOnly) and not intervened on, because the \
-             perceptual-hash channel's false-match rate is measured at 6.6% over unrelated \
-             simple icons — four pairs of 28 hash identically — and the same-icon-different-producer \
+             perceptual-hash channel's false-match rate is measured at 5.6% over unrelated \
+             simple icons — two pairs of 28 hash identically — and the same-icon-different-producer \
              spread overlaps it. Blocking or alerting on that would spend an operator's \
-             attention one time in twenty for nothing. See docs/app-lookalike.md.",
+             attention one time in eighteen for nothing. See docs/app-lookalike.md.",
         )];
         let missed: Vec<&str> = report
             .results

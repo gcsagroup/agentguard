@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**35 条声明,82 条去重证明测试。**
+**36 条声明,86 条去重证明测试。**
 
 ## acceptance
 
@@ -147,6 +147,16 @@
 说明:
 
 - **扩展↔宿主长连接带连接级 nonce 与单调 seq,宿主拒绝重放、乱序、nonce 不符的帧;hello 带回暂停状态**:只约束帧,不认证进程(STORE「本机 host 安全边界」如实写明);没有 hello 的旧调用方按 legacy 放行且 stderr 记一行
+
+## privacy
+
+| 声明 | 印在 | 兑现 | 证明测试 |
+|---|---|---|---|
+| 智能体「问用户」而不是「编」在审计里可见(USER-QUERY),编出来的 HIGH 层个人信息有名字(PRIV-GUESS);用户拒绝后仍编抬到 High | `docs/myphonebench-mapping.md` | EventType::UserQuery → PrivacySession.record_clarification;decide_form_fill 对 value_source=generated 且 flow_tier=High 的填写按 on_generated_pii_fill 判决,引用最近一次澄清结果;计数不进 composite | `生成的high层值在没问用户时报priv_guess`<br/>`用户拒绝后仍生成抬到high`<br/>`用户给的或记忆来的或low层的或未声明的都不报guess`<br/>`user_query事件被记录且生成值的填写引用它` |
+
+说明:
+
+- **智能体「问用户」而不是「编」在审计里可见(USER-QUERY),编出来的 HIGH 层个人信息有名字(PRIV-GUESS);用户拒绝后仍编抬到 High**:provenance 由宿主声明——守卫核对宿主说的话之间是否一致,不核对宿主有没有说谎;不声明就不触发,LOW 层键不管
 
 ## shell
 

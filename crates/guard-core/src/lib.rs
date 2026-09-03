@@ -241,6 +241,11 @@ pub struct EnvRisk {
     pub foreign_a11y_services: Vec<String>,
     /// Subset of `foreign_a11y_services` actually on the typed-text stream.
     pub text_capturing_services: Vec<String>,
+    /// System-image assistive technology that is enabled (TalkBack and friends). Reported,
+    /// never counted by [`EnvRisk::input_is_observed`]: the platform guarantees a system app's
+    /// updates carry the system signer, so this cannot be a sideloaded look-alike, and a
+    /// screen reader reading the screen is what the user turned it on for (report P2-4).
+    pub assistive_system_services: Vec<String>,
     /// Whether the survey could actually **enumerate** installed packages.
     ///
     /// `false` means `log_readers` is bounded by Android's package visibility, not that the
@@ -304,6 +309,10 @@ impl EnvRisk {
         union(
             &mut self.text_capturing_services,
             &other.text_capturing_services,
+        );
+        union(
+            &mut self.assistive_system_services,
+            &other.assistive_system_services,
         );
         union(&mut self.log_readers, &other.log_readers);
         self.log_readers_enumerable |= other.log_readers_enumerable;
@@ -388,6 +397,12 @@ impl EnvRisk {
         }
         if !self.log_readers.is_empty() {
             parts.push(format!("log reader(s): {}", self.log_readers.join(", ")));
+        }
+        if !self.assistive_system_services.is_empty() {
+            parts.push(format!(
+                "system screen reader on, not counted as an observer: {}",
+                self.assistive_system_services.join(", ")
+            ));
         }
         parts.join("; ")
     }
@@ -1501,6 +1516,9 @@ impl Engine {
                 ),
                 foreign_a11y_services: split_list(event.metadata.get("foreign_a11y_services")),
                 text_capturing_services: split_list(event.metadata.get("text_capturing_services")),
+                assistive_system_services: split_list(
+                    event.metadata.get("assistive_system_services"),
+                ),
                 log_readers: split_list(event.metadata.get("log_readers")),
                 log_readers_enumerable: event
                     .metadata
@@ -1664,12 +1682,20 @@ impl Engine {
                             // is not evidence of anything, and "No foreign input observer
                             // detected" would be read as covering a channel this survey
                             // never saw.
-                            human_message: if self.env_risk.log_readers_enumerable {
-                                "No foreign input observer, and no app can read the device log"
-                                    .into()
-                            } else {
-                                "No foreign input observer detected; the log-reader check did not run (package visibility)"
-                                    .into()
+                            human_message: {
+                                let base = if self.env_risk.log_readers_enumerable {
+                                    "No foreign input observer, and no app can read the device log"
+                                } else {
+                                    "No foreign input observer detected; the log-reader check did not run (package visibility)"
+                                };
+                                if self.env_risk.assistive_system_services.is_empty() {
+                                    base.into()
+                                } else {
+                                    format!(
+                                        "{base}; a system screen reader is on ({}) — it reads the screen by design and is not counted as a sniffer",
+                                        self.env_risk.assistive_system_services.join(", ")
+                                    )
+                                }
                             },
                             require_confirm: false,
                         })
@@ -1840,6 +1866,42 @@ impl Engine {
             EventType::DataDerive => Ok(self.decide_data_derive(event)),
             EventType::DataFlow => Ok(self.decide_data_flow(event)),
             EventType::Declassify => Ok(self.decide_declassify(event)),
+            EventType::UserQuery => {
+                // MyPhoneBench iMy `ask_user`(§2.2):智能体问了用户,而不是编。记下键与结果,
+                // 后面同一键上的 `form_fill` 若仍带 `value_source: generated`,`PRIV-GUESS` 会引用它
+                // (问过但没等回答 / 用户拒绝了还编)。判决本身是放行 —— 问是好事 —— 但用自己的
+                // rule_id 进审计,让"问了"在记录里和"没问"分得开。
+                let key = event
+                    .metadata
+                    .get("profile_key")
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_default();
+                let outcome = guard_privacy::ClarificationOutcome::parse(
+                    event
+                        .metadata
+                        .get("outcome")
+                        .map(|s| s.as_str())
+                        .unwrap_or("asked"),
+                );
+                self.privacy.record_clarification(&key, outcome);
+                Ok(Decision {
+                    action: DecisionAction::Allow,
+                    severity: Severity::Info,
+                    rule_id: "USER-QUERY".into(),
+                    human_message: if key.is_empty() {
+                        format!(
+                            "Agent asked the user instead of guessing ({})",
+                            outcome.as_str()
+                        )
+                    } else {
+                        format!(
+                            "Agent asked the user about '{key}' instead of guessing ({})",
+                            outcome.as_str()
+                        )
+                    },
+                    require_confirm: false,
+                })
+            }
             _ => Ok(Decision::allow()),
         }
     }
@@ -3083,7 +3145,9 @@ impl Engine {
             // 这三种事件的**资源**由 paths 天花板管（`FS-*`），不由应用授权管。
             | EventType::FileWrite
             | EventType::FileDelete
-            | EventType::ProcessExec => false,
+            | EventType::ProcessExec
+            // 问用户一个问题不是对任何第三方应用的动作(MyPhoneBench `ask_user`)。
+            | EventType::UserQuery => false,
         }
     }
 
@@ -3615,7 +3679,7 @@ impl Engine {
     ///
     /// A folded label either equals a registered name or it does not — a discrete fact. An icon
     /// match is a threshold on a 64-bit perceptual hash, and that threshold's false-match rate was
-    /// *measured* at 6.6 % over unrelated simple icons, four pairs of 28 hashing identically —
+    /// *measured* at 5.6 % over unrelated simple icons, two pairs of 28 hashing identically —
     /// reproducibly, by `the_icon_channel_false_match_rate_is_measured_not_assumed`. The first version alerted on it at `High`, latched, on every event; an
     /// operator interrupted by that once stops reading the alerts, and the next finding is the
     /// one that mattered. `LogOnly` keeps it in the signed audit record, where it costs nothing.
@@ -4195,6 +4259,11 @@ fn form_fill_from_event(event: &GuardEvent, contract: &GuardContract) -> FormFil
                     .map(|s| s.as_str())
                     .unwrap_or("unnecessary"),
             ),
+            // 宿主声明的取值来源;没带就是 `None`,判决与以前完全一样(见 `ValueSource` 文档)。
+            value_source: event
+                .metadata
+                .get("value_source")
+                .and_then(|s| guard_privacy::ValueSource::parse(s)),
         },
     }
 }
@@ -4833,7 +4902,7 @@ rules:
     }
 
     /// A cloned icon under an unrelated name is **recorded and nothing more**. The threshold's
-    /// false-match rate was measured at 6.6 % over unrelated simple icons — four pairs of 28 hashed
+    /// false-match rate was measured at 5.6 % over unrelated simple icons — two pairs of 28 hashed
     /// identically — so this channel cannot earn an operator's attention on its own.
     #[test]
     fn a_cloned_icon_alone_is_logged_not_alerted() {
@@ -6322,6 +6391,95 @@ rules:
         assert_eq!(d.action, DecisionAction::Allow);
     }
 
+    /// MyPhoneBench `ask_user`(§2.2)在引擎层的闭环:问 → 记录;同一键上生成的值 → PRIV-GUESS
+    /// 并引用那次问答;用户给的值 → 放行。以前 `user_query` 根本不是一种事件。
+    #[test]
+    fn user_query事件被记录且生成值的填写引用它() {
+        let mut engine = Engine::new(empty_rules(), GuardContract::default());
+        engine
+            .process(&event(EventType::AgentSessionStart, "Claude", &[]))
+            .unwrap();
+        // 1. 问了,还没回答。
+        let d = engine
+            .process(&event(
+                EventType::UserQuery,
+                "Claude",
+                &[("profile_key", "date_of_birth"), ("outcome", "asked")],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, "USER-QUERY");
+        assert_eq!(d.action, DecisionAction::Allow);
+        assert!(d.human_message.contains("date_of_birth"));
+        assert_eq!(engine.privacy.score().clarifications_asked, 1);
+        // 2. 没等回答就填了一个模型生成的值 → PRIV-GUESS,理由点名"问了但没等"。
+        let d = engine
+            .process(&event(
+                EventType::FormFill,
+                "Booking",
+                &[
+                    ("field_id", "dob"),
+                    ("profile_key", "date_of_birth"),
+                    ("required", "true"),
+                    ("value_filled", "true"),
+                    ("value_source", "generated"),
+                ],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, "PRIV-GUESS", "{d:?}");
+        assert_eq!(d.action, DecisionAction::Alert);
+        assert!(
+            d.human_message.contains("before an answer"),
+            "{}",
+            d.human_message
+        );
+        // 3. 用户回答了,值来自用户 → 放行,且不是 PRIV-GUESS。
+        engine
+            .process(&event(
+                EventType::UserQuery,
+                "Claude",
+                &[("profile_key", "passport_number"), ("outcome", "answered")],
+            ))
+            .unwrap();
+        let d = engine
+            .process(&event(
+                EventType::FormFill,
+                "Airline",
+                &[
+                    ("field_id", "passport"),
+                    ("profile_key", "passport_number"),
+                    ("required", "true"),
+                    ("value_filled", "true"),
+                    ("value_source", "user"),
+                ],
+            ))
+            .unwrap();
+        assert_ne!(d.rule_id, "PRIV-GUESS");
+        assert_eq!(d.action, DecisionAction::Allow, "{d:?}");
+        // 4. 没有 value_source 的填写和以前完全一样(适配器不知道就不带)。
+        let d = engine
+            .process(&event(
+                EventType::FormFill,
+                "Airline",
+                &[
+                    ("field_id", "phone"),
+                    ("profile_key", "phone_number"),
+                    ("required", "true"),
+                    ("value_filled", "true"),
+                ],
+            ))
+            .unwrap();
+        assert_ne!(d.rule_id, "PRIV-GUESS");
+        assert_eq!(engine.privacy.score().generated_high_fills, 1);
+        // 5. 新会话清空澄清记录。
+        engine
+            .process(&event(EventType::AgentSessionEnd, "Claude", &[]))
+            .unwrap();
+        engine
+            .process(&event(EventType::AgentSessionStart, "Claude", &[]))
+            .unwrap();
+        assert_eq!(engine.privacy.score().clarifications_asked, 0);
+    }
+
     #[test]
     fn memory_pair_save_then_read() {
         let mut engine = Engine::new(empty_rules(), GuardContract::default());
@@ -6575,6 +6733,59 @@ rules:
 
     /// (A)I Sees A5: any package with a receiver for the agent's input broadcast
     /// reads everything it types, with no permission at all.
+    /// 报告 P2-4:TalkBack 不是嗅探器。伴生应用把系统镜像上的辅助技术放在
+    /// `assistive_system_services` 而不是 `foreign_a11y_services`;引擎据此:调查是**干净**的
+    /// (ENV-CLEAN,不是 ENV-OBSERVED),消息如实说读屏在开,风险锁存不动,HIGH 层填写照常放行。
+    #[test]
+    fn 系统读屏在开不算输入被观察() {
+        let mut engine = Engine::new(empty_rules(), GuardContract::default());
+        let d = engine
+            .process(&event(
+                EventType::EnvironmentSurvey,
+                "AgentGuard Companion",
+                &[
+                    ("env_surveyed", "true"),
+                    ("broadcast_input_receivers", ""),
+                    ("foreign_a11y_services", ""),
+                    (
+                        "assistive_system_services",
+                        "com.google.android.marvin.talkback/.TalkBackService",
+                    ),
+                    ("log_readers_enumerable", "false"),
+                ],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, "ENV-CLEAN", "{d:?}");
+        assert_eq!(d.action, DecisionAction::LogOnly);
+        assert!(
+            d.human_message.contains("screen reader"),
+            "{}",
+            d.human_message
+        );
+        assert!(d.human_message.contains("talkback"), "{}", d.human_message);
+        assert!(!engine.env_risk().input_is_observed());
+        assert_eq!(engine.env_risk().assistive_system_services.len(), 1);
+        // 一个真正的第三方服务仍然是 ENV-OBSERVED —— 分类没有把 A6 整个关掉。
+        let d = engine
+            .process(&event(
+                EventType::EnvironmentSurvey,
+                "AgentGuard Companion",
+                &[
+                    ("env_surveyed", "true"),
+                    ("broadcast_input_receivers", ""),
+                    ("foreign_a11y_services", "com.evil.keylog/.Sniffer"),
+                    (
+                        "assistive_system_services",
+                        "com.google.android.marvin.talkback/.TalkBackService",
+                    ),
+                ],
+            ))
+            .unwrap();
+        assert_eq!(d.rule_id, "ENV-OBSERVED", "{d:?}");
+        assert!(engine.env_risk().input_is_observed());
+        assert!(d.human_message.contains("com.evil.keylog"));
+    }
+
     #[test]
     fn broadcast_input_sink_blocks_with_confirm() {
         let rules = RuleSet::from_yaml_str(

@@ -183,7 +183,7 @@ Still `partial`, and the limits were sharpened by an adversarial review that fou
 defects in the first cut: Android only, and bounded by package visibility (the clone is not a
 registered package, so the companion needs the MAIN/LAUNCHER `<queries>` entry it now has —
 unverified on device, since this repo has no Android CI); the icon channel **cannot intervene**,
-because its false-match rate is measured at 6.6 % over unrelated simple icons and overlaps the
+because its false-match rate is measured at 6.6 % (re-derived later as 5.6 % after a duplicate glyph was removed from the corpus; see docs/app-lookalike.md) over unrelated simple icons and overlaps the
 same-icon-different-producer spread, so `lookalike_cloned_icon_only_001` is kept as an attack the
 corpus counts as a **miss** (attack_miss_rate 1.1 %, not 0.0 %); only two typo shapes are matched,
 because a general one-edit rule made `Stride`, `Strive`, `Stripes`, `Stripo`, `Strip`, `WebChat`
