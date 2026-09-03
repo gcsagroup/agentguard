@@ -184,6 +184,10 @@ pub fn run(inputs: &Inputs) -> Vec<Finding> {
     ));
     out.extend(check_audit_signing(inputs.audit_signing_key.as_deref()));
     out.extend(check_api_token());
+    out.extend(check_license_trust_root());
+    out.extend(check_license_secret(Path::new(
+        "policies/license-signing.key",
+    )));
     out.extend(check_kernel_enforcement());
     out.extend(structural_facts());
     out
@@ -541,6 +545,9 @@ fn secret_covered_by(rule: &str, secret: &Path) -> bool {
         || rule == "intel/keys"
         || rule == "intel/keys/*"
         || (rule.ends_with("secret.hex") && s.ends_with(rule))
+        || rule == "*.key"
+        || rule == "policies/*.key"
+        || (rule.ends_with(".key") && s.ends_with(rule))
 }
 
 fn check_intel(path: &Path) -> Vec<Finding> {
@@ -632,6 +639,62 @@ fn check_api_token() -> Vec<Finding> {
             )],
         },
     }
+}
+
+/// 授权信任根(真机报告 P2-7):客户端验签用的厂商公钥是不是还停在仓库自带的公开夹具上。
+///
+/// 夹具公钥验过的授权是**演示档**——签名有效但私钥人人都有——`allows_enterprise_export()` 对它永远
+/// 为 false。所以停在夹具上不是漏洞(方向是 fail-closed:企业功能对所有人关闭),是一项**功能**
+/// 尚未接通:发布前要 `agentguard license-keygen` 并把公钥放进 `AGENTGUARD_LICENSE_PUBKEY`。
+/// 于是这里是 WARN 不是 FAIL;配了却解析不了才是 FAIL——那是配置坏了。
+fn check_license_trust_root() -> Vec<Finding> {
+    match guard_billing::LicenseVerifyKey::resolve() {
+        Err(e) => vec![Finding::fail(
+            "license.pubkey.invalid",
+            format!("AGENTGUARD_LICENSE_PUBKEY 解析失败:{e}"),
+            "它要么是 64 位十六进制的 Ed25519 公钥,要么是指向这样一个文件的路径。`agentguard license-keygen` 会同时打印两半。",
+        )],
+        Ok(k) if k.is_fixture() => vec![Finding::warn(
+            "license.pubkey.fixture",
+            "授权验签公钥是仓库自带的公开夹具(RFC 8032 测试向量):所有签名授权都算演示档,企业功能对所有人关闭",
+            "发布前:`agentguard license-keygen --out <签发机上的私钥路径>`,把打印的公钥放进 AGENTGUARD_LICENSE_PUBKEY(或指向公钥文件)。私钥只留在签发机上。",
+        )],
+        Ok(k) => vec![Finding::pass(
+            "license.pubkey.configured",
+            format!("授权验签公钥已配置(非夹具,{}…)", &k.to_hex()[..16]),
+        )],
+    }
+}
+
+/// 厂商私钥不该在这棵树里(和 intel 的同类检查同一套判据)。
+fn check_license_secret(secret: &Path) -> Vec<Finding> {
+    if !secret.exists() {
+        return vec![Finding::pass(
+            "license.secret.absent",
+            format!("授权签发私钥不在这棵树里({} 不存在)", secret.display()),
+        )];
+    }
+    let ignored = read(Path::new(".gitignore"))
+        .map(|g| {
+            g.lines()
+                .map(str::trim)
+                .any(|l| !l.starts_with('#') && !l.is_empty() && secret_covered_by(l, secret))
+        })
+        .unwrap_or(false);
+    if ignored {
+        return vec![Finding::info(
+            "license.secret.present",
+            format!(
+                "授权签发私钥在树里({}),但已被 .gitignore 排除 —— 签发机上这是正常的",
+                secret.display()
+            ),
+        )];
+    }
+    vec![Finding::fail(
+        "license.secret.unignored",
+        format!("授权签发私钥 {} 在树里,而且**没有**被 .gitignore 排除", secret.display()),
+        "提交它之后每个拿到仓库的人都能给自己签 Enterprise —— 商业边界就没了。加进 .gitignore、移出树;若已提交过,换钥(license-keygen)并把旧钥签的授权全部撤销(license-revoke)。",
+    )]
 }
 
 fn check_kernel_enforcement() -> Vec<Finding> {
@@ -845,7 +908,11 @@ impl BaselineDiff {
 /// **必须还在**。于是换平台不会假警,而删掉整项检查照样会被拦下。
 ///
 /// 往这个表里加东西 = 削弱门禁,必须在评审里说明理由。有一条测试钉住它的内容。
-const ENV_DEPENDENT_PREFIXES: &[&str] = &["jail.", "api.token."];
+///
+/// `license.pubkey.*` 也在这里:它由 AGENTGUARD_LICENSE_PUBKEY 决定——开发机上是夹具(WARN),
+/// 发布机上是厂商公钥(PASS)——和 api.token 一样是"同一份配置在不同机器上结论不同";
+/// 而它的 FAIL(`license.pubkey.invalid`)照规则**不折叠**。
+const ENV_DEPENDENT_PREFIXES: &[&str] = &["jail.", "api.token.", "license.pubkey."];
 
 /// 这条结论属于哪个"随机器而变"的族。
 fn env_family(id: &str) -> Option<&'static str> {
@@ -1063,10 +1130,10 @@ mod baseline_tests {
     /// 往它里面加前缀等于把一族检查从门禁里摘出去。这条测试的作用是让那个动作
     /// **必须改测试**,于是它会出现在 diff 里被人看见,而不是悄悄多一行。
     #[test]
-    fn 随机器而变的族必须是明确列出的那两个() {
+    fn 随机器而变的族必须是明确列出的那三个() {
         assert_eq!(
             ENV_DEPENDENT_PREFIXES,
-            &["jail.", "api.token."],
+            &["jail.", "api.token.", "license.pubkey."],
             "改这张表 = 削弱门禁,请在评审里说明理由"
         );
     }

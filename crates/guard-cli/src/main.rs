@@ -18,8 +18,10 @@ use guard_audit::{
     SessionReport,
 };
 use guard_billing::{
-    activate_license_token, apply_webhook_json, issue_license_token, load_entitlement,
-    load_or_free, resolve_secret, serve_billing_webhook, Entitlement, PlanTier,
+    activate_license_token, activate_signed_token, apply_webhook_json, issue_license_token,
+    load_entitlement, load_or_free, resolve_secret, serve_billing_webhook, Entitlement,
+    LicenseClaims, LicenseSigningKey, LicenseVerifyKey, PlanTier, RevocationList, RevokedLicense,
+    SignedLicense,
 };
 use guard_core::{AutoApprove, AutoDeny, Engine};
 use guard_eval::{
@@ -716,14 +718,57 @@ enum Commands {
         #[arg(long, default_value = "policies/entitlement.json")]
         store: PathBuf,
     },
-    /// Issue a license token (dev). Uses AGENTGUARD_LICENSE_SECRET or built-in dev secret.
+    /// Issue a **demo** HMAC license token. Uses AGENTGUARD_LICENSE_SECRET or the built-in dev secret.
+    ///
+    /// P2-7:这条路签出来的授权是演示档(`source = dev_hmac`),显示成 Pro/Enterprise 但**不解锁
+    /// 企业功能**——秘密写在源码里,持有验签方就能签发。商业授权走 `license-issue`(厂商私钥)。
     EntitlementIssue {
         #[arg(long)]
         license_id: String,
         #[arg(long, default_value = "pro")]
         plan: String,
     },
+    /// 生成一对厂商授权签发密钥(Ed25519)。私钥只留在签发机上;公钥放进 AGENTGUARD_LICENSE_PUBKEY。
+    LicenseKeygen {
+        /// 私钥写到这个文件(mode 0600)。不给就只打印。
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// 用厂商私钥签发一份授权(`agl1.…` token)。必须有到期日。
+    LicenseIssue {
+        /// 私钥文件(license-keygen --out 写出的)或 32 字节十六进制。
+        #[arg(long)]
+        secret: String,
+        #[arg(long)]
+        license_id: String,
+        #[arg(long, default_value = "pro")]
+        plan: String,
+        /// 有效天数(从现在起)。
+        #[arg(long, default_value_t = 365)]
+        days: i64,
+        /// 同一 license_id 的续期/改档递增;撤销名单按 serial 撤旧留新。
+        #[arg(long, default_value_t = 1)]
+        serial: u64,
+    },
+    /// 签一份撤销名单(可在已有名单上追加),写到 `<store>.revocations.json` 或 --out。
+    LicenseRevoke {
+        #[arg(long)]
+        secret: String,
+        /// 要撤销的 license_id,可多次。
+        #[arg(long = "license-id")]
+        license_ids: Vec<String>,
+        /// 只撤 serial <= N 的(续期后的新授权继续有效);不给 = 该 id 全部撤。
+        #[arg(long)]
+        max_serial: Option<u64>,
+        /// 已有名单(追加)。
+        #[arg(long)]
+        existing: Option<PathBuf>,
+        #[arg(long, default_value = "policies/entitlement.json.revocations.json")]
+        out: PathBuf,
+    },
     /// Activate a license token into the local entitlement store.
+    ///
+    /// `agl1.…` 是厂商签名授权(用 AGENTGUARD_LICENSE_PUBKEY 或夹具公钥验签);其他形态是演示 HMAC 令牌。
     EntitlementActivate {
         #[arg(long)]
         token: String,
@@ -1140,11 +1185,14 @@ fn run_cli() -> Result<()> {
             if !ent.allows_enterprise_export() {
                 anyhow::bail!(
                     "audit-export 是 Enterprise 功能:当前授权 plan={:?} active={} \
-                     enterprise_export={}。用 --entitlement 指向一份有效的 Enterprise 授权,\
-                     或见 docs/billing.md。",
+                     enterprise_export={} commercial={}({})。需要一份**厂商签名**的有效 Enterprise \
+                     授权(`entitlement-activate --token agl1.…`,验签公钥来自 AGENTGUARD_LICENSE_PUBKEY);\
+                     HMAC / webhook / 夹具签名的演示授权不解锁企业功能。见 docs/billing.md。",
                     ent.plan,
                     ent.is_active(),
-                    ent.features.enterprise_export
+                    ent.features.enterprise_export,
+                    ent.is_commercial(),
+                    ent.source.describe()
                 );
             }
             // Read-only: exporting must not mutate the log either.
@@ -2507,15 +2555,129 @@ fn run_cli() -> Result<()> {
             }
         }
         Commands::EntitlementStatus { store } => {
-            let e = load_or_free(&store);
+            // 签名授权在读取时**再验**(到期 / 宽限 / 撤销是时间函数)。
+            let e = load_entitlement(Some(&store));
             println!(
-                "plan={:?} active={} license={} unlimited_audit={} custom_rules={} enterprise_export={}",
+                "plan={:?} active={} commercial={} license={} unlimited_audit={} custom_rules={} enterprise_export={} (gated={})",
                 e.plan,
                 e.is_active(),
+                e.is_commercial(),
                 e.license_id,
                 e.features.unlimited_audit,
                 e.features.custom_rules,
-                e.features.enterprise_export
+                e.features.enterprise_export,
+                e.allows_enterprise_export()
+            );
+            println!("source: {}", e.source.describe());
+            if let Some(exp) = e.expires_at_ms {
+                println!("expires_at_ms={exp}");
+            }
+            let _ = load_or_free(&store);
+        }
+        Commands::LicenseKeygen { out } => {
+            let key = LicenseSigningKey::generate();
+            if let Some(p) = &out {
+                if let Some(parent) = p.parent() {
+                    if !parent.as_os_str().is_empty() {
+                        std::fs::create_dir_all(parent)?;
+                    }
+                }
+                let mut opts = std::fs::OpenOptions::new();
+                opts.write(true).create_new(true);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::OpenOptionsExt;
+                    opts.mode(0o600);
+                }
+                use std::io::Write as _;
+                opts.open(p)
+                    .with_context(|| format!("create {}", p.display()))?
+                    .write_all(key.secret_hex().as_bytes())?;
+                println!(
+                    "secret written to {} (mode 0600) — 只留在签发机上,不进仓库",
+                    p.display()
+                );
+            } else {
+                println!("secret: {}", key.secret_hex());
+            }
+            println!("public: {}", key.public_key_hex());
+            println!(
+                "客户端:AGENTGUARD_LICENSE_PUBKEY={}(或指向存着它的文件)",
+                key.public_key_hex()
+            );
+        }
+        Commands::LicenseIssue {
+            secret,
+            license_id,
+            plan,
+            days,
+            serial,
+        } => {
+            let key = load_license_signing_key(&secret)?;
+            let plan = parse_plan(&plan)?;
+            let now = now_ms_cli();
+            if days <= 0 {
+                anyhow::bail!("--days 必须 > 0:没有到期日的授权没有撤销手段");
+            }
+            let lic = SignedLicense::issue(
+                &key,
+                LicenseClaims {
+                    license_id,
+                    plan,
+                    issued_at_ms: now,
+                    expires_at_ms: now + days * 86_400_000,
+                    serial,
+                },
+            )?;
+            if key.verifying().is_fixture() {
+                eprintln!(
+                    "警告:这是用仓库公开夹具私钥签的 —— 客户端会把它当演示档,不解锁企业功能。"
+                );
+            }
+            println!("{}", lic.encode());
+        }
+        Commands::LicenseRevoke {
+            secret,
+            license_ids,
+            max_serial,
+            existing,
+            out,
+        } => {
+            let key = load_license_signing_key(&secret)?;
+            let mut revoked: Vec<RevokedLicense> = match existing {
+                Some(p) => {
+                    let raw = std::fs::read_to_string(&p)
+                        .with_context(|| format!("read {}", p.display()))?;
+                    let prev: RevocationList = serde_json::from_str(&raw)?;
+                    // 只在能验过的旧名单上追加——不然是在给一份伪造名单背书。
+                    prev.verify(&key.verifying())
+                        .context("existing revocation list was not signed by this key")?;
+                    prev.revoked
+                }
+                None => Vec::new(),
+            };
+            if license_ids.is_empty() && revoked.is_empty() {
+                anyhow::bail!("给至少一个 --license-id");
+            }
+            for id in license_ids {
+                revoked.retain(|r| r.license_id != id);
+                revoked.push(RevokedLicense {
+                    license_id: id,
+                    max_serial,
+                });
+            }
+            let crl = RevocationList::issue(&key, now_ms_cli(), revoked);
+            if let Some(parent) = out.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)?;
+                }
+            }
+            std::fs::write(&out, serde_json::to_string_pretty(&crl)?)?;
+            println!(
+                "revocation list with {} entr{} → {}",
+                crl.revoked.len(),
+                if crl.revoked.len() == 1 { "y" } else { "ies" },
+                out.display()
             );
         }
         Commands::EntitlementIssue { license_id, plan } => {
@@ -2529,14 +2691,28 @@ fn run_cli() -> Result<()> {
             println!("{tok}");
         }
         Commands::EntitlementActivate { token, store } => {
-            let e = activate_license_token(&resolve_secret(), &token)?;
-            e.write_path(&store)?;
-            println!(
-                "activated {:?} → {} (active={})",
-                e.plan,
-                store.display(),
-                e.is_active()
-            );
+            if SignedLicense::is_signed_token(&token) {
+                let pubkey = LicenseVerifyKey::resolve()?;
+                let (e, status) = activate_signed_token(&token, &store, &pubkey, now_ms_cli())?;
+                println!(
+                    "activated {:?} → {} (status={:?}, commercial={}, enterprise_export gated={})",
+                    e.plan,
+                    store.display(),
+                    status,
+                    e.is_commercial(),
+                    e.allows_enterprise_export()
+                );
+                println!("source: {}", e.source.describe());
+            } else {
+                let e = activate_license_token(&resolve_secret(), &token)?;
+                e.write_path(&store)?;
+                println!(
+                    "activated {:?} → {} (active={}) — DEMO: HMAC token, unlocks nothing commercial",
+                    e.plan,
+                    store.display(),
+                    e.is_active()
+                );
+            }
             let _ = Entitlement::from_path(&store)?;
         }
         Commands::BillingWebhook { body, file, store } => {
@@ -3018,4 +3194,30 @@ fn open_audit(path: impl AsRef<std::path::Path>) -> Result<AuditStore> {
 
 fn load_intel_default() -> ThreatBundle {
     load_or_default("intel/bundle.json").unwrap_or_else(|_| ThreatBundle::default())
+}
+
+/// `--secret` 既可以是私钥文件路径也可以是 32 字节十六进制。
+fn load_license_signing_key(secret: &str) -> Result<LicenseSigningKey> {
+    let p = std::path::Path::new(secret);
+    if p.exists() {
+        LicenseSigningKey::load(p)
+    } else {
+        LicenseSigningKey::from_secret_hex(secret)
+    }
+}
+
+fn parse_plan(s: &str) -> Result<PlanTier> {
+    Ok(match s.trim().to_ascii_lowercase().as_str() {
+        "pro" => PlanTier::Pro,
+        "enterprise" => PlanTier::Enterprise,
+        "free" => PlanTier::Free,
+        other => anyhow::bail!("unknown plan {other}"),
+    })
+}
+
+fn now_ms_cli() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
 }

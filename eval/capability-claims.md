@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**36 条声明,86 条去重证明测试。**
+**37 条声明,91 条去重证明测试。**
 
 ## acceptance
 
@@ -46,10 +46,12 @@
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
 | 计费 webhook 要求 event_id / created_ms / version,幂等去重、±10 分钟时间窗、版本单调——refund 后重放旧 purchase 不能恢复 Pro | `docs/billing.md` | guard_billing::admit_webhook + WebhookState 幂等表(授权文件旁);HTTP 接收端 body 上限 64 KiB | `refund后重放旧purchase被版本与时间窗双重拒绝`<br/>`缺event_id_created_ms_version任一即拒` |
+| 企业功能只对厂商 Ed25519 签名的有效授权解锁;HMAC / webhook / 夹具签名的演示授权显示成 Enterprise 但不解锁;必须有到期日,7 天离线宽限,厂商签名的撤销名单 | `docs/billing.md` | guard-billing::license — SignedLicense::issue/verify_at(域分隔文本签名)、RevocationList、OFFLINE_GRACE_MS;Entitlement.source 决定 is_commercial;load_entitlement 每次重新验 store 旁的 token | `篡改声明或换钥都验不过`<br/>`到期后先宽限再free_且必须有到期日`<br/>`撤销名单按serial撤旧留新_且名单自己要验签`<br/>`夹具签的授权不是商业边界`<br/>`enterprise_export门控` |
 
 说明:
 
 - **计费 webhook 要求 event_id / created_ms / version,幂等去重、±10 分钟时间窗、版本单调——refund 后重放旧 purchase 不能恢复 Pro**:幂等表保留最近 512 个 event_id;更旧的重放靠时间窗与版本挡
+- **企业功能只对厂商 Ed25519 签名的有效授权解锁;HMAC / webhook / 夹具签名的演示授权显示成 Enterprise 但不解锁;必须有到期日,7 天离线宽限,厂商签名的撤销名单**:边界是"没人能自己签发",不是"没人能改客户端";CRL 的传输与平台收据校验没有实现
 
 ## browser
 

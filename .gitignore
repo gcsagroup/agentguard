@@ -58,6 +58,9 @@ eval/session-report.md
 apps/**/bundle/dmg/
 policies/audit-signing.key
 policies/audit-signing.key.pub
+# 授权签发私钥(P2-7):只在签发机上;提交它 = 商业边界消失。
+policies/license-signing.key
+*.license.token
 
 # 归档 / 待删目录。评审里见过一次 `_to_delete/agentguard-iter27.tar.gz` 混进
 # `git add .` —— 一个几十兆的历史快照进了提交历史,而从历史里去掉它很难。

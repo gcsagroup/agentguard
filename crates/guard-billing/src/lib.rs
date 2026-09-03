@@ -1,12 +1,24 @@
-//! Local Pro entitlement store (no live payment provider wired yet).
+//! Local entitlement store.
 //!
-//! Activation uses an HMAC-style license token derived from a shared secret so
-//! offline builds can validate Pro without calling a network billing API.
+//! 两档来源(真机报告 P2-7):
+//! * **商业边界**:厂商 Ed25519 签名的授权([`license`] 模块)。客户端只带公钥,签不出任何东西;
+//!   必须有到期日、到期后 7 天离线宽限、厂商签名的撤销名单。只有这一档解锁企业功能。
+//! * **演示档**:HMAC 令牌(`issue_license_token` / `activate_license_token`,共享秘密写在源码里)
+//!   与本地 webhook 接收器。以前它们被当成边界用——本地 CLI 一条命令就能给自己签 Enterprise。
+//!   现在它们照常工作,但落库的授权带 `source = dev_hmac / webhook`,`allows_enterprise_export()`
+//!   对它们永远为 false。演示还能演示,只是不再被当成钱。
+//!
 //! Optional local HTTP webhook receiver: [`http::serve_billing_webhook`].
 
 mod http;
+pub mod license;
 
 pub use http::{apply_file_to_store, serve_billing_webhook};
+pub use license::{
+    activate_signed_token, LicenseClaims, LicenseSigningKey, LicenseStatus, LicenseVerifyKey,
+    RevocationList, RevokedLicense, SignedLicense, FIXTURE_PUBLIC_KEY_HEX, FIXTURE_SECRET_KEY_HEX,
+    OFFLINE_GRACE_MS, TOKEN_PREFIX,
+};
 
 use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
@@ -33,6 +45,67 @@ pub struct Entitlement {
     pub expires_at_ms: Option<i64>,
     #[serde(default)]
     pub features: EntitlementFeatures,
+    /// 这份授权从哪来——决定它是不是商业边界。老文件没有这个字段:按 `Legacy` 读,等同演示档。
+    #[serde(default)]
+    pub source: EntitlementSource,
+    /// 签名授权的 serial(续期递增);其他来源为 0。
+    #[serde(default)]
+    pub serial: u64,
+}
+
+/// 授权的来源。只有 `Signed`(且公钥不是仓库夹具)是商业边界。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum EntitlementSource {
+    /// 没买。
+    #[default]
+    Free,
+    /// 厂商 Ed25519 签名,用配置的(非夹具)公钥验过。`in_grace`:已到期但在离线宽限内。
+    Signed { key_id: String, in_grace: bool },
+    /// 签名有效但公钥是仓库自带的公开夹具——演示档。
+    SignedByFixture,
+    /// HMAC 令牌(共享秘密写在源码里)——演示档。
+    DevHmac,
+    /// 本地 webhook 接收器(共享秘密)——演示档。
+    Webhook,
+    /// 签名授权已被厂商撤销名单撤销;plan 已落回 Free,留下为什么。
+    Revoked { license_id: String },
+    /// 签名授权已过期且过了宽限;plan 已落回 Free。
+    Expired { license_id: String },
+    /// P2-7 之前写的文件,没有 source 字段。等同演示档。
+    Legacy,
+}
+
+impl EntitlementSource {
+    pub fn is_commercial(&self) -> bool {
+        matches!(self, Self::Signed { .. })
+    }
+
+    /// 给 UI / CLI 的一句人话。
+    pub fn describe(&self) -> String {
+        match self {
+            Self::Free => "free — nothing purchased".into(),
+            Self::Signed { key_id, in_grace: false } => {
+                format!("vendor-signed license (key {key_id})")
+            }
+            Self::Signed { key_id, in_grace: true } => format!(
+                "vendor-signed license (key {key_id}) — EXPIRED, in the {}-day offline grace period",
+                license::OFFLINE_GRACE_MS / 86_400_000
+            ),
+            Self::SignedByFixture => {
+                "DEMO — signed with the repository's public fixture key; unlocks nothing commercial".into()
+            }
+            Self::DevHmac => {
+                "DEMO — HMAC dev token (shared secret in source); unlocks nothing commercial".into()
+            }
+            Self::Webhook => {
+                "DEMO — local webhook receiver (shared secret); unlocks nothing commercial".into()
+            }
+            Self::Revoked { license_id } => format!("license {license_id} was REVOKED by the vendor"),
+            Self::Expired { license_id } => format!("license {license_id} expired beyond the grace period"),
+            Self::Legacy => "written before signed licenses existed; treated as DEMO".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -50,7 +123,15 @@ impl Entitlement {
             activated_at_ms: now_ms(),
             expires_at_ms: None,
             features: EntitlementFeatures::default(),
+            source: EntitlementSource::Free,
+            serial: 0,
         }
+    }
+
+    /// 这份授权是不是商业边界(厂商签名、非夹具)。演示档的 Enterprise 显示成 Enterprise,
+    /// 但这里是 false。
+    pub fn is_commercial(&self) -> bool {
+        self.source.is_commercial()
     }
 
     pub fn is_active(&self) -> bool {
@@ -121,6 +202,9 @@ pub fn activate_license_token(secret: &str, token: &str) -> Result<Entitlement> 
         activated_at_ms: now_ms(),
         expires_at_ms: None,
         features,
+        // HMAC 令牌是演示档:秘密写在源码里,持有验签方就能签发。
+        source: EntitlementSource::DevHmac,
+        serial: 0,
     })
 }
 
@@ -128,32 +212,43 @@ pub fn load_or_free(path: impl AsRef<Path>) -> Entitlement {
     Entitlement::from_path(path).unwrap_or_else(|_| Entitlement::free())
 }
 
-/// 授权门控:功能已授予**且**授权仍有效。
+/// 授权门控:功能已授予**且**授权仍有效**且**来源是商业边界。
 ///
 /// 在此之前没有任何地方读 features —— 授权是纯装饰的(计算了 plan 却不门控任何行为,
 /// 第七轮复核发现)。这个方法是「真的门」的判据:Free / 过期 / 未授予该功能都返回 false。
+/// P2-7 加了第三个条件:HMAC / webhook / 夹具签名这三种**演示档**授权即便写着 Enterprise 也不放行——
+/// 它们是本机任何人一条命令就能给自己发的。
 impl Entitlement {
     pub fn allows_enterprise_export(&self) -> bool {
-        self.is_active() && self.features.enterprise_export
+        self.is_active() && self.features.enterprise_export && self.is_commercial()
     }
 }
 
 /// 加载授权:显式路径 > `AGENTGUARD_ENTITLEMENT` 环境变量 > 默认路径;都没有 → Free。
 ///
 /// Free 不是错误,是「没买」。门控在调用点做(见 `allows_*`),这里只负责取到当前授权。
+///
+/// 签名授权在加载时**重新验**(store 旁的 `.license.token`):到期、宽限、撤销都是时间函数,
+/// 不能只信落库那一刻的结论。再验失败(公钥换了、CRL 验不过)→ Free,不是沿用旧结论。
 pub fn load_entitlement(explicit: Option<&Path>) -> Entitlement {
-    if let Some(p) = explicit {
-        return load_or_free(p);
-    }
-    if let Some(p) = std::env::var_os("AGENTGUARD_ENTITLEMENT") {
-        return load_or_free(std::path::PathBuf::from(p));
-    }
-    if let Some(p) = default_entitlement_path() {
-        if p.exists() {
-            return load_or_free(p);
+    let path = if let Some(p) = explicit {
+        Some(p.to_path_buf())
+    } else if let Some(p) = std::env::var_os("AGENTGUARD_ENTITLEMENT") {
+        Some(std::path::PathBuf::from(p))
+    } else {
+        default_entitlement_path().filter(|p| p.exists())
+    };
+    let Some(path) = path else {
+        return Entitlement::free();
+    };
+    if let Ok(pubkey) = LicenseVerifyKey::resolve() {
+        match SignedLicense::revalidate(&path, &pubkey, now_ms()) {
+            Ok(Some(ent)) => return ent,
+            Ok(None) => {}
+            Err(_) => return Entitlement::free(),
         }
     }
-    Entitlement::free()
+    load_or_free(&path)
 }
 
 /// `~/.config/agentguard/entitlement.json`(存在才用)。
@@ -406,7 +501,9 @@ fn apply_admitted(event: &BillingWebhookEvent, store: &Path) -> Result<Entitleme
             };
             let secret = resolve_secret();
             let token = issue_license_token(&secret, &event.license_id, plan);
-            let ent = activate_license_token(&secret, &token)?;
+            let mut ent = activate_license_token(&secret, &token)?;
+            // webhook 路径是共享秘密——演示档,不是商业边界(P2-7)。
+            ent.source = EntitlementSource::Webhook;
             ent.write_path(store)?;
             Ok(ent)
         }
@@ -543,8 +640,8 @@ mod tests {
         assert_eq!(loaded.plan, PlanTier::Enterprise);
     }
 
-    /// 授权门控的判据:只有**有效**的 Enterprise 授权才放行 enterprise_export。
-    /// 这是「授权不再是装饰」的那条测试 —— Free / Pro / 过期都被拒。
+    /// 授权门控的判据:只有**有效**、**厂商签名**的 Enterprise 授权才放行 enterprise_export。
+    /// 这是「授权不再是装饰」的那条测试 —— Free / Pro / 过期都被拒;P2-7 之后 HMAC 演示档也被拒。
     #[test]
     fn enterprise_export门控() {
         assert!(
@@ -557,24 +654,79 @@ mod tests {
             !pro.allows_enterprise_export(),
             "Pro 不含 enterprise_export"
         );
-        let ent = activate_license_token("s", &issue_license_token("s", "x", PlanTier::Enterprise))
-            .unwrap();
-        assert!(ent.allows_enterprise_export(), "Enterprise 应当放行");
-        // 过期的 Enterprise 也拒。
+        // HMAC 令牌签出来的 Enterprise:显示成 Enterprise、is_active,但**不是商业边界**——
+        // 秘密写在源码里,本机任何人一条命令就能给自己发一份(真机报告 P2-7)。
+        let demo =
+            activate_license_token("s", &issue_license_token("s", "x", PlanTier::Enterprise))
+                .unwrap();
+        assert_eq!(demo.plan, PlanTier::Enterprise);
+        assert!(demo.is_active());
+        assert_eq!(demo.source, EntitlementSource::DevHmac);
+        assert!(!demo.is_commercial());
+        assert!(
+            !demo.allows_enterprise_export(),
+            "HMAC 演示授权不能解锁企业功能"
+        );
+        // 厂商签名的 Enterprise 才放行。
+        let vendor = LicenseSigningKey::generate();
+        let now = now_ms();
+        let lic = SignedLicense::issue(
+            &vendor,
+            LicenseClaims {
+                license_id: "acme".into(),
+                plan: PlanTier::Enterprise,
+                issued_at_ms: now,
+                expires_at_ms: now + 30 * 86_400_000,
+                serial: 1,
+            },
+        )
+        .unwrap();
+        let st = lic.verify_at(&vendor.verifying(), None, now).unwrap();
+        let ent = lic.to_entitlement(&st, now);
+        assert!(ent.is_commercial());
+        assert!(
+            ent.allows_enterprise_export(),
+            "厂商签名的 Enterprise 应当放行"
+        );
+        // 过期(且过了宽限)的也拒。
         let mut expired = ent.clone();
         expired.expires_at_ms = Some(0);
         assert!(!expired.allows_enterprise_export(), "过期授权不该放行");
     }
 
-    /// load_entitlement 显式路径读得到已写入的 Enterprise 授权。
+    /// load_entitlement 显式路径读得到已写入的授权;签名授权在加载时**再验**。
     #[test]
     fn load_entitlement_显式路径() {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("ent.json");
+        // 演示档:读得到,但不解锁。
         let ent = activate_license_token("s", &issue_license_token("s", "x", PlanTier::Enterprise))
             .unwrap();
         ent.write_path(&p).unwrap();
-        assert!(load_entitlement(Some(&p)).allows_enterprise_export());
+        let loaded = load_entitlement(Some(&p));
+        assert_eq!(loaded.plan, PlanTier::Enterprise);
+        assert!(!loaded.allows_enterprise_export());
+        // 签名档:落库 + 旁文件,load 时用夹具公钥再验(测试进程里没配 AGENTGUARD_LICENSE_PUBKEY
+        // → resolve() 给夹具)→ 夹具签的 = 演示档,依旧不解锁;而用真正厂商公钥直接再验则解锁。
+        let fixture = LicenseSigningKey::from_secret_hex(FIXTURE_SECRET_KEY_HEX).unwrap();
+        let now = now_ms();
+        let lic = SignedLicense::issue(
+            &fixture,
+            LicenseClaims {
+                license_id: "demo".into(),
+                plan: PlanTier::Enterprise,
+                issued_at_ms: now,
+                expires_at_ms: now + 86_400_000,
+                serial: 1,
+            },
+        )
+        .unwrap();
+        let p2 = dir.path().join("ent2.json");
+        let (_, st) = activate_signed_token(&lic.encode(), &p2, &fixture.verifying(), now).unwrap();
+        assert_eq!(st, LicenseStatus::SignedByFixture);
+        let loaded = load_entitlement(Some(&p2));
+        assert_eq!(loaded.source, EntitlementSource::SignedByFixture);
+        assert!(!loaded.allows_enterprise_export(), "夹具签的不是商业边界");
     }
 
     #[test]

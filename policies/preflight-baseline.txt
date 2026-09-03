@@ -3,13 +3,15 @@
 # 改这个文件等于声明"这个变化是有意的" —— 评审时应该问为什么。
 ENV api.token.*
 ENV jail.*
+ENV license.pubkey.*
 FAIL agent.keys.publicly_known [claude-desktop(仓库夹具密钥，种子为 0xa1 重复 32 次),shopping-helper(仓库夹具密钥，种子为 0xb2 重复 32 次)]
 INFO adapters.asymmetric_trust
 INFO agent.keys.absent [legacy-macro-bot]
 INFO gateway.cooperative
-PASS intel.secret.absent
 PASS adapter.keys.present
+PASS intel.secret.absent
 PASS intel.verified
+PASS license.secret.absent
 PASS plans.loaded
 PASS plans.paths.declared
 PASS rules.loaded

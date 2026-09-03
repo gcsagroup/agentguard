@@ -560,8 +560,10 @@ name = "guard-billing"
 version = "1.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "ed25519-dalek",
  "guard-trust",
  "hex",
+ "rand",
  "serde",
  "serde_json",
  "sha2",
