@@ -299,6 +299,13 @@ function pushObserveSummaries(list) {
   }
 }
 
+/** 审计行里"用户当时怎么选的"→ 人话词条。键是 guard_audit::UserDecision 的三个 as_str 值。 */
+const DECISION_WORDS = {
+  approve: "audit.decision.approve",
+  deny: "audit.decision.deny",
+  timeout: "audit.decision.timeout",
+};
+
 function auditRow(r) {
   const el = document.createElement("div");
   el.className = `item ${actionClass(r.action)}`;
@@ -315,11 +322,18 @@ function auditRow(r) {
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  let metaText = `${r.rule_id ?? ""} · ${r.source_app ?? ""} · ${r.event_type ?? ""}`;
+  // 真机反馈:这一行以前是 `CRIT-001 · Safari · UiTreeDelta · user=deny` —— `UiTreeDelta` 是 Rust
+  // 枚举的 Debug 名,`user=deny` 是键值对,两样都是给开发者看的。规则 ID 与来源应用留下(那是
+  // "为什么拦我"的溯源,用户会需要);事件种类是纯诊断,收进开发者面板的原始日志;
+  // 用户当时的选择改成人话。审计库里存的原样不动 —— 变的是显示,不是记录。
+  const bits = [r.rule_id, r.source_app].filter((x) => !!x);
   if (r.user_decision) {
-    metaText += ` · user=${r.user_decision}`;
+    // 只认这三个已知值(guard_audit::UserDecision);认不出的宁可不显示,也不把原始值怼给用户
+    // ——白名单而不是 t(`...${值}`),因为 t() 缺词条时会把 key 名渲染到界面上。
+    const said = DECISION_WORDS[r.user_decision];
+    if (said) bits.push(t(said));
   }
-  meta.textContent = metaText;
+  meta.textContent = bits.join(" · ");
 
   el.append(head, msg, meta);
   return el;

@@ -272,6 +272,13 @@ async function refreshStatus() {
 // `textContent` 从根上关掉这条路:它赋的是文本节点,永远不会被当作标签解析。
 // 配合 tauri.conf.json 里的限制性 CSP —— 两道,因为任何一道都可能被将来的
 // 某次改动绕过。
+/** 审计行里"用户当时怎么选的"→ 人话词条。键是 guard_audit::UserDecision 的三个 as_str 值。 */
+const DECISION_WORDS = {
+  approve: "auditDecisionApprove",
+  deny: "auditDecisionDeny",
+  timeout: "auditDecisionTimeout",
+};
+
 function auditRow(r) {
   const el = document.createElement("div");
   el.className = `item ${actionClass(r.action)}`;
@@ -288,11 +295,14 @@ function auditRow(r) {
 
   const meta = document.createElement("div");
   meta.className = "meta";
-  let metaText = `${r.rule_id ?? ""} · ${r.source_app ?? ""} · ${r.event_type ?? ""}`;
+  // 真机反馈:这一行以前是 `CRIT-001 · Chrome · UiTreeDelta · user=deny` —— `UiTreeDelta` 是 Rust
+  // 枚举的 Debug 名,`user=deny` 是键值对,两样都是给开发者看的(见 macOS 壳子同一处注释)。
+  const bits = [r.rule_id, r.source_app].filter((x) => !!x);
   if (r.user_decision) {
-    metaText += ` · user=${r.user_decision}`;
+    const said = DECISION_WORDS[r.user_decision];
+    if (said) bits.push(t(said));
   }
-  meta.textContent = metaText;
+  meta.textContent = bits.join(" · ");
 
   el.append(head, msg, meta);
   return el;

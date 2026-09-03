@@ -107,6 +107,16 @@ rule fires and the confirmation reaches you, not that this machine is being watc
    raw state line (`AX=… · Capture=… · SCK=…`), a single-observation button and the raw verdict log
    are there. The main window deliberately does not show them.
 
+## For developers: running the shell on Linux
+
+You do not need a Mac to verify the frontend ↔ real-backend layer: `make shell-run-linux` (needs Xvfb,
+xdotool and webkit2gtk-4.1) compiles the shell, runs it headless, clicks through
+Start protecting → self-test → Not now → Stop protecting, and leaves five screenshots.
+**It does not replace a real device**: on Linux the TCC grants, AXObserver push and ScreenCaptureKit
+capture are all stubs (`mac_capabilities()` always returns false), and Tauri renders through WebKitGTK
+rather than WKWebView. The script's header states exactly what it does and does not prove — the first
+such run caught a raw-terminology leak the Playwright stub harness could not see.
+
 ## What it cannot do (honestly)
 
 - **It cannot hold what does not pass through it.** The desktop confirmation covers actions the

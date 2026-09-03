@@ -22,7 +22,7 @@
 
 | 位置 | 条数 | 形态 |
 |---|---:|---|
-| crates/guard-audit | 67 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-audit | 68 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-billing | 18 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-cli | 81 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-core | 251 | Rust `#[test]` / `#[tokio::test]` |
@@ -47,7 +47,7 @@
 | adapters/win-adapter | 7 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-macos/src-tauri | 11 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 9 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合计** | **1072** | |
+| **Rust 合计** | **1073** | |
 | apps/extension-chromium/scripts/*.test.mjs | 50 | node `test(` |
 | eval/e2e-extension/run.mjs | 24 | 真浏览器 E2E 判据 `record(` |
 | apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test` |

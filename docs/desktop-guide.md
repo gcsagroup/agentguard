@@ -88,6 +88,14 @@ Windows 上不需要授权任何权限:读窗口内容(UI Automation)、抓屏(G
 5. **想确认观察器真的在动** → 展开「开发者面板(演示与诊断)」:那里有原始状态行
    (`AX=… · Capture=… · SCK=…`)、单次观察按钮和判决原始日志。主界面刻意不显示这些。
 
+## 开发者:在 Linux 上把壳子跑起来
+
+不需要 Mac 也能验证"前端 ↔ 真后端"这一层:`make shell-run-linux`(要 Xvfb + xdotool + webkit2gtk-4.1)
+会编译壳子、无头跑起来、点一遍「开始守护 → 自检 → 先不要 → 结束守护」并留五张截图。
+**它不能替代真机**:Linux 上 TCC 授权、AXObserver 推送、ScreenCaptureKit 抓屏全是桩
+(`mac_capabilities()` 恒 false),Tauri 走的是 WebKitGTK 而不是 WKWebView。脚本头部逐条写明了
+它证明什么、不证明什么 —— 第一次这么跑就抓到一条 Playwright 桩测不出来的裸术语泄漏。
+
 ## 它做不到什么(如实)
 
 - **拦不住不经过它的东西。** 桌面确认层覆盖的是引擎看得见的动作;直接调系统 API、或在观察间隙里

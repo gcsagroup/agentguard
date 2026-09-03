@@ -1,7 +1,7 @@
 # check-macos-cfg 用:能在无 Apple 工具链下对 darwin 目标 cargo check 的 crate(不经 ring)。
 DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
 
-.PHONY: capability-matrix ui-preview shell-a11y e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: capability-matrix ui-preview shell-a11y shell-run-linux e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
 
 test:
 	cargo test --workspace
@@ -168,6 +168,12 @@ check-extension-gate:
 ## 真渲染确认弹层与 popup → 截图到 eval/ui-preview/out/ + 行为断言(先不要挡住/允许重放/可见文本无裸术语)。
 ui-preview:
 	node eval/ui-preview/shoot.mjs
+
+# 把桌面壳子在 Linux/WebKitGTK 下**真的跑起来**并点一遍主路径(真机反馈:"不能编译 mac 的跑一下?")。
+# 需要 Xvfb + xdotool + webkit2gtk-4.1;不进 release-gate。TCC / AXObserver / SCK 在 Linux 上是桩,
+# 所以它证明前端↔真后端的接线,不证明真机观察 —— 脚本头部逐条写明。
+shell-run-linux:
+	bash eval/ui-preview/shell-run-linux.sh
 
 ## 桌面壳子确认弹层的读屏/键盘可达性(真机报告 P2-4;开发工具,不进 release-gate:需要 playwright)。
 ## 用桩顶替 window.__TAURI__,在真 Chromium 里断言:alertdialog 语义、焦点落「先不要」、<main> inert、

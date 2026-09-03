@@ -93,7 +93,27 @@ const TAURI_STUB = `
     get_status: () => state.status,
     get_pending_confirm: () => state.pending,
     resolve_confirm: () => { state.pending = null; return { resolved: true, has_next: false }; },
-    list_audit: () => [],
+    // 真机反馈追加:桩以前返回**空**审计列表,于是"主界面无裸术语"那条检查根本没看过时间线
+    // ——真跑起来才发现那一行印着 UiTreeDelta(Rust 枚举 Debug 名)和 user=deny(键值对)。
+    // 现在按后端真实返回的形状喂两条(event_type 保持 Debug 名,user_decision 保持 wire 值),
+    // 让时间线也进入裸术语检查的视野。
+    list_audit: () => [
+      {
+        action: "Block",
+        rule_id: "CRIT-001",
+        human_message: "Agent is about to confirm a payment",
+        source_app: "Safari",
+        event_type: "UiTreeDelta",
+        user_decision: "deny",
+      },
+      {
+        action: "LogOnly",
+        rule_id: "SESSION-START",
+        human_message: "Agent session started",
+        source_app: "Claude",
+        event_type: "AgentSessionStart",
+      },
+    ],
     security_status: () => ({ auto_approve_allowed: true, auto_approve: false, sqlcipher: false, audit_signing: false, intel_verified: false }),
     get_tcc_status: () => tcc,
     probe_permissions: () => ({ accessibility: tcc.accessibility, screen_capture: tcc.screen_capture }),
@@ -272,6 +292,15 @@ for (const shell of ["macos", "windows"]) {
   });
   check("主界面有一行人话说明「现在在看什么」", !!watching && watching.length > 10, JSON.stringify(watching));
 
+  // 上面那条裸术语检查只有在时间线**真的渲染了行**时才有意义(桩返回空列表时它是空转的,
+  // 而那正是 `UiTreeDelta` 能一路漏到真机界面上的原因)。这里先钉住"渲染了",再钉"没裸术语"。
+  const timeline = await page.evaluate(() => {
+    const box = document.getElementById("timeline");
+    return { rows: box ? box.children.length : 0, text: box ? box.innerText : "" };
+  });
+  check("审计时间线渲染了后端返回的行(裸术语检查因此不是空转)", timeline.rows >= 2, JSON.stringify(timeline.rows));
+  check("时间线把用户当时的选择说成人话(不是 user=deny)", /you held it|你按住了它|你按住了它/.test(timeline.text), JSON.stringify(timeline.text.replace(/\s+/g, " ").slice(0, 160)));
+
   // 裸术语:主界面(把默认折叠的开发者面板整段排除后)的可见文本里不许出现这些。
   // ScreenCaptureKit / UI Automation 这类**括号补充**是 E16 允许的,禁的是
   // `AX=false`、`SCK=idle`、`Capture=false` 这种键值对和内部状态枚举。
@@ -280,7 +309,13 @@ for (const shell of ["macos", "windows"]) {
     main.querySelectorAll("details").forEach((d) => d.remove());
     return main.innerText;
   });
-  const BANNED = [/\bAX\s*=/, /\bSCK\s*=/, /\bCapture\s*=/, /\bprotection_state\b/, /\bsession_active\b/, /\bax_auto_poll\b/, /\buia_native\b/];
+  const BANNED = [
+    /\bAX\s*=/, /\bSCK\s*=/, /\bCapture\s*=/, /\buser\s*=/,
+    /\bprotection_state\b/, /\bsession_active\b/, /\bax_auto_poll\b/, /\buia_native\b/,
+    // Rust 枚举的 Debug 名。审计库里存的是它们(guard_audit 用 format!("{:?}")),
+    // 但那是**记录格式**,不是给用户看的字。时间线要么翻成人话,要么收进开发者面板。
+    /\bUiTreeDelta\b/, /\bScreenFrame\b/, /\bFormFill\b/, /\bAgentSessionStart\b/,
+  ];
   const hit = BANNED.find((re) => re.test(raw));
   check("主界面可见文本里没有裸的键值对/内部字段名", !hit, hit ? `命中 ${hit}` : "");
 

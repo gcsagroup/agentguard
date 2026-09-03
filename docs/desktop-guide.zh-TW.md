@@ -89,6 +89,14 @@ Windows 上不需要授權任何權限:讀視窗內容(UI Automation)、抓螢�
 5. **想確認觀察器真的在動** → 展開「開發者面板(示範與診斷)」:那裡有原始狀態行
    (`AX=… · Capture=… · SCK=…`)、單次觀察按鈕和判決原始日誌。主介面刻意不顯示這些。
 
+## 開發者:在 Linux 上把殼子跑起來
+
+不需要 Mac 也能驗證「前端 ↔ 真後端」這一層:`make shell-run-linux`(要 Xvfb + xdotool + webkit2gtk-4.1)
+會編譯殼子、無頭跑起來、點一遍「開始守護 → 自我檢查 → 先不要 → 結束守護」並留五張截圖。
+**它不能取代真機**:Linux 上 TCC 授權、AXObserver 推送、ScreenCaptureKit 抓螢幕全是樁
+(`mac_capabilities()` 恒 false),Tauri 走的是 WebKitGTK 而不是 WKWebView。指令碼開頭逐條寫明了
+它證明什麼、不證明什麼 —— 第一次這麼跑就抓到一條 Playwright 樁測不出來的裸術語洩漏。
+
 ## 它做不到什麼(如實)
 
 - **攔不住不經過它的東西。** 桌面確認層涵蓋的是引擎看得見的動作;直接呼叫系統 API、或在觀察間隙裡

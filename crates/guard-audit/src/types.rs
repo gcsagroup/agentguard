@@ -37,6 +37,12 @@ impl AuditRecord {
             id: uuid::Uuid::new_v4().to_string(),
             timestamp_ms: event.timestamp_ms,
             platform: event.platform.clone(),
+            // 存的是 Rust 枚举的 **Debug** 名(`UiTreeDelta`),不是 serde 的 snake_case 名。
+            // 现在改不了:`guard_core::acceptance_trace` 的 OBSERVATION_EVENT_TYPES 与已经落盘的
+            // 审计库都认这个拼法。危险在于 Debug 名不是稳定契约——改一次枚举变体名,审计内容
+            // 会**静默**跟着变,而验收 trace 检查会从此认不出观察记录(那是 fail-open 方向)。
+            // 下面 `debug名是被依赖的契约_改枚举变体名要同步改审计与验收检查` 那条测试把这层
+            // 依赖钉住:重命名变体时它会当场红,而不是等下一份真机报告。
             event_type: format!("{:?}", event.event_type),
             source_app: event.source_app.clone(),
             agent_session_id: event.agent_context_id.clone(),
@@ -180,6 +186,39 @@ mod tests {
     use super::*;
     use guard_schema::{DecisionAction, EventType, Severity};
     use std::collections::HashMap;
+
+    /// `AuditRecord::event_type` 存的是 `format!("{:?}")` 的结果,而 Debug 名**不是稳定契约**:
+    /// 谁重命名一个 `EventType` 变体,审计库里写入的字符串就静默跟着变,
+    /// 而 `guard_core::acceptance_trace::OBSERVATION_EVENT_TYPES` 会从此认不出观察记录 ——
+    /// "会话结束后零观测"这项检查于是可能在**该红的时候通过**(fail-open 方向)。
+    ///
+    /// 这条测试把那层跨 crate 的隐式依赖变成显式的:重命名变体 → 当场红,红在这里,
+    /// 而不是等下一次真机验收发现 trace 检查突然什么都匹配不到。
+    /// (要换成 `as_str()` 的 snake_case 拼法是可以的,但那要同时迁移已落盘的审计库与
+    /// 验收检查的常量表,属于单独一次有人点头的改动,不是顺手改。)
+    #[test]
+    fn debug名是被依赖的契约_改枚举变体名要同步改审计与验收检查() {
+        // acceptance_trace 的 OBSERVATION_EVENT_TYPES 逐字认这三个。
+        assert_eq!(format!("{:?}", EventType::UiTreeDelta), "UiTreeDelta");
+        assert_eq!(format!("{:?}", EventType::ScreenFrame), "ScreenFrame");
+        assert_eq!(format!("{:?}", EventType::FormFill), "FormFill");
+        // 会话边界那两条同样按 Debug 名匹配。
+        assert_eq!(
+            format!("{:?}", EventType::AgentSessionStart),
+            "AgentSessionStart"
+        );
+        assert_eq!(
+            format!("{:?}", EventType::AgentSessionEnd),
+            "AgentSessionEnd"
+        );
+        // 顺带钉住:Debug 名与 serde/as_str 的稳定名**不是**同一个字符串。
+        // 哪天有人以为它们一样、把两边混用,这行会提醒他先做迁移。
+        assert_eq!(EventType::UiTreeDelta.as_str(), "ui_tree_delta");
+        assert_ne!(
+            format!("{:?}", EventType::UiTreeDelta),
+            EventType::UiTreeDelta.as_str()
+        );
+    }
 
     fn rec(source_app: &str, message: &str) -> AuditRecord {
         let event = GuardEvent {
