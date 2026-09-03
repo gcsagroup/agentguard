@@ -69,10 +69,10 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
 @media (max-width:560px){h1{font-size:27px}.wrap{padding-top:36px}}
 </style>
 <div class="wrap">
-  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 与 Windows 补充报告 2026-09-02 · 第二次三树会合 <code>56cfed7</code>(含 GitHub <code>e69654d</code>)· 阶段 C 云端部分完成 <code>a544ace</code> · 阶段 D 云端准备完成 <code>73b76b9</code></div>
+  <div class="eyebrow">依据 codex 真机测试报告 2026-08-31 与 Windows 补充报告 2026-09-02 · 第二次三树会合 <code>56cfed7</code>(含 GitHub <code>e69654d</code>)· 阶段 C 云端部分完成 <code>a544ace</code> · 阶段 D 云端准备完成 <code>73b76b9</code> · P2 七项 <code>be0c936</code>…<code>493078f</code> · 真机可用性反馈 <code>a94059c</code></div>
   <h1>从 No-Go 到 Go:AgentGuard 整改路线</h1>
   <p class="lede">codex 在真 Mac 上完整跑了构建、UI E2E、审计验签和门禁攻击,结论是发布 No-Go——理由成立。
-  这页把报告的 5 项 P0、9 项 P1 排成五个阶段:每项标注严重级和"云端可完成 / 需真机或证书",
+  这页把报告的 5 项 P0、9 项 P1、7 项 P2 排成六个阶段:每项标注严重级和"云端可完成 / 需真机或证书",
   完成标准直接沿用报告的复测判据。</p>
 
   <div class="verdict">
@@ -83,7 +83,7 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     <div class="tile done"><div class="n">已完成</div><div class="l">阶段 0 · 源码树合流</div></div>
     <div class="tile"><div class="n">5</div><div class="l">P0 · 阻断发布(5 项云端已修,待真机复测)</div></div>
     <div class="tile"><div class="n">9</div><div class="l">P1 · 生产前必修(8 项云端已修;P1-8 签名链在你侧)</div></div>
-    <div class="tile"><div class="n">7</div><div class="l">P2 · 质量改进(1 项已修)</div></div>
+    <div class="tile done"><div class="n">7</div><div class="l">P2 · 质量改进(七项全部处理完)</div></div>
   </div>
 
   <div class="phase done">
@@ -217,6 +217,74 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
   </div>
 
   <div class="phase">
+    <div class="dot" style="font-size:9px;letter-spacing:-.04em">P2</div>
+    <h2>P2 全部处理完 <span class="chip done">云端部分已完成</span></h2>
+    <div class="meta">落地于 be0c936 / 01404fb / 0db15aa / bd4445f / 493078f · 每项带红-绿-突变测试</div>
+    <div class="item">
+      <div class="head"><b>覆盖面与图标语料</b><span class="chip p1">P2-1</span><span class="chip done">已修</span></div>
+      <p>iMy 的 <code>ask_user</code> 以 <code>user_query</code> 事件进引擎(USER-QUERY / PRIV-GUESS:编出来的 HIGH 层个人信息
+      有名字,用户拒绝后仍编抬到 High),最后一个 uncovered surface 关掉。图标语料的重复字形修正,通道度量重算
+      (28 个可比字形 / 378 对 / 5.6% 在 4 位内 / 2 对相同)——图标那条仍是<b>advisory</b>,因为不同生产者的 dHash 会分叉。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>Android lint 与 SDK 兼容</b><span class="chip p1">P2-2</span><span class="chip done">已修(真机回归待你侧)</span></div>
+      <p>14 条 warning 清零并把门禁接上:<code>warningsAsErrors = true</code> + CI 的 android job 跑 <code>lintDebug</code>。
+      compileSdk / targetSdk 34 → 36(AGP 8.11.1),Android 15/16 的强制边到边用 <code>enableEdgeToEdge</code> +
+      <code>safeDrawingPadding</code> 处理。<b>但这只是源码层</b>:真机回归没做,所以 <code>android-e2e.sh</code> 新增 T 项——
+      从设备 <code>dumpsys</code> 读已装 APK 的 targetSdk,设备 API ≥ 35 且 A1–A4/L 全过才 PASS,API &lt; 35 只能 BLOCKED
+      (Android 14 上的通过不能冒充 15/16 的通过);Play 文案三语仍把它列为阻塞项。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>扩展侧告警风暴</b><span class="chip p1">P2-3</span><span class="chip done">已修</span></div>
+      <p>finding 稳定指纹去重(用<b>文本</b>而不是常量 marker——否则同页两段不同的隐藏指令会被并成一条)、
+      mutation 只扫新增子树、400 ms 防抖之上两轮至少隔 1.5 s、自家弹层不算页面变化。真浏览器 E2E 新增固件
+      <code>mutation-storm.html</code> 与 M1–M4:每 50 ms 改 DOM + 每秒重渲染同一段注入 + 一个付款按钮 → 5 秒只多一条;
+      注入与按钮各只报一次;后到的不同注入仍报且只报一次;30 段突发全部计数但 ≤4 条。E2E 20 → 24 条。
+      变异检查:去掉去重 → M1–M4 红,去掉节流 → M4 红,指纹退回 marker → M3/M4 红。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>本地化与无障碍</b><span class="chip p1">P2-4</span><span class="chip done">已修(读屏真听待真机)</span></div>
+      <p>桌面弹层 <code>alertdialog</code> + <code>aria-labelledby/describedby</code> + 焦点圈 + Esc = 先不要 + 焦点还原 +
+      <code>&lt;main&gt;</code> 置 inert(报告实测要穿 11–12 个背景控件才能到确认按钮)+ 审计时间线 role=log/aria-live=off +
+      播报通道。Android 的 TalkBack 等<b>系统</b>读屏服务不再被环境调查当成第三方嗅探器;繁中资源修正;launcher 标签本地化。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>文档与能力漂移</b><span class="chip p1">P2-5</span><span class="chip done">已修</span></div>
+      <p>根因是"同一个事实在五份手写文档里各写一遍"。新增 <code>scripts/gen-capability-matrix.py</code> →
+      三语 <code>docs/capability-matrix*.md</code>:各端<b>真正发出</b>的事件、静态测试数、版本字符串全部从源码提取,
+      <code>--check</code> 逐字比对并由仓库不变量在每次 <code>cargo test</code> 跑。点名的五处都修了:Android 文案不再说
+      "观察深层链接"(代码从未发出 <code>deeplink</code>,只报界面文字里的 <code>intent://</code> 字样);
+      iOS 页从"我们交付"改成"今天有什么 / 目标是什么"并写明它不是已支持平台;RC1 说明加"版本字符串 ≠ 已发布";
+      platform-matrix 的事件与测试两行改为指向生成的矩阵。八份手写文档被不变量钉在矩阵上。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>构建复现与供应链范围</b><span class="chip p1">P2-6</span><span class="chip done">已修</span></div>
+      <p><code>rust-toolchain.toml</code>、<code>.nvmrc</code>、Actions 全部钉 commit SHA;两个桌面壳子的 lockfile
+      以前<b>从没被 CVE / 许可检查过</b>(根 workspace 刻意排除它们),现在用 <code>deny.shells.toml</code> 各跑一次
+      —— 相对根文件只多不少,多的每一条都写了为什么、什么时候撤(MPL-2.0 逐 crate 例外<b>待法务确认</b>)。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>商业边界</b><span class="chip p1">P2-7</span><span class="chip done">已修</span></div>
+      <p>以前 HMAC / webhook / 夹具签名都能把本机标成 Enterprise 并解锁审计导出——"商业边界"实际不存在。
+      现在企业功能只对<b>厂商 Ed25519 签名</b>的授权解锁:到期日必填、7 天离线宽限、厂商签名的撤销名单、
+      store 旁的 token 每次加载重新验;HMAC / webhook / 夹具签的显示为<b>演示</b>、不解锁。
+      如实边界:边界是"没人能自己签发",不是"没人能改客户端";CRL 传输与平台收据校验未实现。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>「开始守护」不会开始守护 + 没有使用说明</b><span class="chip p1">你的真机反馈</span><span class="chip done">已修</span></div>
+      <p>你的截图问了四件事,其中一件是<b>功能缺陷</b>:macOS 的 <code>start_guard_session</code> 只登记会话,
+      <b>不武装任何观察器</b>;真正打开监控的两个按钮折叠在「开发者面板(演示与诊断)」里。授权 → 点开始 →
+      灯停在"守护不完整",什么都没在看。会话<b>结束</b>一直会停观察器(P0-3),只有开始这一半没接上。
+      Windows 壳子里一直写着 "Observation begins with the session and ends with it" —— 现在 macOS 对齐:
+      授权过的观察器随会话启动、随会话停;武装失败不阻止开会话,但也不瞒着(状态机照旧判 degraded)。
+      另外两件是交付缺口:主界面新增三步「怎么用」卡片(带实时徽章、打开系统设置的按钮、
+      <b>自检:模拟一次付款拦截</b>),新增三语 <code>docs/desktop-guide</code>;
+      <code>AX=false · Capture=false · SCK=idle</code> 挪进开发者面板,主界面改成一行人话的"现在在看什么"。
+      真机验收补 macOS 第 18 项 / Windows W11:全新启动、<b>不展开开发者面板</b>、点开始守护是否 ≤10 s 变绿。</p>
+    </div>
+  </div>
+
+  <div class="phase">
     <div class="dot">D</div>
     <h2>发布工程与真机验收 <span class="chip done">云端准备已完成</span></h2>
     <div class="meta">2–4 周 · 受证书与商店账号周期影响 · 云端能做的准备(判据机器化、固件、脚本、清单)已落地</div>
@@ -253,6 +321,6 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
     <div><span class="k">体验</span><span>三语无 key 泄漏;读屏、键盘、高对比、大字体验收通过</span></div>
   </div>
 
-  <p class="foot">进度:阶段 0、A、B、C、Windows 补充报告与阶段 D 的云端准备已完成;剩余是阶段 D 中只能在你侧发生的部分(证书、真机矩阵逐条走完、strict 证据归档)。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
+  <p class="foot">进度:阶段 0、A、B、C、Windows 补充报告、<b>P2 全部七项</b>、你的真机可用性反馈,以及阶段 D 的云端准备已完成;剩余是阶段 D 中只能在你侧发生的部分(证书、真机矩阵逐条走完、strict 证据归档)。分工:阶段 A/B/C 的代码与测试由云端全包,每阶段完成出 bundle 推回 <code>_push/</code>;
   真机复测与证书流程在你侧,判据以报告原文为准。本页随进度更新——阶段完成即标绿。</p>
 </div>
