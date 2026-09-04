@@ -166,6 +166,31 @@ function renderStateReasons(st, span) {
   }
 }
 
+/** 「防护范围」那句话。取值来自后端的 `protection_mode`(sim / idle / degraded / partial),
+ *  措辞来自词表,插进去的只有操作系统给的原因串。认不出的 mode 就不说话——
+ *  宁可少一行,也不把 mode 名怼给用户。 */
+function modeSentence(st) {
+  const yes = t("capAvailable");
+  const no = t("capUnavailable");
+  const tree = st.uia_native ? yes : no;
+  const frame = st.frame_capture ? yes : no;
+  switch (st.protection_mode) {
+    case "partial":
+      return t("modePartial", { ocr: t(st.ocr ? "modePartialOcrOn" : "modePartialOcrOff") });
+    case "idle":
+      return t("modeIdle", { tree, frame });
+    case "degraded":
+      return t("modeDegraded", {
+        tree: st.uia_native ? yes : `${no}(${st.uia_detail || ""})`,
+        frame: st.frame_capture ? yes : `${no}(${st.frame_capture_detail || ""})`,
+      });
+    case "sim":
+      return t("modeSim", { detail: st.uia_detail || "" });
+    default:
+      return "";
+  }
+}
+
 /** 一句话说清"现在在看什么"。真机反馈:主界面原来只有 `规则 27 · intel … · plan … · privacy 1.00`。
  *
  * 说的是**此刻的实况**:没开会话就不能说在看。Windows 的观察随会话启动
@@ -251,7 +276,10 @@ async function refreshStatus() {
   }
   const mode = document.createElement("div");
   mode.className = "cap-mode";
-  mode.textContent = st.protection_summary ?? "";
+  // 这行以前是 `st.protection_summary` —— Rust 侧拼好的**中文**句子,界面切英文它还是中文
+  // (真跑起来才看到)。现在按后端给的 protection_mode 查词表,只有操作系统给的原因串照引原文。
+  // macOS 壳子一直是这么做的(coverage.* 词条),Windows 是那个例外。
+  mode.textContent = modeSentence(st);
   box.appendChild(mode);
   if (st.observe_error) {
     const err = document.createElement("div");

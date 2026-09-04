@@ -38,6 +38,11 @@ const CJK = /[一-鿿]/;
 // 语言自称与在中文语境里约定俗成保留原文的值。
 const ZH_VALUE_ALLOWLIST = new Set(["English", "简体中文", "繁體中文"]);
 
+/** Windows 壳子用 modeSim/modeIdle/… 这套键;macOS 用 coverage.full/partial/sim。 */
+function dotted_modes(dict) {
+  return "modeSim" in dict.en;
+}
+
 function extractTable(src, varName, file) {
   const anchor = `const ${varName} = {`;
   const start = src.indexOf(anchor);
@@ -145,6 +150,55 @@ for (const shell of SHELLS) {
     for (const loc of locales) {
       for (const k of [...chipKeys, ...watchKeys, ...howtoKeys]) {
         assert((dict[loc][k] || "").trim().length > 0, `${loc} 的 "${k}" 是空的`);
+      }
+    }
+  });
+
+  test(`${shell.dir}:「怎么用」第三步引用的按钮名,必须是这个壳子真有的按钮名`, () => {
+    // 真跑起来才发现的漂移:Windows 那一步写着点「拒绝并暂停」,而按钮实际叫「先不要」——
+    // 使用说明指了一个不存在的按钮。两个壳子的确认层按钮名也不一样(macOS 的是
+    // 「先不要,暂停任务」),所以这条不能写死字面量,得从**同一份词表**里取按钮名再回头
+    // 在第三步的文案里找。一边改按钮名不改文案,这里当场红。
+    const dotted = "howto.s3why" in dict.en;
+    const s3 = dotted ? "howto.s3why" : "howtoS3why";
+    const denyKey = dotted ? "confirm.deny" : "deny";
+    const allowKey = dotted ? "confirm.approve" : "approve";
+    for (const loc of locales) {
+      const text = dict[loc][s3];
+      const deny = dict[loc][denyKey];
+      const allow = dict[loc][allowKey];
+      assert(!!text && !!deny && !!allow, `${loc} 缺 ${s3} / ${denyKey} / ${allowKey}`);
+      assert(
+        text.includes(deny),
+        `${loc} 的第三步说明没有逐字引用「先不要」那个按钮的真实名字 "${deny}" —— 文案与按钮漂了`,
+      );
+      assert(
+        text.includes(allow),
+        `${loc} 的第三步说明没有逐字引用「允许这一次」那个按钮的真实名字 "${allow}"`,
+      );
+    }
+  });
+
+  test(`${shell.dir}:界面文案不来自后端拼好的字符串(mode 句子要在词表里)`, () => {
+    // 真跑起来才看到的:Windows 壳子把 Rust 侧 `protection_coverage()` 拼好的**中文**句子
+    // (`st.protection_summary`)直接渲染,界面切成英文那行还是中文。后端不知道界面语言,
+    // 所以给用户看的措辞不能由后端拼 —— macOS 壳子一直按 coverage.* 词条渲染,Windows 是例外。
+    // 这条盯两件事:main.js 不再渲染 protection_summary;四个 mode 的词条三语齐全。
+    // 先去掉注释再匹配:上面那段注释本身就提到了这个字段名。仓库里已经栽过同一个坑
+    // (`ci覆盖make_check的每个target` 的注释里写着"注释含 make X 蒙过测试")。
+    const code = mainSrc
+      .split("\n")
+      .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+      .map((l) => l.replace(/\/\/.*$/, ""))
+      .join("\n");
+    assert(
+      !/protection_summary/.test(code),
+      "main.js 又在渲染后端拼好的 protection_summary —— 那串文字不跟界面语言走",
+    );
+    if (!dotted_modes(dict)) return; // macOS 用 coverage.* 那套,下面的键名只适用于 Windows
+    for (const key of ["modeSim", "modeIdle", "modeDegraded", "modePartial", "modePartialOcrOn", "modePartialOcrOff"]) {
+      for (const loc of locales) {
+        assert((dict[loc][key] || "").trim().length > 0, `${loc} 缺 "${key}"`);
       }
     }
   });

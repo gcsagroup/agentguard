@@ -77,7 +77,7 @@ you pressed a button:
 A high-risk action — a payment, a transfer, a privacy-trap form, an injection inside a transparent
 overlay — raises a confirmation you **must** answer:
 
-- “**Not now**” (“Deny and pause” on Windows): the action is held. This is where focus lands by default.
+- “**Not now — pause the task**” (on the Windows shell the same button reads simply “Not now”): the action is held. This is where focus lands by default.
 - “**Allow once**”: that one action goes through. It is not a standing grant.
 - **Two minutes with no answer** counts as a refusal and writes a Timeout receipt — it neither
   disappears quietly nor defaults to allowing.
@@ -111,7 +111,8 @@ rule fires and the confirmation reaches you, not that this machine is being watc
 
 You do not need a Mac to verify the frontend ↔ real-backend layer: `make shell-run-linux` (needs Xvfb,
 xdotool and webkit2gtk-4.1) compiles the shell, runs it headless, clicks through
-Start protecting → self-test → Not now → Stop protecting, and leaves five screenshots.
+Start protecting → self-test → Not now → Stop protecting, and leaves five screenshots;
+add `SHELL_NAME=windows` for the Windows shell.
 **It does not replace a real device**: on Linux the TCC grants, AXObserver push and ScreenCaptureKit
 capture are all stubs (`mac_capabilities()` always returns false), and Tauri renders through WebKitGTK
 rather than WKWebView. The script's header states exactly what it does and does not prove — the first
