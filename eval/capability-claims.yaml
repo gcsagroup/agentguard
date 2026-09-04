@@ -417,7 +417,11 @@ claims:
       - { test: "session without accessibility binding is permission required, not active", file: apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt }
       - { test: "relay disabled is disabled, and does not degrade the guard", file: apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt }
       - { test: "newest of ok and error wins", file: apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt }
-    note: JVM 单测;真机上的绑定/重启/通知路径只编译过
+      # 纯函数对了不等于界面与服务照它办事:下面两条在真 Android 框架上(Robolectric)钉住
+      # "没会话 → 界面说未在守护" 与 "没会话 → 服务一个字节都不写"。
+      - { test: "with no session the screen says it is not protecting", file: apps/android-companion/app/src/test/java/com/agentguard/companion/MainScreenComposeTest.kt }
+      - { test: "no session means the service records nothing at all", file: apps/android-companion/app/src/test/java/com/agentguard/companion/GuardAccessibilityServiceRobolectricTest.kt }
+    note: JVM 单测(状态机是纯函数);无障碍事件路径现由 Robolectric 在真 Android 框架上跑(事件→信封→落盘、没开会话就什么都不写);仍未验证的是真机:系统是否真把事件投给我们、TalkBack 共存、前台服务在 15/16 的限制、通知是否真弹出
 
   - id: android-event-log-bounded
     claim: Android 原始事件 JSONL 有保留期 14 天、20 个文件、50 MiB 总量、5 MiB 单文件轮转,并有用户可见的清除入口

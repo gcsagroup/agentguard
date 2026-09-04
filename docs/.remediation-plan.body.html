@@ -184,7 +184,21 @@ h2{font-family:"Noto Serif SC",serif;font-weight:600;font-size:21px;margin:0 0 4
       <div class="head"><b>Android 生命周期、中继与秘密</b><span class="chip p1">P1-6</span><span class="chip done">已修(JVM 验)</span></div>
       <p>状态机推出守护/中继四态(无障碍未绑定 ≠ 已启动、中继关闭 ≠ 已连接、空判决也是成功);会话状态落盘并在
       START_STICKY 重启时重建;bearer 令牌进 Keystore 封装、不回显;事件 JSONL 14 天/20 文件/50 MiB/5 MiB 轮转 + 清除按钮。
-      compile / 45 JVM 测试 / lint / assembleDebug 本容器全过;设备行为未跑。</p>
+      compile / lint / assembleDebug 本容器全过(测试条数见源码生成的能力矩阵);设备行为未跑。</p>
+    </div>
+    <div class="item">
+      <div class="head"><b>Android 的界面与服务路径第一次有了测试</b><span class="chip p1">P2-2 残余</span><span class="chip done">JVM 层已补</span><span class="chip device">设备层仍未验</span></div>
+      <p>报告点名"补 instrumented / Compose / AccessibilityService 测试",此前 Android 端<b>界面一行都没测过</b>,
+      九个测试文件全是纯函数。这台机器没有 <code>/dev/kvm</code>,起不了模拟器 —— 但 Robolectric 能在 JVM 上跑
+      <b>真的 Android 框架</b>:<code>AccessibilityEvent</code> 不再每个方法都抛 <code>Stub!</code>,于是
+      <code>onAccessibilityEvent</code> 这条整条产品路径第一次被测到(事件→信封→落盘、值不随信封走、
+      <b>没开会话就一个字节都不写</b>、陷阱字段记标签不记值、未订阅的事件类型刻意不处理、环境勘察每会话一次),
+      Compose 主界面也有了测试(屏幕上无内部标识、状态文案来自状态机、三个主按钮滚得到、切英文后整屏无中文)。
+      变异检查:删掉"没会话就返回"那一行 → 红;把状态枚举名当文案显示 → 红。
+      环境勘察那条是测试<b>纠正了作者</b>:原以为三个事件写三行,实际四行,多的那行是每会话一次的
+      <code>env_survey</code> —— 那是对的行为,于是断言改成钉住它。
+      <b>Robolectric 不是设备</b>:系统是否真把事件投给我们、TalkBack 共存、前台服务在 15/16 的限制、
+      通知是否真弹出,仍然只有真机能答(android-e2e.sh 的 A1–A4 / L / S / T)。</p>
     </div>
     <div class="item">
       <div class="head"><b>Local API 与 webhook 硬化</b><span class="chip p1">P1-7</span><span class="chip done">已修</span></div>

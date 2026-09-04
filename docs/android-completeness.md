@@ -128,9 +128,35 @@ What is still **not** covered: `gridFrom`, which renders a `Drawable` through `C
 `Bitmap` — `Stub!` on the JVM. The rendering-to-grid step rests on a reading of the code; the
 grid-to-bits step does not.
 
-Also untested, because these are pure-JVM tests by choice: anything needing a device. There is no
-instrumented test and no device run anywhere in this repository. The APK builds and packages in CI;
-nobody has watched it observe a real agent.
+### Robolectric: the framework, on the JVM (real-device report P2-2)
+
+The P2-2 residual named "instrumented / Compose / AccessibilityService tests". Two of the three are
+now covered without a device, because Robolectric runs the **real Android framework** on the JVM:
+
+- `GuardAccessibilityServiceRobolectricTest` drives `onAccessibilityEvent` with real
+  `AccessibilityEvent` objects — which every method of used to answer `Stub!` under a plain JVM test,
+  which is exactly why this **entire product path** had never been touched by any test. It now pins:
+  a text change inside a session becomes a `form_fill` envelope on disk and the typed value does not
+  travel with it; **no session means nothing is written at all**; a trap-labelled field records
+  `PRIV-002` with the label and not the value; an unsubscribed event type is ignored on purpose; and
+  the environment survey happens exactly once per session. That last one was the test correcting the
+  author: the first run asserted three JSONL lines for three events and got four — the fourth is the
+  per-session `env_survey`, which is the right behaviour, so the assertion now pins it.
+- `MainScreenComposeTest` composes the real `MainActivity`: no internal identifiers on screen, the
+  guard line comes from `ProtectionState` (a screen with no session says "not protecting"), the three
+  main actions are reachable by scrolling, refresh does not invent a risk, and switching the language
+  to English leaves no CJK glyph anywhere on screen.
+
+What Robolectric is **not**: the device. It ships its own `android-all` implementation, so whether
+the system actually delivers those events (per `accessibility_service_config` and OEM behaviour),
+whether TalkBack coexists, whether the foreground service survives Android 15/16 restrictions,
+whether a notification is really posted, and whether a permission prompt grants — all still need
+hardware. `rootInActiveWindow` is null here, so the `ui_text` branch is only pinned negatively
+("does not invent events"). There is still **no instrumented test and no device run** in this
+repository: the APK builds and packages in CI, and nobody has watched it observe a real agent.
+`scripts/acceptance/android-e2e.sh` (A1–A4, L, S, T) is that layer.
+
+Also still untested: `gridFrom`'s rendering step, as above.
 
 ## Lifecycle, relay state and secrets (real-device report P0-3 / P1-6)
 

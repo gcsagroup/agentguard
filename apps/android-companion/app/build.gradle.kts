@@ -80,10 +80,13 @@ android {
         unitTests {
             // The Kotlin half of this companion had no test target at all, which is why four
             // event serializers could sit with no callers and a normative hash could sit
-            // unverified against the Rust one. `isIncludeAndroidResources` is off: these are
-            // pure-JVM tests over pure functions, deliberately — a test that needs a device is
-            // a test that will not run in CI.
+            // unverified against the Rust one.
             isReturnDefaultValues = true
+            // 真机报告 P2-2 的残余:"补 instrumented / Compose / AccessibilityService 测试"。
+            // 设备测试在 CI 里跑不了(也没有 /dev/kvm 起模拟器),但 Robolectric 能在 JVM 上跑
+            // **真的 Android 框架**:界面能渲染、AccessibilityEvent 不再是 `Stub!`。
+            // 打开资源是 Robolectric 的前提(它要 merged manifest 与 res/),对既有的纯函数测试无影响。
+            isIncludeAndroidResources = true
         }
     }
 }
@@ -103,4 +106,11 @@ dependencies {
     // RelayClient.parseVerdicts be tested without a device.
     testImplementation("org.json:json:20240303")
     testImplementation("junit:junit:4.13.2")
+    // JVM 上跑真 Android 框架(见 testOptions 的注释)。**不是**设备测试的替代品:
+    // Robolectric 用的是自己的 android-all 实现,真机的 OEM 行为、TalkBack、前台服务限制
+    // 仍然只有设备能验 —— docs/acceptance-runbook.md §5 与 android-e2e.sh 才是那一层。
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core-ktx:1.6.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4:1.6.8")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.8")
 }

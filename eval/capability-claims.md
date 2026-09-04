@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**39 条声明,99 条去重证明测试。**
+**39 条声明,101 条去重证明测试。**
 
 ## acceptance
 
@@ -23,12 +23,12 @@
 | Android 借 PackageManager 收集签名者 SHA-256 做应用鉴真 | `docs/platform-matrix.md` | android-adapter 转发 signer_sha256 / attest_error;引擎按签名者钉扎判决 | `attest_error_is_forwarded_and_blanks_are_not` |
 | Android 冒名检测:标签 + 图标 dHash | `docs/platform-matrix.md` | guard-core APP-LOOKALIKE;标签折叠 + icon_dhash 近似匹配即 Block | `a_cloned_label_and_icon_blocks`<br/>`folded_labels_are_caught` |
 | Android 环境勘察:a11y 服务、广播接收、日志读取 | `docs/platform-matrix.md` | android-adapter env_survey → 引擎逐项标记(日志读取者本身即一条发现) | `hostile_env_survey_emits_both_markers` |
-| Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误 | `docs/android-completeness.md` | ProtectionState.derive(sessionActive, accessibilityBound, relayEnabled, lastOk, lastError, now);RelayClient.postAsync 成功一律 recordOk + clearRelayError | `session without accessibility binding is permission required, not active`<br/>`relay disabled is disabled, and does not degrade the guard`<br/>`newest of ok and error wins` |
+| Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误 | `docs/android-completeness.md` | ProtectionState.derive(sessionActive, accessibilityBound, relayEnabled, lastOk, lastError, now);RelayClient.postAsync 成功一律 recordOk + clearRelayError | `session without accessibility binding is permission required, not active`<br/>`relay disabled is disabled, and does not degrade the guard`<br/>`newest of ok and error wins`<br/>`with no session the screen says it is not protecting`<br/>`no session means the service records nothing at all` |
 | Android 原始事件 JSONL 有保留期 14 天、20 个文件、50 MiB 总量、5 MiB 单文件轮转,并有用户可见的清除入口 | `docs/android-completeness.md` | EventLogRetention.select 纯函数;EnvelopeSink.append 轮转后应用;clearAll 按钮 | `old files go, current session file never goes`<br/>`total size cap deletes from the oldest until under the cap` |
 
 说明:
 
-- **Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误**:JVM 单测;真机上的绑定/重启/通知路径只编译过
+- **Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误**:JVM 单测(状态机是纯函数);无障碍事件路径现由 Robolectric 在真 Android 框架上跑(事件→信封→落盘、没开会话就什么都不写);仍未验证的是真机:系统是否真把事件投给我们、TalkBack 共存、前台服务在 15/16 的限制、通知是否真弹出
 - **Android 原始事件 JSONL 有保留期 14 天、20 个文件、50 MiB 总量、5 MiB 单文件轮转,并有用户可见的清除入口**:策略是纯函数并有测试;文件系统那一层(rename/delete)在设备上跑
 
 ## audit

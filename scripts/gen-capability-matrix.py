@@ -160,11 +160,25 @@ def count_node_tests() -> int:
     return n
 
 
-def count_kotlin_tests() -> tuple[int, int]:
-    unit = sum(len(re.findall(r"@Test\b", read(p))) for p in sorted((REPO / "apps/android-companion/app/src/test").rglob("*.kt")))
+def count_kotlin_tests() -> tuple[int, int, int]:
+    """(JVM 纯函数测试, Robolectric 测试, instrumented 测试)。
+
+    Robolectric 的测试也放在 src/test 里,但它跑的是**真的 Android 框架**(所以
+    AccessibilityEvent / Compose 才测得了);把它单独数出来,是因为"59 条 JVM 测试"这个数
+    读不出"其中有多少条真的碰了框架"。instrumented 仍然是 0,那一栏只有设备能填。
+    """
+    unit = 0
+    robo = 0
+    for p in sorted((REPO / "apps/android-companion/app/src/test").rglob("*.kt")):
+        src = read(p)
+        n = len(re.findall(r"@Test\b", src))
+        if "RobolectricTestRunner" in src:
+            robo += n
+        else:
+            unit += n
     inst_dir = REPO / "apps/android-companion/app/src/androidTest"
     inst = sum(len(re.findall(r"@Test\b", read(p))) for p in sorted(inst_dir.rglob("*.kt"))) if inst_dir.exists() else 0
-    return unit, inst
+    return unit, robo, inst
 
 
 def count_e2e_checks() -> int:
@@ -244,7 +258,8 @@ L = {
         "rust_kind": "Rust `#[test]` / `#[tokio::test]`", "rust_total": "Rust 合计",
         "node": "apps/extension-chromium/scripts/*.test.mjs", "node_kind": "node `test(`",
         "e2e": "eval/e2e-extension/run.mjs", "e2e_kind": "真浏览器 E2E 判据 `record(`",
-        "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`",
+        "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`(纯函数)",
+        "ktr": "apps/android-companion/app/src/test(Robolectric)", "ktr_kind": "Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面)",
         "kti": "apps/android-companion/app/src/androidTest", "kti_kind": "Kotlin instrumented `@Test`(需设备)",
         "swift": "apps/ios-webshield", "swift_kind": "Swift `func test*(`",
         "scen": "eval/scenarios", "scen_kind": "离线评测场景(YAML)",
@@ -279,7 +294,8 @@ L = {
         "rust_kind": "Rust `#[test]` / `#[tokio::test]`", "rust_total": "Rust 合計",
         "node": "apps/extension-chromium/scripts/*.test.mjs", "node_kind": "node `test(`",
         "e2e": "eval/e2e-extension/run.mjs", "e2e_kind": "真瀏覽器 E2E 判據 `record(`",
-        "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`",
+        "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`(纯函数)",
+        "ktr": "apps/android-companion/app/src/test(Robolectric)", "ktr_kind": "Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面)",
         "kti": "apps/android-companion/app/src/androidTest", "kti_kind": "Kotlin instrumented `@Test`(需裝置)",
         "swift": "apps/ios-webshield", "swift_kind": "Swift `func test*(`",
         "scen": "eval/scenarios", "scen_kind": "離線評測場景(YAML)",
@@ -314,7 +330,8 @@ L = {
         "rust_kind": "Rust `#[test]` / `#[tokio::test]`", "rust_total": "Rust total",
         "node": "apps/extension-chromium/scripts/*.test.mjs", "node_kind": "node `test(`",
         "e2e": "eval/e2e-extension/run.mjs", "e2e_kind": "real-browser E2E checks `record(`",
-        "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`",
+        "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`(纯函数)",
+        "ktr": "apps/android-companion/app/src/test(Robolectric)", "ktr_kind": "Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面)",
         "kti": "apps/android-companion/app/src/androidTest", "kti_kind": "Kotlin instrumented `@Test` (needs a device)",
         "swift": "apps/ios-webshield", "swift_kind": "Swift `func test*(`",
         "scen": "eval/scenarios", "scen_kind": "offline evaluation scenarios (YAML)",
@@ -350,6 +367,7 @@ def render(lang: str, facts: dict) -> str:
     lines.append(f"| {t['node']} | {facts['node']} | {t['node_kind']} |")
     lines.append(f"| {t['e2e']} | {facts['e2e']} | {t['e2e_kind']} |")
     lines.append(f"| {t['kt']} | {facts['kt']} | {t['kt_kind']} |")
+    lines.append(f"| {t['ktr']} | {facts['kt_robo']} | {t['ktr_kind']} |")
     lines.append(f"| {t['kti']} | {facts['kti']} | {t['kti_kind']} |")
     lines.append(f"| {t['swift']} | {facts['swift']} | {t['swift_kind']} |")
     lines.append(f"| {t['scen']} | {facts['scenarios']} | {t['scen_kind']} |")
@@ -365,7 +383,7 @@ def render(lang: str, facts: dict) -> str:
 def collect() -> dict:
     android_emitted, android_silent = android_kinds()
     ext_types, ext_kinds = extension_kinds()
-    kt, kti = count_kotlin_tests()
+    kt, kt_robo, kti = count_kotlin_tests()
     return {
         "engine": engine_event_kinds(),
         "android_emitted": android_emitted,
@@ -379,6 +397,7 @@ def collect() -> dict:
         "node": count_node_tests(),
         "e2e": count_e2e_checks(),
         "kt": kt,
+        "kt_robo": kt_robo,
         "kti": kti,
         "swift": count_swift_tests(),
         "scenarios": count_scenarios(),

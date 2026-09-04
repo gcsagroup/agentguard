@@ -254,8 +254,13 @@ jobs:
           # network dependency inside the build step, and when it fails the error is a
           # Gradle stack trace about a missing platform rather than "the SDK is not here".
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-      - name: JVM unit tests (no device, no instrumented tests)
-        # The Kotlin half had zero tests. These include the cross-language dHash contract:
+      - name: JVM unit tests (no device, no instrumented tests; Robolectric runs the framework)
+        # The Kotlin half had zero tests. Some of these now run under Robolectric — the real
+        # Android framework on the JVM, which is what lets `onAccessibilityEvent` and the Compose
+        # screen be tested at all (`AccessibilityEvent` answers `Stub!` without it). Robolectric
+        # downloads an `android-all` jar on first use, so this step needs network; it is still not
+        # a device test, and the real-device layer stays in scripts/acceptance/android-e2e.sh.
+        # These also include the cross-language dHash contract:
         # the Rust comparator and the Kotlin producer both assert against
         # eval/fixtures/icon_dhash_vectors.json, so a drift fails on both sides instead of
         # silently turning every icon comparison into noise.

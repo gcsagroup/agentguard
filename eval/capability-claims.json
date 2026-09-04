@@ -737,7 +737,7 @@
       "claim": "Android 端「守护中 / 已连接」由状态机从事实推出——无障碍服务未绑定的会话不是 active,关闭的中继不是 connected,空判决的成功也清旧错误",
       "id": "android-state-derived",
       "mechanism": "ProtectionState.derive(sessionActive, accessibilityBound, relayEnabled, lastOk, lastError, now);RelayClient.postAsync 成功一律 recordOk + clearRelayError",
-      "note": "JVM 单测;真机上的绑定/重启/通知路径只编译过",
+      "note": "JVM 单测(状态机是纯函数);无障碍事件路径现由 Robolectric 在真 Android 框架上跑(事件→信封→落盘、没开会话就什么都不写);仍未验证的是真机:系统是否真把事件投给我们、TalkBack 共存、前台服务在 15/16 的限制、通知是否真弹出",
       "proven_by": [
         {
           "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt",
@@ -750,6 +750,14 @@
         {
           "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/ProtectionStateTest.kt",
           "test": "newest of ok and error wins"
+        },
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/MainScreenComposeTest.kt",
+          "test": "with no session the screen says it is not protecting"
+        },
+        {
+          "file": "apps/android-companion/app/src/test/java/com/agentguard/companion/GuardAccessibilityServiceRobolectricTest.kt",
+          "test": "no session means the service records nothing at all"
         }
       ],
       "source": {
@@ -905,7 +913,7 @@
     }
   ],
   "report": {
-    "distinct_tests": 99,
+    "distinct_tests": 101,
     "problems": [],
     "total_claims": 39
   }

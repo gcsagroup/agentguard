@@ -50,7 +50,8 @@
 | **Rust 合計** | **1073** | |
 | apps/extension-chromium/scripts/*.test.mjs | 50 | node `test(` |
 | eval/e2e-extension/run.mjs | 24 | 真瀏覽器 E2E 判據 `record(` |
-| apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test` |
+| apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test`(纯函数) |
+| apps/android-companion/app/src/test(Robolectric) | 11 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需裝置) |
 | apps/ios-webshield | 0 | Swift `func test*(` |
 | eval/scenarios | 134 | 離線評測場景(YAML) |
