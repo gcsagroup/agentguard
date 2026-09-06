@@ -64,6 +64,20 @@ pub struct PersistedPending {
     pub source_app: String,
 }
 
+impl PendingItem {
+    fn persisted(&self) -> PersistedPending {
+        PersistedPending {
+            request_id: self.request_id,
+            generation: self.generation,
+            enqueued_ms: self.enqueued_ms,
+            audit_id: self.request.audit_id.clone(),
+            rule_id: self.request.rule_id.clone(),
+            severity: self.request.severity.clone(),
+            source_app: self.request.source_app.clone(),
+        }
+    }
+}
+
 /// 默认超时:两分钟没人拍板,按拒绝处理并写 Timeout 回执。
 pub const DEFAULT_CONFIRM_TTL_MS: u64 = 120_000;
 
@@ -114,10 +128,27 @@ impl ConfirmQueue {
     /// 报告 P0-3:会话结束后不该再有任何东西被当作「当前待确认」解析。start 和 end 都调它 ——
     /// 一个新会话不继承上一个会话的悬空确认,一个结束的会话不给任何确认留下解析入口。
     pub fn bump_generation(&mut self) {
+        match self.try_bump_generation::<std::convert::Infallible>(|_, _| Ok(())) {
+            Ok(()) => {}
+            Err(never) => match never {},
+        }
+    }
+
+    /// 先把将离队的项目与空的新快照交给调用方提交，成功后才推进会话代际并清队列。
+    ///
+    /// 桌面壳用这个回调把每个遗留项的 Timeout 回执和快照删除放进同一数据库事务；回调
+    /// 失败时，本方法不改变 generation、队列或 stale 记录。
+    pub fn try_bump_generation<E>(
+        &mut self,
+        commit: impl FnOnce(&[PersistedPending], &[PersistedPending]) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let removed = self.snapshot();
+        commit(&removed, &[])?;
         for it in self.items.drain(..) {
             Self::remember_evicted(&mut self.evicted, self.cap, it.request_id);
         }
         self.generation += 1;
+        Ok(())
     }
 
     /// 入队一条待确认,返回它不可变的 `request_id`。
@@ -130,20 +161,42 @@ impl ConfirmQueue {
 
     /// 带入队时刻的入队;`now_ms` > 0 的项才会被 [`Self::expire`] 判超时。
     pub fn enqueue_at(&mut self, request: ConfirmRequest, now_ms: u64) -> u64 {
+        match self.try_enqueue_at::<std::convert::Infallible>(request, now_ms, |_, _| Ok(())) {
+            Ok(id) => id,
+            Err(never) => match never {},
+        }
+    }
+
+    /// 预先计算入队后的快照，并在有容量挤出时把最旧项交给调用方；回调成功后才改队列。
+    ///
+    /// 这让桌面壳能原子提交“旧项 Timeout 回执 + 含新项的快照”。回调失败不会消费
+    /// request_id，也不会把旧项挤出。
+    pub fn try_enqueue_at<E>(
+        &mut self,
+        request: ConfirmRequest,
+        now_ms: u64,
+        commit: impl FnOnce(Option<&PersistedPending>, &[PersistedPending]) -> Result<(), E>,
+    ) -> Result<u64, E> {
         let id = self.next_id;
+        let candidate = PendingItem {
+            request_id: id,
+            generation: self.generation,
+            enqueued_ms: now_ms,
+            request,
+        };
+        let mut after = self.snapshot();
+        let evicted = (after.len() >= self.cap).then(|| after.remove(0));
+        after.push(candidate.persisted());
+        commit(evicted.as_ref(), &after)?;
+
         self.next_id += 1;
         if self.items.len() >= self.cap {
             if let Some(old) = self.items.pop_front() {
                 Self::remember_evicted(&mut self.evicted, self.cap, old.request_id);
             }
         }
-        self.items.push_back(PendingItem {
-            request_id: id,
-            generation: self.generation,
-            enqueued_ms: now_ms,
-            request,
-        });
-        id
+        self.items.push_back(candidate);
+        Ok(id)
     }
 
     /// 把等了超过 `ttl_ms` 的待确认移出并返回(调用方据此写 `Timeout` 回执、通知 UI)。
@@ -151,10 +204,42 @@ impl ConfirmQueue {
     /// 移出的 id 记进 evicted:此后对它的 resolve 是 `Stale`——用户在超时后才点的那一下
     /// 不会放行任何东西。入队时刻为 0 的项(调用方没给时间)永不超时。
     pub fn expire(&mut self, now_ms: u64, ttl_ms: u64) -> Vec<PendingItem> {
+        match self.try_expire::<std::convert::Infallible>(now_ms, ttl_ms, |_, _| Ok(())) {
+            Ok(expired) => expired,
+            Err(never) => match never {},
+        }
+    }
+
+    /// 先提交所有超时项及剩余快照，成功后才把超时项移出。
+    pub fn try_expire<E>(
+        &mut self,
+        now_ms: u64,
+        ttl_ms: u64,
+        commit: impl FnOnce(&[PersistedPending], &[PersistedPending]) -> Result<(), E>,
+    ) -> Result<Vec<PendingItem>, E> {
+        let is_expired =
+            |it: &PendingItem| it.enqueued_ms > 0 && now_ms.saturating_sub(it.enqueued_ms) > ttl_ms;
+        let removed: Vec<PersistedPending> = self
+            .items
+            .iter()
+            .filter(|it| is_expired(it))
+            .map(PendingItem::persisted)
+            .collect();
+        if removed.is_empty() {
+            return Ok(Vec::new());
+        }
+        let remaining: Vec<PersistedPending> = self
+            .items
+            .iter()
+            .filter(|it| !is_expired(it))
+            .map(PendingItem::persisted)
+            .collect();
+        commit(&removed, &remaining)?;
+
         let mut out = Vec::new();
         let mut keep = VecDeque::with_capacity(self.items.len());
         for it in self.items.drain(..) {
-            if it.enqueued_ms > 0 && now_ms.saturating_sub(it.enqueued_ms) > ttl_ms {
+            if is_expired(&it) {
                 Self::remember_evicted(&mut self.evicted, self.cap, it.request_id);
                 out.push(it);
             } else {
@@ -162,23 +247,12 @@ impl ConfirmQueue {
             }
         }
         self.items = keep;
-        out
+        Ok(out)
     }
 
     /// 可落盘视图(见 [`PersistedPending`])。
     pub fn snapshot(&self) -> Vec<PersistedPending> {
-        self.items
-            .iter()
-            .map(|it| PersistedPending {
-                request_id: it.request_id,
-                generation: it.generation,
-                enqueued_ms: it.enqueued_ms,
-                audit_id: it.request.audit_id.clone(),
-                rule_id: it.request.rule_id.clone(),
-                severity: it.request.severity.clone(),
-                source_app: it.request.source_app.clone(),
-            })
-            .collect()
+        self.items.iter().map(PendingItem::persisted).collect()
     }
 
     /// 解析一个确切的 request_id(compare-and-swap)。
@@ -186,15 +260,35 @@ impl ConfirmQueue {
     /// 只有当这个 id 此刻仍在队列里时才解析并**从队列移除**它;否则 `Stale`。这是整个修复的
     /// 核心:用户拒绝的是他看到的那条(id),不是「此刻碰巧在最前面的那条」。
     pub fn resolve(&mut self, request_id: u64, approve: bool) -> ResolveOutcome {
-        if let Some(pos) = self.items.iter().position(|it| it.request_id == request_id) {
-            let it = self.items.remove(pos).expect("position 刚给出");
-            ResolveOutcome::Resolved {
-                approve,
-                audit_id: it.request.audit_id.clone(),
-            }
-        } else {
-            ResolveOutcome::Stale
+        match self.try_resolve::<std::convert::Infallible>(request_id, approve, |_, _| Ok(())) {
+            Ok(outcome) => outcome,
+            Err(never) => match never {},
         }
+    }
+
+    /// 先把将解析的确切项目与解析后的快照交给调用方提交，成功后才从队列移除。
+    pub fn try_resolve<E>(
+        &mut self,
+        request_id: u64,
+        approve: bool,
+        commit: impl FnOnce(&PersistedPending, &[PersistedPending]) -> Result<(), E>,
+    ) -> Result<ResolveOutcome, E> {
+        let Some(pos) = self.items.iter().position(|it| it.request_id == request_id) else {
+            return Ok(ResolveOutcome::Stale);
+        };
+        let removed = self.items[pos].persisted();
+        let mut remaining = self.snapshot();
+        remaining.remove(pos);
+        commit(&removed, &remaining)?;
+
+        let it = self
+            .items
+            .remove(pos)
+            .expect("提交期间队列仍由可变借用独占");
+        Ok(ResolveOutcome::Resolved {
+            approve,
+            audit_id: it.request.audit_id.clone(),
+        })
     }
 
     /// 队首(最旧)待确认的只读视图 —— UI「现在该显示哪一条」。
@@ -323,6 +417,37 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn 容量挤出的提交失败不丢旧项也不消耗request_id() {
+        let mut q = ConfirmQueue::new(1);
+        let a = q.enqueue(req("A", "audit-A"));
+        let before = q.snapshot();
+
+        let error = q
+            .try_enqueue_at(req("B", "audit-B"), 42, |evicted, after| {
+                assert_eq!(
+                    evicted.and_then(|item| item.audit_id.as_deref()),
+                    Some("audit-A")
+                );
+                assert_eq!(after.len(), 1);
+                assert_eq!(after[0].audit_id.as_deref(), Some("audit-B"));
+                Err("审计提交失败")
+            })
+            .unwrap_err();
+        assert_eq!(error, "审计提交失败");
+        assert_eq!(q.snapshot(), before);
+        assert_eq!(q.front().unwrap().request_id, a);
+
+        let b = q
+            .try_enqueue_at(req("B", "audit-B"), 42, |_, _| Ok::<_, &str>(()))
+            .unwrap();
+        assert_eq!(b, a + 1, "失败尝试不能消耗 request_id");
+        assert_eq!(
+            q.front().unwrap().request.audit_id.as_deref(),
+            Some("audit-B")
+        );
+    }
+
     /// P1-4:超时的按拒绝处理——移出、交给调用方写回执、之后再点是 Stale。
     #[test]
     fn 超时项被移出且之后解析为stale_未超时与无时间项留下() {
@@ -362,6 +487,34 @@ mod tests {
             "now < enqueued"
         );
         assert_eq!(q.len(), 1);
+    }
+
+    #[test]
+    fn 任一离队提交失败都保持队列和代际不变() {
+        let mut q = ConfirmQueue::new(4);
+        let request_id = q.enqueue_at(req("A", "audit-A"), 1_000);
+        let before = q.snapshot();
+        let generation = q.generation();
+
+        assert!(q
+            .try_resolve(request_id, true, |_, _| Err("resolve failed"))
+            .is_err());
+        assert_eq!(q.snapshot(), before);
+
+        assert!(q
+            .try_expire(
+                1_000 + DEFAULT_CONFIRM_TTL_MS + 1,
+                DEFAULT_CONFIRM_TTL_MS,
+                |_, _| { Err("expire failed") }
+            )
+            .is_err());
+        assert_eq!(q.snapshot(), before);
+
+        assert!(q
+            .try_bump_generation(|_, _| Err("generation failed"))
+            .is_err());
+        assert_eq!(q.snapshot(), before);
+        assert_eq!(q.generation(), generation);
     }
 
     /// P1-4:落盘视图不含观测文本摘录,含回执所需的 audit_id;能 JSON 往返。

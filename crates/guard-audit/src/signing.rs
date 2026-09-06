@@ -195,6 +195,122 @@ impl AuditSigner for FileDeviceKey {
     }
 }
 
+/// Ed25519 device key whose 32-byte seed is stored only as a current-user DPAPI
+/// envelope on Windows. This is still an exportable software key once the user
+/// session is compromised; it protects the seed at rest and is not a TPM claim.
+#[cfg(target_os = "windows")]
+#[derive(Clone)]
+pub struct WindowsDpapiDeviceKey {
+    inner: FileDeviceKey,
+}
+
+#[cfg(target_os = "windows")]
+impl std::fmt::Debug for WindowsDpapiDeviceKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WindowsDpapiDeviceKey")
+            .field("key_id", &self.key_id())
+            .finish()
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl WindowsDpapiDeviceKey {
+    /// Load an existing current-user DPAPI envelope or atomically create it.
+    /// Existing plaintext/wrong-type/corrupt files are preserved and rejected.
+    pub fn load_or_create(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let mut generated = FileDeviceKey::generate().signing.to_bytes();
+        let resolved = crate::secure::ensure_windows_dpapi_signing_seed(path, &generated);
+        generated.fill(0);
+        let mut seed = resolved?;
+        if seed.len() != 32 {
+            let actual = seed.len();
+            seed.fill(0);
+            bail!(
+                "decrypted Windows audit signing seed must be 32 bytes, got {actual}; envelope at {} was not modified",
+                path.display()
+            );
+        }
+        let mut bytes = [0u8; 32];
+        bytes.copy_from_slice(&seed);
+        seed.fill(0);
+        let signing = SigningKey::from_bytes(&bytes);
+        bytes.fill(0);
+        Ok(Self {
+            inner: FileDeviceKey { signing },
+        })
+    }
+
+    pub fn verifying_key(&self) -> AuditVerifyKey {
+        self.inner.verifying_key()
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl AuditSigner for WindowsDpapiDeviceKey {
+    fn key_id(&self) -> String {
+        self.inner.key_id()
+    }
+
+    fn sign_message(&self, message: &[u8]) -> Result<String> {
+        self.inner.sign_message(message)
+    }
+
+    fn public_hex(&self) -> Option<String> {
+        self.inner.public_hex()
+    }
+}
+
+/// Ed25519 device key whose seed is stored as a generic-password item in the
+/// current user's macOS Keychain instead of a plaintext file beside the DB.
+#[cfg(target_os = "macos")]
+#[derive(Clone)]
+pub struct MacKeychainDeviceKey {
+    inner: FileDeviceKey,
+}
+
+#[cfg(target_os = "macos")]
+impl std::fmt::Debug for MacKeychainDeviceKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MacKeychainDeviceKey")
+            .field("key_id", &self.key_id())
+            .finish()
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl MacKeychainDeviceKey {
+    pub fn load_or_create(service: &str, account: &str) -> Result<Self> {
+        let generated = FileDeviceKey::generate().secret_hex();
+        let bytes =
+            crate::secure::macos_keychain_get_or_create(service, account, generated.as_bytes())?;
+        let secret =
+            std::str::from_utf8(&bytes).context("macOS Keychain audit signing key is not UTF-8")?;
+        Ok(Self {
+            inner: FileDeviceKey::from_secret_hex(secret)?,
+        })
+    }
+
+    pub fn verifying_key(&self) -> AuditVerifyKey {
+        self.inner.verifying_key()
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl AuditSigner for MacKeychainDeviceKey {
+    fn key_id(&self) -> String {
+        self.inner.key_id()
+    }
+
+    fn sign_message(&self, message: &[u8]) -> Result<String> {
+        self.inner.sign_message(message)
+    }
+
+    fn public_hex(&self) -> Option<String> {
+        self.inner.public_hex()
+    }
+}
+
 /// Public half used for verification.
 #[derive(Debug, Clone)]
 pub struct AuditVerifyKey(VerifyingKey);
@@ -641,6 +757,66 @@ mod tests {
             let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
             assert_eq!(mode, 0o600, "signing key must not be group/world readable");
         }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_signing_seed_file_contains_only_a_dpapi_envelope() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit-signing.key");
+        let first = WindowsDpapiDeviceKey::load_or_create(&path).unwrap();
+        let raw = std::fs::read(&path).unwrap();
+        assert!(raw.starts_with(b"agentguard-signing-dpapi-v1\n"));
+        assert!(
+            !raw.windows(first.inner.secret_hex().len())
+                .any(|window| window == first.inner.secret_hex().as_bytes()),
+            "the Ed25519 seed was written as plaintext hex"
+        );
+
+        let second = WindowsDpapiDeviceKey::load_or_create(&path).unwrap();
+        assert_eq!(first.key_id(), second.key_id());
+        let message = b"agentguard-windows-dpapi-signer-test";
+        let signature = second.sign_message(message).unwrap();
+        first
+            .verifying_key()
+            .verify_message(message, &signature)
+            .unwrap();
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_signer_preserves_and_rejects_legacy_plaintext() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit-signing.key");
+        let legacy = "5d".repeat(32);
+        std::fs::write(&path, &legacy).unwrap();
+
+        let error = WindowsDpapiDeviceKey::load_or_create(&path)
+            .expect_err("legacy plaintext must not be silently migrated");
+        assert!(error.to_string().contains("legacy plaintext"), "{error:#}");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), legacy);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_signer_preserves_and_rejects_wrong_type_or_corrupt_envelope() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let wrong_type = dir.path().join("wrong-type.key");
+        let encryption_envelope = b"agentguard-dpapi-v1\n00\n";
+        std::fs::write(&wrong_type, encryption_envelope).unwrap();
+        let error = WindowsDpapiDeviceKey::load_or_create(&wrong_type)
+            .expect_err("an encryption-key envelope is not a signing-key envelope");
+        assert!(error.to_string().contains("wrong-type"), "{error:#}");
+        assert_eq!(std::fs::read(&wrong_type).unwrap(), encryption_envelope);
+
+        let corrupt = dir.path().join("corrupt.key");
+        let corrupt_envelope = b"agentguard-signing-dpapi-v1\nnot-hex\n";
+        std::fs::write(&corrupt, corrupt_envelope).unwrap();
+        let error = WindowsDpapiDeviceKey::load_or_create(&corrupt)
+            .expect_err("a malformed signing envelope must fail closed");
+        assert!(error.to_string().contains("decode DPAPI"), "{error:#}");
+        assert_eq!(std::fs::read(&corrupt).unwrap(), corrupt_envelope);
     }
 
     #[test]

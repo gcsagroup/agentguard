@@ -14,6 +14,8 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use win_adapter::{PlatformAdapter, SimObservation, WinAdapter};
 
+use crate::ObserverGeneration;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct MacCapabilities {
     pub simulation: bool,
@@ -64,6 +66,8 @@ pub struct MacAdapter {
     ax_coalescer: crate::ax_push::PushCoalescer,
     /// 最近一次核对 observer 是否仍绑定当前前台应用的时间。
     ax_observer_refresh_ms: Option<i64>,
+    /// 原生 AXObserver 当前绑定的桌面观察代际。
+    ax_observer_generation: Option<ObserverGeneration>,
 }
 
 /// How stale an AX snapshot may be and still be compared against a frame.
@@ -88,6 +92,7 @@ impl MacAdapter {
     }
 
     pub fn start_session(&mut self, session_id: impl Into<String>, app: &str) {
+        self.reset_observation_generation();
         self.inner.start_session(session_id, app);
     }
 
@@ -98,15 +103,25 @@ impl MacAdapter {
         app: &str,
         task: &guard_schema::TaskDeclaration,
     ) {
+        self.reset_observation_generation();
         self.inner.start_task_session(session_id, app, task);
     }
 
     pub fn end_session(&mut self, app: &str) {
         self.inner.end_session(app);
+        self.reset_observation_generation();
     }
 
     pub fn ingest(&mut self, obs: SimObservation) {
         self.inner.ingest(obs);
+    }
+
+    fn reset_observation_generation(&mut self) {
+        self.last_ax_text = None;
+        self.last_ax_ms = 0;
+        self.frame_consistency = FrameConsistency;
+        self.ax_coalescer = crate::ax_push::PushCoalescer::new();
+        self.ax_observer_refresh_ms = None;
     }
 
     /// Convert an accessibility snapshot into GuardEvents:
@@ -169,15 +184,15 @@ impl MacAdapter {
     }
 
     /// The last AX text, if it is fresh enough to describe the same screen as a
-    /// frame at `frame_ms`. Frame timestamps come from the capture clock, so a
-    /// zero/unset frame timestamp is treated as "now" and always pairs.
+    /// frame at `frame_ms`. Both timestamps must be validated Unix wall-clock
+    /// values; zero/negative input is unknown and must not bypass freshness.
     fn pairable_ax_text(&self, frame_ms: i64) -> Option<String> {
         let ax = self.last_ax_text.as_ref()?;
         if ax.trim().is_empty() {
             return None;
         }
         if frame_ms <= 0 || self.last_ax_ms <= 0 {
-            return Some(ax.clone());
+            return None;
         }
         let dt = (frame_ms - self.last_ax_ms).abs();
         (dt <= VIEWTREE_PAIRING_WINDOW_MS).then(|| ax.clone())
@@ -186,6 +201,20 @@ impl MacAdapter {
     /// Drain native SCK bridge frames (if streaming) into GuardEvents.
     pub fn poll_sck_frames(&mut self, source_app: &str) -> usize {
         let frames = crate::sck_native::drain_sck_frames();
+        self.ingest_sck_frames(frames, source_app)
+    }
+
+    /// 只取指定观察代际的 SCK 帧；旧 callback 即使迟到也不会进入新会话。
+    pub fn poll_sck_frames_generation(
+        &mut self,
+        generation: ObserverGeneration,
+        source_app: &str,
+    ) -> usize {
+        let frames = crate::sck_native::drain_sck_frames_generation(generation.get());
+        self.ingest_sck_frames(frames, source_app)
+    }
+
+    fn ingest_sck_frames(&mut self, frames: Vec<FrameStats>, source_app: &str) -> usize {
         let n = frames.len();
         for stats in frames {
             self.ingest_capture_frame(stats, source_app);
@@ -193,59 +222,87 @@ impl MacAdapter {
         n
     }
 
-    /// 开始接收 AXObserver 推送(E3)。驱动循环在会话开始时调一次;返回 `Err` 说明推送不可用
-    /// (非 macOS、桥失败),此时应退回纯兜底轮询——而不是以为推送在工作。
-    pub fn start_ax_push(&mut self) -> Result<(), String> {
+    /// 只初始化当前 AX 观察代际的 Rust 状态。原生 observer 注册必须在调用方释放
+    /// `AppState.adapter` 后执行，不能把可能阻塞的 AX IPC 带进共享锁。
+    pub fn begin_ax_push(&mut self, generation: ObserverGeneration) {
+        self.ax_coalescer = crate::ax_push::PushCoalescer::new();
         self.ax_observer_refresh_ms = None;
-        crate::ax_native::start_ax_observer()
+        self.ax_observer_generation = Some(generation);
     }
 
-    /// 停止接收 AXObserver 推送(会话结束时调)。
-    pub fn stop_ax_push(&mut self) {
-        crate::ax_native::stop_ax_observer();
+    /// 只结束匹配代际的 Rust 状态。返回 true 时调用方才应在锁外卸载原生 observer。
+    pub fn finish_ax_push(&mut self, generation: ObserverGeneration) -> bool {
+        if self.ax_observer_generation != Some(generation) {
+            return false;
+        }
         self.ax_observer_refresh_ms = None;
+        self.ax_observer_generation = None;
+        self.ax_coalescer = crate::ax_push::PushCoalescer::new();
+        true
     }
 
-    /// 驱动循环每 tick 调一次:把自上次以来的 AXObserver 通知喂进合并器,若合并器判定"该抓",
-    /// 就抓一次实时 AX 快照并入队。返回是否真的抓了(供调用方决定要不要顺带抓一帧像素配对)。
-    ///
-    /// 这就是"实时化"的落点:一次树变化通常在 `DEBOUNCE_MS` 内被抓到,而不是最坏等一整个轮询
-    /// 周期;持续变化至少每 `MAX_LATENCY_MS` 抓一次;完全没有推送时,退化成 `FALLBACK_FLOOR_MS`
-    /// 的兜底轮询——推送那条命断了也不会漏抓。
-    pub fn maybe_capture_ax(&mut self, now_ms: i64) -> Result<AxCapture, String> {
-        // 前台应用可能切换。每 500ms 让原生桥核对一次 PID；同 PID 是廉价 no-op，
-        // 变化时才重绑 AXObserver。这样不会把 observer 永久留在启用时的那个应用上。
-        let refresh_due = self
+    /// 是否该重新核对 AXObserver 的前台 PID。这里只读 Rust 时钟状态，不调用系统 API。
+    pub fn ax_observer_refresh_due(
+        &self,
+        generation: ObserverGeneration,
+        now_ms: i64,
+    ) -> Result<bool, String> {
+        if self.ax_observer_generation != Some(generation) {
+            return Err(format!("stale AX observer generation {generation}"));
+        }
+        Ok(self
             .ax_observer_refresh_ms
             .map(|last| now_ms.saturating_sub(last) >= 500)
-            .unwrap_or(true);
-        if refresh_due {
-            // 注册失败时仍保留 3s 兜底捕获；真正的权限/捕获错误会由 capture_live_ax 返回。
-            let _ = crate::ax_native::start_ax_observer();
-            self.ax_observer_refresh_ms = Some(now_ms);
-        }
-        if crate::ax_native::take_ax_notifications() > 0 {
-            self.ax_coalescer.note(now_ms);
-        }
-        if !self.ax_coalescer.due(now_ms) {
-            return Ok(AxCapture::NotDue);
-        }
-        let r = self.capture_live_ax();
-        // 抓过就 mark(无论快照成功与否):失败也不该让合并器把这次"该抓"一直挂着空转;
-        // 下一次变化或兜底周期会再触发。
-        self.ax_coalescer.mark_captured(now_ms);
-        r
+            .unwrap_or(true))
     }
 
-    /// Live AXUIElement capture of the frontmost app into the adapter queue.
-    ///
-    /// 前台是 AgentGuard 自己时返回 [`AxCapture::SkippedSelf`] 且**不**入队:守卫不观察自己
-    ///(见 `UiSnapshot::source_pid` 的注释)。调用方要把它当作一次成功的心跳——观察器活着,
-    /// 只是此刻没有别人的窗口可看。
-    pub fn capture_live_ax(&mut self) -> Result<AxCapture, String> {
-        let snap = crate::ax_native::live_ax_snapshot()?;
+    /// 记录一次已完成的原生 observer 核对（成功与否都节流 500ms，避免失败热循环）。
+    pub fn note_ax_observer_refreshed(
+        &mut self,
+        generation: ObserverGeneration,
+        now_ms: i64,
+    ) -> Result<(), String> {
+        if self.ax_observer_generation != Some(generation) {
+            return Err(format!("stale AX observer generation {generation}"));
+        }
+        self.ax_observer_refresh_ms = Some(now_ms);
+        Ok(())
+    }
+
+    /// 把锁外取得的通知计数喂给合并器，只回答这一拍是否应抓快照。
+    pub fn ax_capture_due(
+        &mut self,
+        generation: ObserverGeneration,
+        now_ms: i64,
+        notifications: u64,
+    ) -> Result<bool, String> {
+        if self.ax_observer_generation != Some(generation) {
+            return Err(format!("stale AX observer generation {generation}"));
+        }
+        if notifications > 0 {
+            self.ax_coalescer.note(now_ms);
+        }
+        Ok(self.ax_coalescer.due(now_ms))
+    }
+
+    /// 提交锁外取得的快照；代际校验和 `mark_captured` 与入队在同一个短临界区完成。
+    pub fn apply_ax_snapshot(
+        &mut self,
+        generation: ObserverGeneration,
+        now_ms: i64,
+        snap: AxSnapshot,
+    ) -> Result<AxCapture, String> {
+        if self.ax_observer_generation != Some(generation) {
+            return Err(format!("stale AX observer generation {generation}"));
+        }
+        self.ax_coalescer.mark_captured(now_ms);
+        Ok(self.ingest_live_ax_snapshot(snap))
+    }
+
+    /// 一次性手动抓取的锁内提交面。调用方负责先在锁外完成 AXUIElement 快照。
+    pub fn ingest_live_ax_snapshot(&mut self, snap: AxSnapshot) -> AxCapture {
         if snap.is_self_observation() {
-            return Ok(AxCapture::SkippedSelf);
+            return AxCapture::SkippedSelf;
         }
         if let Some(b) = snap.root.bounds.as_ref() {
             if b.width > 0.0 && b.height > 0.0 {
@@ -257,7 +314,7 @@ impl MacAdapter {
             }
         }
         self.ingest_ax_snapshot(snap);
-        Ok(AxCapture::Captured)
+        AxCapture::Captured
     }
 
     pub fn has_session(&self) -> bool {
@@ -304,6 +361,41 @@ fn default_form_schemas() -> Vec<AppFormSchema> {
     Vec::new()
 }
 
+#[cfg(test)]
+mod timestamp_tests {
+    use super::*;
+
+    fn adapter_with_ax(timestamp_ms: i64) -> MacAdapter {
+        MacAdapter {
+            last_ax_text: Some("Confirm Payment".into()),
+            last_ax_ms: timestamp_ms,
+            ..MacAdapter::new()
+        }
+    }
+
+    #[test]
+    fn ax_text_pairs_only_with_a_nearby_wall_clock_frame() {
+        let base = 1_788_546_177_000;
+        let adapter = adapter_with_ax(base);
+        assert_eq!(
+            adapter.pairable_ax_text(base + VIEWTREE_PAIRING_WINDOW_MS),
+            Some("Confirm Payment".into())
+        );
+        assert_eq!(
+            adapter.pairable_ax_text(base + VIEWTREE_PAIRING_WINDOW_MS + 1),
+            None
+        );
+    }
+
+    #[test]
+    fn unknown_or_media_clock_timestamp_never_pairs_as_fresh() {
+        let adapter = adapter_with_ax(1_788_546_177_000);
+        assert_eq!(adapter.pairable_ax_text(0), None);
+        assert_eq!(adapter.pairable_ax_text(-1), None);
+        assert_eq!(adapter.pairable_ax_text(294_365_480), None);
+    }
+}
+
 pub mod permissions {
     //! TCC / Accessibility probes.
 
@@ -318,10 +410,16 @@ pub mod permissions {
         }
     }
 
-    /// Best-effort prompt: on macOS this re-checks trust; UI should deep-link
-    /// users to System Settings → Privacy → Accessibility when false.
+    /// 仅在用户点击授权入口时请求系统提示；普通状态轮询不触发授权。
     pub fn request_accessibility_prompt() -> bool {
-        accessibility_granted()
+        #[cfg(target_os = "macos")]
+        {
+            native::ax_request_permission()
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
     }
 
     pub fn screen_capture_granted() -> bool {
@@ -353,6 +451,10 @@ pub mod permissions {
             fn AXIsProcessTrusted() -> u8;
         }
 
+        extern "C" {
+            fn agentguard_ax_request_permission() -> std::os::raw::c_int;
+        }
+
         #[link(name = "CoreGraphics", kind = "framework")]
         extern "C" {
             fn CGPreflightScreenCaptureAccess() -> u8;
@@ -361,6 +463,10 @@ pub mod permissions {
 
         pub fn ax_is_process_trusted() -> bool {
             unsafe { AXIsProcessTrusted() != 0 }
+        }
+
+        pub fn ax_request_permission() -> bool {
+            unsafe { agentguard_ax_request_permission() == 0 }
         }
 
         pub fn cg_preflight_screen_capture() -> bool {

@@ -672,7 +672,7 @@ fn process_payload(
     Ok(resp)
 }
 
-/// 给浏览器路径的审计接上签名,并且在既不签名也不加密时**大声说出来**。
+/// Resolve the browser-host signer before the database is opened.
 ///
 /// # 为什么这条路以前既不签名也不加密,还不打警告
 ///
@@ -687,47 +687,42 @@ fn process_payload(
 /// 当场生成一把密钥,它的公钥哪儿都没有,却会"验证"通过 DB 里内嵌的那份副本、证明不了
 /// 任何东西(localapi 的注释已经记过这个教训)。env 设了但文件加载不了 → **拒绝启动**,
 /// 因为那是一条我们没能执行的运维指令。
-fn apply_audit_signing(store: AuditStore) -> Result<AuditStore> {
-    let encrypted = std::env::var("AGENTGUARD_AUDIT_KEY")
-        .map(|v| !v.is_empty())
-        .unwrap_or(false);
-    let signing_key = std::env::var("AGENTGUARD_AUDIT_SIGNING_KEY")
-        .ok()
-        .filter(|p| !p.is_empty());
-    apply_audit_signing_with(store, signing_key.as_deref(), encrypted)
-}
-
-/// 纯逻辑:签名密钥路径与是否加密都由调用方给定,**不读环境变量**。
-///
-/// 抽出来是为了能在并行测试里无全局状态地验证 —— env 变量是进程全局的,两个测试若各自
-/// `set_var` / `remove_var` 同一个 key,并行跑时会互相看到对方的值(实测:一个测试把
-/// `AGENTGUARD_AUDIT_SIGNING_KEY` 设成无效路径,另一个"未设密钥"的测试就偶发读到它、
-/// 误判成拒绝启动)。参数注入把这个竞态从根上去掉。
-fn apply_audit_signing_with(
-    store: AuditStore,
+fn configured_audit_signer(
     signing_key: Option<&str>,
-    encrypted: bool,
-) -> Result<AuditStore> {
+) -> Result<Option<Box<dyn guard_audit::AuditSigner>>> {
     match signing_key {
         Some(path) => {
             let key = guard_audit::FileDeviceKey::load_existing(path)
                 .with_context(|| format!("load audit signing key {path}"))?;
             eprintln!("agentguard: 审计签名已启用(密钥 {path})");
-            store.with_signer(Box::new(key))
+            Ok(Some(Box::new(key)))
         }
-        None => {
-            // 不签名是一个可以接受的选择(开发默认),但不能是一个**沉默**的选择。
+        None => Ok(None),
+    }
+}
+
+fn open_runtime_audit(path: &Path) -> Result<AuditStore> {
+    let encrypted = std::env::var("AGENTGUARD_AUDIT_KEY")
+        .map(|value| !value.is_empty())
+        .unwrap_or(false);
+    let signing_key = std::env::var("AGENTGUARD_AUDIT_SIGNING_KEY")
+        .ok()
+        .filter(|path| !path.is_empty());
+    let signer = configured_audit_signer(signing_key.as_deref())?;
+    if signer.is_none() {
+        // This remains an explicit development choice. On Windows Release,
+        // AuditStore::open_runtime turns it into a startup error before creating
+        // the DB instead of silently producing unsigned records.
+        eprintln!(
+            "agentguard: 警告:浏览器审计**未签名**(未设 AGENTGUARD_AUDIT_SIGNING_KEY)。\n             \t开发构建可继续；Windows Release 会失败关闭。"
+        );
+        if !encrypted {
             eprintln!(
-                "agentguard: 警告:浏览器审计**未签名**(未设 AGENTGUARD_AUDIT_SIGNING_KEY)。\n                 \t这条路的审计行没有非否认保证;设一个由 `agentguard audit-keygen` 生成的\n                 \t密钥文件来启用签名。"
+                "agentguard: 警告:浏览器审计**也未加密**(未设 AGENTGUARD_AUDIT_KEY)。\n                 \t开发构建的事件 JSON 会明文落盘；Windows Release 会在建库前拒绝。"
             );
-            if !encrypted {
-                eprintln!(
-                    "agentguard: 警告:浏览器审计**也未加密**(未设 AGENTGUARD_AUDIT_KEY)。\n                     \t审计库里每条事件的 JSON 载荷以明文落盘,含观测到的 URL 等。"
-                );
-            }
-            Ok(store)
         }
     }
+    AuditStore::open_runtime(path, signer)
 }
 
 fn build_engine() -> Result<Engine> {
@@ -738,8 +733,8 @@ fn build_engine() -> Result<Engine> {
             rules.path.display()
         );
     }
-    let store = AuditStore::open(audit_path()?).context("open audit db")?;
-    let store = apply_audit_signing(store)?;
+    let audit = audit_path()?;
+    let store = open_runtime_audit(&audit).context("open protected runtime audit db")?;
     let engine = Engine::from_paths(&rules.path, None::<PathBuf>)?.with_audit(store);
 
     // 一个语法合法的 `rules: []` 就是把整个守卫关掉:复核把 `AGENTGUARD_RULES` 指向这样
@@ -1185,15 +1180,11 @@ mod tests {
 
     /// 签名密钥路径指向不存在的文件 → 拒绝启动。
     ///
-    /// 那是一条我们没能执行的运维指令,不能静默降级成"不签名"。用参数注入的
-    /// `apply_audit_signing_with`,不碰进程全局的环境变量(否则和下面那条测试并行时会打架)。
+    /// 那是一条我们没能执行的运维指令,不能静默降级成"不签名"。参数注入不碰进程
+    /// 全局的环境变量(否则和下面那条测试并行时会打架)。
     #[test]
     fn 签名密钥路径无效时拒绝() {
-        let db = std::env::temp_dir().join(format!("ag-nm-sign-{}.db", std::process::id()));
-        let _ = std::fs::remove_file(&db);
-        let store = AuditStore::open(&db).unwrap();
-        let r = apply_audit_signing_with(store, Some("/nonexistent/dev.key"), false);
-        let _ = std::fs::remove_file(&db);
+        let r = configured_audit_signer(Some("/nonexistent/dev.key"));
         assert!(r.is_err(), "无效的签名密钥路径必须拒绝启动");
     }
 
@@ -1202,8 +1193,8 @@ mod tests {
     fn 未设签名密钥时不签名但不报错() {
         let db = std::env::temp_dir().join(format!("ag-nm-nosign-{}.db", std::process::id()));
         let _ = std::fs::remove_file(&db);
-        let store = AuditStore::open(&db).unwrap();
-        let r = apply_audit_signing_with(store, None, true);
+        let signer = configured_audit_signer(None).unwrap();
+        let r = AuditStore::open_runtime(&db, signer);
         let _ = std::fs::remove_file(&db);
         assert!(r.is_ok(), "未设签名密钥不应当报错:{r:?}");
         assert!(

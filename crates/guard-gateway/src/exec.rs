@@ -26,6 +26,41 @@ pub const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 /// MCP 会话停在那里，而智能体只会看到"没有响应"。
 pub const EXEC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
+/// Windows first-GA execution posture.
+///
+/// The current policy judges path *names*, while Win32 filesystem calls and
+/// child processes reopen those names later. Without a handle-bound executor,
+/// a junction/reparse/hard-link swap can change the object after approval. A
+/// final-path recheck still leaves a new check/use window, so Windows disables
+/// every side-effect tool before execution instead of claiming that gap closed.
+pub const WINDOWS_FAIL_CLOSED_REASON: &str =
+    "Windows 首个 GA 已禁用 gateway 副作用工具：当前实现不能把已批准路径绑定到同一文件句柄，\
+     也不能约束子进程重新解析字符串路径；为避免 junction/reparse/hard-link TOCTOU，\
+     本次调用在任何文件系统或进程副作用前失败关闭。直接绕过 gateway 仍在 cooperative 边界之外。";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ExecutionMode {
+    Native,
+    WindowsFailClosed,
+}
+
+impl ExecutionMode {
+    pub(crate) const fn host() -> Self {
+        if cfg!(target_os = "windows") {
+            Self::WindowsFailClosed
+        } else {
+            Self::Native
+        }
+    }
+
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::Native => "enabled",
+            Self::WindowsFailClosed => "disabled_fail_closed",
+        }
+    }
+}
+
 /// 网关掌管的工具。
 ///
 /// 刻意窄：每一个都是"危险到值得由守卫来执行"的动作。读文件也在里面，因为凭据目录的读
@@ -80,6 +115,23 @@ impl ToolCall {
     /// 这个函数自己不做任何判决，也不应该做：把判决混进执行里，就没法写一个"判了拒绝之后
     /// 文件确实还在"的测试了。
     pub fn execute(&self) -> ExecOutput {
+        self.execute_with_mode(ExecutionMode::host())
+    }
+
+    pub(crate) fn platform_denial(&self, mode: ExecutionMode) -> Option<String> {
+        match mode {
+            ExecutionMode::Native => None,
+            ExecutionMode::WindowsFailClosed => Some(format!(
+                "{WINDOWS_FAIL_CLOSED_REASON}\n\n未执行：{}",
+                self.describe()
+            )),
+        }
+    }
+
+    pub(crate) fn execute_with_mode(&self, mode: ExecutionMode) -> ExecOutput {
+        if let Some(reason) = self.platform_denial(mode) {
+            return ExecOutput::err(reason);
+        }
         match self {
             ToolCall::RunShell { argv, cwd } => run_argv(argv, cwd.as_deref()),
             ToolCall::ReadFile { path } => match std::fs::read(path) {
@@ -239,6 +291,61 @@ fn run_argv(argv: &[String], cwd: Option<&std::path::Path>) -> ExecOutput {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_fail_closed_mode_blocks_every_side_effect_before_it_happens() {
+        let dir = tempfile_dir("windows-fail-closed");
+        let existing = dir.join("existing.txt");
+        let missing = dir.join("missing.txt");
+        std::fs::write(&existing, "secret-canary").unwrap();
+
+        let calls = [
+            ToolCall::ReadFile {
+                path: existing.clone(),
+            },
+            ToolCall::WriteFile {
+                path: missing.clone(),
+                contents: "must-not-land".into(),
+            },
+            ToolCall::DeleteFile {
+                path: existing.clone(),
+            },
+            ToolCall::RunShell {
+                argv: vec!["definitely-not-launched-by-agentguard".into()],
+                cwd: Some(dir.clone()),
+            },
+        ];
+        for call in calls {
+            let output = call.execute_with_mode(ExecutionMode::WindowsFailClosed);
+            assert!(!output.ok, "Windows fail-closed call executed: {call:?}");
+            assert!(
+                output.detail.contains("disabled_fail_closed")
+                    || output.detail.contains("失败关闭"),
+                "denial did not explain the Windows posture: {}",
+                output.detail
+            );
+            assert!(
+                !output.detail.contains("secret-canary"),
+                "denied read leaked file content"
+            );
+        }
+        assert_eq!(std::fs::read_to_string(&existing).unwrap(), "secret-canary");
+        assert!(!missing.exists(), "denied write created its target");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    fn tempfile_dir(tag: &str) -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "agentguard-exec-{tag}-{}-{}",
+            std::process::id(),
+            NEXT_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir(&path).unwrap();
+        path
+    }
 
     /// 用当前测试二进制充当可控的子进程，避免测试本身依赖 `/bin/sh`、`printf` 或
     /// PowerShell。这样 Unix 和 Windows 跑的是同一条 `Command::new(argv[0]).args(...)`

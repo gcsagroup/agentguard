@@ -8,7 +8,7 @@
 //! 只看返回值的测试。
 
 use super::*;
-use crate::exec::ToolCall;
+use crate::exec::{ExecutionMode, ToolCall};
 use crate::gate::Gate;
 use crate::server::{Handled, Server};
 use guard_shell::SafeShell;
@@ -63,7 +63,15 @@ fn server_for(tmp: &Tmp, timeout: Duration) -> Server {
         .with_workspace(vec![ws.clone()], vec![ws]);
     assert!(rejected.is_empty(), "授权应当可归约：{rejected:?}");
     let engine = guard_core::Engine::from_paths(rules_path(), None::<PathBuf>).expect("规则");
-    Server::new(Gate::new(shell, engine), PendingConfirm::new(), timeout)
+    // Most tests exercise the cross-platform policy/executor contract. Keep
+    // that backend explicit so Windows CI can test it without weakening the
+    // production constructor's fail-closed Windows mode.
+    Server::new_with_execution_mode(
+        Gate::new(shell, engine),
+        PendingConfirm::new(),
+        timeout,
+        ExecutionMode::Native,
+    )
 }
 
 fn write_call(path: &std::path::Path, contents: &str) -> (ToolCall, guard_shell::ShellAction) {
@@ -412,7 +420,7 @@ fn 通知不产生响应() {
 
 #[test]
 fn 工具清单里每个工具都有名字描述和schema() {
-    let tools = Server::tools();
+    let tools = Server::tools_for(ExecutionMode::Native);
     assert!(tools.len() >= 6, "工具数量 {}", tools.len());
     for t in &tools {
         assert!(
@@ -432,6 +440,13 @@ fn 工具清单里每个工具都有名字描述和schema() {
             "{t}"
         );
     }
+
+    let windows_tools = Server::tools_for(ExecutionMode::WindowsFailClosed);
+    let names: Vec<_> = windows_tools
+        .iter()
+        .filter_map(|tool| tool.get("name").and_then(|value| value.as_str()))
+        .collect();
+    assert_eq!(names, ["start_session", "end_session"]);
 }
 
 #[test]
@@ -482,6 +497,77 @@ fn stats_里报的强制力是协作式() {
         serde_json::from_str(r#"{"jsonrpc":"2.0","id":9,"method":"gateway/stats"}"#).expect("解析");
     let v = server.handle(req).expect("要有响应");
     assert_eq!(v["result"]["enforcement"], "cooperative");
+    assert_eq!(v["result"]["side_effect_tools"], "enabled");
+}
+
+#[test]
+fn windows生产模式在判决前拒绝全部副作用且统计为refused() {
+    let tmp = Tmp::new("windows-fail-closed-server");
+    let target = tmp.path().join("must-not-exist.txt");
+    let ws = tmp.path().to_string_lossy().into_owned();
+    let (shell, rejected) = SafeShell::from_path(shell_policy_path())
+        .unwrap()
+        .with_workspace(vec![ws.clone()], vec![ws]);
+    assert!(rejected.is_empty());
+    let engine = guard_core::Engine::from_paths(rules_path(), None::<PathBuf>).unwrap();
+    let mut server = Server::new_with_execution_mode(
+        Gate::new(shell, engine),
+        PendingConfirm::new(),
+        Duration::from_millis(30),
+        ExecutionMode::WindowsFailClosed,
+    );
+    let (call, action) = write_call(&target, "must-not-land");
+    match server.gate_and_run(call, action) {
+        Handled::Refused { reason } => {
+            assert!(reason.contains("失败关闭"), "{reason}");
+            assert!(reason.contains("TOCTOU"), "{reason}");
+        }
+        other => panic!("Windows production mode must refuse, got {other:?}"),
+    }
+    assert!(!target.exists(), "Windows fail-closed path wrote the file");
+
+    let request: mcp::Request =
+        serde_json::from_str(r#"{"jsonrpc":"2.0","id":9,"method":"tools/list"}"#).unwrap();
+    let listed = server.handle(request).unwrap();
+    let names: Vec<_> = listed["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect();
+    assert_eq!(names, ["start_session", "end_session"]);
+
+    let forged_target = tmp.path().join("forged-must-not-exist.txt");
+    let request: mcp::Request = serde_json::from_value(serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 10,
+        "method": "tools/call",
+        "params": {
+            "name": "write_file",
+            "arguments": {"path": forged_target, "contents": "must-not-land"}
+        }
+    }))
+    .unwrap();
+    let forged = server.handle(request).unwrap();
+    assert_eq!(forged["result"]["isError"], true, "{forged}");
+    assert!(
+        forged["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("失败关闭"),
+        "{forged}"
+    );
+    assert!(
+        !forged_target.exists(),
+        "a forged MCP call bypassed Windows fail-closed mode"
+    );
+
+    let request: mcp::Request =
+        serde_json::from_str(r#"{"jsonrpc":"2.0","id":11,"method":"gateway/stats"}"#).unwrap();
+    let stats = server.handle(request).unwrap();
+    assert_eq!(stats["result"]["executed"], 0);
+    assert_eq!(stats["result"]["refused"], 2);
+    assert_eq!(stats["result"]["side_effect_tools"], "disabled_fail_closed");
 }
 
 // ------------------------------------------------- 天花板替代确认，及其三条不放松的边界
@@ -513,10 +599,11 @@ fn 边界一_天花板没声明时照旧确认() {
     // 不装工作区。
     let shell = SafeShell::from_path(shell_policy_path()).expect("shell 策略");
     let engine = guard_core::Engine::from_paths(rules_path(), None::<PathBuf>).expect("规则");
-    let mut server = Server::new(
+    let mut server = Server::new_with_execution_mode(
         Gate::new(shell, engine),
         PendingConfirm::new(),
         Duration::from_millis(40),
+        ExecutionMode::Native,
     );
     let (call, action) = write_call(&target, "x");
     match server.gate_and_run(call, action) {

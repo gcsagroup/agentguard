@@ -1,6 +1,7 @@
 #ifndef AGENTGUARD_SCK_H
 #define AGENTGUARD_SCK_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -14,7 +15,8 @@ enum {
   AG_SCK_DENIED = 2,
   AG_SCK_BUSY = 3,
   AG_SCK_ERROR = 4,
-  AG_SCK_NOT_STREAMING = 5
+  AG_SCK_NOT_STREAMING = 5,
+  AG_SCK_TIMEOUT = 6
 };
 
 /**
@@ -46,8 +48,8 @@ enum {
  * chroma_lsb_flip_rate: same statistic on the Cb/Cr planes (max of the two).
  *   A4 as published embeds in chroma *while preserving luminance*, so the luma
  *   rate above cannot see it.
- * frame_digest: structural grid digest, "luma|cb|cr" with one hex nibble per block
- *   of a 16x9 grid (see Rust `framehash`). Used for A4 screenshot-integrity
+ * frame_digest: structural grid digest, "luma|cb|cr|detail" with one hex nibble
+ *   per block of a 16x9 grid (see Rust `framehash`). Used for A4 screenshot-integrity
  *   comparison across the TOCTOU window, and recorded in the signed audit trail.
  *   Whole-frame mean luminance cannot do this job: a line of injected text moves
  *   the frame mean by under a thousandth. NULL when the frame was too small.
@@ -79,17 +81,46 @@ typedef void (*agentguard_sck_frame_cb)(const agentguard_frame_stats *stats, voi
 /** Probe ScreenCaptureKit + Screen Recording permission (sync). */
 int agentguard_sck_probe(void);
 
-/** Start a low-FPS display stream; invokes cb on the capture queue. */
-int agentguard_sck_start(agentguard_sck_frame_cb cb, void *userdata);
+/**
+ * Start a low-FPS display stream; invokes cb on the capture queue.
+ * After AG_SCK_TIMEOUT, later starts return AG_SCK_BUSY until Apple's pending
+ * completion and any stale-stream stop cleanup have actually finished. If that
+ * cleanup reports an error, capture remains BUSY/fail-closed until restart.
+ */
+int agentguard_sck_start(agentguard_sck_frame_cb cb, void *userdata,
+                         uint64_t generation);
 
-/** Stop the active stream (idempotent). */
-int agentguard_sck_stop(void);
+/**
+ * Stop only the matching generation; stale callers cannot stop a successor.
+ * A failed stop keeps native ownership and blocks future starts until restart.
+ */
+int agentguard_sck_stop(uint64_t generation);
 
-/** Human-readable last error (static buffer; may be empty). */
-const char *agentguard_sck_last_error(void);
+/** Caller-owned copy of the last error (may be empty); release with string_free. */
+char *agentguard_sck_last_error_copy(void);
+
+/** Deterministic, framework-free check of the native single-flight transitions. */
+int agentguard_sck_singleflight_state_self_test(void);
+
+/** Deterministic check of permanent-vs-temporary BUSY diagnostic ownership. */
+int agentguard_sck_busy_reason_state_self_test(void);
 
 /** Free a string returned via the frame callback (ocr_text). */
 void agentguard_sck_string_free(char *s);
+
+/**
+ * Pure pixel-analysis entry points shared by the live callback and the Rust
+ * cross-language golden-vector tests. They never retain or export raw pixels.
+ * `bytes_per_row` must be at least `width * 4` and divisible by four; `bgra`
+ * selects BGRA when non-zero and RGBA otherwise.
+ */
+char *agentguard_sck_frame_digest_rgba(const uint8_t *pixels, size_t width,
+                                       size_t height, size_t bytes_per_row,
+                                       int bgra);
+int agentguard_sck_band_ratios_rgba(const uint8_t *pixels, size_t width,
+                                    size_t height, size_t bytes_per_row,
+                                    int bgra, float *strong_out,
+                                    float *wide_out);
 
 #ifdef __cplusplus
 }

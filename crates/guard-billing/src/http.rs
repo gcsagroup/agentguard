@@ -18,8 +18,6 @@ pub fn serve_billing_webhook(
     shutdown: Option<Arc<AtomicBool>>,
 ) -> Result<()> {
     let server = tiny_http::Server::http(bind).map_err(|e| anyhow::anyhow!("bind {bind}: {e}"))?;
-    eprintln!("billing webhook listening on http://{bind}/webhook/billing");
-
     // 签名密钥在启动时读一次(避免每请求读进程全局 env 的竞态)。没设 = **拒收所有
     // webhook**(fail-closed):这个接收端会自铸并激活授权令牌,一个未认证的匿名 POST
     // 不能被允许改动授权。
@@ -32,6 +30,18 @@ pub fn serve_billing_webhook(
              (fail-closed)。设成签发方的签名密钥后才会校验并应用。"
         );
     }
+
+    run_billing_webhook(server, store, shutdown, secret)
+}
+
+fn run_billing_webhook(
+    server: tiny_http::Server,
+    store: PathBuf,
+    shutdown: Option<Arc<AtomicBool>>,
+    secret: Option<String>,
+) -> Result<()> {
+    let bound = server.server_addr();
+    eprintln!("billing webhook listening on http://{bound}/webhook/billing");
 
     loop {
         if shutdown
@@ -166,36 +176,31 @@ pub fn apply_file_to_store(path: impl AsRef<Path>, store: impl AsRef<Path>) -> R
 mod tests {
     use super::*;
     use std::thread;
-    use std::time::Duration;
-
-    /// 轮询 `/health` 直到服务器起来,取代固定 `sleep`(固定 sleep 在并行/高负载下偶发不够)。
-    fn wait_ready(port: u16) {
-        let url = format!("http://127.0.0.1:{port}/health");
-        for _ in 0..200 {
-            match ureq::get(&url).call() {
-                Ok(_) => return,
-                Err(ureq::Error::Status(_, _)) => return,
-                Err(_) => thread::sleep(Duration::from_millis(25)),
-            }
-        }
-        panic!("billing webhook on 127.0.0.1:{port} did not become ready in time");
-    }
 
     #[test]
     fn health_and_signed_purchase_via_http() {
-        // 这个测试独占 webhook 密钥环境变量;端口也独占,避免和下面拒收测试撞车。
-        std::env::set_var("AGENTGUARD_WEBHOOK_SECRET", "test-webhook-secret-abc");
+        // 先绑定系统分配的临时端口,再把已绑定 server 交给线程。这样 bind 错误不会被
+        // 后台线程吞掉,也不会误连到恰好占用固定端口的其他进程。
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tiny_http::Server::from_listener(listener, None).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let store = dir.path().join("ent.json");
         let shutdown = Arc::new(AtomicBool::new(false));
         let flag = shutdown.clone();
         let store_c = store.clone();
         let handle = thread::spawn(move || {
-            let _ = serve_billing_webhook("127.0.0.1:18765".parse().unwrap(), store_c, Some(flag));
+            run_billing_webhook(
+                server,
+                store_c,
+                Some(flag),
+                Some("test-webhook-secret-abc".to_string()),
+            )
         });
-        wait_ready(18765);
+        let health_url = format!("http://127.0.0.1:{port}/health");
+        let webhook_url = format!("http://127.0.0.1:{port}/webhook/billing");
 
-        let health = ureq::get("http://127.0.0.1:18765/health").call().unwrap();
+        let health = ureq::get(&health_url).call().unwrap();
         assert_eq!(health.status(), 200);
 
         let now = std::time::SystemTime::now()
@@ -209,7 +214,7 @@ mod tests {
         let sig = crate::sign_webhook_body("test-webhook-secret-abc", body);
 
         // 无签名 → 401。
-        let denied = ureq::post("http://127.0.0.1:18765/webhook/billing")
+        let denied = ureq::post(&webhook_url)
             .set("Content-Type", "application/json")
             .send_string(body);
         match denied {
@@ -218,7 +223,7 @@ mod tests {
         }
 
         // 正确签名 → 200。
-        let resp = ureq::post("http://127.0.0.1:18765/webhook/billing")
+        let resp = ureq::post(&webhook_url)
             .set("Content-Type", "application/json")
             .set("X-AgentGuard-Signature", &sig)
             .send_string(body)
@@ -227,8 +232,7 @@ mod tests {
         assert!(store.exists());
 
         shutdown.store(true, Ordering::Relaxed);
-        let _ = handle.join();
-        std::env::remove_var("AGENTGUARD_WEBHOOK_SECRET");
+        handle.join().unwrap().unwrap();
     }
 
     /// HMAC 验证的纯逻辑(不起服务器):正确签名过、篡改 body / 错密钥 / 缺头都拒。

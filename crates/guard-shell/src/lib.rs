@@ -776,14 +776,31 @@ mod tests {
     #[test]
     fn denies_a_write_into_a_system_directory() {
         let shell = SafeShell::from_default_policy();
-        let verdict = shell.evaluate(&ShellAction {
-            tool: "write_file".into(),
-            action: None,
-            target: Some(test_paths::SYSTEM_FILE.into()),
-            args: vec![],
-        });
-        assert_eq!(verdict.decision, ShellDecision::Deny, "{verdict:?}");
-        assert_eq!(verdict.rule_id, "SHELL-PATH-SENSITIVE");
+        #[cfg(target_os = "windows")]
+        let targets = [
+            test_paths::SYSTEM_FILE,
+            r"C:\ProgramData\AgentGuard\state.db",
+            r"c:\PROGRAM FILES (X86)\AgentGuard\agentguard.exe",
+            r"\\?\C:\ProgramData\AgentGuard\state.db",
+            r"\\localhost\C$\ProgramData\AgentGuard\state.db",
+        ];
+        #[cfg(not(target_os = "windows"))]
+        let targets = [test_paths::SYSTEM_FILE];
+
+        for target in targets {
+            let verdict = shell.evaluate(&ShellAction {
+                tool: "write_file".into(),
+                action: None,
+                target: Some(target.into()),
+                args: vec![],
+            });
+            assert_eq!(
+                verdict.decision,
+                ShellDecision::Deny,
+                "{target}: {verdict:?}"
+            );
+            assert_eq!(verdict.rule_id, "SHELL-PATH-SENSITIVE", "{target}");
+        }
     }
 
     /// 而普通位置的写仍然走确认，否则上面那条只是"什么都拒"。

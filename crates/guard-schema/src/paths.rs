@@ -208,9 +208,11 @@ impl ResolveContext {
     /// 用当前进程的环境。
     pub fn current() -> Self {
         Self {
-            home: std::env::var_os("HOME")
-                .or_else(|| std::env::var_os("USERPROFILE"))
-                .map(PathBuf::from),
+            home: select_home(
+                std::env::var_os("HOME"),
+                std::env::var_os("USERPROFILE"),
+                cfg!(target_os = "windows"),
+            ),
             cwd: std::env::current_dir().ok(),
         }
     }
@@ -222,6 +224,24 @@ impl ResolveContext {
             cwd: cwd.map(PathBuf::from),
         }
     }
+}
+
+/// 从进程环境选择当前用户的家目录。
+///
+/// Windows 的真实用户配置根是 `USERPROFILE`。Git Bash、Cygwin 或调用它们的宿主可能同时
+/// 注入一个不同的 `HOME`;若让后者优先,`~` 展开和“删除整个家目录”会判向另一棵树。
+/// 非 Windows 保持原有顺序:`HOME` 优先，`USERPROFILE` 只作兼容回退。
+fn select_home(
+    home: Option<std::ffi::OsString>,
+    user_profile: Option<std::ffi::OsString>,
+    windows: bool,
+) -> Option<PathBuf> {
+    if windows {
+        user_profile.or(home)
+    } else {
+        home.or(user_profile)
+    }
+    .map(PathBuf::from)
 }
 
 /// 通配符字符。带这些的操作数无法归约成一个路径。
@@ -469,8 +489,9 @@ impl VolumeAliases {
     }
 }
 
-/// Windows 路径形状折叠:verbatim 盘符前缀(`\\?\C:\...`)与盘符根(`C:\...`)
-/// 折成 unix 形状(`/...`),反斜杠统一为正斜杠。
+/// Windows 路径形状折叠:盘符、verbatim 盘符、UNC 与 verbatim UNC 都进入一个小写的
+/// 比较空间。盘符和管理员共享(`<盘符>$` / `ADMIN$`)折成 unix 形状(`/...`);
+/// 普通 UNC 保留 server/share 身份，折成 `/unc/<server>/<share>/...`。
 ///
 /// # 为什么存在(报告 P0-2,CI 真实失败)
 ///
@@ -487,10 +508,24 @@ impl VolumeAliases {
 /// 折叠的方向准则一致。**不要**把它用进 resolve/天花板判定,那边是 allow 方向。
 ///
 /// 刻意不折的形状(都有测试钉住):`\\.\` 设备命名空间(RAW_DEVICE_PREFIXES 按原样
-/// 比前缀)、verbatim UNC(SYSTEM_DIRS 不含 UNC 形状,留给真机验收)、真 unix 路径(恒等)。
+/// 比前缀)和真 unix 路径(恒等)。普通 UNC 不会丢掉 server/share，所以一个恰好含
+/// `Windows` 目录的团队共享不会被误当成本机系统根；只有 Windows 保留的管理员共享
+/// 才与盘符根语义等价。
 pub fn fold_windows_shapes(path: &Path) -> PathBuf {
     let s = path.to_string_lossy();
-    // verbatim 前缀只在后面跟盘符时剥掉;`\\?\UNC\...` 剥完不是盘符,走不进下面的分支。
+    if let Some(rest) = strip_ascii_case_prefix(&s, r"\\?\UNC\") {
+        if let Some(folded) = fold_unc(rest) {
+            return folded;
+        }
+    } else if s.starts_with(r"\\?\") || s.starts_with(r"\\.\") {
+        // Verbatim 盘符继续走下面的盘符分支；设备命名空间必须保持原样，留给
+        // RAW_DEVICE_PREFIXES 判断，不能伪装成普通 UNC。
+    } else if let Some(rest) = s.strip_prefix(r"\\") {
+        if let Some(folded) = fold_unc(rest) {
+            return folded;
+        }
+    }
+
     let rest = s.strip_prefix(r"\\?\").unwrap_or(&s);
     let b = rest.as_bytes();
     if b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/')
@@ -500,6 +535,46 @@ pub fn fold_windows_shapes(path: &Path) -> PathBuf {
         return PathBuf::from(format!("/{}", rest[3..].replace('\\', "/").to_lowercase()));
     }
     path.to_path_buf()
+}
+
+fn strip_ascii_case_prefix<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
+    value
+        .as_bytes()
+        .get(..prefix.len())
+        .filter(|head| head.eq_ignore_ascii_case(prefix.as_bytes()))
+        .map(|_| &value[prefix.len()..])
+}
+
+fn fold_unc(rest: &str) -> Option<PathBuf> {
+    let mut parts = rest.split(['\\', '/']).filter(|part| !part.is_empty());
+    let server = parts.next()?;
+    let share = parts.next()?;
+    let tail = parts.collect::<Vec<_>>().join("/").to_lowercase();
+
+    let share_bytes = share.as_bytes();
+    let drive_admin =
+        share_bytes.len() == 2 && share_bytes[0].is_ascii_alphabetic() && share_bytes[1] == b'$';
+    if drive_admin {
+        return Some(PathBuf::from(format!("/{tail}")));
+    }
+    if share.eq_ignore_ascii_case("ADMIN$") {
+        return Some(PathBuf::from(if tail.is_empty() {
+            "/windows".to_string()
+        } else {
+            format!("/windows/{tail}")
+        }));
+    }
+
+    let mut folded = format!("/unc/{}/{}", server.to_lowercase(), share.to_lowercase());
+    if !tail.is_empty() {
+        folded.push('/');
+        folded.push_str(&tail);
+    }
+    Some(PathBuf::from(folded))
+}
+
+fn normalize_sensitive_path(path: &Path, aliases: VolumeAliases) -> PathBuf {
+    dealias_with(&fold_windows_shapes(path), aliases)
 }
 
 fn dealias_with(path: &Path, mode: VolumeAliases) -> PathBuf {
@@ -757,15 +832,17 @@ pub fn sensitive_target_full(
     //
     // 折叠是幂等的,所以做两次和做一次结果一样。
     // Windows 形状先归一(verbatim 盘符 / 盘符根 → unix 形状;deny 方向,见函数文档)。
-    let path = &fold_windows_shapes(path);
-    let path = &dealias_with(path, aliases);
+    let path = &normalize_sensitive_path(path, aliases);
     let s = path.to_string_lossy();
     let lower = s.to_lowercase();
 
     // 家目录也要归一化后再比 —— 否则 `/Users/me` 和
     // `/System/Volumes/Data/Users/me` 会被当成两个不同的目录,于是"删掉整个家目录"
     // 这条判不出来。
-    let home = home.map(|h| dealias_with(h, aliases));
+    let home = home.map(|h| {
+        let canonical = std::fs::canonicalize(h).unwrap_or_else(|_| h.to_path_buf());
+        normalize_sensitive_path(&canonical, aliases)
+    });
     let home = home.as_deref();
 
     // 根目录本身。
@@ -779,9 +856,10 @@ pub fn sensitive_target_full(
 
     // 家目录本身（删掉整个家目录）。
     if let Some(home) = home {
-        let h = std::fs::canonicalize(home).unwrap_or_else(|_| home.to_path_buf());
-        let h = dealias_with(&h, aliases);
-        if *path == h && intent.needs_write() {
+        // `home` 上面已经先 canonicalize、再进入和 `path` 相同的规范化空间。这里不能
+        // 对折叠后的 `/users/...` 再 canonicalize；在 Windows 上它会被重新解释成
+        // “当前盘符的根相对路径”，把同一个 USERPROFILE 又变回 verbatim 盘符形状。
+        if path == home && intent.needs_write() {
             return Some(format!("{s:?} 是家目录本身"));
         }
     }
@@ -918,14 +996,11 @@ const SYSTEM_DIRS: &[&str] = &[
     "/Applications",
     "/private/etc",
     "/private/var",
-    "C:\\Windows",
-    "C:\\Program Files",
-    // fold_windows_shapes 之后的形状:`C:\\Windows\\...` → `/Windows/...`。
-    // 上面两条原生形状保留给未折叠的直接调用方。
+    // Windows 只保留 fold_windows_shapes 之后的一种比较表示；盘符不是固定 C:。
     "/windows",
     "/program files",
-    "C:\\Program Files (x86)",
-    "C:\\ProgramData",
+    "/program files (x86)",
+    "/programdata",
 ];
 
 /// 连读都算敏感的凭据位置。
@@ -1167,9 +1242,40 @@ pub fn flag_value(operand: &str) -> Option<&str> {
 /// "带空格**并且**看起来含有第二个路径分量",以及解释器语法里那几个在真实文件名中极
 /// 罕见、而在代码里必然出现的字符。
 pub fn not_a_single_path(raw: &str) -> Option<String> {
+    let windows_absolute = {
+        let rest = raw.strip_prefix(r"\\?\").unwrap_or(raw);
+        let bytes = rest.as_bytes();
+        let drive = bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'\\' | b'/');
+        let unc = rest
+            .strip_prefix(r"\\")
+            .or_else(|| {
+                rest.get(..4)
+                    .filter(|prefix| prefix.eq_ignore_ascii_case("UNC\\"))
+                    .map(|_| &rest[4..])
+            })
+            .is_some_and(|tail| {
+                let mut parts = tail.split('\\');
+                parts
+                    .next()
+                    .is_some_and(|part| !part.is_empty() && part != "." && part != "?")
+                    && parts.next().is_some_and(|part| !part.is_empty())
+            });
+        drive || unc
+    };
+    if raw.contains("$(") {
+        return Some("操作数包含命令替换，不能作为单一路径".into());
+    }
     // 解释器语法。`(` `)` 出现在 `open(...)`、`$(...)`、函数调用里;引号出现在任何
     // 内联脚本里。这些在文件名里合法但极少,而它们出现时几乎总意味着"这不是路径"。
     for c in ['(', ')', '\'', '"', '\n', '\r', '\t', ';', '|', '`', '&'] {
+        // Program Files (x86) 是标准 Windows 目录。只对明确的绝对路径放宽括号，
+        // 其余解释器语法以及命令替换仍拒绝；这不改变后续敏感目录/作用域判决。
+        if windows_absolute && matches!(c, '(' | ')') {
+            continue;
+        }
         if raw.contains(c) {
             return Some(format!(
                 "操作数含 {c:?},这不是一条路径而是一段命令;无法据此证明包含关系"
@@ -1200,6 +1306,38 @@ pub fn not_a_single_path(raw: &str) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod windows_parenthesis_regression {
+    use super::not_a_single_path;
+
+    #[test]
+    fn 绝对路径括号不再隐藏系统目录() {
+        for path in [
+            r"C:\Program Files (x86)\Vendor\app.dll",
+            r"\\?\C:\Program Files (x86)\Vendor\app.dll",
+            r"\\server\share\Program Files (x86)\app.dll",
+            r"\\?\UNC\server\share\Program Files (x86)\app.dll",
+        ] {
+            assert!(not_a_single_path(path).is_none(), "{path}");
+        }
+    }
+
+    #[test]
+    fn 括号例外不放行脚本和命令替换() {
+        for path in [
+            "open('/etc/passwd')",
+            r"C:\tmp\$(whoami)",
+            r"C:\Program Files (x86)\x; whoami",
+            r"C:\x & whoami",
+            r"C:\x | whoami",
+            "C:\\x\nwhoami",
+            r"\\?\GLOBALROOT\open(foo)",
+        ] {
+            assert!(not_a_single_path(path).is_some(), "{path}");
+        }
+    }
 }
 
 /// 最后一个路径操作数是目标、前面的是来源的命令。
@@ -2035,6 +2173,7 @@ mod tests {
 #[cfg(test)]
 mod windows_shape_tests {
     use super::*;
+    use std::ffi::OsString;
     use std::path::Path;
 
     /// CI 真实失败(报告 P0-2):Windows 上 canonicalize 出 `\\?\D:\etc\passwd`,
@@ -2048,14 +2187,121 @@ mod windows_shape_tests {
 
     #[test]
     fn windows_盘符路径下的系统目录仍然敏感() {
-        for p in [r"D:\etc\passwd", "C:/etc/passwd", r"c:\ETC\shadow"] {
+        let home = Some(OsString::from(r"C:\msys64\home\alice"));
+        let user_profile = Some(OsString::from(r"C:\Users\Alice"));
+        assert_eq!(
+            select_home(home.clone(), user_profile.clone(), true),
+            Some(PathBuf::from(r"C:\Users\Alice")),
+            "Windows 不能让 Git Bash/Cygwin 的 HOME 覆盖真实 USERPROFILE"
+        );
+        assert_eq!(
+            select_home(home.clone(), user_profile.clone(), false),
+            Some(PathBuf::from(r"C:\msys64\home\alice")),
+            "非 Windows 必须保持原有 HOME 优先顺序"
+        );
+        assert_eq!(
+            select_home(home.clone(), None, true),
+            home.map(PathBuf::from),
+            "Windows 没有 USERPROFILE 时仍兼容只有 HOME 的宿主"
+        );
+        assert_eq!(
+            select_home(None, user_profile.clone(), false),
+            user_profile.map(PathBuf::from),
+            "非 Windows 没有 HOME 时仍保留 USERPROFILE 回退"
+        );
+
+        for p in [
+            r"D:\etc\passwd",
+            "C:/etc/passwd",
+            r"c:\ETC\shadow",
+            r"C:\ProgramData",
+            r"C:\ProgramData\AgentGuard\state.db",
+            r"c:\PROGRAM FILES (X86)",
+            r"c:\PROGRAM FILES (X86)\Vendor\app.dll",
+            r"\\?\D:\PROGRAMDATA",
+            r"\\?\D:\pRoGrAmDaTa\AgentGuard\state.db",
+            r"\\?\C:\Program Files (x86)\Vendor\app.dll",
+            r"\\server\C$\ProgramData",
+            r"\\server\C$\ProgramData\AgentGuard\state.db",
+            r"\\?\UNC\SERVER\D$\PROGRAM FILES (X86)\Vendor\app.dll",
+            r"\\server\ADMIN$\System32\config\SAM",
+        ] {
             let got = sensitive_target(Path::new(p), PathIntent::Write);
             assert!(got.is_some(), "{p} 绕过了系统目录判定");
+        }
+        assert!(
+            sensitive_target_full(
+                Path::new(r"C:\ProgramData\AgentGuard\state.db"),
+                PathIntent::Read,
+                None,
+                VolumeAliases::Keep,
+            )
+            .is_none(),
+            "系统目录规则仍只拦写/删；普通读取行为不能被扩大"
+        );
+
+        for (target, user_profile) in [
+            (r"C:\Users\Alice", r"C:\Users\Alice"),
+            (r"\\?\C:\USERS\ALICE", r"C:\Users\Alice"),
+            (
+                r"\\?\UNC\PROFILE-SRV\Profiles\ALICE",
+                r"\\profile-srv\profiles\alice",
+            ),
+        ] {
+            for intent in [PathIntent::Write, PathIntent::Delete] {
+                assert!(
+                    sensitive_target_full(
+                        Path::new(target),
+                        intent,
+                        Some(Path::new(user_profile)),
+                        VolumeAliases::Keep,
+                    )
+                    .is_some(),
+                    "USERPROFILE 根的等价形态漏判:{target} vs {user_profile} ({intent:?})"
+                );
+            }
+            assert!(
+                sensitive_target_full(
+                    Path::new(target),
+                    PathIntent::Read,
+                    Some(Path::new(user_profile)),
+                    VolumeAliases::Keep,
+                )
+                .is_none(),
+                "读取用户根不应被整个目录写/删判据误伤:{target}"
+            );
+        }
+
+        let user_home = Path::new(r"C:\Users\Alice");
+        for p in [
+            r"C:\Users\Alice\Documents",
+            r"C:\Users\Alice\Documents\notes.txt",
+            r"C:\Users\Alice\AppData",
+            r"c:\USERS\ALICE\AppData\Local\AgentGuard\state.db",
+            r"\\?\C:\Users\Alice\Documents\notes.txt",
+            r"\\?\C:\Users\Alice\AppData\Roaming\AgentGuard\state.db",
+            r"\\profile-srv\profiles\alice\Documents\notes.txt",
+            r"\\?\UNC\PROFILE-SRV\Profiles\Alice\AppData\Local\state.db",
+            r"\\server\team\Windows\release-notes.txt",
+            r"\\?\UNC\server\team\ProgramData\project.db",
+        ] {
+            for intent in [PathIntent::Write, PathIntent::Delete] {
+                assert!(
+                    sensitive_target_full(
+                        Path::new(p),
+                        intent,
+                        Some(user_home),
+                        VolumeAliases::Keep,
+                    )
+                    .is_none(),
+                    "合法用户/普通共享路径被误判:{p} ({intent:?})"
+                );
+            }
         }
     }
 
     #[test]
-    fn windows形状折叠_只动verbatim与盘符_不碰设备命名空间与unix路径() {
+    fn windows形状折叠_统一盘符和unc但保留普通共享身份() {
         assert_eq!(
             fold_windows_shapes(Path::new(r"\\?\D:\etc\passwd")),
             Path::new("/etc/passwd")
@@ -2073,10 +2319,24 @@ mod windows_shape_tests {
             fold_windows_shapes(Path::new(r"\\.\PhysicalDrive0")),
             Path::new(r"\\.\PhysicalDrive0")
         );
-        // UNC(含 verbatim UNC)不折:SYSTEM_DIRS 不含 UNC 形状,留给真机验收。
+        // 普通 UNC 进入独立命名空间，server/share 不丢；其中出现 Windows 目录不等于
+        // 本机系统根。普通与 verbatim UNC、大小写差异折成同一个值。
         assert_eq!(
-            fold_windows_shapes(Path::new(r"\\?\UNC\srv\share\x")),
-            Path::new(r"\\?\UNC\srv\share\x")
+            fold_windows_shapes(Path::new(r"\\?\uNc\SRV\Share\X")),
+            Path::new("/unc/srv/share/x")
+        );
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"\\srv\share\x")),
+            Path::new("/unc/srv/share/x")
+        );
+        // 管理员盘符共享和 ADMIN$ 与真实系统根等价。
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"\\?\UNC\srv\C$\ProgramData\x")),
+            Path::new("/programdata/x")
+        );
+        assert_eq!(
+            fold_windows_shapes(Path::new(r"\\srv\ADMIN$\System32")),
+            Path::new("/windows/system32")
         );
         // 真正的 unix 路径恒等 —— 折叠不能改写正常输入。
         assert_eq!(
@@ -2091,7 +2351,13 @@ mod windows_shape_tests {
 
     #[test]
     fn windows形状折叠是幂等的() {
-        let once = fold_windows_shapes(Path::new(r"\\?\C:\var\log"));
-        assert_eq!(fold_windows_shapes(&once), once);
+        for p in [
+            r"\\?\C:\var\log",
+            r"\\?\UNC\server\share\Folder\x",
+            r"\\server\C$\ProgramData\x",
+        ] {
+            let once = fold_windows_shapes(Path::new(p));
+            assert_eq!(fold_windows_shapes(&once), once, "{p}");
+        }
     }
 }

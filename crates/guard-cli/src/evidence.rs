@@ -22,6 +22,21 @@ const MAX_EVIDENCE_AGE_SECONDS: i64 = 30 * 24 * 60 * 60;
 const MAX_EVIDENCE_FUTURE_SECONDS: i64 = 10 * 60;
 const TREE_DIGEST_DOMAIN: &[u8] = b"agentguard-tree-sha256-v2\0";
 const ACCEPTANCE_DIGEST_DOMAIN: &[u8] = b"agentguard-acceptance-closure-sha256-v1\0";
+const WINDOWS_FIRST_GA_PROFILE_MARKER: &str = "AGENTGUARD_WINDOWS_ACCEPTANCE_PROFILE=first-ga-v1";
+const WINDOWS_FIRST_GA_REQUIRED_CASES: &[&str] =
+    &["W1", "W2", "W3", "W4", "W5", "W6", "W8", "W9", "W10", "W11"];
+const CHROMIUM_FIRST_GA_REQUIRED_CASES: &[&str] = &["B1", "B2", "B3", "B4", "B5"];
+const IOS_FIRST_GA_REQUIRED_CASES: &[&str] = &["I1", "I2", "I3", "I4", "I5", "I6"];
+const IOS_TESTFLIGHT_REQUIRED_CASES: &[&str] = &["TF1", "TF2", "TF3"];
+const GA_EVIDENCE_PROFILE_MARKER: &str = "AGENTGUARD_GA_EVIDENCE_PROFILE=ga-v1";
+const GA_SBOM_LICENSE_REQUIRED_CASES: &[&str] = &["SB1", "SB2", "SB3", "SB4"];
+const GA_PRIVACY_STORE_REQUIRED_CASES: &[&str] = &["PS1", "PS2", "PS3", "PS4", "PS5", "PS6"];
+const GA_BETA_REQUIRED_CASES: &[&str] = &["BT1", "BT2", "BT3", "BT4"];
+const GA_DUAL_RC_REQUIRED_CASES: &[&str] = &["RC1", "RC2"];
+const GA_SIGNOFF_REQUIRED_CASES: &[&str] = &["SO1", "SO2", "SO3", "SO4", "SO5"];
+const GA_CHANNEL_SMOKE_REQUIRED_CASES: &[&str] = &["CS1", "CS2", "CS3", "CS4", "CS5", "CS6"];
+const GA_ROLLOUT_REQUIRED_CASES: &[&str] = &["RO5", "RO25", "RO100"];
+const GA_BETA_MIN_SECONDS: i64 = 14 * 24 * 60 * 60;
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -30,23 +45,60 @@ pub enum EvidenceKind {
     MacosNotarize,
     WindowsSign,
     AndroidSign,
+    IosCodesign,
     AcceptanceMacos,
     AcceptanceAndroid,
+    AcceptanceIos,
+    AcceptanceIosTestflight,
+    AcceptanceChrome,
+    AcceptanceEdge,
     AcceptanceFirefox,
     AcceptanceWindows,
+    GaSbomLicense,
+    GaPrivacyStore,
+    GaBeta14d,
+    GaDualRc,
+    GaSignoff,
+    GaChannelSmoke,
+    GaRollout,
 }
 
 impl EvidenceKind {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 20] = [
         Self::MacosCodesign,
         Self::MacosNotarize,
         Self::WindowsSign,
         Self::AndroidSign,
+        Self::IosCodesign,
         Self::AcceptanceMacos,
         Self::AcceptanceAndroid,
+        Self::AcceptanceIos,
+        Self::AcceptanceIosTestflight,
+        Self::AcceptanceChrome,
+        Self::AcceptanceEdge,
         Self::AcceptanceFirefox,
         Self::AcceptanceWindows,
+        Self::GaSbomLicense,
+        Self::GaPrivacyStore,
+        Self::GaBeta14d,
+        Self::GaDualRc,
+        Self::GaSignoff,
+        Self::GaChannelSmoke,
+        Self::GaRollout,
     ];
+
+    fn is_ga(self) -> bool {
+        matches!(
+            self,
+            Self::GaSbomLicense
+                | Self::GaPrivacyStore
+                | Self::GaBeta14d
+                | Self::GaDualRc
+                | Self::GaSignoff
+                | Self::GaChannelSmoke
+                | Self::GaRollout
+        )
+    }
 
     fn required_tool(self) -> Option<&'static str> {
         match self {
@@ -54,10 +106,22 @@ impl EvidenceKind {
             Self::MacosNotarize => Some("notarytool"),
             Self::WindowsSign => Some("signtool"),
             Self::AndroidSign => Some("apksigner"),
+            Self::IosCodesign => Some("codesign"),
             Self::AcceptanceMacos
             | Self::AcceptanceAndroid
+            | Self::AcceptanceIos
+            | Self::AcceptanceIosTestflight
+            | Self::AcceptanceChrome
+            | Self::AcceptanceEdge
             | Self::AcceptanceFirefox
-            | Self::AcceptanceWindows => None,
+            | Self::AcceptanceWindows
+            | Self::GaSbomLicense
+            | Self::GaPrivacyStore
+            | Self::GaBeta14d
+            | Self::GaDualRc
+            | Self::GaSignoff
+            | Self::GaChannelSmoke
+            | Self::GaRollout => None,
         }
     }
 
@@ -67,10 +131,22 @@ impl EvidenceKind {
             Self::MacosNotarize => "<the notarytool and stapler commands actually executed>",
             Self::WindowsSign => "<the signtool verification command actually executed>",
             Self::AndroidSign => "<the apksigner verification command actually executed>",
+            Self::IosCodesign => "<the iOS codesign verification command actually executed>",
             Self::AcceptanceMacos => "guard-cli manual-acceptance macos docs/acceptance-macos.md <repo-relative report.md> --repo-root .",
             Self::AcceptanceAndroid => "guard-cli manual-acceptance android docs/acceptance-runbook.md <repo-relative report.md> --repo-root .",
+            Self::AcceptanceIos => "guard-cli manual-acceptance ios docs/acceptance-ios.md <repo-relative report.md> --repo-root .",
+            Self::AcceptanceIosTestflight => "guard-cli manual-acceptance ios-testflight docs/acceptance-ios.md <repo-relative report.md> --repo-root .",
+            Self::AcceptanceChrome => "guard-cli manual-acceptance chrome docs/acceptance-chrome.md <repo-relative report.md> --repo-root .",
+            Self::AcceptanceEdge => "guard-cli manual-acceptance edge docs/acceptance-chrome.md <repo-relative report.md> --repo-root .",
             Self::AcceptanceFirefox => "guard-cli manual-acceptance firefox docs/acceptance-firefox.md <repo-relative report.md> --repo-root .",
             Self::AcceptanceWindows => "guard-cli manual-acceptance windows docs/acceptance-windows.md <repo-relative report.md> --repo-root .",
+            Self::GaSbomLicense => "guard-cli manual-acceptance ga-sbom-license docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
+            Self::GaPrivacyStore => "guard-cli manual-acceptance ga-privacy-store docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
+            Self::GaBeta14d => "guard-cli manual-acceptance ga-beta-14d docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
+            Self::GaDualRc => "guard-cli manual-acceptance ga-dual-rc docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
+            Self::GaSignoff => "guard-cli manual-acceptance ga-signoff docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
+            Self::GaChannelSmoke => "guard-cli manual-acceptance ga-channel-smoke docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
+            Self::GaRollout => "guard-cli manual-acceptance ga-rollout docs/ga-release-gate.md <repo-relative report.md> --repo-root .",
         }
     }
 
@@ -84,10 +160,22 @@ impl EvidenceKind {
             }
             Self::WindowsSign => "<signtool Successfully verified output>",
             Self::AndroidSign => "<apksigner release-certificate output>",
+            Self::IosCodesign => "<codesign output containing Apple Distribution authority, TeamIdentifier, and both required verification messages>",
             Self::AcceptanceMacos => "<output containing AGENTGUARD_ACCEPTANCE_MACOS=PASS>",
             Self::AcceptanceAndroid => "<output containing AGENTGUARD_ACCEPTANCE_ANDROID=PASS>",
+            Self::AcceptanceIos => "<output containing AGENTGUARD_ACCEPTANCE_IOS=PASS>",
+            Self::AcceptanceIosTestflight => "<output containing AGENTGUARD_ACCEPTANCE_IOS_TESTFLIGHT=PASS>",
+            Self::AcceptanceChrome => "<output containing AGENTGUARD_ACCEPTANCE_CHROME=PASS>",
+            Self::AcceptanceEdge => "<output containing AGENTGUARD_ACCEPTANCE_EDGE=PASS>",
             Self::AcceptanceFirefox => "<output containing AGENTGUARD_ACCEPTANCE_FIREFOX=PASS>",
             Self::AcceptanceWindows => "<output containing AGENTGUARD_ACCEPTANCE_WINDOWS=PASS>",
+            Self::GaSbomLicense => "<output containing AGENTGUARD_GA_SBOM_LICENSE=PASS>",
+            Self::GaPrivacyStore => "<output containing AGENTGUARD_GA_PRIVACY_STORE=PASS>",
+            Self::GaBeta14d => "<output containing AGENTGUARD_GA_BETA_14D=PASS>",
+            Self::GaDualRc => "<output containing AGENTGUARD_GA_DUAL_RC=PASS>",
+            Self::GaSignoff => "<output containing AGENTGUARD_GA_SIGNOFF=PASS>",
+            Self::GaChannelSmoke => "<output containing AGENTGUARD_GA_CHANNEL_SMOKE=PASS>",
+            Self::GaRollout => "<output containing AGENTGUARD_GA_ROLLOUT=PASS>",
         }
     }
 
@@ -95,11 +183,24 @@ impl EvidenceKind {
         match self {
             Self::AcceptanceMacos => Some("AGENTGUARD_ACCEPTANCE_MACOS=PASS"),
             Self::AcceptanceAndroid => Some("AGENTGUARD_ACCEPTANCE_ANDROID=PASS"),
+            Self::AcceptanceIos => Some("AGENTGUARD_ACCEPTANCE_IOS=PASS"),
+            Self::AcceptanceIosTestflight => Some("AGENTGUARD_ACCEPTANCE_IOS_TESTFLIGHT=PASS"),
+            Self::AcceptanceChrome => Some("AGENTGUARD_ACCEPTANCE_CHROME=PASS"),
+            Self::AcceptanceEdge => Some("AGENTGUARD_ACCEPTANCE_EDGE=PASS"),
             Self::AcceptanceFirefox => Some("AGENTGUARD_ACCEPTANCE_FIREFOX=PASS"),
             Self::AcceptanceWindows => Some("AGENTGUARD_ACCEPTANCE_WINDOWS=PASS"),
-            Self::MacosCodesign | Self::MacosNotarize | Self::WindowsSign | Self::AndroidSign => {
-                None
-            }
+            Self::GaSbomLicense => Some("AGENTGUARD_GA_SBOM_LICENSE=PASS"),
+            Self::GaPrivacyStore => Some("AGENTGUARD_GA_PRIVACY_STORE=PASS"),
+            Self::GaBeta14d => Some("AGENTGUARD_GA_BETA_14D=PASS"),
+            Self::GaDualRc => Some("AGENTGUARD_GA_DUAL_RC=PASS"),
+            Self::GaSignoff => Some("AGENTGUARD_GA_SIGNOFF=PASS"),
+            Self::GaChannelSmoke => Some("AGENTGUARD_GA_CHANNEL_SMOKE=PASS"),
+            Self::GaRollout => Some("AGENTGUARD_GA_ROLLOUT=PASS"),
+            Self::MacosCodesign
+            | Self::MacosNotarize
+            | Self::WindowsSign
+            | Self::AndroidSign
+            | Self::IosCodesign => None,
         }
     }
 
@@ -107,11 +208,24 @@ impl EvidenceKind {
         match self {
             Self::AcceptanceMacos => Some(("macos", "docs/acceptance-macos.md")),
             Self::AcceptanceAndroid => Some(("android", "docs/acceptance-runbook.md")),
+            Self::AcceptanceIos => Some(("ios", "docs/acceptance-ios.md")),
+            Self::AcceptanceIosTestflight => Some(("ios-testflight", "docs/acceptance-ios.md")),
+            Self::AcceptanceChrome => Some(("chrome", "docs/acceptance-chrome.md")),
+            Self::AcceptanceEdge => Some(("edge", "docs/acceptance-chrome.md")),
             Self::AcceptanceFirefox => Some(("firefox", "docs/acceptance-firefox.md")),
             Self::AcceptanceWindows => Some(("windows", "docs/acceptance-windows.md")),
-            Self::MacosCodesign | Self::MacosNotarize | Self::WindowsSign | Self::AndroidSign => {
-                None
-            }
+            Self::GaSbomLicense => Some(("ga-sbom-license", "docs/ga-release-gate.md")),
+            Self::GaPrivacyStore => Some(("ga-privacy-store", "docs/ga-release-gate.md")),
+            Self::GaBeta14d => Some(("ga-beta-14d", "docs/ga-release-gate.md")),
+            Self::GaDualRc => Some(("ga-dual-rc", "docs/ga-release-gate.md")),
+            Self::GaSignoff => Some(("ga-signoff", "docs/ga-release-gate.md")),
+            Self::GaChannelSmoke => Some(("ga-channel-smoke", "docs/ga-release-gate.md")),
+            Self::GaRollout => Some(("ga-rollout", "docs/ga-release-gate.md")),
+            Self::MacosCodesign
+            | Self::MacosNotarize
+            | Self::WindowsSign
+            | Self::AndroidSign
+            | Self::IosCodesign => None,
         }
     }
 }
@@ -123,10 +237,22 @@ impl fmt::Display for EvidenceKind {
             Self::MacosNotarize => "macos_notarize",
             Self::WindowsSign => "windows_sign",
             Self::AndroidSign => "android_sign",
+            Self::IosCodesign => "ios_codesign",
             Self::AcceptanceMacos => "acceptance_macos",
             Self::AcceptanceAndroid => "acceptance_android",
+            Self::AcceptanceIos => "acceptance_ios",
+            Self::AcceptanceIosTestflight => "acceptance_ios_testflight",
+            Self::AcceptanceChrome => "acceptance_chrome",
+            Self::AcceptanceEdge => "acceptance_edge",
             Self::AcceptanceFirefox => "acceptance_firefox",
             Self::AcceptanceWindows => "acceptance_windows",
+            Self::GaSbomLicense => "ga_sbom_license",
+            Self::GaPrivacyStore => "ga_privacy_store",
+            Self::GaBeta14d => "ga_beta_14d",
+            Self::GaDualRc => "ga_dual_rc",
+            Self::GaSignoff => "ga_signoff",
+            Self::GaChannelSmoke => "ga_channel_smoke",
+            Self::GaRollout => "ga_rollout",
         };
         f.write_str(value)
     }
@@ -141,10 +267,22 @@ impl FromStr for EvidenceKind {
             "macos_notarize" => Ok(Self::MacosNotarize),
             "windows_sign" => Ok(Self::WindowsSign),
             "android_sign" => Ok(Self::AndroidSign),
+            "ios_codesign" => Ok(Self::IosCodesign),
             "acceptance_macos" => Ok(Self::AcceptanceMacos),
             "acceptance_android" => Ok(Self::AcceptanceAndroid),
+            "acceptance_ios" => Ok(Self::AcceptanceIos),
+            "acceptance_ios_testflight" => Ok(Self::AcceptanceIosTestflight),
+            "acceptance_chrome" => Ok(Self::AcceptanceChrome),
+            "acceptance_edge" => Ok(Self::AcceptanceEdge),
             "acceptance_firefox" => Ok(Self::AcceptanceFirefox),
             "acceptance_windows" => Ok(Self::AcceptanceWindows),
+            "ga_sbom_license" => Ok(Self::GaSbomLicense),
+            "ga_privacy_store" => Ok(Self::GaPrivacyStore),
+            "ga_beta_14d" => Ok(Self::GaBeta14d),
+            "ga_dual_rc" => Ok(Self::GaDualRc),
+            "ga_signoff" => Ok(Self::GaSignoff),
+            "ga_channel_smoke" => Ok(Self::GaChannelSmoke),
+            "ga_rollout" => Ok(Self::GaRollout),
             other => Err(format!(
                 "未知证据 kind {other:?};允许值:{}",
                 Self::ALL
@@ -174,7 +312,7 @@ pub struct ReleaseEvidence {
     pub exit_code: i32,
     pub timestamp: String,
     pub output: String,
-    /// 发布签名者身份。macOS 为 Team ID，Windows/Android 为证书 SHA-256；验收类必须为 null。
+    /// 发布签名者身份。macOS/iOS 为 Apple Team ID，Windows/Android 为证书 SHA-256；验收类必须为 null。
     pub signer: Option<String>,
     pub artifact: ArtifactEvidence,
 }
@@ -336,11 +474,22 @@ pub fn manual_acceptance(
     let kind = match platform {
         "macos" => EvidenceKind::AcceptanceMacos,
         "android" => EvidenceKind::AcceptanceAndroid,
+        "ios" => EvidenceKind::AcceptanceIos,
+        "ios-testflight" => EvidenceKind::AcceptanceIosTestflight,
+        "chrome" => EvidenceKind::AcceptanceChrome,
+        "edge" => EvidenceKind::AcceptanceEdge,
         "firefox" => EvidenceKind::AcceptanceFirefox,
         "windows" => EvidenceKind::AcceptanceWindows,
+        "ga-sbom-license" => EvidenceKind::GaSbomLicense,
+        "ga-privacy-store" => EvidenceKind::GaPrivacyStore,
+        "ga-beta-14d" => EvidenceKind::GaBeta14d,
+        "ga-dual-rc" => EvidenceKind::GaDualRc,
+        "ga-signoff" => EvidenceKind::GaSignoff,
+        "ga-channel-smoke" => EvidenceKind::GaChannelSmoke,
+        "ga-rollout" => EvidenceKind::GaRollout,
         other => {
             return Err(EvidenceError::new(vec![format!(
-                "manual-acceptance 平台 {other:?} 无效；允许 macos/android/firefox/windows"
+                "manual-acceptance 平台 {other:?} 无效；允许 macos/android/ios/ios-testflight/chrome/edge/firefox/windows/ga-sbom-license/ga-privacy-store/ga-beta-14d/ga-dual-rc/ga-signoff/ga-channel-smoke/ga-rollout"
             )]))
         }
     };
@@ -504,12 +653,123 @@ fn verify_evidence_at(
         expected_signer,
         now_unix,
     )?;
-    verify_artifact(
+    let verified = verify_artifact(
         &evidence.artifact,
         expected_kind,
         repo_root,
         evidence_source,
-    )
+    )?;
+    validate_bound_ga_report(
+        evidence,
+        expected_commit,
+        expected_commit_time,
+        repo_root,
+        &verified,
+    )?;
+    Ok(verified)
+}
+
+fn validate_bound_ga_report(
+    evidence: &ReleaseEvidence,
+    expected_commit: &str,
+    expected_commit_time: i64,
+    repo_root: &Path,
+    verified_report: &Path,
+) -> Result<(), EvidenceError> {
+    if !evidence.kind.is_ga() {
+        return Ok(());
+    }
+    let report = std::fs::read_to_string(verified_report)
+        .map_err(|error| EvidenceError::new(vec![format!("GA 报告无法读取:{error}")]))?;
+    let evidence_at = parse_rfc3339(&evidence.timestamp)
+        .ok_or_else(|| EvidenceError::new(vec!["GA evidence timestamp 无效".to_string()]))?;
+    let mut errors = Vec::new();
+    match evidence.kind {
+        EvidenceKind::GaBeta14d => {
+            if let Some(end) =
+                unique_report_timestamp(&report, "AGENTGUARD_GA_BETA_END=", &mut errors)
+            {
+                if end > evidence_at {
+                    errors.push("GA Beta 结束时间不能晚于证据 JSON 时间".to_string());
+                }
+            }
+        }
+        EvidenceKind::GaDualRc => {
+            if let Some(rc2) =
+                unique_report_value(&report, "AGENTGUARD_GA_RC2_COMMIT=", &mut errors)
+            {
+                if rc2 != expected_commit {
+                    errors.push(format!(
+                        "GA RC2 commit 必须绑定当前完整 HEAD {expected_commit}"
+                    ));
+                }
+            }
+        }
+        EvidenceKind::GaSignoff => {
+            if let Ok(references) = parse_acceptance_report(evidence.kind, &report) {
+                let root = std::fs::canonicalize(repo_root).map_err(|error| {
+                    EvidenceError::new(vec![format!("repo-root 无法解析:{error}")])
+                })?;
+                for reference in references {
+                    let path = root.join(&reference);
+                    let text = read_small_utf8(&path, &reference)?;
+                    let signed_at =
+                        required_single_value(&text, "AGENTGUARD_GA_SIGNOFF_AT=", &reference)?;
+                    if let Some(signed_at) = parse_rfc3339(signed_at) {
+                        if signed_at > evidence_at {
+                            errors.push(format!(
+                                "五方签字材料 {reference:?} 的签字时间晚于证据 JSON"
+                            ));
+                        }
+                        if signed_at
+                            < expected_commit_time.saturating_sub(MAX_EVIDENCE_FUTURE_SECONDS)
+                        {
+                            errors.push(format!(
+                                "五方签字材料 {reference:?} 早于当前候选提交，不能复用旧批准"
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        EvidenceKind::GaRollout => {
+            if let Some(at_5) =
+                unique_report_timestamp(&report, "AGENTGUARD_GA_ROLLOUT_5_AT=", &mut errors)
+            {
+                if at_5 < expected_commit_time.saturating_sub(MAX_EVIDENCE_FUTURE_SECONDS) {
+                    errors.push("GA 5% 扩量时间早于当前候选提交".to_string());
+                }
+            }
+            if let Some(at_100) =
+                unique_report_timestamp(&report, "AGENTGUARD_GA_ROLLOUT_100_AT=", &mut errors)
+            {
+                if at_100 > evidence_at {
+                    errors.push("GA 100% 扩量时间不能晚于证据 JSON 时间".to_string());
+                }
+            }
+        }
+        EvidenceKind::GaSbomLicense
+        | EvidenceKind::GaPrivacyStore
+        | EvidenceKind::GaChannelSmoke => {}
+        EvidenceKind::MacosCodesign
+        | EvidenceKind::MacosNotarize
+        | EvidenceKind::WindowsSign
+        | EvidenceKind::AndroidSign
+        | EvidenceKind::IosCodesign
+        | EvidenceKind::AcceptanceMacos
+        | EvidenceKind::AcceptanceAndroid
+        | EvidenceKind::AcceptanceIos
+        | EvidenceKind::AcceptanceIosTestflight
+        | EvidenceKind::AcceptanceChrome
+        | EvidenceKind::AcceptanceEdge
+        | EvidenceKind::AcceptanceFirefox
+        | EvidenceKind::AcceptanceWindows => unreachable!("上方已排除非 GA kind"),
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(EvidenceError::new(errors))
+    }
 }
 
 fn verify_artifact(
@@ -593,7 +853,7 @@ fn verify_artifact(
     })?;
     let app_bundle = matches!(
         kind,
-        EvidenceKind::MacosCodesign | EvidenceKind::MacosNotarize
+        EvidenceKind::MacosCodesign | EvidenceKind::MacosNotarize | EvidenceKind::IosCodesign
     ) && artifact.path.ends_with(".app");
     let acceptable = metadata.is_file() || (app_bundle && metadata.is_dir());
     if !acceptable {
@@ -659,8 +919,19 @@ fn acceptance_kind_for_report_path(path: &str) -> Option<EvidenceKind> {
     [
         EvidenceKind::AcceptanceMacos,
         EvidenceKind::AcceptanceAndroid,
+        EvidenceKind::AcceptanceIos,
+        EvidenceKind::AcceptanceIosTestflight,
+        EvidenceKind::AcceptanceChrome,
+        EvidenceKind::AcceptanceEdge,
         EvidenceKind::AcceptanceFirefox,
         EvidenceKind::AcceptanceWindows,
+        EvidenceKind::GaSbomLicense,
+        EvidenceKind::GaPrivacyStore,
+        EvidenceKind::GaBeta14d,
+        EvidenceKind::GaDualRc,
+        EvidenceKind::GaSignoff,
+        EvidenceKind::GaChannelSmoke,
+        EvidenceKind::GaRollout,
     ]
     .into_iter()
     .find(|kind| artifact_shape_matches(*kind, path))
@@ -709,8 +980,10 @@ fn acceptance_closure_digest(
                 "验收逐项证据 {reference:?} 不能为空文件"
             )]));
         }
+        validate_ga_reference(kind, &reference, &canonical, length)?;
         references.push((reference, canonical, length));
     }
+    validate_ga_reference_set(kind, &references)?;
     references.sort_by(|left, right| left.0.as_bytes().cmp(right.0.as_bytes()));
 
     let mut hasher = Sha256::new();
@@ -748,10 +1021,24 @@ fn artifact_shape_matches(kind: EvidenceKind, path: &str) -> bool {
                 && (lower.ends_with(".exe") || lower.ends_with(".msi") || lower.ends_with(".msix"))
         }
         EvidenceKind::AndroidSign => release_location && lower.ends_with(".apk"),
+        EvidenceKind::IosCodesign => release_location && path.ends_with(".app"),
         EvidenceKind::AcceptanceMacos => acceptance_report_shape(path, "evidence/macos/"),
         EvidenceKind::AcceptanceAndroid => acceptance_report_shape(path, "evidence/android/"),
+        EvidenceKind::AcceptanceIos => acceptance_report_shape(path, "evidence/ios/"),
+        EvidenceKind::AcceptanceIosTestflight => {
+            acceptance_report_shape(path, "evidence/ios-testflight/")
+        }
+        EvidenceKind::AcceptanceChrome => acceptance_report_shape(path, "evidence/chrome/"),
+        EvidenceKind::AcceptanceEdge => acceptance_report_shape(path, "evidence/edge/"),
         EvidenceKind::AcceptanceFirefox => acceptance_report_shape(path, "evidence/firefox/"),
         EvidenceKind::AcceptanceWindows => acceptance_report_shape(path, "evidence/windows/"),
+        EvidenceKind::GaSbomLicense => acceptance_report_shape(path, "evidence/ga-sbom-license/"),
+        EvidenceKind::GaPrivacyStore => acceptance_report_shape(path, "evidence/ga-privacy-store/"),
+        EvidenceKind::GaBeta14d => acceptance_report_shape(path, "evidence/ga-beta-14d/"),
+        EvidenceKind::GaDualRc => acceptance_report_shape(path, "evidence/ga-dual-rc/"),
+        EvidenceKind::GaSignoff => acceptance_report_shape(path, "evidence/ga-signoff/"),
+        EvidenceKind::GaChannelSmoke => acceptance_report_shape(path, "evidence/ga-channel-smoke/"),
+        EvidenceKind::GaRollout => acceptance_report_shape(path, "evidence/ga-rollout/"),
     }
 }
 
@@ -770,25 +1057,50 @@ fn parse_acceptance_report(kind: EvidenceKind, report: &str) -> Result<Vec<Strin
             "evidence/macos/",
         ),
         EvidenceKind::AcceptanceAndroid => (&["A1", "A2", "A3", "A4"], "evidence/android/"),
+        EvidenceKind::AcceptanceIos => (IOS_FIRST_GA_REQUIRED_CASES, "evidence/ios/"),
+        EvidenceKind::AcceptanceIosTestflight => {
+            (IOS_TESTFLIGHT_REQUIRED_CASES, "evidence/ios-testflight/")
+        }
+        EvidenceKind::AcceptanceChrome => (CHROMIUM_FIRST_GA_REQUIRED_CASES, "evidence/chrome/"),
+        EvidenceKind::AcceptanceEdge => (CHROMIUM_FIRST_GA_REQUIRED_CASES, "evidence/edge/"),
         EvidenceKind::AcceptanceFirefox => (
             &["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"],
             "evidence/firefox/",
         ),
-        EvidenceKind::AcceptanceWindows => (
-            &[
-                "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11",
-            ],
-            "evidence/windows/",
+        EvidenceKind::AcceptanceWindows => (WINDOWS_FIRST_GA_REQUIRED_CASES, "evidence/windows/"),
+        EvidenceKind::GaSbomLicense => {
+            (GA_SBOM_LICENSE_REQUIRED_CASES, "evidence/ga-sbom-license/")
+        }
+        EvidenceKind::GaPrivacyStore => (
+            GA_PRIVACY_STORE_REQUIRED_CASES,
+            "evidence/ga-privacy-store/",
         ),
+        EvidenceKind::GaBeta14d => (GA_BETA_REQUIRED_CASES, "evidence/ga-beta-14d/"),
+        EvidenceKind::GaDualRc => (GA_DUAL_RC_REQUIRED_CASES, "evidence/ga-dual-rc/"),
+        EvidenceKind::GaSignoff => (GA_SIGNOFF_REQUIRED_CASES, "evidence/ga-signoff/"),
+        EvidenceKind::GaChannelSmoke => (
+            GA_CHANNEL_SMOKE_REQUIRED_CASES,
+            "evidence/ga-channel-smoke/",
+        ),
+        EvidenceKind::GaRollout => (GA_ROLLOUT_REQUIRED_CASES, "evidence/ga-rollout/"),
         EvidenceKind::MacosCodesign
         | EvidenceKind::MacosNotarize
         | EvidenceKind::WindowsSign
-        | EvidenceKind::AndroidSign => return Ok(Vec::new()),
+        | EvidenceKind::AndroidSign
+        | EvidenceKind::IosCodesign => return Ok(Vec::new()),
     };
 
+    let mut errors = Vec::new();
+    if kind == EvidenceKind::AcceptanceWindows
+        && !has_marker_line(report, WINDOWS_FIRST_GA_PROFILE_MARKER)
+    {
+        errors.push(format!(
+            "Windows 验收报告缺少固定清单版本 {WINDOWS_FIRST_GA_PROFILE_MARKER}"
+        ));
+    }
+    errors.extend(ga_report_metadata_errors(kind, report));
     let mut seen = Vec::new();
     let mut references = Vec::new();
-    let mut errors = Vec::new();
     for line in report.lines() {
         let trimmed = line.trim();
         if !trimmed.starts_with('|') || !trimmed.ends_with('|') {
@@ -821,6 +1133,13 @@ fn parse_acceptance_report(kind: EvidenceKind, report: &str) -> Result<Vec<Strin
             errors.push(format!(
                 "验收用例 {case_id} 的证据列必须填写对应平台的仓库相对 evidence/ 路径"
             ));
+        } else if expected_ga_case_reference(kind, case_id)
+            .is_some_and(|expected| cells[2] != expected)
+        {
+            errors.push(format!(
+                "验收用例 {case_id} 的证据路径必须精确为 {}",
+                expected_ga_case_reference(kind, case_id).expect("上方已确认存在")
+            ));
         } else if references.iter().any(|reference| reference == cells[2]) {
             errors.push(format!(
                 "验收用例 {case_id} 复用了其他用例的证据路径 {:?};逐项证据路径必须唯一",
@@ -837,10 +1156,146 @@ fn parse_acceptance_report(kind: EvidenceKind, report: &str) -> Result<Vec<Strin
     }
 
     if errors.is_empty() {
+        if kind == EvidenceKind::GaSbomLicense {
+            // SB4 的范围文件必须与收集时的冻结交付清单一起进入
+            // acceptance-closure；否则六个 SHA marker 只是无来源的字符串。
+            references.push("evidence/ga-sbom-license/artifact-set.sha256".to_string());
+        }
         Ok(references)
     } else {
         Err(EvidenceError::new(errors))
     }
+}
+
+fn expected_ga_case_reference(kind: EvidenceKind, case_id: &str) -> Option<&'static str> {
+    match (kind, case_id) {
+        (EvidenceKind::GaSbomLicense, "SB1") => Some("evidence/ga-sbom-license/delivery.cdx.json"),
+        (EvidenceKind::GaSbomLicense, "SB2") => Some("evidence/ga-sbom-license/delivery.spdx.json"),
+        (EvidenceKind::GaSbomLicense, "SB3") => Some("evidence/ga-sbom-license/NOTICE-review.md"),
+        (EvidenceKind::GaSbomLicense, "SB4") => {
+            Some("evidence/ga-sbom-license/scope-reconciliation.md")
+        }
+        (EvidenceKind::GaSignoff, "SO1") => Some("evidence/ga-signoff/release.md"),
+        (EvidenceKind::GaSignoff, "SO2") => Some("evidence/ga-signoff/qa.md"),
+        (EvidenceKind::GaSignoff, "SO3") => Some("evidence/ga-signoff/security.md"),
+        (EvidenceKind::GaSignoff, "SO4") => Some("evidence/ga-signoff/privacy-legal.md"),
+        (EvidenceKind::GaSignoff, "SO5") => Some("evidence/ga-signoff/operations.md"),
+        _ => None,
+    }
+}
+
+fn ga_report_metadata_errors(kind: EvidenceKind, report: &str) -> Vec<String> {
+    if !kind.is_ga() {
+        return Vec::new();
+    }
+    let mut errors = Vec::new();
+    if !has_marker_line(report, GA_EVIDENCE_PROFILE_MARKER) {
+        errors.push(format!(
+            "GA 报告缺少固定版本标记 {GA_EVIDENCE_PROFILE_MARKER}"
+        ));
+    }
+    match kind {
+        EvidenceKind::GaBeta14d => {
+            let start = unique_report_timestamp(report, "AGENTGUARD_GA_BETA_START=", &mut errors);
+            let end = unique_report_timestamp(report, "AGENTGUARD_GA_BETA_END=", &mut errors);
+            if let (Some(start), Some(end)) = (start, end) {
+                if end <= start {
+                    errors.push("GA Beta 结束时间必须晚于开始时间".to_string());
+                } else if end - start < GA_BETA_MIN_SECONDS {
+                    errors.push("GA Beta 有效观察窗口必须至少连续 14×24 小时".to_string());
+                }
+            }
+        }
+        EvidenceKind::GaDualRc => {
+            let rc1 = unique_report_value(report, "AGENTGUARD_GA_RC1_COMMIT=", &mut errors);
+            let rc2 = unique_report_value(report, "AGENTGUARD_GA_RC2_COMMIT=", &mut errors);
+            if let Some(value) = rc1 {
+                if !valid_full_commit(value) {
+                    errors.push("GA RC1 commit 必须是完整 40 位小写 Git SHA-1".to_string());
+                }
+            }
+            if let Some(value) = rc2 {
+                if !valid_full_commit(value) {
+                    errors.push("GA RC2 commit 必须是完整 40 位小写 Git SHA-1".to_string());
+                }
+            }
+            if rc1.is_some() && rc1 == rc2 {
+                errors.push("GA 双 RC 必须绑定两个不同的不可变提交".to_string());
+            }
+        }
+        EvidenceKind::GaSignoff => {
+            if !has_marker_line(report, "AGENTGUARD_GA_SIGNOFF_PROFILE=five-party-v1") {
+                errors.push(
+                    "GA 五方签字报告缺少 AGENTGUARD_GA_SIGNOFF_PROFILE=five-party-v1".to_string(),
+                );
+            }
+        }
+        EvidenceKind::GaRollout => {
+            let at_5 = unique_report_timestamp(report, "AGENTGUARD_GA_ROLLOUT_5_AT=", &mut errors);
+            let at_25 =
+                unique_report_timestamp(report, "AGENTGUARD_GA_ROLLOUT_25_AT=", &mut errors);
+            let at_100 =
+                unique_report_timestamp(report, "AGENTGUARD_GA_ROLLOUT_100_AT=", &mut errors);
+            if let (Some(at_5), Some(at_25), Some(at_100)) = (at_5, at_25, at_100) {
+                if !(at_5 < at_25 && at_25 < at_100) {
+                    errors.push("GA 扩量时间必须严格按 5% → 25% → 100% 递增".to_string());
+                }
+            }
+        }
+        EvidenceKind::GaSbomLicense
+        | EvidenceKind::GaPrivacyStore
+        | EvidenceKind::GaChannelSmoke => {}
+        EvidenceKind::MacosCodesign
+        | EvidenceKind::MacosNotarize
+        | EvidenceKind::WindowsSign
+        | EvidenceKind::AndroidSign
+        | EvidenceKind::IosCodesign
+        | EvidenceKind::AcceptanceMacos
+        | EvidenceKind::AcceptanceAndroid
+        | EvidenceKind::AcceptanceIos
+        | EvidenceKind::AcceptanceIosTestflight
+        | EvidenceKind::AcceptanceChrome
+        | EvidenceKind::AcceptanceEdge
+        | EvidenceKind::AcceptanceFirefox
+        | EvidenceKind::AcceptanceWindows => unreachable!("上方已排除非 GA kind"),
+    }
+    errors
+}
+
+fn unique_report_value<'a>(
+    report: &'a str,
+    prefix: &str,
+    errors: &mut Vec<String>,
+) -> Option<&'a str> {
+    let values: Vec<&str> = report
+        .lines()
+        .map(str::trim)
+        .filter_map(|line| line.strip_prefix(prefix))
+        .collect();
+    match values.as_slice() {
+        [] => {
+            errors.push(format!("GA 报告缺少 {prefix}<value>"));
+            None
+        }
+        [value] if value.is_empty() || has_placeholder(value) => {
+            errors.push(format!("GA 报告的 {prefix}<value> 不能为空或占位"));
+            None
+        }
+        [value] => Some(*value),
+        _ => {
+            errors.push(format!("GA 报告的 {prefix}<value> 必须恰好出现一次"));
+            None
+        }
+    }
+}
+
+fn unique_report_timestamp(report: &str, prefix: &str, errors: &mut Vec<String>) -> Option<i64> {
+    let value = unique_report_value(report, prefix, errors)?;
+    let parsed = parse_rfc3339(value);
+    if parsed.is_none() {
+        errors.push(format!("GA 报告的 {prefix}<value> 必须是有效 RFC3339 时间"));
+    }
+    parsed
 }
 
 fn valid_acceptance_evidence_reference(value: &str, platform_prefix: &str) -> bool {
@@ -849,6 +1304,332 @@ fn valid_acceptance_evidence_reference(value: &str, platform_prefix: &str) -> bo
         && !trimmed.eq_ignore_ascii_case("n/a")
         && trimmed.starts_with(platform_prefix)
         && valid_portable_repo_relative_path(trimmed)
+}
+
+fn validate_ga_reference(
+    kind: EvidenceKind,
+    reference: &str,
+    canonical: &Path,
+    length: u64,
+) -> Result<(), EvidenceError> {
+    if !kind.is_ga() {
+        return Ok(());
+    }
+    if length > 16 * 1024 * 1024 {
+        return Err(EvidenceError::new(vec![format!(
+            "GA 逐项证据 {reference:?} 超过 16 MiB 上限"
+        )]));
+    }
+    match kind {
+        EvidenceKind::GaSbomLicense => match reference {
+            "evidence/ga-sbom-license/delivery.cdx.json" => {
+                let value = read_json_value(canonical, reference)?;
+                let valid = value.get("bomFormat").and_then(serde_json::Value::as_str)
+                    == Some("CycloneDX")
+                    && value
+                        .get("components")
+                        .and_then(serde_json::Value::as_array)
+                        .is_some_and(|items| !items.is_empty());
+                if !valid {
+                    return Err(EvidenceError::new(vec![
+                        "CycloneDX 证据必须包含 bomFormat=\"CycloneDX\" 与非空 components"
+                            .to_string(),
+                    ]));
+                }
+            }
+            "evidence/ga-sbom-license/delivery.spdx.json" => {
+                let value = read_json_value(canonical, reference)?;
+                let valid = value
+                    .get("spdxVersion")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|version| version.starts_with("SPDX-"))
+                    && value
+                        .get("packages")
+                        .and_then(serde_json::Value::as_array)
+                        .is_some_and(|items| !items.is_empty());
+                if !valid {
+                    return Err(EvidenceError::new(vec![
+                        "SPDX 证据必须包含 SPDX-* spdxVersion 与非空 packages".to_string(),
+                    ]));
+                }
+            }
+            "evidence/ga-sbom-license/NOTICE-review.md" => {
+                let text = read_small_utf8(canonical, reference)?;
+                if !has_marker_line(&text, "AGENTGUARD_NOTICE_REVIEW=APPROVED") {
+                    return Err(EvidenceError::new(vec![
+                        "NOTICE 审查证据缺少 AGENTGUARD_NOTICE_REVIEW=APPROVED".to_string(),
+                    ]));
+                }
+            }
+            "evidence/ga-sbom-license/scope-reconciliation.md" => {
+                let text = read_small_utf8(canonical, reference)?;
+                let required = [
+                    "AGENTGUARD_DELIVERY_SBOM_SCOPE=COMPLETE",
+                    "AGENTGUARD_DELIVERY_SCOPE_MACOS=INCLUDED",
+                    "AGENTGUARD_DELIVERY_SCOPE_WINDOWS=INCLUDED",
+                    "AGENTGUARD_DELIVERY_SCOPE_ANDROID=INCLUDED",
+                    "AGENTGUARD_DELIVERY_SCOPE_IOS=INCLUDED",
+                    "AGENTGUARD_DELIVERY_SCOPE_CHROME=INCLUDED",
+                    "AGENTGUARD_DELIVERY_SCOPE_EDGE=INCLUDED",
+                    "AGENTGUARD_DELIVERY_MACOS_SHA256=",
+                    "AGENTGUARD_DELIVERY_WINDOWS_SHA256=",
+                    "AGENTGUARD_DELIVERY_ANDROID_SHA256=",
+                    "AGENTGUARD_DELIVERY_IOS_SHA256=",
+                    "AGENTGUARD_DELIVERY_CHROME_SHA256=",
+                    "AGENTGUARD_DELIVERY_EDGE_SHA256=",
+                ];
+                if required[..7]
+                    .iter()
+                    .any(|marker| !has_marker_line(&text, marker))
+                    || required[7..].iter().any(|prefix| {
+                        let values: Vec<&str> = text
+                            .lines()
+                            .map(str::trim)
+                            .filter_map(|line| line.strip_prefix(prefix))
+                            .collect();
+                        values.len() != 1 || !valid_sha256(values[0])
+                    })
+                {
+                    return Err(EvidenceError::new(vec![
+                        "SBOM scope reconciliation 必须明确覆盖 macOS/Windows/Android/iOS/Chrome/Edge，并各自绑定唯一最终包 SHA-256"
+                            .to_string(),
+                    ]));
+                }
+            }
+            "evidence/ga-sbom-license/artifact-set.sha256" => {
+                let text = read_small_utf8(canonical, reference)?;
+                parse_delivery_manifest(&text)?;
+            }
+            _ => unreachable!("SBOM/许可证路径已由报告解析器固定"),
+        },
+        EvidenceKind::GaSignoff => {
+            validate_signoff_file(reference, canonical)?;
+        }
+        EvidenceKind::GaPrivacyStore
+        | EvidenceKind::GaBeta14d
+        | EvidenceKind::GaDualRc
+        | EvidenceKind::GaChannelSmoke
+        | EvidenceKind::GaRollout => {}
+        EvidenceKind::MacosCodesign
+        | EvidenceKind::MacosNotarize
+        | EvidenceKind::WindowsSign
+        | EvidenceKind::AndroidSign
+        | EvidenceKind::IosCodesign
+        | EvidenceKind::AcceptanceMacos
+        | EvidenceKind::AcceptanceAndroid
+        | EvidenceKind::AcceptanceIos
+        | EvidenceKind::AcceptanceIosTestflight
+        | EvidenceKind::AcceptanceChrome
+        | EvidenceKind::AcceptanceEdge
+        | EvidenceKind::AcceptanceFirefox
+        | EvidenceKind::AcceptanceWindows => unreachable!("上方已排除非 GA kind"),
+    }
+    Ok(())
+}
+
+fn validate_ga_reference_set(
+    kind: EvidenceKind,
+    references: &[(String, PathBuf, u64)],
+) -> Result<(), EvidenceError> {
+    if kind == EvidenceKind::GaSbomLicense {
+        let manifest = references
+            .iter()
+            .find(|(reference, _, _)| reference == "evidence/ga-sbom-license/artifact-set.sha256")
+            .ok_or_else(|| EvidenceError::new(vec!["SBOM 闭包缺少冻结交付清单".to_string()]))?;
+        let scope = references
+            .iter()
+            .find(|(reference, _, _)| {
+                reference == "evidence/ga-sbom-license/scope-reconciliation.md"
+            })
+            .ok_or_else(|| EvidenceError::new(vec!["SBOM 闭包缺少范围对账".to_string()]))?;
+        let manifest_text = read_small_utf8(&manifest.1, &manifest.0)?;
+        let scope_text = read_small_utf8(&scope.1, &scope.0)?;
+        for (platform, digest) in parse_delivery_manifest(&manifest_text)? {
+            let marker = format!(
+                "AGENTGUARD_DELIVERY_{}_SHA256={digest}",
+                platform.to_ascii_uppercase()
+            );
+            if !has_marker_line(&scope_text, &marker) {
+                return Err(EvidenceError::new(vec![format!(
+                    "scope-reconciliation.md 未精确绑定 {platform} 最终包 SHA-256"
+                )]));
+            }
+        }
+        return Ok(());
+    }
+    if kind != EvidenceKind::GaSignoff {
+        return Ok(());
+    }
+    let mut hashes = Vec::new();
+    let mut identities = Vec::new();
+    for (reference, canonical, _) in references {
+        let text = read_small_utf8(canonical, reference)?;
+        let hash = required_single_value(
+            &text,
+            "AGENTGUARD_GA_SIGNOFF_ARTIFACT_SET_SHA256=",
+            reference,
+        )?;
+        if !valid_sha256(hash) {
+            return Err(EvidenceError::new(vec![format!(
+                "五方签字材料 {reference:?} 的 artifact-set SHA-256 无效"
+            )]));
+        }
+        hashes.push(hash.to_string());
+        identities.push(
+            required_single_value(&text, "AGENTGUARD_GA_SIGNOFF_IDENTITY=", reference)?.to_string(),
+        );
+    }
+    if hashes
+        .first()
+        .is_none_or(|first| hashes.iter().any(|hash| hash != first))
+    {
+        return Err(EvidenceError::new(vec![
+            "五方签字必须绑定同一个 artifact-set SHA-256".to_string(),
+        ]));
+    }
+    identities.sort();
+    identities.dedup();
+    if identities.len() != GA_SIGNOFF_REQUIRED_CASES.len() {
+        return Err(EvidenceError::new(vec![
+            "五方签字必须来自五个不同的非占位身份".to_string(),
+        ]));
+    }
+    Ok(())
+}
+
+fn parse_delivery_manifest(text: &str) -> Result<Vec<(String, String)>, EvidenceError> {
+    let mut entries = Vec::new();
+    for line in text.lines() {
+        let Some((digest, relative)) = line.split_once("  ") else {
+            return Err(EvidenceError::new(vec![
+                "artifact-set.sha256 每行必须为 64 位小写 SHA-256 + 两个空格 + <platform>/<file>"
+                    .to_string(),
+            ]));
+        };
+        let mut parts = relative.split('/');
+        let platform = parts.next().unwrap_or_default();
+        let file = parts.next().unwrap_or_default();
+        if !valid_sha256(digest)
+            || !matches!(
+                platform,
+                "macos" | "windows" | "android" | "ios" | "chrome" | "edge"
+            )
+            || parts.next().is_some()
+            || file.is_empty()
+            || !valid_portable_repo_relative_path(relative)
+        {
+            return Err(EvidenceError::new(vec![
+                "artifact-set.sha256 只接受六行 <sha256>  <macos|windows|android|ios|chrome|edge>/<file>"
+                    .to_string(),
+            ]));
+        }
+        if entries
+            .iter()
+            .any(|(seen_platform, _)| seen_platform == platform)
+        {
+            return Err(EvidenceError::new(vec![format!(
+                "artifact-set.sha256 的 {platform} 交付物必须恰好一个"
+            )]));
+        }
+        entries.push((platform.to_string(), digest.to_string()));
+    }
+    for platform in ["macos", "windows", "android", "ios", "chrome", "edge"] {
+        if !entries
+            .iter()
+            .any(|(seen_platform, _)| seen_platform == platform)
+        {
+            return Err(EvidenceError::new(vec![format!(
+                "artifact-set.sha256 缺少 {platform} 最终交付物"
+            )]));
+        }
+    }
+    if entries.len() != 6 {
+        return Err(EvidenceError::new(vec![
+            "artifact-set.sha256 必须恰好包含六个最终交付物".to_string(),
+        ]));
+    }
+    Ok(entries)
+}
+
+fn validate_signoff_file(reference: &str, canonical: &Path) -> Result<(), EvidenceError> {
+    let expected_role = match reference {
+        "evidence/ga-signoff/release.md" => "release",
+        "evidence/ga-signoff/qa.md" => "qa",
+        "evidence/ga-signoff/security.md" => "security",
+        "evidence/ga-signoff/privacy-legal.md" => "privacy-legal",
+        "evidence/ga-signoff/operations.md" => "operations",
+        _ => unreachable!("五方签字路径已由报告解析器固定"),
+    };
+    let text = read_small_utf8(canonical, reference)?;
+    let role = required_single_value(&text, "AGENTGUARD_GA_SIGNOFF_ROLE=", reference)?;
+    if role != expected_role {
+        return Err(EvidenceError::new(vec![format!(
+            "五方签字材料 {reference:?} 的角色必须是 {expected_role}"
+        )]));
+    }
+    if !has_marker_line(&text, "AGENTGUARD_GA_SIGNOFF_DECISION=APPROVED") {
+        return Err(EvidenceError::new(vec![format!(
+            "五方签字材料 {reference:?} 未明确 APPROVED"
+        )]));
+    }
+    let identity = required_single_value(&text, "AGENTGUARD_GA_SIGNOFF_IDENTITY=", reference)?;
+    if identity.is_empty() || has_placeholder(identity) {
+        return Err(EvidenceError::new(vec![format!(
+            "五方签字材料 {reference:?} 缺少非占位审批身份"
+        )]));
+    }
+    let signed_at = required_single_value(&text, "AGENTGUARD_GA_SIGNOFF_AT=", reference)?;
+    if parse_rfc3339(signed_at).is_none() {
+        return Err(EvidenceError::new(vec![format!(
+            "五方签字材料 {reference:?} 的签字时间不是 RFC3339"
+        )]));
+    }
+    let hash = required_single_value(
+        &text,
+        "AGENTGUARD_GA_SIGNOFF_ARTIFACT_SET_SHA256=",
+        reference,
+    )?;
+    if !valid_sha256(hash) {
+        return Err(EvidenceError::new(vec![format!(
+            "五方签字材料 {reference:?} 的 artifact-set SHA-256 无效"
+        )]));
+    }
+    Ok(())
+}
+
+fn required_single_value<'a>(
+    text: &'a str,
+    prefix: &str,
+    reference: &str,
+) -> Result<&'a str, EvidenceError> {
+    let values: Vec<&str> = text
+        .lines()
+        .map(str::trim)
+        .filter_map(|line| line.strip_prefix(prefix))
+        .collect();
+    match values.as_slice() {
+        [value] if !value.is_empty() && !has_placeholder(value) => Ok(*value),
+        _ => Err(EvidenceError::new(vec![format!(
+            "逐项证据 {reference:?} 必须恰好包含一行 {prefix}<value>"
+        )])),
+    }
+}
+
+fn read_small_utf8(path: &Path, reference: &str) -> Result<String, EvidenceError> {
+    std::fs::read_to_string(path).map_err(|error| {
+        EvidenceError::new(vec![format!(
+            "GA 逐项证据 {reference:?} 不是可读 UTF-8:{error}"
+        )])
+    })
+}
+
+fn read_json_value(path: &Path, reference: &str) -> Result<serde_json::Value, EvidenceError> {
+    let text = read_small_utf8(path, reference)?;
+    serde_json::from_str(&text).map_err(|error| {
+        EvidenceError::new(vec![format!(
+            "GA 逐项证据 {reference:?} 不是有效 JSON:{error}"
+        )])
+    })
 }
 
 fn verify_acceptance_reference(
@@ -1115,7 +1896,7 @@ fn validate_command(
         }
     }
     match kind {
-        EvidenceKind::MacosCodesign => {
+        EvidenceKind::MacosCodesign | EvidenceKind::IosCodesign => {
             let segments = direct_tool_segments(command, "codesign");
             let verify = segments.iter().position(|segment| {
                 segment_has_shape(
@@ -1129,7 +1910,7 @@ fn validate_command(
             });
             if segments.len() < 2 || verify.is_none() || identity.is_none() || verify == identity {
                 errors.push(
-                    "macos_codesign 必须在两个独立命令段分别执行 codesign --verify --deep --strict --verbose=4 和 codesign -dv --verbose=4,且都绑定 artifact.path"
+                    "macos_codesign/ios_codesign 必须在两个独立命令段分别执行 codesign --verify --deep --strict --verbose=4 和 codesign -dv --verbose=4,且都绑定 artifact.path"
                         .to_string(),
                 );
             }
@@ -1181,8 +1962,19 @@ fn validate_command(
         }
         EvidenceKind::AcceptanceMacos
         | EvidenceKind::AcceptanceAndroid
+        | EvidenceKind::AcceptanceIos
+        | EvidenceKind::AcceptanceIosTestflight
+        | EvidenceKind::AcceptanceChrome
+        | EvidenceKind::AcceptanceEdge
         | EvidenceKind::AcceptanceFirefox
-        | EvidenceKind::AcceptanceWindows => {
+        | EvidenceKind::AcceptanceWindows
+        | EvidenceKind::GaSbomLicense
+        | EvidenceKind::GaPrivacyStore
+        | EvidenceKind::GaBeta14d
+        | EvidenceKind::GaDualRc
+        | EvidenceKind::GaSignoff
+        | EvidenceKind::GaChannelSmoke
+        | EvidenceKind::GaRollout => {
             if let Some((platform, checklist)) = kind.acceptance_command() {
                 if !direct_tool_segments(command, "guard-cli")
                     .iter()
@@ -1228,14 +2020,27 @@ fn validate_command_flow(
     }
 
     match kind {
-        EvidenceKind::MacosCodesign => validate_codesign_flow(command, artifact_path),
+        EvidenceKind::MacosCodesign | EvidenceKind::IosCodesign => {
+            validate_codesign_flow(command, artifact_path)
+        }
         EvidenceKind::MacosNotarize => validate_notary_flow(command, artifact_path),
         EvidenceKind::WindowsSign => validate_windows_sign_flow(command, artifact_path),
         EvidenceKind::AndroidSign => validate_android_sign_flow(command, artifact_path),
         EvidenceKind::AcceptanceMacos
         | EvidenceKind::AcceptanceAndroid
+        | EvidenceKind::AcceptanceIos
+        | EvidenceKind::AcceptanceIosTestflight
+        | EvidenceKind::AcceptanceChrome
+        | EvidenceKind::AcceptanceEdge
         | EvidenceKind::AcceptanceFirefox
-        | EvidenceKind::AcceptanceWindows => validate_acceptance_flow(kind, command, artifact_path),
+        | EvidenceKind::AcceptanceWindows
+        | EvidenceKind::GaSbomLicense
+        | EvidenceKind::GaPrivacyStore
+        | EvidenceKind::GaBeta14d
+        | EvidenceKind::GaDualRc
+        | EvidenceKind::GaSignoff
+        | EvidenceKind::GaChannelSmoke
+        | EvidenceKind::GaRollout => validate_acceptance_flow(kind, command, artifact_path),
     }
 }
 
@@ -1777,6 +2582,11 @@ fn validate_output(kind: EvidenceKind, output: &str, errors: &mut Vec<String>) {
             !(lower.contains("valid on disk")
                 && lower.contains("satisfies its designated requirement"))
         }
+        EvidenceKind::IosCodesign => {
+            !(lower.contains("valid on disk")
+                && lower.contains("satisfies its designated requirement")
+                && lower.contains("authority=apple distribution:"))
+        }
         EvidenceKind::MacosNotarize => {
             let accepted = lower.contains("status: accepted")
                 || lower.contains("\"status\": \"accepted\"")
@@ -1793,12 +2603,31 @@ fn validate_output(kind: EvidenceKind, output: &str, errors: &mut Vec<String>) {
         EvidenceKind::AcceptanceAndroid => {
             !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_ANDROID=PASS")
         }
+        EvidenceKind::AcceptanceIos => !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_IOS=PASS"),
+        EvidenceKind::AcceptanceIosTestflight => {
+            !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_IOS_TESTFLIGHT=PASS")
+        }
+        EvidenceKind::AcceptanceChrome => {
+            !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_CHROME=PASS")
+        }
+        EvidenceKind::AcceptanceEdge => !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_EDGE=PASS"),
         EvidenceKind::AcceptanceFirefox => {
             !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_FIREFOX=PASS")
         }
         EvidenceKind::AcceptanceWindows => {
             !has_marker_line(output, "AGENTGUARD_ACCEPTANCE_WINDOWS=PASS")
         }
+        EvidenceKind::GaSbomLicense => !has_marker_line(output, "AGENTGUARD_GA_SBOM_LICENSE=PASS"),
+        EvidenceKind::GaPrivacyStore => {
+            !has_marker_line(output, "AGENTGUARD_GA_PRIVACY_STORE=PASS")
+        }
+        EvidenceKind::GaBeta14d => !has_marker_line(output, "AGENTGUARD_GA_BETA_14D=PASS"),
+        EvidenceKind::GaDualRc => !has_marker_line(output, "AGENTGUARD_GA_DUAL_RC=PASS"),
+        EvidenceKind::GaSignoff => !has_marker_line(output, "AGENTGUARD_GA_SIGNOFF=PASS"),
+        EvidenceKind::GaChannelSmoke => {
+            !has_marker_line(output, "AGENTGUARD_GA_CHANNEL_SMOKE=PASS")
+        }
+        EvidenceKind::GaRollout => !has_marker_line(output, "AGENTGUARD_GA_ROLLOUT=PASS"),
     };
     if missing {
         errors.push(format!("{kind} 的 output 不满足该类证据的成功判据"));
@@ -1829,20 +2658,23 @@ fn validate_signer(
     };
 
     match kind {
-        EvidenceKind::MacosCodesign | EvidenceKind::MacosNotarize => {
+        EvidenceKind::MacosCodesign | EvidenceKind::MacosNotarize | EvidenceKind::IosCodesign => {
             let Some(actual) = normalize_team_id(signer) else {
-                errors.push("macOS signer 必须是 10 位 Team ID".to_string());
+                errors.push("Apple signer 必须是 10 位 Team ID".to_string());
                 return;
             };
             let Some(expected) = normalize_team_id(expected) else {
-                errors.push("--expected-signer 不是有效的 10 位 macOS Team ID".to_string());
+                errors.push("--expected-signer 不是有效的 10 位 Apple Team ID".to_string());
                 return;
             };
             if actual != expected {
-                errors.push(format!("macOS signer 不匹配:期望 {expected},实际 {actual}"));
+                errors.push(format!("Apple signer 不匹配:期望 {expected},实际 {actual}"));
                 return;
             }
-            if kind == EvidenceKind::MacosCodesign {
+            if matches!(
+                kind,
+                EvidenceKind::MacosCodesign | EvidenceKind::IosCodesign
+            ) {
                 if !has_marker_line(output, &format!("TeamIdentifier={expected}")) {
                     errors.push("codesign output 未绑定预期 TeamIdentifier".to_string());
                 }
@@ -1882,8 +2714,19 @@ fn validate_signer(
         }
         EvidenceKind::AcceptanceMacos
         | EvidenceKind::AcceptanceAndroid
+        | EvidenceKind::AcceptanceIos
+        | EvidenceKind::AcceptanceIosTestflight
+        | EvidenceKind::AcceptanceChrome
+        | EvidenceKind::AcceptanceEdge
         | EvidenceKind::AcceptanceFirefox
-        | EvidenceKind::AcceptanceWindows => unreachable!("上方已处理验收类"),
+        | EvidenceKind::AcceptanceWindows
+        | EvidenceKind::GaSbomLicense
+        | EvidenceKind::GaPrivacyStore
+        | EvidenceKind::GaBeta14d
+        | EvidenceKind::GaDualRc
+        | EvidenceKind::GaSignoff
+        | EvidenceKind::GaChannelSmoke
+        | EvidenceKind::GaRollout => unreachable!("上方已处理验收类"),
     }
 }
 
@@ -2080,12 +2923,25 @@ mod tests {
 
     fn expected_signer(kind: EvidenceKind) -> Option<&'static str> {
         match kind {
-            EvidenceKind::MacosCodesign | EvidenceKind::MacosNotarize => Some(TEAM_ID),
+            EvidenceKind::MacosCodesign
+            | EvidenceKind::MacosNotarize
+            | EvidenceKind::IosCodesign => Some(TEAM_ID),
             EvidenceKind::WindowsSign | EvidenceKind::AndroidSign => Some(CERT_SHA256),
             EvidenceKind::AcceptanceMacos
             | EvidenceKind::AcceptanceAndroid
+            | EvidenceKind::AcceptanceIos
+            | EvidenceKind::AcceptanceIosTestflight
+            | EvidenceKind::AcceptanceChrome
+            | EvidenceKind::AcceptanceEdge
             | EvidenceKind::AcceptanceFirefox
-            | EvidenceKind::AcceptanceWindows => None,
+            | EvidenceKind::AcceptanceWindows
+            | EvidenceKind::GaSbomLicense
+            | EvidenceKind::GaPrivacyStore
+            | EvidenceKind::GaBeta14d
+            | EvidenceKind::GaDualRc
+            | EvidenceKind::GaSignoff
+            | EvidenceKind::GaChannelSmoke
+            | EvidenceKind::GaRollout => None,
         }
     }
 
@@ -2121,6 +2977,26 @@ mod tests {
                 vec!["A1", "A2", "A3", "A4"],
                 "android",
             ),
+            EvidenceKind::AcceptanceIos => (
+                "AGENTGUARD_ACCEPTANCE_IOS=PASS",
+                IOS_FIRST_GA_REQUIRED_CASES.to_vec(),
+                "ios",
+            ),
+            EvidenceKind::AcceptanceIosTestflight => (
+                "AGENTGUARD_ACCEPTANCE_IOS_TESTFLIGHT=PASS",
+                IOS_TESTFLIGHT_REQUIRED_CASES.to_vec(),
+                "ios-testflight",
+            ),
+            EvidenceKind::AcceptanceChrome => (
+                "AGENTGUARD_ACCEPTANCE_CHROME=PASS",
+                CHROMIUM_FIRST_GA_REQUIRED_CASES.to_vec(),
+                "chrome",
+            ),
+            EvidenceKind::AcceptanceEdge => (
+                "AGENTGUARD_ACCEPTANCE_EDGE=PASS",
+                CHROMIUM_FIRST_GA_REQUIRED_CASES.to_vec(),
+                "edge",
+            ),
             EvidenceKind::AcceptanceFirefox => (
                 "AGENTGUARD_ACCEPTANCE_FIREFOX=PASS",
                 vec!["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8"],
@@ -2128,17 +3004,74 @@ mod tests {
             ),
             EvidenceKind::AcceptanceWindows => (
                 "AGENTGUARD_ACCEPTANCE_WINDOWS=PASS",
-                vec![
-                    "W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11",
-                ],
+                vec!["W1", "W2", "W3", "W4", "W5", "W6", "W8", "W9", "W10", "W11"],
                 "windows",
+            ),
+            EvidenceKind::GaSbomLicense => (
+                "AGENTGUARD_GA_SBOM_LICENSE=PASS",
+                GA_SBOM_LICENSE_REQUIRED_CASES.to_vec(),
+                "ga-sbom-license",
+            ),
+            EvidenceKind::GaPrivacyStore => (
+                "AGENTGUARD_GA_PRIVACY_STORE=PASS",
+                GA_PRIVACY_STORE_REQUIRED_CASES.to_vec(),
+                "ga-privacy-store",
+            ),
+            EvidenceKind::GaBeta14d => (
+                "AGENTGUARD_GA_BETA_14D=PASS",
+                GA_BETA_REQUIRED_CASES.to_vec(),
+                "ga-beta-14d",
+            ),
+            EvidenceKind::GaDualRc => (
+                "AGENTGUARD_GA_DUAL_RC=PASS",
+                GA_DUAL_RC_REQUIRED_CASES.to_vec(),
+                "ga-dual-rc",
+            ),
+            EvidenceKind::GaSignoff => (
+                "AGENTGUARD_GA_SIGNOFF=PASS",
+                GA_SIGNOFF_REQUIRED_CASES.to_vec(),
+                "ga-signoff",
+            ),
+            EvidenceKind::GaChannelSmoke => (
+                "AGENTGUARD_GA_CHANNEL_SMOKE=PASS",
+                GA_CHANNEL_SMOKE_REQUIRED_CASES.to_vec(),
+                "ga-channel-smoke",
+            ),
+            EvidenceKind::GaRollout => (
+                "AGENTGUARD_GA_ROLLOUT=PASS",
+                GA_ROLLOUT_REQUIRED_CASES.to_vec(),
+                "ga-rollout",
             ),
             _ => panic!("只给验收 kind 生成报告"),
         };
-        let mut report = format!("{marker}\n\n| 用例 | 结果 | 证据 | 备注 |\n|---|---|---|---|\n");
+        let profile = match kind {
+            EvidenceKind::AcceptanceWindows => format!("{WINDOWS_FIRST_GA_PROFILE_MARKER}\n\n"),
+            EvidenceKind::GaBeta14d => format!(
+                "{GA_EVIDENCE_PROFILE_MARKER}\nAGENTGUARD_GA_BETA_START=2026-08-18T04:34:56Z\nAGENTGUARD_GA_BETA_END=2026-09-01T04:34:56Z\n\n"
+            ),
+            EvidenceKind::GaDualRc => format!(
+                "{GA_EVIDENCE_PROFILE_MARKER}\nAGENTGUARD_GA_RC1_COMMIT=1111111111111111111111111111111111111111\nAGENTGUARD_GA_RC2_COMMIT={COMMIT}\n\n"
+            ),
+            EvidenceKind::GaSignoff => format!(
+                "{GA_EVIDENCE_PROFILE_MARKER}\nAGENTGUARD_GA_SIGNOFF_PROFILE=five-party-v1\n\n"
+            ),
+            EvidenceKind::GaRollout => format!(
+                "{GA_EVIDENCE_PROFILE_MARKER}\nAGENTGUARD_GA_ROLLOUT_5_AT=2026-09-01T04:34:00Z\nAGENTGUARD_GA_ROLLOUT_25_AT=2026-09-01T04:34:20Z\nAGENTGUARD_GA_ROLLOUT_100_AT=2026-09-01T04:34:40Z\n\n"
+            ),
+            other if other.is_ga() => format!("{GA_EVIDENCE_PROFILE_MARKER}\n\n"),
+            _ => String::new(),
+        };
+        let mut report =
+            format!("{marker}\n{profile}| 用例 | 结果 | 证据 | 备注 |\n|---|---|---|---|\n");
         for case_id in cases {
+            let reference = expected_ga_case_reference(kind, case_id)
+                .map(str::to_string)
+                .unwrap_or_else(|| {
+                    let extension = if kind.is_ga() { "md" } else { "png" };
+                    format!("evidence/{platform}/{case_id}.{extension}")
+                });
             report.push_str(&format!(
-                "| {case_id} 实测 | PASS (native) | evidence/{platform}/{case_id}.png | |\n"
+                "| {case_id} 实测 | PASS (native) | {reference} | |\n"
             ));
         }
         report
@@ -2146,10 +3079,77 @@ mod tests {
 
     fn write_acceptance_references(root: &Path, kind: EvidenceKind, report: &str) {
         for reference in parse_acceptance_report(kind, report).unwrap() {
-            let path = root.join(reference);
+            let path = root.join(&reference);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, b"native device evidence").unwrap();
+            let content = match reference.as_str() {
+                "evidence/ga-sbom-license/delivery.cdx.json" => {
+                    br#"{"bomFormat":"CycloneDX","components":[{"name":"AgentGuard"}]}"#.to_vec()
+                }
+                "evidence/ga-sbom-license/delivery.spdx.json" => {
+                    br#"{"spdxVersion":"SPDX-2.3","packages":[{"name":"AgentGuard"}]}"#.to_vec()
+                }
+                "evidence/ga-sbom-license/NOTICE-review.md" => {
+                    b"AGENTGUARD_NOTICE_REVIEW=APPROVED\n".to_vec()
+                }
+                "evidence/ga-sbom-license/scope-reconciliation.md" => format!(
+                    "AGENTGUARD_DELIVERY_SBOM_SCOPE=COMPLETE\nAGENTGUARD_DELIVERY_SCOPE_MACOS=INCLUDED\nAGENTGUARD_DELIVERY_SCOPE_WINDOWS=INCLUDED\nAGENTGUARD_DELIVERY_SCOPE_ANDROID=INCLUDED\nAGENTGUARD_DELIVERY_SCOPE_IOS=INCLUDED\nAGENTGUARD_DELIVERY_SCOPE_CHROME=INCLUDED\nAGENTGUARD_DELIVERY_SCOPE_EDGE=INCLUDED\nAGENTGUARD_DELIVERY_MACOS_SHA256={CERT_SHA256}\nAGENTGUARD_DELIVERY_WINDOWS_SHA256={CERT_SHA256}\nAGENTGUARD_DELIVERY_ANDROID_SHA256={CERT_SHA256}\nAGENTGUARD_DELIVERY_IOS_SHA256={CERT_SHA256}\nAGENTGUARD_DELIVERY_CHROME_SHA256={CERT_SHA256}\nAGENTGUARD_DELIVERY_EDGE_SHA256={CERT_SHA256}\n"
+                )
+                .into_bytes(),
+                "evidence/ga-sbom-license/artifact-set.sha256" => [
+                    ("macos", "AgentGuard.dmg"),
+                    ("windows", "AgentGuard.msi"),
+                    ("android", "AgentGuard.apk"),
+                    ("ios", "AgentGuard.ipa"),
+                    ("chrome", "AgentGuard.zip"),
+                    ("edge", "AgentGuard.zip"),
+                ]
+                .into_iter()
+                .map(|(platform, file)| format!("{CERT_SHA256}  {platform}/{file}\n"))
+                .collect::<String>()
+                .into_bytes(),
+                _ if kind == EvidenceKind::GaSignoff => {
+                    let (role, identity) = match reference.as_str() {
+                        "evidence/ga-signoff/release.md" => ("release", "release-owner"),
+                        "evidence/ga-signoff/qa.md" => ("qa", "qa-owner"),
+                        "evidence/ga-signoff/security.md" => ("security", "security-owner"),
+                        "evidence/ga-signoff/privacy-legal.md" => {
+                            ("privacy-legal", "privacy-owner")
+                        }
+                        "evidence/ga-signoff/operations.md" => {
+                            ("operations", "operations-owner")
+                        }
+                        _ => unreachable!(),
+                    };
+                    format!(
+                        "AGENTGUARD_GA_SIGNOFF_ROLE={role}\nAGENTGUARD_GA_SIGNOFF_DECISION=APPROVED\nAGENTGUARD_GA_SIGNOFF_IDENTITY={identity}\nAGENTGUARD_GA_SIGNOFF_AT=2026-09-01T04:34:30Z\nAGENTGUARD_GA_SIGNOFF_ARTIFACT_SET_SHA256={CERT_SHA256}\n"
+                    )
+                    .into_bytes()
+                }
+                _ => b"native release evidence".to_vec(),
+            };
+            fs::write(path, content).unwrap();
         }
+    }
+
+    fn ga_report_path(kind: EvidenceKind) -> &'static str {
+        match kind {
+            EvidenceKind::GaSbomLicense => "evidence/ga-sbom-license/report.md",
+            EvidenceKind::GaPrivacyStore => "evidence/ga-privacy-store/report.md",
+            EvidenceKind::GaBeta14d => "evidence/ga-beta-14d/report.md",
+            EvidenceKind::GaDualRc => "evidence/ga-dual-rc/report.md",
+            EvidenceKind::GaSignoff => "evidence/ga-signoff/report.md",
+            EvidenceKind::GaChannelSmoke => "evidence/ga-channel-smoke/report.md",
+            EvidenceKind::GaRollout => "evidence/ga-rollout/report.md",
+            _ => panic!("只给 GA kind 选择报告路径"),
+        }
+    }
+
+    fn write_ga_report(root: &Path, kind: EvidenceKind, report: &str) -> ReleaseEvidence {
+        write_acceptance_references(root, kind, report);
+        let path = ga_report_path(kind);
+        fs::write(root.join(path), report).unwrap();
+        let hash = artifact_digest(root, path).unwrap();
+        valid_evidence(kind, path, &hash)
     }
 
     fn valid_evidence(kind: EvidenceKind, path: &str, hash: &str) -> ReleaseEvidence {
@@ -2186,6 +3186,14 @@ mod tests {
                     "Signer #1 certificate DN: CN=AgentGuard Release\nSigner #1 certificate SHA-256 digest: {CERT_SHA256}"
                 ),
             ),
+            EvidenceKind::IosCodesign => (
+                format!(
+                    "codesign --verify --deep --strict --verbose=4 {path} && codesign -dv --verbose=4 {path}"
+                ),
+                format!(
+                    "AgentGuard: valid on disk\nAgentGuard: satisfies its Designated Requirement\nAuthority=Apple Distribution: AgentGuard ({TEAM_ID})\nTeamIdentifier={TEAM_ID}"
+                ),
+            ),
             EvidenceKind::AcceptanceMacos => (
                 format!(
                     "guard-cli manual-acceptance macos docs/acceptance-macos.md {path} --repo-root ."
@@ -2198,6 +3206,30 @@ mod tests {
                 ),
                 "AGENTGUARD_ACCEPTANCE_ANDROID=PASS".to_string(),
             ),
+            EvidenceKind::AcceptanceIos => (
+                format!(
+                    "guard-cli manual-acceptance ios docs/acceptance-ios.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_ACCEPTANCE_IOS=PASS".to_string(),
+            ),
+            EvidenceKind::AcceptanceIosTestflight => (
+                format!(
+                    "guard-cli manual-acceptance ios-testflight docs/acceptance-ios.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_ACCEPTANCE_IOS_TESTFLIGHT=PASS".to_string(),
+            ),
+            EvidenceKind::AcceptanceChrome => (
+                format!(
+                    "guard-cli manual-acceptance chrome docs/acceptance-chrome.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_ACCEPTANCE_CHROME=PASS".to_string(),
+            ),
+            EvidenceKind::AcceptanceEdge => (
+                format!(
+                    "guard-cli manual-acceptance edge docs/acceptance-chrome.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_ACCEPTANCE_EDGE=PASS".to_string(),
+            ),
             EvidenceKind::AcceptanceFirefox => (
                 format!(
                     "guard-cli manual-acceptance firefox docs/acceptance-firefox.md {path} --repo-root ."
@@ -2209,6 +3241,48 @@ mod tests {
                     "guard-cli manual-acceptance windows docs/acceptance-windows.md {path} --repo-root ."
                 ),
                 "AGENTGUARD_ACCEPTANCE_WINDOWS=PASS".to_string(),
+            ),
+            EvidenceKind::GaSbomLicense => (
+                format!(
+                    "guard-cli manual-acceptance ga-sbom-license docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_SBOM_LICENSE=PASS".to_string(),
+            ),
+            EvidenceKind::GaPrivacyStore => (
+                format!(
+                    "guard-cli manual-acceptance ga-privacy-store docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_PRIVACY_STORE=PASS".to_string(),
+            ),
+            EvidenceKind::GaBeta14d => (
+                format!(
+                    "guard-cli manual-acceptance ga-beta-14d docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_BETA_14D=PASS".to_string(),
+            ),
+            EvidenceKind::GaDualRc => (
+                format!(
+                    "guard-cli manual-acceptance ga-dual-rc docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_DUAL_RC=PASS".to_string(),
+            ),
+            EvidenceKind::GaSignoff => (
+                format!(
+                    "guard-cli manual-acceptance ga-signoff docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_SIGNOFF=PASS".to_string(),
+            ),
+            EvidenceKind::GaChannelSmoke => (
+                format!(
+                    "guard-cli manual-acceptance ga-channel-smoke docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_CHANNEL_SMOKE=PASS".to_string(),
+            ),
+            EvidenceKind::GaRollout => (
+                format!(
+                    "guard-cli manual-acceptance ga-rollout docs/ga-release-gate.md {path} --repo-root ."
+                ),
+                "AGENTGUARD_GA_ROLLOUT=PASS".to_string(),
             ),
         };
         ReleaseEvidence {
@@ -2228,7 +3302,7 @@ mod tests {
     }
 
     #[test]
-    fn 八种原样模板全部被拒绝() {
+    fn 二十种原样模板全部被拒绝() {
         for kind in EvidenceKind::ALL {
             let template = evidence_template(kind, Some(COMMIT));
             let error = validate_fields_at(
@@ -2263,6 +3337,253 @@ mod tests {
                 .canonicalize()
                 .unwrap()
                 .join("evidence/macos/report.md")
+        );
+    }
+
+    #[test]
+    fn 新增首发平台验收类型各自绑定独立目录和用例集() {
+        for kind in [
+            EvidenceKind::AcceptanceIos,
+            EvidenceKind::AcceptanceIosTestflight,
+            EvidenceKind::AcceptanceChrome,
+            EvidenceKind::AcceptanceEdge,
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let report = acceptance_report(kind);
+            write_acceptance_references(dir.path(), kind, &report);
+            let report_path = match kind {
+                EvidenceKind::AcceptanceIos => "evidence/ios/report.md",
+                EvidenceKind::AcceptanceIosTestflight => "evidence/ios-testflight/report.md",
+                EvidenceKind::AcceptanceChrome => "evidence/chrome/report.md",
+                EvidenceKind::AcceptanceEdge => "evidence/edge/report.md",
+                _ => unreachable!(),
+            };
+            fs::write(dir.path().join(report_path), &report).unwrap();
+            let hash = artifact_digest(dir.path(), report_path).unwrap();
+            let evidence = valid_evidence(kind, report_path, &hash);
+            assert!(
+                verify_test(&evidence, kind, dir.path()).is_ok(),
+                "{kind} 的完整报告应通过"
+            );
+
+            let wrong_path = if kind == EvidenceKind::AcceptanceChrome {
+                "evidence/edge/report.md"
+            } else {
+                "evidence/chrome/report.md"
+            };
+            let wrong = valid_evidence(kind, wrong_path, &hash);
+            assert!(
+                verify_test(&wrong, kind, dir.path())
+                    .unwrap_err()
+                    .to_string()
+                    .contains("文件类型"),
+                "{kind} 不能复用其他平台目录"
+            );
+        }
+    }
+
+    #[test]
+    fn 七种ga闭包证据在完整材料下分别通过() {
+        for kind in [
+            EvidenceKind::GaSbomLicense,
+            EvidenceKind::GaPrivacyStore,
+            EvidenceKind::GaBeta14d,
+            EvidenceKind::GaDualRc,
+            EvidenceKind::GaSignoff,
+            EvidenceKind::GaChannelSmoke,
+            EvidenceKind::GaRollout,
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let report = acceptance_report(kind);
+            let evidence = write_ga_report(dir.path(), kind, &report);
+            assert!(
+                verify_test(&evidence, kind, dir.path()).is_ok(),
+                "{kind} 的完整闭包应通过"
+            );
+        }
+    }
+
+    #[test]
+    fn ga_beta必须满十四天且不能晚于证据时间() {
+        let dir = tempfile::tempdir().unwrap();
+        let exact = acceptance_report(EvidenceKind::GaBeta14d);
+        let evidence = write_ga_report(dir.path(), EvidenceKind::GaBeta14d, &exact);
+        assert!(verify_test(&evidence, EvidenceKind::GaBeta14d, dir.path()).is_ok());
+
+        let too_short = exact.replace(
+            "AGENTGUARD_GA_BETA_START=2026-08-18T04:34:56Z",
+            "AGENTGUARD_GA_BETA_START=2026-08-18T04:34:57Z",
+        );
+        fs::write(
+            dir.path().join(ga_report_path(EvidenceKind::GaBeta14d)),
+            too_short,
+        )
+        .unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaBeta14d))
+                .unwrap_err()
+                .to_string()
+                .contains("至少连续 14×24 小时")
+        );
+
+        let future = exact
+            .replace("2026-09-01T04:34:56Z", "2026-09-01T04:35:56Z")
+            .replace("2026-08-18T04:34:56Z", "2026-08-18T04:35:56Z");
+        let future_evidence = write_ga_report(dir.path(), EvidenceKind::GaBeta14d, &future);
+        assert!(
+            verify_test(&future_evidence, EvidenceKind::GaBeta14d, dir.path())
+                .unwrap_err()
+                .to_string()
+                .contains("结束时间不能晚于证据 JSON 时间")
+        );
+    }
+
+    #[test]
+    fn ga双rc必须不同且rc2绑定当前head() {
+        let dir = tempfile::tempdir().unwrap();
+        let report = acceptance_report(EvidenceKind::GaDualRc);
+        let same = report.replace("1111111111111111111111111111111111111111", COMMIT);
+        fs::create_dir_all(dir.path().join("evidence/ga-dual-rc")).unwrap();
+        write_acceptance_references(dir.path(), EvidenceKind::GaDualRc, &report);
+        fs::write(
+            dir.path().join(ga_report_path(EvidenceKind::GaDualRc)),
+            same,
+        )
+        .unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaDualRc))
+                .unwrap_err()
+                .to_string()
+                .contains("两个不同的不可变提交")
+        );
+
+        let other = report.replace(COMMIT, "2222222222222222222222222222222222222222");
+        let evidence = write_ga_report(dir.path(), EvidenceKind::GaDualRc, &other);
+        assert!(verify_test(&evidence, EvidenceKind::GaDualRc, dir.path())
+            .unwrap_err()
+            .to_string()
+            .contains("RC2 commit 必须绑定当前完整 HEAD"));
+    }
+
+    #[test]
+    fn ga五方签字必须五个独立身份绑定同一产物集() {
+        let dir = tempfile::tempdir().unwrap();
+        let report = acceptance_report(EvidenceKind::GaSignoff);
+        write_ga_report(dir.path(), EvidenceKind::GaSignoff, &report);
+        let operations = dir.path().join("evidence/ga-signoff/operations.md");
+        let original = fs::read_to_string(&operations).unwrap();
+
+        fs::write(
+            &operations,
+            original.replace("operations-owner", "release-owner"),
+        )
+        .unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaSignoff))
+                .unwrap_err()
+                .to_string()
+                .contains("五个不同的非占位身份")
+        );
+
+        fs::write(&operations, original.replace(CERT_SHA256, &"f".repeat(64))).unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaSignoff))
+                .unwrap_err()
+                .to_string()
+                .contains("同一个 artifact-set SHA-256")
+        );
+    }
+
+    #[test]
+    fn ga_sbom交付物不完整会失败关闭() {
+        let dir = tempfile::tempdir().unwrap();
+        let report = acceptance_report(EvidenceKind::GaSbomLicense);
+        write_ga_report(dir.path(), EvidenceKind::GaSbomLicense, &report);
+        let cdx = dir
+            .path()
+            .join("evidence/ga-sbom-license/delivery.cdx.json");
+        let valid_cdx = fs::read(&cdx).unwrap();
+        fs::write(&cdx, br#"{"bomFormat":"CycloneDX","components":[]}"#).unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaSbomLicense))
+                .unwrap_err()
+                .to_string()
+                .contains("非空 components")
+        );
+
+        fs::write(&cdx, valid_cdx).unwrap();
+        let manifest = dir
+            .path()
+            .join("evidence/ga-sbom-license/artifact-set.sha256");
+        let original = fs::read_to_string(&manifest).unwrap();
+        fs::write(
+            &manifest,
+            original.replacen(CERT_SHA256, &"f".repeat(64), 1),
+        )
+        .unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaSbomLicense))
+                .unwrap_err()
+                .to_string()
+                .contains("未精确绑定 macos 最终包 SHA-256")
+        );
+    }
+
+    #[test]
+    fn ga扩量必须严格按5_25_100且绑定候选与证据时间() {
+        let dir = tempfile::tempdir().unwrap();
+        let report = acceptance_report(EvidenceKind::GaRollout);
+        let misordered = report.replace(
+            "AGENTGUARD_GA_ROLLOUT_25_AT=2026-09-01T04:34:20Z",
+            "AGENTGUARD_GA_ROLLOUT_25_AT=2026-09-01T04:33:59Z",
+        );
+        fs::create_dir_all(dir.path().join("evidence/ga-rollout")).unwrap();
+        write_acceptance_references(dir.path(), EvidenceKind::GaRollout, &report);
+        fs::write(
+            dir.path().join(ga_report_path(EvidenceKind::GaRollout)),
+            misordered,
+        )
+        .unwrap();
+        assert!(
+            artifact_digest(dir.path(), ga_report_path(EvidenceKind::GaRollout))
+                .unwrap_err()
+                .to_string()
+                .contains("5% → 25% → 100%")
+        );
+
+        let before_commit = report
+            .replace("2026-09-01T04:34:00Z", "2026-09-01T04:20:00Z")
+            .replace("2026-09-01T04:34:20Z", "2026-09-01T04:30:00Z");
+        let evidence = write_ga_report(dir.path(), EvidenceKind::GaRollout, &before_commit);
+        assert!(verify_test(&evidence, EvidenceKind::GaRollout, dir.path())
+            .unwrap_err()
+            .to_string()
+            .contains("5% 扩量时间早于当前候选提交"));
+    }
+
+    #[test]
+    fn ios发布签名必须绑定apple_distribution与team_id() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("dist/AgentGuardIOS.app/Payload")).unwrap();
+        fs::write(
+            dir.path().join("dist/AgentGuardIOS.app/Payload/AgentGuard"),
+            b"signed ios binary",
+        )
+        .unwrap();
+        let hash = artifact_digest(dir.path(), "dist/AgentGuardIOS.app").unwrap();
+        let evidence = valid_evidence(EvidenceKind::IosCodesign, "dist/AgentGuardIOS.app", &hash);
+        assert!(verify_test(&evidence, EvidenceKind::IosCodesign, dir.path()).is_ok());
+
+        let mut development = evidence;
+        development.output = development.output.replace(
+            "Authority=Apple Distribution:",
+            "Authority=Apple Development:",
+        );
+        assert!(
+            verify_test(&development, EvidenceKind::IosCodesign, dir.path())
+                .unwrap_err()
+                .to_string()
+                .contains("成功判据")
         );
     }
 
@@ -2852,6 +4173,30 @@ mod tests {
                 "逐项证据路径 {invalid:?} 不应通过"
             );
         }
+    }
+
+    #[test]
+    fn windows首个_ga_v1不再把遗留_w7当成必需项() {
+        let kind = EvidenceKind::AcceptanceWindows;
+        let report = acceptance_report(kind);
+        assert!(has_marker_line(&report, WINDOWS_FIRST_GA_PROFILE_MARKER));
+        assert!(!report.lines().any(|line| line.starts_with("| W7 ")));
+        assert_eq!(parse_acceptance_report(kind, &report).unwrap().len(), 10);
+
+        let legacy_optional = format!(
+            "{report}| W7 遗留 Native Messaging | N/A (non-GA) | | 不计入 first-ga-v1 门禁 |\n"
+        );
+        assert_eq!(
+            parse_acceptance_report(kind, &legacy_optional)
+                .unwrap()
+                .len(),
+            10,
+            "W7 可留作非 GA 记录，但不得改变门禁闭包"
+        );
+
+        let unversioned = report.replace(WINDOWS_FIRST_GA_PROFILE_MARKER, "");
+        let error = parse_acceptance_report(kind, &unversioned).unwrap_err();
+        assert!(error.to_string().contains("缺少固定清单版本"));
     }
 
     #[test]

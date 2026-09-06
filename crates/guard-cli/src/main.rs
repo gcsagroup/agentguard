@@ -326,11 +326,13 @@ enum Commands {
     /// This is the host-facing half of the A4 integrity check: the guard records a
     /// digest of what it saw (inside the signed audit record); the host computes
     /// the digest of the screenshot the agent actually consumed and compares. A
-    /// mismatch localized to a few blocks is a tampered frame.
+    /// mismatch localized to a few blocks is a tampered-frame signal only for an
+    /// explicitly declared same-scale, four-plane comparison.
     ///
     /// Input is raw packed 4-byte pixels — PNG/JPEG decoding is the caller's job,
     /// which keeps an image-codec dependency out of this binary. The digest is a
-    /// fixed 16x9 grid, so the two frames need not share a resolution.
+    /// fixed 16x9 grid, but its detail plane is not scale invariant. Therefore an
+    /// `--expect` comparison must explicitly select `same-scale` or `cross-scale`.
     FrameDigest {
         /// Raw RGBA/BGRA pixel dump.
         #[arg(long)]
@@ -345,6 +347,11 @@ enum Commands {
         /// Digest to compare against (as recorded in `frame_digest` metadata).
         #[arg(long)]
         expect: Option<String>,
+        /// Required with `--expect`: `same-scale` uses all available planes;
+        /// `cross-scale` deliberately drops the scale-sensitive detail plane and
+        /// reports a degraded comparison.
+        #[arg(long, value_parser = ["same-scale", "cross-scale"])]
+        comparison_mode: Option<String>,
     },
     /// Difference hash of an app icon, for a `known-apps.yaml` `icon_dhash:` entry
     /// (AgentScan §3.6).
@@ -1822,7 +1829,26 @@ fn run_cli() -> Result<()> {
             height,
             bgra,
             expect,
+            comparison_mode,
         } => {
+            let selected_mode = match (expect.is_some(), comparison_mode.as_deref()) {
+                (false, None) => None,
+                (false, Some(_)) => {
+                    anyhow::bail!("--comparison-mode is only valid together with --expect")
+                }
+                (true, Some("same-scale")) => {
+                    Some(mac_adapter::framehash::DigestComparisonMode::SameScale)
+                }
+                (true, Some("cross-scale")) => {
+                    Some(mac_adapter::framehash::DigestComparisonMode::CrossScale)
+                }
+                (true, Some(other)) => anyhow::bail!("unsupported comparison mode: {other}"),
+                (true, None) => anyhow::bail!(
+                    "--expect requires --comparison-mode same-scale|cross-scale; \
+                     the digest string does not contain source dimensions, so the CLI \
+                     will not guess whether the scale-sensitive detail plane is comparable"
+                ),
+            };
             let px =
                 std::fs::read(&raw).with_context(|| format!("read raw frame {}", raw.display()))?;
             let needed = match width.checked_mul(height).and_then(|n| n.checked_mul(4)) {
@@ -1846,25 +1872,79 @@ fn run_cli() -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("frame too small for a 16x9 digest"))?;
             println!("{}", digest.to_hex());
             if let Some(expected) = expect {
+                let mode = selected_mode.expect("validated above whenever --expect is present");
                 let other = mac_adapter::FrameDigest::from_hex(&expected)
                     .ok_or_else(|| anyhow::anyhow!("--expect is not a valid digest"))?;
-                match mac_adapter::compare_frame_digests(&other, &digest) {
+                let comparison = mac_adapter::framehash::compare_with_mode(&other, &digest, mode);
+                use mac_adapter::framehash::DigestComparisonFidelity as Fidelity;
+                match comparison.fidelity {
+                    Fidelity::FullFourPlane => {
+                        println!("comparison capability: FULL (same-scale luma/cb/cr/detail)")
+                    }
+                    Fidelity::DegradedLegacyThreePlane => println!(
+                        "comparison capability: DEGRADED (legacy three-plane digest; detail \
+                         was not measured and is not compared)"
+                    ),
+                    Fidelity::DegradedCrossScaleMeanPlanes => println!(
+                        "comparison capability: DEGRADED (cross-scale mean planes only; detail \
+                         is deliberately not compared)"
+                    ),
+                    Fidelity::DegradedCrossScaleLegacyThreePlane => println!(
+                        "comparison capability: DEGRADED (cross-scale legacy digest; only the \
+                         shared luma/cb/cr mean planes are compared)"
+                    ),
+                }
+                let cross_scale = matches!(
+                    mode,
+                    mac_adapter::framehash::DigestComparisonMode::CrossScale
+                );
+                match comparison.delta {
                     mac_adapter::DigestDelta::Identical => {
-                        println!("match: the frame agrees with the recorded digest");
+                        if comparison.fidelity.is_degraded() {
+                            println!(
+                                "match within declared capability: compared planes agree; this \
+                                 is not a full four-plane integrity proof"
+                            );
+                        } else {
+                            println!("match: the frame agrees with the recorded digest");
+                        }
                     }
                     mac_adapter::DigestDelta::Localized { changed, total } => {
-                        println!(
-                            "TAMPERED (localized): {}/{total} blocks differ {:?}",
-                            changed.len(),
-                            &changed[..changed.len().min(12)]
-                        );
+                        if cross_scale {
+                            println!(
+                                "CROSS-SCALE MISMATCH (localized mean-plane difference; not a \
+                                 tamper verdict): {}/{total} blocks differ {:?}",
+                                changed.len(),
+                                &changed[..changed.len().min(12)]
+                            );
+                        } else if comparison.fidelity.is_degraded() {
+                            println!(
+                                "POSSIBLE TAMPER (localized, DEGRADED legacy comparison): \
+                                 {}/{total} blocks differ {:?}",
+                                changed.len(),
+                                &changed[..changed.len().min(12)]
+                            );
+                        } else {
+                            println!(
+                                "TAMPERED (localized): {}/{total} blocks differ {:?}",
+                                changed.len(),
+                                &changed[..changed.len().min(12)]
+                            );
+                        }
                         anyhow::bail!("frame does not match the recorded digest");
                     }
                     mac_adapter::DigestDelta::GlobalRepaint { changed, total } => {
-                        println!(
-                            "DIFFERENT SCREEN: {changed}/{total} blocks differ — this looks like a \
-                             different screen entirely, not an edit of the same one"
-                        );
+                        if cross_scale {
+                            println!(
+                                "CROSS-SCALE MISMATCH (global mean-plane difference): \
+                                 {changed}/{total} blocks differ; this is not a tamper verdict"
+                            );
+                        } else {
+                            println!(
+                                "DIFFERENT SCREEN: {changed}/{total} blocks differ — this looks \
+                                 like a different screen entirely, not an edit of the same one"
+                            );
+                        }
                         anyhow::bail!("frame does not match the recorded digest");
                     }
                 }
@@ -3171,25 +3251,28 @@ fn with_repo_agents(runner: EvalRunner, path: &std::path::Path) -> Result<EvalRu
 /// with a fresh key would look like coverage while the public key exists nowhere,
 /// so `audit-keygen` stays an explicit step.
 fn open_audit(path: impl AsRef<std::path::Path>) -> Result<AuditStore> {
-    let store = AuditStore::open(path.as_ref())?;
     let key_path = std::env::var_os("AGENTGUARD_AUDIT_SIGNING_KEY")
         .map(PathBuf::from)
         .or_else(|| {
             let default = PathBuf::from("policies/audit-signing.key");
             default.exists().then_some(default)
         });
-    match key_path {
+    let signer: Option<Box<dyn AuditSigner>> = match key_path {
         Some(kp) if kp.exists() => {
             let key = FileDeviceKey::load_existing(&kp)?;
-            store.with_signer(Box::new(key))
+            Some(Box::new(key))
         }
         Some(kp) => anyhow::bail!(
             "AGENTGUARD_AUDIT_SIGNING_KEY points at {} which does not exist; run `audit-keygen --key {}`",
             kp.display(),
             kp.display()
         ),
-        None => Ok(store),
-    }
+        None => None,
+    };
+    // Windows Release refuses before file creation unless both SQLCipher key
+    // and signer are configured. Other targets/debug builds keep the prior
+    // explicit plaintext development behavior.
+    AuditStore::open_runtime(path.as_ref(), signer)
 }
 
 fn load_intel_default() -> ThreatBundle {

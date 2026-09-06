@@ -1,14 +1,17 @@
 //! SQLite-backed audit store (optional SQLCipher via `sqlcipher` feature).
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::crypto::{apply_key, resolve_passphrase};
+use crate::crypto::{apply_key, cipher_active, resolve_passphrase, sqlcipher_enabled};
 use crate::signing::{
     is_valid_hash, receipt_signing_message, record_signing_message, AuditSigner, AuditVerifyKey,
     SignatureVerifyReport,
 };
 use crate::types::{AuditRecord, SessionSummary, UserDecision};
+
+#[path = "recovery.rs"]
+pub mod recovery;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS audit_events (
@@ -89,6 +92,22 @@ const SELECT_COLS_LEGACY: &str =
        rule_id, severity, action, human_message, evidence_ref, user_decision, event_json,
        NULL";
 
+/// SQLite's on-disk header. An encrypted SQLCipher database must not expose it.
+const SQLITE_PLAINTEXT_HEADER: &[u8; 16] = b"SQLite format 3\0";
+
+/// Domain-separated probe used before a signer is attached to a writable store.
+///
+/// Without a probe, a signer that loads successfully but cannot actually sign is
+/// discovered only on the first append. By then the encrypted database and signer
+/// metadata may already exist as two independently committed artifacts.
+const SIGNER_PREFLIGHT: &[u8] = b"AGENTGUARD-AUDIT-SIGNER-PREFLIGHT-v1";
+
+/// 必须和所引用审计日志一起移动的桌面运行时状态。
+///
+/// `guard-audit` 刻意不解释值：桌面壳拥有 `PersistedPending` schema，本 crate 只拥有
+/// 加密且逐库隔离的存储边界。key 保持私有，避免调用方把审计元数据表变成无版本的通用 KV。
+const PENDING_CONFIRMATIONS_META_KEY: &str = "runtime.pending_confirmations.v1";
+
 #[derive(Debug)]
 pub struct AuditStore {
     conn: Connection,
@@ -141,20 +160,254 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
+fn windows_release_requires_protected() -> bool {
+    cfg!(all(target_os = "windows", not(debug_assertions)))
+}
+
+fn audit_sidecar(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    value.into()
+}
+
+/// Detect a legacy plaintext container without asking SQLite to mutate it.
+fn reject_legacy_plaintext(path: &std::path::Path) -> Result<()> {
+    use std::io::Read;
+
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(error)
+                .with_context(|| format!("inspect existing audit database {}", path.display()))
+        }
+    };
+    let mut header = [0u8; SQLITE_PLAINTEXT_HEADER.len()];
+    let read = file
+        .read(&mut header)
+        .with_context(|| format!("read audit header {}", path.display()))?;
+    if read == header.len() && &header == SQLITE_PLAINTEXT_HEADER {
+        let wal = audit_sidecar(path, "-wal");
+        let shm = audit_sidecar(path, "-shm");
+        bail!(
+            "legacy plaintext audit database detected at {}. It was not opened or modified. Stop the old build, make an access-controlled offline backup of {}, {} and {} (when present), then follow the approved clear-or-migrate procedure; automatic in-place migration is disabled to prevent data loss",
+            path.display(),
+            path.display(),
+            wal.display(),
+            shm.display()
+        );
+    }
+    Ok(())
+}
+
+/// Prove that the signer can sign now, and that an exported public key matches
+/// both the produced signature and the advertised key id.
+fn preflight_signer(signer: &dyn AuditSigner) -> Result<(String, Option<String>)> {
+    let key_id = signer.key_id();
+    if key_id.trim().is_empty() {
+        bail!("audit signer returned an empty key id");
+    }
+    if signer.key_id() != key_id {
+        bail!("audit signer key id changed during preflight");
+    }
+    let signature = signer
+        .sign_message(SIGNER_PREFLIGHT)
+        .context("audit signer preflight signature failed")?;
+    let public_hex = signer.public_hex();
+    if let Some(public) = public_hex.as_deref() {
+        let verify_key = AuditVerifyKey::from_hex(public)
+            .context("audit signer returned an invalid public key")?;
+        if verify_key.key_id() != key_id {
+            bail!(
+                "audit signer key id {} does not match exported public key {}",
+                key_id,
+                verify_key.key_id()
+            );
+        }
+        verify_key
+            .verify_message(SIGNER_PREFLIGHT, &signature)
+            .context("audit signer preflight signature did not verify")?;
+    }
+    Ok((key_id, public_hex))
+}
+
+fn verify_cipher_integrity(conn: &Connection) -> Result<()> {
+    let mut statement = conn
+        .prepare("PRAGMA cipher_integrity_check")
+        .context("prepare PRAGMA cipher_integrity_check")?;
+    let mut rows = statement
+        .query([])
+        .context("run PRAGMA cipher_integrity_check")?;
+    let mut failures = Vec::new();
+    while let Some(row) = rows.next()? {
+        let message: String = row.get(0)?;
+        if !message.eq_ignore_ascii_case("ok") {
+            failures.push(message);
+        }
+    }
+    if !failures.is_empty() {
+        bail!("cipher_integrity_check reported: {}", failures.join("; "));
+    }
+    Ok(())
+}
+
 impl AuditStore {
     /// Open (or create) a plain SQLite audit DB. Honors `AGENTGUARD_AUDIT_KEY`
     /// when the `sqlcipher` feature is enabled.
+    ///
+    /// This compatibility entry is intentionally unavailable in Windows Release:
+    /// a caller could otherwise omit the key or attach no signer and silently
+    /// recreate the old plaintext path. Windows Release writers must use
+    /// [`Self::open_runtime`] or [`Self::open_protected`].
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self> {
-        Self::open_with_key(path, resolve_passphrase(None).as_deref())
+        if windows_release_requires_protected() {
+            bail!(
+                "AuditStore::open is disabled in Windows Release because it can create an unsigned or plaintext database; use AuditStore::open_runtime/open_protected"
+            );
+        }
+        Self::open_with_key_unchecked(path.as_ref(), resolve_passphrase(None).as_deref())
     }
 
     /// Open with an explicit passphrase (`None` = unencrypted / env already applied by caller).
+    /// Windows Release must use [`Self::open_protected`] so encryption and signing
+    /// are one fail-closed startup requirement.
     pub fn open_with_key(
         path: impl AsRef<std::path::Path>,
         passphrase: Option<&str>,
     ) -> Result<Self> {
-        let conn = Connection::open(path.as_ref())
-            .with_context(|| format!("open audit db {}", path.as_ref().display()))?;
+        if windows_release_requires_protected() {
+            bail!(
+                "AuditStore::open_with_key is disabled in Windows Release because it does not attach a signer; use AuditStore::open_protected"
+            );
+        }
+        Self::open_with_key_unchecked(path.as_ref(), passphrase)
+    }
+
+    /// Open a writer used by CLI/local API/native-host runtimes.
+    ///
+    /// Development builds and non-Windows targets retain the existing explicit
+    /// plaintext option. Windows Release is different: both a non-empty
+    /// `AGENTGUARD_AUDIT_KEY` and an already provisioned signer are mandatory,
+    /// and validation completes before the store is returned to the engine.
+    pub fn open_runtime(
+        path: impl AsRef<std::path::Path>,
+        signer: Option<Box<dyn AuditSigner>>,
+    ) -> Result<Self> {
+        let passphrase = resolve_passphrase(None);
+        Self::open_runtime_with_mode(
+            path.as_ref(),
+            passphrase.as_deref(),
+            signer,
+            windows_release_requires_protected(),
+        )
+    }
+
+    fn open_runtime_with_mode(
+        path: &std::path::Path,
+        passphrase: Option<&str>,
+        signer: Option<Box<dyn AuditSigner>>,
+        require_protected: bool,
+    ) -> Result<Self> {
+        if require_protected {
+            let passphrase = passphrase.filter(|value| !value.is_empty()).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Windows Release audit requires a non-empty AGENTGUARD_AUDIT_KEY; refusing before creating {}",
+                    path.display()
+                )
+            })?;
+            let signer = signer.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Windows Release audit requires a provisioned signing key; refusing before creating {}",
+                    path.display()
+                )
+            })?;
+            return Self::open_protected(path, passphrase, signer);
+        }
+
+        let store = Self::open_with_key_unchecked(path, passphrase)?;
+        match signer {
+            Some(signer) => store.with_signer(signer),
+            None => Ok(store),
+        }
+    }
+
+    /// Open an encrypted, signed audit writer or return no usable store.
+    ///
+    /// A legacy plaintext SQLite header is detected before SQLite is opened. We
+    /// deliberately do not auto-migrate it: the product owner has not selected
+    /// clear-vs-migrate, and an in-place conversion without an independently
+    /// retained backup/rollback contract risks data loss. The error names the DB
+    /// and sidecars so an operator can back them up and take the approved path.
+    pub fn open_protected(
+        path: impl AsRef<std::path::Path>,
+        passphrase: &str,
+        signer: Box<dyn AuditSigner>,
+    ) -> Result<Self> {
+        let path = path.as_ref();
+        if passphrase.is_empty() {
+            bail!(
+                "protected audit passphrase is empty; refusing before creating {}",
+                path.display()
+            );
+        }
+
+        // A broken signer must be discovered before the database is opened or
+        // created. `with_signer` repeats this check to protect every caller.
+        preflight_signer(signer.as_ref())?;
+        reject_legacy_plaintext(path)?;
+        if !sqlcipher_enabled() {
+            bail!(
+                "protected audit requires a SQLCipher-linked build; refusing before creating {}",
+                path.display()
+            );
+        }
+
+        let store = Self::open_with_key_unchecked(path, Some(passphrase))?;
+        if !cipher_active(&store.conn) {
+            bail!(
+                "protected audit connection for {} is not SQLCipher; refusing an unencrypted writer",
+                path.display()
+            );
+        }
+        verify_cipher_integrity(&store.conn)
+            .with_context(|| format!("SQLCipher integrity check failed for {}", path.display()))?;
+        store.with_signer(signer)
+    }
+
+    fn open_with_key_unchecked(path: &std::path::Path, passphrase: Option<&str>) -> Result<Self> {
+        if let Some(passphrase) = passphrase.filter(|value| !value.is_empty()) {
+            // apply_key 的首次读以及失败连接的关闭都可能恢复/合并 WAL。先在加密副本上
+            // 验证，不能以“最后返回 Err”冒充 DB/WAL/SHM 原件未被触碰。
+            reject_legacy_plaintext(path)?;
+            if !crate::sqlcipher_enabled() {
+                bail!("加密审计需要 sqlcipher 构建，原文件未打开写入");
+            }
+            let snapshot = crate::snapshot::EncryptedSnapshot::capture(path)?;
+            let probe = match &snapshot {
+                Some(snapshot) => Connection::open(&snapshot.path)?,
+                None => Connection::open_in_memory()?,
+            };
+            probe.pragma_update(None, "temp_store", "MEMORY")?;
+            probe.pragma_update(None, "trusted_schema", false)?;
+            apply_key(&probe, Some(passphrase))
+                .context("AUDIT_KEY_OR_DATABASE_INVALID: 密钥或数据库无效，原文件未打开写入")?;
+            if snapshot.is_some() {
+                verify_cipher_integrity(&probe).context(
+                    "AUDIT_KEY_OR_DATABASE_INVALID: 加密完整性检查失败，原文件未打开写入",
+                )?;
+            }
+            let integrity: String =
+                probe.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+            if integrity != "ok" {
+                bail!("AUDIT_KEY_OR_DATABASE_INVALID: 数据库结构检查失败，原文件未打开写入");
+            }
+            drop(probe);
+            if let Some(snapshot) = &snapshot {
+                snapshot.verify_source()?;
+            }
+        }
+        let conn =
+            Connection::open(path).with_context(|| format!("open audit db {}", path.display()))?;
         apply_key(&conn, passphrase)?;
         // 跨进程写这同一个文件是**正常使用**(nm-host 每个连接一个进程),所以两件事都要设:
         //
@@ -217,18 +470,27 @@ impl AuditStore {
     /// convenience. Verification should still take the key out of band: an
     /// attacker who can swap the key can swap that copy too.
     pub fn with_signer(mut self, signer: Box<dyn AuditSigner>) -> Result<Self> {
-        if let Some(pk) = signer.public_hex() {
-            self.conn.execute(
+        let (key_id, public_hex) = preflight_signer(signer.as_ref())?;
+        let tx = self
+            .conn
+            .transaction()
+            .context("begin atomic audit signer attachment")?;
+        if let Some(pk) = public_hex {
+            tx.execute(
                 "INSERT INTO audit_meta (key, value) VALUES ('signer_public_hex', ?1)
                  ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 params![pk],
             )?;
+        } else {
+            tx.execute("DELETE FROM audit_meta WHERE key = 'signer_public_hex'", [])?;
         }
-        self.conn.execute(
+        tx.execute(
             "INSERT INTO audit_meta (key, value) VALUES ('signer_key_id', ?1)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![signer.key_id()],
+            params![key_id],
         )?;
+        tx.commit()
+            .context("commit atomic audit signer attachment")?;
         self.signer = Some(signer);
         Ok(self)
     }
@@ -248,6 +510,86 @@ impl AuditStore {
                 |row| row.get::<_, String>(0),
             )
             .optional()?)
+    }
+
+    /// 读取绑定到本审计库的桌面待确认快照。
+    ///
+    /// JSON schema 属于桌面壳。本方法原样返回已存字符串，使损坏值能留作诊断，而不是被
+    /// 静默丢弃或重新解释。
+    pub fn pending_confirmations_json(&self) -> Result<Option<String>> {
+        self.meta(PENDING_CONFIRMATIONS_META_KEY)
+    }
+
+    /// 替换绑定到本审计库的桌面待确认快照。
+    ///
+    /// 单条 SQLite upsert 是原子的；受保护桌面构建中，该值和它引用的 audit id 处在同一
+    /// SQLCipher 容器与密钥生命周期里。
+    pub fn save_pending_confirmations_json(&self, json: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO audit_meta (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![PENDING_CONFIRMATIONS_META_KEY, json],
+        )?;
+        Ok(())
+    }
+
+    /// 删除本审计库里的桌面待确认快照。
+    pub fn clear_pending_confirmations(&self) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM audit_meta WHERE key = ?1",
+            params![PENDING_CONFIRMATIONS_META_KEY],
+        )?;
+        Ok(())
+    }
+
+    /// 原子提交一次桌面待确认状态转换。
+    ///
+    /// `decisions` 中的回执与 `remaining_json` 对运行时快照的替换共用一个 SQLite 事务。
+    /// 任一记录不存在、签名失败或元数据写入失败都会回滚整批操作；调用方据此保持内存队列
+    /// 不变并稍后重试。`remaining_json=None` 表示队列已空，应删除专用 key。
+    pub fn commit_pending_confirmation_transition(
+        &self,
+        decisions: &[(&str, UserDecision)],
+        remaining_json: Option<&str>,
+    ) -> Result<()> {
+        let mut unique_ids = std::collections::HashSet::with_capacity(decisions.len());
+        for (audit_id, _) in decisions {
+            if audit_id.trim().is_empty() {
+                bail!("pending-confirmation transition contains an empty audit id");
+            }
+            if !unique_ids.insert(*audit_id) {
+                bail!("pending-confirmation transition repeats audit id {audit_id}");
+            }
+        }
+
+        let tx = self
+            .conn
+            .unchecked_transaction()
+            .context("begin pending-confirmation transition")?;
+        for (audit_id, decision) in decisions {
+            // `unchecked_transaction` 已在同一 Connection 上执行 BEGIN；这些通过 `self.conn`
+            // 发出的语句仍属于该事务。下面的回滚测试同时钉住这个 rusqlite 行为。
+            self.set_user_decision(audit_id, *decision)?;
+        }
+        match remaining_json {
+            Some(json) => self.save_pending_confirmations_json(json)?,
+            None => self.clear_pending_confirmations()?,
+        }
+        tx.commit()
+            .context("commit pending-confirmation transition")?;
+        Ok(())
+    }
+
+    /// 把同库待确认项全部记为系统超时，并在同一事务中删除重启快照。
+    ///
+    /// 任一 audit id 不存在、签名失败或数据库写入失败都会回滚此前已写的回执，同时保留
+    /// 原快照。这样下次启动不会给已处理前缀重复铸造回执，也不会把未处理后缀静默丢掉。
+    pub fn timeout_pending_confirmations_and_clear(&self, audit_ids: &[&str]) -> Result<()> {
+        let decisions: Vec<_> = audit_ids
+            .iter()
+            .map(|audit_id| (*audit_id, UserDecision::Timeout))
+            .collect();
+        self.commit_pending_confirmation_transition(&decisions, None)
     }
 
     fn migrate(&self) -> Result<()> {
@@ -659,9 +1001,10 @@ impl AuditStore {
     }
 
     pub fn end_session(&self, session_id: &str, ended_at: i64) -> Result<()> {
+        let protected = crate::types::audit_session_id(session_id);
         self.conn.execute(
-            "UPDATE agent_sessions SET ended_at = ?2 WHERE id = ?1",
-            params![session_id, ended_at],
+            "UPDATE agent_sessions SET ended_at = ?3 WHERE id = ?1 OR id = ?2",
+            params![session_id, protected, ended_at],
         )?;
         Ok(())
     }
@@ -1136,11 +1479,12 @@ impl AuditStore {
     /// 因此这里从签名过的事件行现算,`agent_sessions` 的计数器降级成一个不作数的缓存(见 schema
     /// 注释)。
     pub fn session_summary(&self, session_id: &str) -> Result<Option<SessionSummary>> {
+        let protected = crate::types::audit_session_id(session_id);
         let meta: Option<(String, i64, Option<i64>, String)> = self
             .conn
             .query_row(
-                "SELECT id, started_at, ended_at, agent_app FROM agent_sessions WHERE id = ?1",
-                params![session_id],
+                "SELECT id, started_at, ended_at, agent_app FROM agent_sessions WHERE id = ?1 OR id = ?2 ORDER BY CASE WHEN id = ?1 THEN 0 ELSE 1 END LIMIT 1",
+                params![session_id, protected],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .optional()?;
@@ -1151,18 +1495,19 @@ impl AuditStore {
         let count = |pred: &str| -> Result<i64> {
             let sql =
                 format!("SELECT COUNT(*) FROM audit_events WHERE agent_session_id = ?1{pred}");
-            Ok(self
-                .conn
-                .query_row(&sql, params![session_id], |r| r.get(0))?)
+            Ok(self.conn.query_row(&sql, params![&session], |r| r.get(0))?)
         };
+        let event_count = count("")?;
+        let block_count = count(" AND action LIKE '%Block%'")?;
+        let alert_count = count(" AND action LIKE '%Alert%'")?;
         Ok(Some(SessionSummary {
             session_id: session,
             started_at,
             ended_at,
             agent_app,
-            event_count: count("")?,
-            block_count: count(" AND action LIKE '%Block%'")?,
-            alert_count: count(" AND action LIKE '%Alert%'")?,
+            event_count,
+            block_count,
+            alert_count,
         }))
     }
 
@@ -1242,6 +1587,237 @@ mod tests {
     use super::*;
     use guard_schema::{Decision, DecisionAction, EventType, GuardEvent, Severity};
     use std::collections::HashMap;
+
+    #[derive(Debug)]
+    struct FailingSigner;
+
+    impl AuditSigner for FailingSigner {
+        fn key_id(&self) -> String {
+            "failing-signer".into()
+        }
+
+        fn sign_message(&self, _message: &[u8]) -> Result<String> {
+            anyhow::bail!("injected signing failure")
+        }
+
+        fn public_hex(&self) -> Option<String> {
+            None
+        }
+    }
+
+    #[test]
+    fn pending_confirmations_round_trip_in_the_same_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit.db");
+        let expected = r#"[{"request_id":7,"audit_id":"audit-7"}]"#;
+
+        {
+            let store = AuditStore::open_with_key(&path, None).unwrap();
+            assert_eq!(store.pending_confirmations_json().unwrap(), None);
+            store.save_pending_confirmations_json(expected).unwrap();
+        }
+
+        let reopened = AuditStore::open_with_key(&path, None).unwrap();
+        assert_eq!(
+            reopened.pending_confirmations_json().unwrap().as_deref(),
+            Some(expected)
+        );
+    }
+
+    #[test]
+    fn clearing_pending_confirmations_removes_only_the_runtime_key() {
+        let store = AuditStore::open_in_memory().unwrap();
+        let log_id = store.log_id().unwrap();
+        store.save_pending_confirmations_json("[]").unwrap();
+
+        store.clear_pending_confirmations().unwrap();
+
+        assert_eq!(store.pending_confirmations_json().unwrap(), None);
+        assert_eq!(
+            store.log_id().unwrap(),
+            log_id,
+            "clear removed audit metadata"
+        );
+    }
+
+    #[test]
+    fn pending_confirmations_are_isolated_per_audit_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let first_path = dir.path().join("first.db");
+        let second_path = dir.path().join("second.db");
+        let first = AuditStore::open_with_key(&first_path, None).unwrap();
+        let second = AuditStore::open_with_key(&second_path, None).unwrap();
+
+        first
+            .save_pending_confirmations_json(r#"[{"request_id":1}]"#)
+            .unwrap();
+
+        assert!(first.pending_confirmations_json().unwrap().is_some());
+        assert_eq!(second.pending_confirmations_json().unwrap(), None);
+    }
+
+    #[test]
+    fn pending_timeout_recovery_is_atomic_and_clears_only_on_success() {
+        let store = AuditStore::open_in_memory().unwrap();
+        let record = allow_record(7);
+        let id = record.id.clone();
+        store.append(&record).unwrap();
+        store
+            .save_pending_confirmations_json(r#"[{"request_id":7}]"#)
+            .unwrap();
+
+        let error = store
+            .timeout_pending_confirmations_and_clear(&[id.as_str(), "missing-audit-id"])
+            .expect_err("任一无效 id 都必须回滚整批恢复");
+        assert!(error.to_string().contains("no audit record"), "{error:#}");
+        assert!(store.pending_confirmations_json().unwrap().is_some());
+        assert_eq!(store.list_recent(1).unwrap()[0].user_decision, None);
+        assert_eq!(store.head().unwrap().unwrap().receipt_count, 0);
+
+        store
+            .timeout_pending_confirmations_and_clear(&[id.as_str()])
+            .unwrap();
+        assert_eq!(store.pending_confirmations_json().unwrap(), None);
+        assert_eq!(
+            store.list_recent(1).unwrap()[0].user_decision.as_deref(),
+            Some("timeout")
+        );
+        assert_eq!(store.head().unwrap().unwrap().receipt_count, 1);
+    }
+
+    #[test]
+    fn signer_preflight_failure_leaves_no_signer_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit.db");
+        let store = AuditStore::open(&path).unwrap();
+        let error = store
+            .with_signer(Box::new(FailingSigner))
+            .expect_err("a signer that cannot sign must not attach");
+        assert!(error.to_string().contains("preflight"), "{error:#}");
+
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM audit_meta WHERE key LIKE 'signer_%'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0, "failed attachment wrote signer metadata");
+    }
+
+    #[test]
+    fn protected_open_signer_failure_leaves_no_database_artifact() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("must-not-exist.db");
+        let error = AuditStore::open_protected(&path, "configured-key", Box::new(FailingSigner))
+            .expect_err("a signer that cannot sign must fail before database creation");
+        assert!(error.to_string().contains("preflight"), "{error:#}");
+        assert!(
+            !path.exists(),
+            "signer failure created an unsigned database"
+        );
+        assert!(!audit_sidecar(&path, "-wal").exists());
+        assert!(!audit_sidecar(&path, "-shm").exists());
+    }
+
+    #[test]
+    fn signer_metadata_attachment_is_one_transaction() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit.db");
+        let store = AuditStore::open(&path).unwrap();
+        store
+            .conn
+            .execute_batch(
+                "CREATE TRIGGER reject_signer_key_id
+                 BEFORE INSERT ON audit_meta
+                 WHEN NEW.key = 'signer_key_id'
+                 BEGIN SELECT RAISE(ABORT, 'injected metadata failure'); END;",
+            )
+            .unwrap();
+        let error = store
+            .with_signer(Box::new(crate::signing::FileDeviceKey::generate()))
+            .expect_err("the injected second metadata write must fail");
+        assert!(
+            error.to_string().contains("injected metadata failure"),
+            "{error:#}"
+        );
+
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM audit_meta WHERE key LIKE 'signer_%'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            count, 0,
+            "public key metadata committed even though key-id attachment failed"
+        );
+    }
+
+    #[test]
+    fn windows_release_runtime_refuses_missing_protection_before_creating_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("must-not-exist.db");
+
+        let no_key = AuditStore::open_runtime_with_mode(&path, None, None, true)
+            .expect_err("release without an encryption key must fail");
+        assert!(no_key.to_string().contains("AGENTGUARD_AUDIT_KEY"));
+        assert!(!path.exists(), "missing key still created a database");
+
+        let no_signer =
+            AuditStore::open_runtime_with_mode(&path, Some("configured-key"), None, true)
+                .expect_err("release without a signer must fail");
+        assert!(no_signer.to_string().contains("signing key"));
+        assert!(!path.exists(), "missing signer still created a database");
+
+        if !crate::crypto::sqlcipher_enabled() {
+            let no_cipher = AuditStore::open_runtime_with_mode(
+                &path,
+                Some("configured-key"),
+                Some(Box::new(crate::signing::FileDeviceKey::generate())),
+                true,
+            )
+            .expect_err("release without SQLCipher must fail before opening the path");
+            assert!(no_cipher.to_string().contains("SQLCipher"), "{no_cipher:#}");
+            assert!(
+                !path.exists(),
+                "missing SQLCipher still created a partial database"
+            );
+        }
+    }
+
+    #[test]
+    fn protected_open_rejects_legacy_plaintext_without_modifying_db_or_sidecars() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.db");
+        {
+            let store = AuditStore::open(&path).unwrap();
+            store.append(&allow_record(1)).unwrap();
+        }
+        let wal = audit_sidecar(&path, "-wal");
+        let shm = audit_sidecar(&path, "-shm");
+        std::fs::write(&wal, b"legacy-wal-backup-canary").unwrap();
+        std::fs::write(&shm, b"legacy-shm-backup-canary").unwrap();
+        let before_db = std::fs::read(&path).unwrap();
+        let before_wal = std::fs::read(&wal).unwrap();
+        let before_shm = std::fs::read(&shm).unwrap();
+
+        let error = AuditStore::open_protected(
+            &path,
+            "new-encryption-key",
+            Box::new(crate::signing::FileDeviceKey::generate()),
+        )
+        .expect_err("a legacy plaintext database must not be opened in place");
+        let message = error.to_string();
+        assert!(message.contains("legacy plaintext"), "{error:#}");
+        assert!(message.contains("clear-or-migrate"), "{error:#}");
+        assert_eq!(std::fs::read(&path).unwrap(), before_db);
+        assert_eq!(std::fs::read(&wal).unwrap(), before_wal);
+        assert_eq!(std::fs::read(&shm).unwrap(), before_shm);
+    }
 
     #[test]
     fn hash_chain_verifies_and_detects_tamper() {
@@ -1343,6 +1919,89 @@ mod tests {
         assert_eq!(summary.event_count, 1);
         assert_eq!(summary.block_count, 1);
         assert_eq!(summary.ended_at, Some(2000));
+    }
+
+    #[test]
+    fn durable_store_never_contains_raw_observation_canaries() {
+        const UI_CANARY: &str = "AGENTGUARD_RAW_UI_CANARY_8f4c2a19";
+        const OCR_CANARY: &str = "AGENTGUARD_RAW_OCR_CANARY_31d7e5b0";
+        const CLIPBOARD_CANARY: &str = "AGENTGUARD_RAW_CLIPBOARD_CANARY_6a09c3ef";
+        const SOURCE_CANARY: &str = "AGENTGUARD RAW SOURCE CANARY 19c0";
+        const SESSION_CANARY: &str = "AGENTGUARD-RAW-SESSION-CANARY-2de7";
+        const AGENT_CANARY: &str = "AGENTGUARD RAW AGENT CANARY 73ab";
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("data00.db");
+        let store = AuditStore::open(&path).unwrap();
+        let event = GuardEvent {
+            event_id: "data00".into(),
+            timestamp_ms: 1,
+            platform: "mac".into(),
+            event_type: EventType::UiTreeDelta,
+            source_app: SOURCE_CANARY.into(),
+            agent_context_id: Some(SESSION_CANARY.into()),
+            metadata: HashMap::from([
+                ("ui_text".into(), UI_CANARY.into()),
+                ("ocr_text".into(), OCR_CANARY.into()),
+                ("clipboard_text".into(), CLIPBOARD_CANARY.into()),
+            ]),
+        };
+        let decision = Decision {
+            action: DecisionAction::Alert,
+            severity: Severity::High,
+            rule_id: "DATA-00".into(),
+            human_message: format!("observed {UI_CANARY} {OCR_CANARY} {CLIPBOARD_CANARY}"),
+            require_confirm: false,
+        };
+        let record =
+            AuditRecord::from_event_decision(&event, &decision).attributed_to(AGENT_CANARY);
+        store.append(&record).unwrap();
+        let rows = store.list_recent(1).unwrap();
+        assert_eq!(rows.len(), 1);
+        for canary in [
+            UI_CANARY,
+            OCR_CANARY,
+            CLIPBOARD_CANARY,
+            SOURCE_CANARY,
+            SESSION_CANARY,
+            AGENT_CANARY,
+        ] {
+            assert!(
+                !rows[0].event_json.contains(canary),
+                "{}",
+                rows[0].event_json
+            );
+            assert!(
+                !rows[0].human_message.contains(canary),
+                "{}",
+                rows[0].human_message
+            );
+        }
+        drop(store);
+
+        for candidate in [
+            path.clone(),
+            audit_sidecar(&path, "-wal"),
+            audit_sidecar(&path, "-shm"),
+        ] {
+            if !candidate.exists() {
+                continue;
+            }
+            let raw = std::fs::read(&candidate).unwrap();
+            for canary in [
+                UI_CANARY.as_bytes(),
+                OCR_CANARY.as_bytes(),
+                CLIPBOARD_CANARY.as_bytes(),
+                SOURCE_CANARY.as_bytes(),
+                SESSION_CANARY.as_bytes(),
+                AGENT_CANARY.as_bytes(),
+            ] {
+                assert!(
+                    !raw.windows(canary.len()).any(|window| window == canary),
+                    "raw observation reached durable storage: {}",
+                    candidate.display()
+                );
+            }
+        }
     }
 
     /// 会话计数是从签名过的 audit_events 现算的,不是读 agent_sessions 里那个可变缓存 ——
@@ -1451,6 +2110,9 @@ mod tests {
     #[cfg(feature = "sqlcipher")]
     #[test]
     fn sqlcipher_roundtrip_rejects_wrong_key() {
+        const PLAINTEXT_CANARY: &str = "AGENTGUARD_SQLCIPHER_PLAINTEXT_CANARY_7f3b6d19";
+        const PENDING_CANARY: &str = "AGENTGUARD_PENDING_PLAINTEXT_CANARY_4be92c11";
+        const RAW_UI_CANARY: &str = "AGENTGUARD_SQLCIPHER_RAW_UI_CANARY_a19f20d4";
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("enc.db");
         {
@@ -1460,24 +2122,169 @@ mod tests {
                 timestamp_ms: 1,
                 platform: "mac".into(),
                 event_type: EventType::UiTreeDelta,
-                source_app: "t".into(),
+                source_app: PLAINTEXT_CANARY.into(),
                 agent_context_id: None,
-                metadata: HashMap::new(),
+                metadata: HashMap::from([
+                    ("package".into(), PLAINTEXT_CANARY.into()),
+                    ("ui_text".into(), RAW_UI_CANARY.into()),
+                ]),
             };
             let decision = Decision {
                 action: DecisionAction::Alert,
                 severity: Severity::High,
                 rule_id: "X".into(),
-                human_message: "h".into(),
+                human_message: format!("observed {RAW_UI_CANARY}"),
                 require_confirm: false,
             };
             store
                 .append(&AuditRecord::from_event_decision(&event, &decision))
                 .unwrap();
+            store
+                .save_pending_confirmations_json(&format!(
+                    r#"[{{"request_id":1,"audit_id":"{PENDING_CANARY}"}}]"#
+                ))
+                .unwrap();
         }
+
+        // SQLCipher 也必须加密 WAL，而不只是主数据库。关闭连接后逐个检查仍存在的容器，
+        // 避免“正确密钥能读”被误当成“磁盘上没有明文”的证明。
+        for candidate in [
+            path.clone(),
+            std::path::PathBuf::from(format!("{}-wal", path.display())),
+            std::path::PathBuf::from(format!("{}-shm", path.display())),
+        ] {
+            if !candidate.exists() {
+                continue;
+            }
+            let raw = std::fs::read(&candidate).unwrap();
+            for canary in [
+                PLAINTEXT_CANARY.as_bytes(),
+                PENDING_CANARY.as_bytes(),
+                RAW_UI_CANARY.as_bytes(),
+            ] {
+                assert!(
+                    !raw.windows(canary.len()).any(|window| window == canary),
+                    "SQLCipher container leaked plaintext canary: {}",
+                    candidate.display()
+                );
+            }
+        }
+
         assert!(AuditStore::open_with_key(&path, Some("wrong-key")).is_err());
         let ok = AuditStore::open_with_key(&path, Some("correct-horse")).unwrap();
-        assert_eq!(ok.list_recent(10).unwrap().len(), 1);
+        let records = ok.list_recent(10).unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].source_app, PLAINTEXT_CANARY);
+        assert!(!records[0].event_json.contains(RAW_UI_CANARY));
+        assert!(!records[0].human_message.contains(RAW_UI_CANARY));
+        assert!(ok
+            .pending_confirmations_json()
+            .unwrap()
+            .unwrap()
+            .contains(PENDING_CANARY));
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn 离线只读连接读取明文_wal但不改原件() {
+        use rusqlite::{config::DbConfig, OpenFlags};
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.db");
+        let candidate = dir.path().join("candidate.db");
+        let writer = AuditStore::open(&source).unwrap();
+        writer.append(&allow_record(902)).unwrap();
+        for suffix in ["", "-wal", "-shm"] {
+            std::fs::copy(
+                audit_sidecar(&source, suffix),
+                audit_sidecar(&candidate, suffix),
+            )
+            .unwrap();
+        }
+        drop(writer);
+        let before = crate::snapshot::identity(&candidate).unwrap();
+        let vfs = if cfg!(windows) {
+            "win32-none"
+        } else {
+            "unix-none"
+        };
+        let reader = Connection::open_with_flags_and_vfs(
+            &candidate,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+            vfs,
+        )
+        .unwrap();
+        reader
+            .set_db_config(DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, true)
+            .unwrap();
+        reader
+            .pragma_update(None, "locking_mode", "EXCLUSIVE")
+            .unwrap();
+        let count: i64 = reader
+            .query_row("SELECT count(*) FROM audit_events", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1, "不能忽略只存在于 WAL 的已提交记录");
+        drop(reader);
+        assert_eq!(crate::snapshot::identity(&candidate).unwrap(), before);
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn 错误密钥启动保留未合并的数据库和全部附属文件() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.db");
+        let candidate = dir.path().join("candidate.db");
+        let signer = crate::signing::FileDeviceKey::generate();
+        let writer =
+            AuditStore::open_protected(&source, "correct-key", Box::new(signer.clone())).unwrap();
+        writer
+            .conn
+            .pragma_update(None, "wal_autocheckpoint", 0)
+            .unwrap();
+        writer.append(&allow_record(901)).unwrap();
+        let mut before = Vec::new();
+        for suffix in ["", "-wal", "-shm"] {
+            let bytes = std::fs::read(audit_sidecar(&source, suffix)).unwrap();
+            assert!(!bytes.is_empty(), "必须覆盖真实的未合并 WAL: {suffix}");
+            let path = audit_sidecar(&candidate, suffix);
+            std::fs::write(&path, &bytes).unwrap();
+            before.push((path, bytes));
+        }
+        drop(writer);
+        assert!(AuditStore::open_protected(&candidate, "wrong-key", Box::new(signer)).is_err());
+        for (path, bytes) in before {
+            assert!(
+                std::fs::read(&path).ok().as_deref() == Some(bytes.as_slice()),
+                "错误密钥不得更改或删除原件: {}",
+                path.display()
+            );
+        }
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn protected_sqlcipher_open_is_encrypted_signed_and_queryable() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("protected.db");
+        let key = crate::signing::FileDeviceKey::generate();
+        let verify_key = key.verifying_key();
+        {
+            let store = AuditStore::open_protected(&path, "protected-passphrase", Box::new(key))
+                .expect("protected open");
+            store.append(&allow_record(42)).unwrap();
+            let report = store.verify_record_signatures(&verify_key).unwrap();
+            assert!(report.fully_covered(), "{report:?}");
+            assert_eq!(store.list_recent(10).unwrap().len(), 1);
+        }
+        let raw = std::fs::read(&path).unwrap();
+        assert_ne!(
+            raw.get(..SQLITE_PLAINTEXT_HEADER.len()),
+            Some(SQLITE_PLAINTEXT_HEADER.as_slice()),
+            "protected database exposed a plaintext SQLite header"
+        );
+        assert!(
+            AuditStore::open_with_key(&path, Some("wrong-passphrase")).is_err(),
+            "wrong encryption key opened the protected database"
+        );
     }
 
     fn allow_record(i: i64) -> AuditRecord {

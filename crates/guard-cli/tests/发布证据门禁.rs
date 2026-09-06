@@ -2,15 +2,52 @@ use std::path::PathBuf;
 use std::process::Command;
 
 const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
-const KINDS: [&str; 8] = [
+const KINDS: [&str; 20] = [
     "macos_codesign",
     "macos_notarize",
     "windows_sign",
     "android_sign",
+    "ios_codesign",
     "acceptance_macos",
     "acceptance_android",
+    "acceptance_ios",
+    "acceptance_ios_testflight",
+    "acceptance_chrome",
+    "acceptance_edge",
     "acceptance_firefox",
     "acceptance_windows",
+    "ga_sbom_license",
+    "ga_privacy_store",
+    "ga_beta_14d",
+    "ga_dual_rc",
+    "ga_signoff",
+    "ga_channel_smoke",
+    "ga_rollout",
+];
+
+const RC_EVIDENCE_VARIABLES: [&str; 12] = [
+    "AGENTGUARD_EVIDENCE_MACOS_CODESIGN",
+    "AGENTGUARD_EVIDENCE_MACOS_NOTARIZE",
+    "AGENTGUARD_EVIDENCE_WINDOWS_SIGN",
+    "AGENTGUARD_EVIDENCE_ANDROID_SIGN",
+    "AGENTGUARD_EVIDENCE_IOS_CODESIGN",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS_TESTFLIGHT",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_CHROME",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_EDGE",
+    "AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS",
+];
+
+const GA_EVIDENCE_VARIABLES: [&str; 7] = [
+    "AGENTGUARD_EVIDENCE_GA_SBOM_LICENSE",
+    "AGENTGUARD_EVIDENCE_GA_PRIVACY_STORE",
+    "AGENTGUARD_EVIDENCE_GA_BETA_14D",
+    "AGENTGUARD_EVIDENCE_GA_DUAL_RC",
+    "AGENTGUARD_EVIDENCE_GA_SIGNOFF",
+    "AGENTGUARD_EVIDENCE_GA_CHANNEL_SMOKE",
+    "AGENTGUARD_EVIDENCE_GA_ROLLOUT",
 ];
 
 fn cli() -> PathBuf {
@@ -259,10 +296,13 @@ fn 门禁拒绝未知参数和多余参数() {
     // 除退出码外还绑定脚本自己的错误文本，bash/WSL/路径启动失败都不能冒充门禁拒绝。
     let root = root().canonicalize().unwrap();
     for (arguments, expected) in [
-        (vec!["--stict"], "不认识的参数:--stict(只支持 --strict)"),
+        (
+            vec!["--stict"],
+            "不认识的参数:--stict(只支持 --strict 或 --ga)",
+        ),
         (
             vec!["--strict", "--unexpected"],
-            "参数过多；只支持无参数或单个 --strict",
+            "参数过多；只支持无参数、单个 --strict 或单个 --ga",
         ),
     ] {
         let output = Command::new(release_gate_shell())
@@ -285,7 +325,7 @@ fn 门禁拒绝未知参数和多余参数() {
 }
 
 #[test]
-fn 八种模板生成后不修改都不能通过验证() {
+fn 二十种模板生成后不修改都不能通过验证() {
     let repo = tempfile::tempdir().unwrap();
     let evidence_dir = tempfile::tempdir().unwrap();
     for kind in KINDS {
@@ -309,7 +349,7 @@ fn 八种模板生成后不修改都不能通过验证() {
 }
 
 #[test]
-fn 原攻击把八个变量都指向门禁脚本时逐项被拒() {
+fn 原攻击把所有变量都指向门禁脚本时逐项被拒() {
     let repo = tempfile::tempdir().unwrap();
     let attack = root().join("scripts/release-gate.sh");
     for kind in KINDS {
@@ -343,6 +383,7 @@ fn mocked_gate_command(
     temp: &tempfile::TempDir,
     git_body: &str,
     production_preflight_fails: bool,
+    mode: &str,
 ) -> Command {
     let bin = temp.path().join("bin");
     std::fs::create_dir(&bin).unwrap();
@@ -368,9 +409,10 @@ fn mocked_gate_command(
     let mut command = Command::new("bash");
     command
         .arg(root().join("scripts/release-gate.sh"))
-        .arg("--strict")
+        .arg(mode)
         .env("PATH", path)
         .env("AGENTGUARD_EXPECTED_MACOS_TEAM_ID", "ABCDE12345")
+        .env("AGENTGUARD_EXPECTED_IOS_TEAM_ID", "ABCDE12345")
         .env(
             "AGENTGUARD_EXPECTED_WINDOWS_CERT_SHA256",
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -379,17 +421,13 @@ fn mocked_gate_command(
             "AGENTGUARD_EXPECTED_ANDROID_CERT_SHA256",
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         );
-    for variable in [
-        "AGENTGUARD_EVIDENCE_MACOS_CODESIGN",
-        "AGENTGUARD_EVIDENCE_MACOS_NOTARIZE",
-        "AGENTGUARD_EVIDENCE_WINDOWS_SIGN",
-        "AGENTGUARD_EVIDENCE_ANDROID_SIGN",
-        "AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS",
-        "AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID",
-        "AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX",
-        "AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS",
-    ] {
+    for variable in RC_EVIDENCE_VARIABLES {
         command.env(variable, temp.path().join("evidence.json"));
+    }
+    if mode == "--ga" {
+        for variable in GA_EVIDENCE_VARIABLES {
+            command.env(variable, temp.path().join("evidence.json"));
+        }
     }
     command
 }
@@ -411,7 +449,7 @@ const CLEAN_GIT: &str = concat!(
 #[test]
 fn strict证据全齐仍会被生产preflight的fail阻塞() {
     let temp = tempfile::tempdir().unwrap();
-    let mut command = mocked_gate_command(&temp, CLEAN_GIT, true);
+    let mut command = mocked_gate_command(&temp, CLEAN_GIT, true, "--strict");
     command.env(
         "AGENTGUARD_EVIDENCE_MACOS_CODESIGN",
         temp.path().join("evidence.json\n结论:伪造通过"),
@@ -427,8 +465,8 @@ fn strict证据全齐仍会被生产preflight的fail阻塞() {
         "没有运行 strict 专属生产自检:\n{stdout}"
     );
     assert!(
-        stdout.contains("自动检查:23 通过 / 1 失败"),
-        "soft 13 + snapshot 2 + evidence 8 应通过,production preflight 应单独失败:\n{stdout}"
+        stdout.contains("自动检查:28 通过 / 1 失败"),
+        "soft 14 + snapshot 2 + evidence 12 应通过,production preflight 应单独失败:\n{stdout}"
     );
     assert!(
         !stdout.contains("\n结论:伪造通过"),
@@ -445,14 +483,14 @@ fn strict证据全齐仍会被生产preflight的fail阻塞() {
 fn strict初始脏工作树会被阻塞() {
     let dirty_git = CLEAN_GIT.replace("status) exit 0", "status) echo ' M tracked-file'");
     let temp = tempfile::tempdir().unwrap();
-    let output = mocked_gate_command(&temp, &dirty_git, false)
+    let output = mocked_gate_command(&temp, &dirty_git, false, "--strict")
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!output.status.success());
     assert!(stdout.contains("发布候选起点冻结(HEAD + clean)"));
     assert!(
-        stdout.contains("自动检查:22 通过 / 2 失败"),
+        stdout.contains("自动检查:27 通过 / 2 失败"),
         "起点与收尾都必须拒绝脏候选:\n{stdout}"
     );
 }
@@ -467,12 +505,66 @@ fn strict运行中head漂移会在收尾被阻塞() {
         state.display(),
         state.display()
     );
-    let output = mocked_gate_command(&temp, &git, false).output().unwrap();
+    let output = mocked_gate_command(&temp, &git, false, "--strict")
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!output.status.success());
     assert!(stdout.contains("发布候选收尾未漂移(HEAD + clean)"));
     assert!(
-        stdout.contains("自动检查:23 通过 / 1 失败"),
+        stdout.contains("自动检查:28 通过 / 1 失败"),
         "只有收尾 snapshot 应因 HEAD 漂移失败:\n{stdout}"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn strict只是rc技术门禁不读取ga证据() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut command = mocked_gate_command(&temp, CLEAN_GIT, false, "--strict");
+    for variable in GA_EVIDENCE_VARIABLES {
+        command.env(variable, temp.path().join("ga-should-not-be-read.json"));
+    }
+    let output = command.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        output.status.success(),
+        "RC 证据齐全应通过模拟门禁:\n{stdout}"
+    );
+    assert!(stdout.contains("自动检查:29 通过 / 0 失败"));
+    assert!(stdout.contains("这只表示候选可进入 GA 收口"));
+    assert!(!stdout.contains("GA 闭环证据(缺失即失败)"));
+    for variable in GA_EVIDENCE_VARIABLES {
+        assert!(!stdout.contains(variable), "strict 不应读取 {variable}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn ga缺少七类闭环证据时fail_closed() {
+    let temp = tempfile::tempdir().unwrap();
+    let mut command = mocked_gate_command(&temp, CLEAN_GIT, false, "--ga");
+    for variable in GA_EVIDENCE_VARIABLES {
+        command.env_remove(variable);
+    }
+    let output = command.output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!output.status.success(), "GA 证据缺失不能通过");
+    assert!(stdout.contains("自动检查:29 通过 / 0 失败"));
+    assert!(stdout.contains("未验证:7 项"));
+    assert!(stdout.contains("结论:--ga 下 RC/GA 证据缺失视为失败。GA 闭环 No-Go。"));
+}
+
+#[cfg(unix)]
+#[test]
+fn ga十九类证据齐全也不声称已上线() {
+    let temp = tempfile::tempdir().unwrap();
+    let output = mocked_gate_command(&temp, CLEAN_GIT, false, "--ga")
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "GA 完整模拟证据应通过:\n{stdout}");
+    assert!(stdout.contains("自动检查:36 通过 / 0 失败"));
+    assert!(stdout.contains("不证明各商店/用户端当前仍在线"));
+    assert!(!stdout.contains("已上线"));
 }

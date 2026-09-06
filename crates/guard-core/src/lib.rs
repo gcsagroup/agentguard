@@ -1155,16 +1155,11 @@ impl Engine {
 
     fn persist_audit(&mut self, event: &GuardEvent, decision: &Decision) -> Result<()> {
         if let Some(store) = &self.audit {
-            // The finding is not the only copy. `AuditRecord::event_json` stores the whole
-            // event verbatim, inside the hash chain and the per-record signature — so the
-            // same `process` call that reported a *redacted* `payment_card` also wrote the
-            // PAN into a signed, exportable audit row. The semantic firewall's own argument
-            // ("a control whose alert copies the card number into a signed log has moved
-            // the leak, not stopped it") applied to the guard's own audit path.
-            //
-            // Masked only where a **checksum-verified** entity was found, so an audit log
-            // is never degraded on the strength of a keyword match, and the masking is
-            // blunt in the safe direction — see `entity::mask_sensitive_runs`.
+            // Keep the entity masker as defence in depth for callers that still hold a raw
+            // `GuardEvent`. The authoritative durable boundary is
+            // `AuditRecord::from_event_decision`: it serializes only
+            // `persistable_event_v1`, regardless of whether entity recognition found a
+            // checksum-valid value. Raw external text is never durable evidence.
             let masked = self.redact_event_for_audit(event);
             let record =
                 AuditRecord::from_event_decision(masked.as_ref().unwrap_or(event), decision);
@@ -4342,7 +4337,9 @@ fn rule_match_len(rule: &guard_schema::Rule, lowered_text: &str) -> Option<usize
 
 /// Whether any of a rule's patterns appears in `text` (case-insensitively).
 fn rule_text_matches(rule: &guard_schema::Rule, text: &str) -> bool {
-    rule_match_len(rule, &text.to_lowercase()).is_some()
+    guard_schema::text::matching_views(text)
+        .iter()
+        .any(|view| rule_match_len(rule, &view.to_lowercase()).is_some())
 }
 
 /// How consequential a step kind is, so that a text matching several rules is
@@ -4375,7 +4372,10 @@ fn most_specific_rule<'a>(
     event_type: EventType,
     platform: &str,
 ) -> Option<&'a guard_schema::Rule> {
-    let lowered = text.to_lowercase();
+    let lowered: Vec<_> = guard_schema::text::matching_views(text)
+        .iter()
+        .map(|view| view.to_lowercase())
+        .collect();
     let platform = platform.trim().to_lowercase();
     rules
         .iter()
@@ -4391,7 +4391,13 @@ fn most_specific_rule<'a>(
                     .iter()
                     .any(|p| p.trim().eq_ignore_ascii_case(&platform))
         })
-        .filter_map(|r| rule_match_len(r, &lowered).map(|n| (n, r)))
+        .filter_map(|r| {
+            lowered
+                .iter()
+                .filter_map(|view| rule_match_len(r, view))
+                .max()
+                .map(|n| (n, r))
+        })
         .max_by_key(|(n, _)| *n)
         .map(|(_, r)| r)
 }
@@ -4447,6 +4453,41 @@ rules:
         let d = engine.process(&event).unwrap();
         assert_eq!(d.action, DecisionAction::Block);
         assert_eq!(d.rule_id, "CRIT-001");
+    }
+
+    #[test]
+    fn shipped_payment_paraphrases_raise_the_confirmation_gate() {
+        let rules = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../guard-schema/rules/p0_rules.yaml");
+        for (index, text) in [
+            "Authorize payment of $240 to the vendor",
+            "APPROVE PAYMENT for this invoice",
+            "Submit payment now",
+            "Authorize charge of $19.00",
+            "Approve charge for the subscription",
+            "立即支付",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut engine =
+                Engine::from_paths(&rules, None::<std::path::PathBuf>).expect("shipped rules");
+            let mut metadata = HashMap::new();
+            metadata.insert("ui_text".into(), text.into());
+            let event = GuardEvent {
+                event_id: format!("payment-paraphrase-{index}"),
+                timestamp_ms: index as i64,
+                platform: "browser".into(),
+                event_type: EventType::UiTreeDelta,
+                source_app: "Chrome".into(),
+                agent_context_id: None,
+                metadata,
+            };
+            let decision = engine.process(&event).expect("payment decision");
+            assert_eq!(decision.rule_id, "CRIT-001", "{text}: {decision:?}");
+            assert_eq!(decision.action, DecisionAction::Block, "{text}");
+            assert!(decision.require_confirm, "{text}");
+        }
     }
 
     #[test]
@@ -9904,13 +9945,17 @@ rules:
                 "the audit row kept the PAN: {}",
                 r.event_json
             );
-            // Context survives, so the row is still evidence.
-            assert!(r.event_json.contains("Saved payment method"));
+            assert!(r.event_json.contains("persistable_event_v1"));
+            assert!(
+                !r.event_json.contains("Saved payment method"),
+                "raw UI context must not be durable evidence: {}",
+                r.event_json
+            );
         }
         assert!(store.verify_chain().unwrap().ok);
 
-        // A row with no verified entity is stored untouched: an audit log is not degraded
-        // on the strength of a keyword match.
+        // Ordinary external text is also transient. Data minimisation does not depend on
+        // whether the entity scanner happened to verify a particular shape.
         let _ = std::fs::remove_file(dir.join("fw2.db"));
         let store2 = AuditStore::open(dir.join("fw2.db")).unwrap();
         let mut e = Engine::new(empty_rules(), GuardContract::default()).with_audit(store2);
@@ -9921,11 +9966,9 @@ rules:
         ))
         .unwrap();
         let store2 = AuditStore::open(dir.join("fw2.db")).unwrap();
-        assert!(store2
-            .list_recent(10)
-            .unwrap()
-            .iter()
-            .any(|r| r.event_json.contains("X1234567")));
+        assert!(store2.list_recent(10).unwrap().iter().all(|r| {
+            !r.event_json.contains("X1234567") && !r.event_json.contains("4111111111111112")
+        }));
     }
 
     // -----------------------------------------------------------------------
@@ -10494,10 +10537,12 @@ rules:
                 .map(|r| r.human_message.clone())
                 .collect::<Vec<_>>()
         );
-        // And the attempt is still legible rather than silently dropped.
+        // The raw attempt itself is not durable evidence. It must not survive in the prose
+        // column under a renamed "claimed" marker either.
         assert!(
             rows.iter()
-                .any(|r| r.human_message.contains("[claimed-agent: ")),
+                .all(|r| !r.human_message.contains("claude-desktop")
+                    && !r.human_message.contains("claimed-agent")),
             "{d:?} {:?}",
             rows.iter()
                 .map(|r| r.human_message.clone())
@@ -10597,7 +10642,10 @@ rules:
             .list_recent(10)
             .unwrap()
             .into_iter()
-            .filter(|r| r.agent_session_id.as_deref() == Some("SOMEONE-ELSES-SESSION"))
+            .filter(|r| {
+                r.agent_session_id.as_deref()
+                    == Some(guard_audit::audit_session_id("SOMEONE-ELSES-SESSION").as_str())
+            })
             .collect();
         assert_eq!(foreign.len(), 2);
         assert!(
@@ -10891,13 +10939,19 @@ mod b1_文件系统判决 {
     #[test]
     fn 写系统目录被拦() {
         #[cfg(target_os = "windows")]
-        let sensitive_path = r"C:\Windows\System32\config\SAM";
+        let sensitive_paths = [
+            r"C:\Windows\System32\config\SAM",
+            r"C:\ProgramData\AgentGuard\state.db",
+            r"\\?\C:\Program Files (x86)\AgentGuard\agentguard.exe",
+        ];
         #[cfg(not(target_os = "windows"))]
-        let sensitive_path = "/etc/passwd";
-        let d = engine()
-            .process(&fs_event(EventType::FileWrite, sensitive_path))
-            .expect("判决");
-        assert_eq!(d.rule_id, "FS-SENSITIVE", "{d:?}");
+        let sensitive_paths = ["/etc/passwd"];
+        for sensitive_path in sensitive_paths {
+            let d = engine()
+                .process(&fs_event(EventType::FileWrite, sensitive_path))
+                .expect("判决");
+            assert_eq!(d.rule_id, "FS-SENSITIVE", "{sensitive_path}: {d:?}");
+        }
     }
 
     /// 声明了 `write: []`(显式只读,navigation_jump / order_food 发的就是这个)时,越界写

@@ -17,7 +17,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// 默认等人回答的时长。
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
@@ -53,6 +53,7 @@ pub struct Resolution {
 struct Slot {
     pending: Option<ConfirmRequest>,
     answer: Option<Answer>,
+    deadline: Option<Instant>,
 }
 
 /// 待确认槽位。同一时刻只有一个——网关是单线程处理 MCP 调用的，第二个待确认意味着
@@ -74,24 +75,35 @@ impl PendingConfirm {
         let (lock, cv) = &*self.inner;
         {
             let mut slot = lock.lock().expect("确认槽位互斥锁");
+            if slot.pending.is_some() {
+                return Resolution {
+                    answer: Answer::Denied,
+                    source: "busy",
+                };
+            }
             slot.pending = Some(request);
             slot.answer = None;
+            slot.deadline = Instant::now().checked_add(timeout);
         }
         cv.notify_all();
 
-        let deadline = std::time::Instant::now() + timeout;
         let mut slot = lock.lock().expect("确认槽位互斥锁");
         loop {
             if let Some(a) = slot.answer.take() {
                 slot.pending = None;
+                slot.deadline = None;
                 return Resolution {
                     answer: a,
                     source: "human",
                 };
             }
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            let remaining = slot
+                .deadline
+                .map(|d| d.saturating_duration_since(Instant::now()))
+                .unwrap_or_default();
             if remaining.is_zero() {
                 slot.pending = None;
+                slot.deadline = None;
                 // 超时 = 拒绝。等待是免费的，所以"等不到就放行"的闸门等于没有闸门。
                 return Resolution {
                     answer: Answer::Denied,
@@ -105,7 +117,20 @@ impl PendingConfirm {
 
     /// 当前待确认的请求，给 UI / 环回接口读。
     pub fn peek(&self) -> Option<ConfirmRequest> {
-        self.inner.0.lock().ok().and_then(|s| s.pending.clone())
+        self.snapshot().map(|(request, _)| request)
+    }
+
+    /// 同一把锁下读取请求与剩余期限，不返回已应答或过期的请求。
+    pub fn snapshot(&self) -> Option<(ConfirmRequest, u64)> {
+        let slot = self.inner.0.lock().ok()?;
+        let remaining = slot.deadline?.saturating_duration_since(Instant::now());
+        if slot.answer.is_some() || remaining.is_zero() {
+            return None;
+        }
+        Some((
+            slot.pending.clone()?,
+            remaining.as_millis().min(u64::MAX as u128) as u64,
+        ))
     }
 
     /// 回答**指定 id** 的待确认请求。
@@ -122,6 +147,9 @@ impl PendingConfirm {
     pub fn answer_id(&self, id: &str, answer: Answer) -> bool {
         let (lock, cv) = &*self.inner;
         let mut slot = lock.lock().expect("确认槽位互斥锁");
+        if slot.answer.is_some() || slot.deadline.is_none_or(|d| Instant::now() >= d) {
+            return false;
+        }
         match &slot.pending {
             Some(p) if p.id == id => {}
             _ => return false,
@@ -136,13 +164,58 @@ impl PendingConfirm {
     /// 生产的环回接口走 `answer_id`。保留这个入口是因为 `StdinConfirm` 这类交互式确认
     /// 器就在同一个线程里看着同一个请求,不存在"批准落到别的请求上"的窗口。
     pub fn answer(&self, answer: Answer) -> bool {
-        let (lock, cv) = &*self.inner;
-        let mut slot = lock.lock().expect("确认槽位互斥锁");
-        if slot.pending.is_none() {
-            return false;
+        self.peek()
+            .is_some_and(|request| self.answer_id(&request.id, answer))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn pending_slot(deadline: Instant, answer: Option<Answer>) -> PendingConfirm {
+        PendingConfirm {
+            inner: Arc::new((
+                Mutex::new(Slot {
+                    pending: Some(ConfirmRequest {
+                        id: "one".into(),
+                        what: "测试".into(),
+                        findings: vec![],
+                    }),
+                    deadline: Some(deadline),
+                    answer,
+                }),
+                Condvar::new(),
+            )),
         }
-        slot.answer = Some(answer);
-        cv.notify_all();
-        true
+    }
+    #[test]
+    fn 首次选择不能被重复回答覆盖() {
+        let p = pending_slot(Instant::now() + Duration::from_secs(1), None);
+        assert!(!p.answer_id("other", Answer::Approved));
+        assert!(p.answer_id("one", Answer::Denied));
+        assert!(!p.answer_id("one", Answer::Approved));
+        assert_eq!(p.inner.0.lock().unwrap().answer, Some(Answer::Denied));
+        assert!(p.peek().is_none());
+    }
+    #[test]
+    fn 截止时刻后拒绝批准并隐藏过期请求() {
+        let p = pending_slot(Instant::now(), None);
+        assert!(!p.answer_id("one", Answer::Approved));
+        assert!(!p.answer(Answer::Approved));
+        assert!(p.snapshot().is_none());
+    }
+    #[test]
+    fn 第二个等待不能覆盖原请求() {
+        let p = pending_slot(Instant::now() + Duration::from_secs(1), None);
+        let result = p.wait(
+            ConfirmRequest {
+                id: "two".into(),
+                what: "第二条".into(),
+                findings: vec![],
+            },
+            Duration::from_secs(1),
+        );
+        assert_eq!(result.answer, Answer::Denied);
+        assert_eq!(p.peek().unwrap().id, "one");
     }
 }

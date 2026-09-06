@@ -35,10 +35,21 @@ pub struct CaptureSessionInfo {
 
 /// Start ScreenCaptureKit stream via native bridge (macOS), or no-op sim elsewhere.
 pub fn start_capture_session() -> Result<CaptureSessionInfo> {
+    start_capture_session_with(crate::sck_native::sck_start)
+}
+
+/// Start a stream bound to a desktop observer generation.
+pub fn start_capture_session_generation(generation: u64) -> Result<CaptureSessionInfo> {
+    start_capture_session_with(|| crate::sck_native::sck_start_generation(generation))
+}
+
+fn start_capture_session_with(
+    start: impl FnOnce() -> Result<(), String>,
+) -> Result<CaptureSessionInfo> {
     if !screencapturekit_available() {
         anyhow::bail!("ScreenCaptureKit only available on macOS");
     }
-    match crate::sck_native::sck_start() {
+    match start() {
         Ok(()) => Ok(CaptureSessionInfo {
             native: true,
             message: "ScreenCaptureKit stream started (stats-only callbacks)".into(),
@@ -54,7 +65,18 @@ pub fn start_capture_session() -> Result<CaptureSessionInfo> {
 }
 
 pub fn stop_capture_session() -> Result<CaptureSessionInfo> {
-    let _ = crate::sck_native::sck_stop();
+    stop_capture_session_with(crate::sck_native::sck_stop)
+}
+
+/// Stop only the matching desktop observer generation.
+pub fn stop_capture_session_generation(generation: u64) -> Result<CaptureSessionInfo> {
+    stop_capture_session_with(|| crate::sck_native::sck_stop_generation(generation))
+}
+
+fn stop_capture_session_with(
+    stop: impl FnOnce() -> Result<(), String>,
+) -> Result<CaptureSessionInfo> {
+    stop().map_err(anyhow::Error::msg)?;
     Ok(CaptureSessionInfo {
         native: false,
         message: "capture stopped".into(),

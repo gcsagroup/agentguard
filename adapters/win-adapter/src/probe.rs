@@ -203,7 +203,13 @@ mod tests {
         assert!(!c.can_observe(), "两路都强制掉 → fail-closed 到仿真");
 
         // 反方向不行:本来不可用的不会被改成可用,原因串也不被覆盖。
-        let base = capabilities();
+        let base = AdapterCapabilities {
+            simulation: true,
+            uia_native: Capability::no("测试中原本不可用"),
+            frame_capture: Capability::no("测试中原本不可用"),
+            graphics_capture: Capability::no("测试中原本不可用"),
+            ocr: Capability::no("测试中原本不可用"),
+        };
         let c = base.clone().with_forced_unavailable("uia,frame,ocr");
         assert_eq!(c, base, "对本来就不可用的能力不做任何事");
 

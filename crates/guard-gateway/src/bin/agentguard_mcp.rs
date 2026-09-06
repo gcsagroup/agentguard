@@ -17,9 +17,8 @@
 //! `require_confirm` 的调用会挂住。答案从环回 HTTP 进来：
 //!
 //! ```text
-//! curl -s localhost:8790/pending          # 看当前待确认的是什么
-//! curl -XPOST localhost:8790/approve      # 批准
-//! curl -XPOST localhost:8790/deny         # 拒绝
+//! GET /status 或 /pending：必须带 Authorization: Bearer <本次进程令牌>
+//! POST /approve 或 /deny：同样认证，且 body 必须带当前请求的 id
 //! ```
 //!
 //! 超时（默认 120 秒）按**拒绝**处理。这不是保守设定，是唯一正确的方向：一个等不到答案就
@@ -184,13 +183,17 @@ fn main() -> anyhow::Result<()> {
     // 令牌是主防线;2 和 3 是纵深 —— 就算令牌泄漏,跨站请求仍然被拒,而拿不到当前 id 的
     // 批准也落不到任何请求上。
     let confirm_token = new_confirm_token();
+    let instance_id = new_confirm_token();
     let addr = format!("127.0.0.1:{confirm_port}");
     match tiny_http::Server::http(&addr) {
         Err(e) => {
             eprintln!("  警告：确认接口起不来（{e}）；require_confirm 只能等超时，也就是拒绝")
         }
         Ok(http) => {
-            eprintln!("  确认接口 http://{addr}  (GET /pending, POST /approve, POST /deny)");
+            eprintln!(
+                "  确认接口 http://{}  (GET /status, GET /pending, POST /approve, POST /deny)",
+                http.server_addr()
+            );
             eprintln!("  确认令牌 {confirm_token}");
             eprintln!("    每个请求都要带 Authorization: Bearer <令牌>；");
             eprintln!(
@@ -211,6 +214,19 @@ fn main() -> anyhow::Result<()> {
                         let _ = req.as_reader().take(4096).read_to_string(&mut body);
                     }
                     let (status, body) = match (req.method().as_str(), req.url()) {
+                        ("GET", "/status") => {
+                            let snapshot = p.snapshot();
+                            (
+                                200,
+                                serde_json::json!({
+                                    "service": "agentguard-mcp", "confirm_protocol": 1,
+                                    "instance_id": instance_id,
+                                    "pending": snapshot.as_ref().map(|(request, _)| request),
+                                    "remaining_ms": snapshot.map(|(_, remaining)| remaining),
+                                })
+                                .to_string(),
+                            )
+                        }
                         ("GET", "/pending") => match p.peek() {
                             Some(c) => (200, serde_json::to_string(&c).unwrap_or_default()),
                             None => (200, "null".to_string()),

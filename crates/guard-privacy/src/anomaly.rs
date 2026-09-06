@@ -197,11 +197,6 @@ impl AnomalyKind {
     }
 }
 
-/// A tag character, so a flag-emoji tag sequence can be excluded.
-fn is_tag_char(c: char) -> bool {
-    matches!(c, '\u{e0000}'..='\u{e007f}')
-}
-
 /// Variation selectors, which are legitimate immediately after an emoji base.
 fn is_variation_selector(c: char) -> bool {
     matches!(c, '\u{fe00}'..='\u{fe0f}' | '\u{e0100}'..='\u{e01ef}')
@@ -301,16 +296,16 @@ pub fn scan_anomalies(text: &str) -> Vec<TextAnomaly> {
     };
 
     let mut prev: Option<char> = None;
-    let mut in_flag_tag_run = false;
-    for c in text.chars() {
+    let mut flag_end = 0;
+    for (index, c) in text.char_indices() {
         // Subdivision flag emoji (`U+1F3F4` + tag letters + `U+E007F`) are tag sequences, so
         // the tag block does have a legitimate use after all. Skip the run rather than the
         // block: an instruction encoded in tag characters *anywhere else* is still the
         // attack.
-        if prev == Some('\u{1f3f4}') && is_tag_char(c) {
-            in_flag_tag_run = true;
-        } else if in_flag_tag_run && !is_tag_char(c) {
-            in_flag_tag_run = false;
+        if c == '\u{1f3f4}' {
+            flag_end = index
+                + c.len_utf8()
+                + guard_schema::text::valid_flag_tag_bytes(&text[index + c.len_utf8()..]);
         }
         // A variation selector immediately after a non-ASCII base is emoji presentation
         // (`❤️`, `🏳️`), not smuggling. A *run* of them, or one after an ASCII letter, is.
@@ -318,7 +313,7 @@ pub fn scan_anomalies(text: &str) -> Vec<TextAnomaly> {
             && prev
                 .map(|p| !p.is_ascii() && !is_variation_selector(p))
                 .unwrap_or(false);
-        if is_invisible(c) && !in_flag_tag_run && !vs_is_presentation {
+        if is_invisible(c) && index >= flag_end && !vs_is_presentation {
             invisible += 1;
         }
         prev = Some(c);

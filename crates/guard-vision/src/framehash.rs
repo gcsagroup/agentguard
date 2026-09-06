@@ -23,9 +23,10 @@
 //!
 //! Three properties matter for this to be usable:
 //!
-//! * **Resolution independent.** The digest is a fixed grid, not a pixel hash, so a
-//!   640×360 guard capture and a full-resolution agent screenshot of the same
-//!   screen produce comparable digests.
+//! * **Resolution-aware comparison.** The digest is a fixed grid, but its detail
+//!   plane is intentionally scale-sensitive. Same-scale comparison uses all four
+//!   planes; cross-scale comparison must be explicitly requested and is reported
+//!   as degraded because it uses only the three block-mean planes.
 //! * **Quantised.** 4 bits per channel per block, so JPEG/PNG re-encoding noise and
 //!   sub-quantum drift do not flip a block. A cryptographic hash of raw pixels
 //!   would be perfectly sensitive and perfectly useless — a blinking cursor would
@@ -159,7 +160,7 @@ pub const GLOBAL_CHANGE_RATIO: f32 = 0.35;
 /// line of injected text covers several.
 pub const MIN_LOCALIZED_BLOCKS: usize = 2;
 
-/// Grid digest of one frame: `(luma, cb, cr)` quantised per block.
+/// Grid digest of one frame: `(luma, cb, cr, detail)` quantised per block.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FrameDigest {
     pub luma: Vec<u8>,
@@ -171,19 +172,10 @@ pub struct FrameDigest {
     ///
     /// # 为什么必须能区分
     ///
-    /// macOS 的采集路径上,摘要不是由这个函数算的 —— 它由 `AgentGuardSCK.m` 里的手写孪生
-    /// 实现 `ag_frame_digest` 算出来、以字符串形式跨 FFI 传过来。那一侧仍然是**每块 9 个
-    /// 采样点、三个平面**,也就是这一轮修掉的相位盲区在 macOS 上**依然存在**。
-    ///
-    /// 如果不区分,一个三平面摘要会被当成"detail 恰好全为 0"的四平面摘要。两个都来自 ObjC
-    /// 的摘要相互比较时不会误报(两边都是 0),但那正是危险的地方:**一切看起来正常,而
-    /// 这一路完全没有信息**。这个字段让消费者能说出"这个摘要来自一个没有细节平面的实现",
-    /// 而不是默默地按零比较。
-    ///
-    /// `docs/frame-integrity.md` 要求两侧"必须逐字节一致",而仓库里**没有任何测试钉住这
-    /// 一点**(对比 icon dHash 有向量 fixture)。移植 ObjC 那一侧需要 macOS + Xcode,
-    /// 这个环境里做不到,所以留下的是:一个能被检测到的标志、一份向量 fixture(见
-    /// `eval/fixtures/frame_digest_vectors.json`)、以及运行时一条明确的警告。
+    /// 历史 macOS bridge 曾产生三平面摘要。当前 `AgentGuardSCK.m` 已改为全像素四平面实现，
+    /// 并由 `mac-adapter::sck_native` 的 macOS 跨语言测试与本函数逐字节比对；这个字段仅用于
+    /// 识别仍可能存在于旧审计记录或外部输入中的三平面格式。没有它，旧摘要会被误解为
+    /// “detail 恰好全为 0”，从而把降级比较伪装成完整比较。
     pub has_detail: bool,
 }
 
@@ -203,7 +195,7 @@ pub fn digest_rgba(px: &[u8], width: usize, height: usize, bgra: bool) -> Option
 ///
 /// # 为什么必须有这个参数
 ///
-/// ObjC 那一侧的孪生实现 `ag_frame_digest(base, width, height, bytesPerRow, bgra)` **有**
+/// ObjC 那一侧的孪生实现 `agentguard_sck_frame_digest_rgba(..., bytesPerRow, ...)` **有**
 /// 这个参数并按 `base + yy*bytesPerRow + x*4` 取址;Rust 侧只按 `(y*width + x)*4` 取址,
 /// 而 `docs/frame-integrity.md` 明确要求两者"必须逐字节一致"。IOSurface 的常规布局是行按
 /// 64 字节对齐,例如 1000×600 的 `bytesPerRow = 4032`(而 `width*4 = 4000`),复核实测:
@@ -235,15 +227,13 @@ pub fn digest_rgba_stride(
         return None;
     }
     let stride_px = bytes_per_row / 4;
-    let cell_w = width / GRID_COLS;
-    let cell_h = height / GRID_ROWS;
     let n = GRID_COLS * GRID_ROWS;
     let mut luma = Vec::with_capacity(n);
     let mut cb = Vec::with_capacity(n);
     let mut cr = Vec::with_capacity(n);
     let mut detail = Vec::with_capacity(n);
     // 复用的"上一行亮度"缓冲。在块循环外分配,所以整个摘要只有一次分配。
-    let mut prev_row: Vec<f32> = Vec::with_capacity(cell_w);
+    let mut prev_row: Vec<f32> = Vec::with_capacity(width.div_ceil(GRID_COLS));
     for gy in 0..GRID_ROWS {
         for gx in 0..GRID_COLS {
             let mut sy_sum = 0.0f32;
@@ -254,8 +244,13 @@ pub fn digest_rgba_stride(
             let mut edge_count = 0.0f32;
             // 全帧扫描:块内**每一个**像素都读。这是让相位对齐失效的那个性质 ——
             // 不存在"从不被读的行"。
-            let y0 = gy * cell_h;
-            let x0 = gx * cell_w;
+            // 用比例边界而不是固定的 floor(cell size)。后者在尺寸不能整除网格时会永久
+            // 丢掉右/下余数，例如 321x181 的最后一列和最后一行从不进入任何摘要块。
+            // 这种分法让 0..width / 0..height 恰好各被覆盖一次，没有重叠也没有空洞。
+            let y0 = gy * height / GRID_ROWS;
+            let y1 = (gy + 1) * height / GRID_ROWS;
+            let x0 = gx * width / GRID_COLS;
+            let x1 = (gx + 1) * width / GRID_COLS;
             // 边缘计数要同时算**水平**和**垂直**方向。
             //
             // 只算水平的话,一条全宽的横向黑条跨阈边缘数恰好为 **0** —— 那一行里每个像素都
@@ -272,7 +267,7 @@ pub fn digest_rgba_stride(
             prev_row.clear();
             if y0 > 0 {
                 let above = (y0 - 1) * stride_px;
-                for x in x0..x0 + cell_w {
+                for x in x0..x1 {
                     let o = (above + x) * 4;
                     let (r, g, b) = if bgra {
                         (px[o + 2] as f32, px[o + 1] as f32, px[o] as f32)
@@ -282,10 +277,10 @@ pub fn digest_rgba_stride(
                     prev_row.push((0.299 * r + 0.587 * g + 0.114 * b) / 255.0);
                 }
             }
-            for y in y0..y0 + cell_h {
+            for y in y0..y1 {
                 let row = y * stride_px;
                 let mut prev_luma: Option<f32> = None;
-                for (i, x) in (x0..x0 + cell_w).enumerate() {
+                for (i, x) in (x0..x1).enumerate() {
                     let o = (row + x) * 4;
                     let (r, g, b) = if bgra {
                         (px[o + 2] as f32, px[o + 1] as f32, px[o] as f32)
@@ -341,20 +336,26 @@ pub fn digest_rgba_stride(
 }
 
 impl FrameDigest {
-    /// Hex encoding: `luma|cb|cr`, one hex nibble per block.
+    /// Hex encoding: current digests use `luma|cb|cr|detail`; parsed historical
+    /// digests stay `luma|cb|cr` so re-serialising them cannot falsely upgrade
+    /// their comparison fidelity.
     pub fn to_hex(&self) -> String {
         fn enc(v: &[u8]) -> String {
             v.iter()
                 .map(|b| std::char::from_digit(*b as u32, 16).unwrap_or('0'))
                 .collect()
         }
-        format!(
-            "{}|{}|{}|{}",
-            enc(&self.luma),
-            enc(&self.cb),
-            enc(&self.cr),
-            enc(&self.detail)
-        )
+        if self.has_detail {
+            format!(
+                "{}|{}|{}|{}",
+                enc(&self.luma),
+                enc(&self.cb),
+                enc(&self.cr),
+                enc(&self.detail)
+            )
+        } else {
+            format!("{}|{}|{}", enc(&self.luma), enc(&self.cb), enc(&self.cr))
+        }
     }
 
     pub fn from_hex(s: &str) -> Option<Self> {
@@ -391,6 +392,10 @@ impl FrameDigest {
     }
 
     /// Indices of blocks that differ from `other` by more than the tolerance.
+    ///
+    /// 历史三平面摘要没有 `detail`。任一侧缺失该平面时这里只比较共同拥有的三个均值
+    /// 平面，不能把解析时补的零误当成真实测量值。调用方若要向操作员呈现能力边界，应使用
+    /// [`compare_with_mode`]，它会把这种比较标成 degraded。
     pub fn changed_blocks(&self, other: &FrameDigest) -> Vec<usize> {
         // 上界取**六个**平面长度的最小值。
         //
@@ -398,26 +403,26 @@ impl FrameDigest {
         // 都是 `pub` —— 任何消费者手搓一个 `FrameDigest { luma: vec![0;144], cb: vec![], .. }`
         // 就能让这里越界 panic。`from_hex` 构造不出这种形状,`digest_rgba` 也不会,所以
         // 当时不可达;但"不可达"依赖于所有构造点都正确,而字段是公开的。
-        let n = [
+        let compare_detail = self.has_detail && other.has_detail;
+        let mut lengths = vec![
             self.luma.len(),
             self.cb.len(),
             self.cr.len(),
-            self.detail.len(),
             other.luma.len(),
             other.cb.len(),
             other.cr.len(),
-            other.detail.len(),
-        ]
-        .into_iter()
-        .min()
-        .unwrap_or(0);
+        ];
+        if compare_detail {
+            lengths.extend([self.detail.len(), other.detail.len()]);
+        }
+        let n = lengths.into_iter().min().unwrap_or(0);
         let mut out = Vec::new();
         for i in 0..n {
             let d = |a: &[u8], b: &[u8]| a[i].abs_diff(b[i]);
             if d(&self.luma, &other.luma) > BLOCK_CHANGE_LEVELS
                 || d(&self.cb, &other.cb) > BLOCK_CHANGE_LEVELS
                 || d(&self.cr, &other.cr) > BLOCK_CHANGE_LEVELS
-                || d(&self.detail, &other.detail) > DETAIL_CHANGE_LEVELS
+                || (compare_detail && d(&self.detail, &other.detail) > DETAIL_CHANGE_LEVELS)
             {
                 out.push(i);
             }
@@ -439,19 +444,19 @@ impl FrameDigest {
     /// 减掉它,再看**残差**是否超容差。一个均匀色调偏移减完残差≈0(那些块不再算变化);而注入
     /// 块偏离这个全局偏移,减完仍在。detail(边缘能量)不随均匀色调偏移走,所以仍用绝对差。
     pub fn changed_blocks_residual(&self, other: &FrameDigest) -> Vec<usize> {
-        let n = [
+        let compare_detail = self.has_detail && other.has_detail;
+        let mut lengths = vec![
             self.luma.len(),
             self.cb.len(),
             self.cr.len(),
-            self.detail.len(),
             other.luma.len(),
             other.cb.len(),
             other.cr.len(),
-            other.detail.len(),
-        ]
-        .into_iter()
-        .min()
-        .unwrap_or(0);
+        ];
+        if compare_detail {
+            lengths.extend([self.detail.len(), other.detail.len()]);
+        }
+        let n = lengths.into_iter().min().unwrap_or(0);
         if n == 0 {
             return Vec::new();
         }
@@ -474,7 +479,8 @@ impl FrameDigest {
             if resid(&self.luma, &other.luma, off_luma) > tol as u32
                 || resid(&self.cb, &other.cb, off_cb) > tol as u32
                 || resid(&self.cr, &other.cr, off_cr) > tol as u32
-                || self.detail[i].abs_diff(other.detail[i]) > DETAIL_CHANGE_LEVELS
+                || (compare_detail
+                    && self.detail[i].abs_diff(other.detail[i]) > DETAIL_CHANGE_LEVELS)
             {
                 out.push(i);
             }
@@ -550,7 +556,76 @@ pub enum DigestDelta {
     GlobalRepaint { changed: usize, total: usize },
 }
 
+/// 调用方声明的比较模式。摘要字符串本身不携带原始宽高，因此跨尺度不能靠猜测。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DigestComparisonMode {
+    /// 两份帧来自相同像素尺寸；四平面摘要可完整比较。
+    SameScale,
+    /// 两份帧像素尺寸不同；只比较尺度较稳定的三个均值平面。
+    CrossScale,
+}
+
+/// 本次比较实际具备的能力。`delta` 与能力边界分开，避免“结果相同”被误读成“完整验证”。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DigestComparisonFidelity {
+    FullFourPlane,
+    DegradedLegacyThreePlane,
+    DegradedCrossScaleMeanPlanes,
+    DegradedCrossScaleLegacyThreePlane,
+}
+
+impl DigestComparisonFidelity {
+    pub fn is_degraded(self) -> bool {
+        !matches!(self, Self::FullFourPlane)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DigestComparison {
+    pub delta: DigestDelta,
+    pub fidelity: DigestComparisonFidelity,
+}
+
+/// 比较两份摘要并显式返回实际能力边界。
+pub fn compare_with_mode(
+    prev: &FrameDigest,
+    next: &FrameDigest,
+    mode: DigestComparisonMode,
+) -> DigestComparison {
+    let both_have_detail = prev.has_detail && next.has_detail;
+    let fidelity = match (mode, both_have_detail) {
+        (DigestComparisonMode::SameScale, true) => DigestComparisonFidelity::FullFourPlane,
+        (DigestComparisonMode::SameScale, false) => {
+            DigestComparisonFidelity::DegradedLegacyThreePlane
+        }
+        (DigestComparisonMode::CrossScale, true) => {
+            DigestComparisonFidelity::DegradedCrossScaleMeanPlanes
+        }
+        (DigestComparisonMode::CrossScale, false) => {
+            DigestComparisonFidelity::DegradedCrossScaleLegacyThreePlane
+        }
+    };
+
+    // `has_detail = false` 是现有比较器“只比较共同均值平面”的显式开关。跨尺度时即使两侧
+    // 都有 detail，也必须关闭它；相邻像素边缘密度按定义会随缩放滤波改变。
+    let delta = if matches!(mode, DigestComparisonMode::CrossScale) {
+        let mut prev_mean = prev.clone();
+        let mut next_mean = next.clone();
+        prev_mean.has_detail = false;
+        next_mean.has_detail = false;
+        compare_same_scale(&prev_mean, &next_mean)
+    } else {
+        compare_same_scale(prev, next)
+    };
+
+    DigestComparison { delta, fidelity }
+}
+
 pub fn compare(prev: &FrameDigest, next: &FrameDigest) -> DigestDelta {
+    compare_same_scale(prev, next)
+}
+
+fn compare_same_scale(prev: &FrameDigest, next: &FrameDigest) -> DigestDelta {
     let changed = prev.changed_blocks(next);
     let total = prev.blocks().min(next.blocks());
     if changed.is_empty() {
@@ -933,6 +1008,48 @@ mod tests {
         let d = FrameDigest::from_hex(&old).expect("旧格式必须仍然解析得出");
         assert_eq!(d.luma.len(), n);
         assert_eq!(d.detail, vec![0u8; n], "缺失的 detail 平面应当补零");
+        assert!(!d.has_detail);
+        assert_eq!(d.to_hex(), old, "旧摘要重序列化后不得伪装成四平面摘要");
+    }
+
+    #[test]
+    fn 旧三平面与新四平面的同帧不误报且明确降级() {
+        let mut pixels = solid(173);
+        inject_text(&mut pixels, 20, 40, 20, 300);
+        let current = digest_rgba(&pixels, W, H, false).unwrap();
+        assert!(
+            current
+                .detail
+                .iter()
+                .any(|level| *level > DETAIL_CHANGE_LEVELS),
+            "夹具必须让 detail 平面真实非零，否则证明不了旧格式补零不会误报"
+        );
+        let legacy = format!(
+            "{}|{}|{}",
+            current
+                .luma
+                .iter()
+                .map(|v| char::from_digit(*v as u32, 16).unwrap())
+                .collect::<String>(),
+            current
+                .cb
+                .iter()
+                .map(|v| char::from_digit(*v as u32, 16).unwrap())
+                .collect::<String>(),
+            current
+                .cr
+                .iter()
+                .map(|v| char::from_digit(*v as u32, 16).unwrap())
+                .collect::<String>()
+        );
+        let legacy = FrameDigest::from_hex(&legacy).unwrap();
+        let result = compare_with_mode(&legacy, &current, DigestComparisonMode::SameScale);
+        assert_eq!(result.delta, DigestDelta::Identical);
+        assert_eq!(
+            result.fidelity,
+            DigestComparisonFidelity::DegradedLegacyThreePlane
+        );
+        assert!(result.fidelity.is_degraded());
     }
 
     /// 采样不能有相位盲区:一条细黑条落在**任何**一行上都必须被看见。
@@ -1046,6 +1163,59 @@ mod tests {
             a.to_hex(),
             "夹具没有真的产生跨距差异,这条测试证明不了什么"
         );
+    }
+
+    #[test]
+    fn 非整除尺寸的最后一行和最后一列都进入摘要() {
+        const ODD_W: usize = 321;
+        const ODD_H: usize = 181;
+        let base = vec![220u8; ODD_W * ODD_H * 4];
+        let baseline = digest_rgba(&base, ODD_W, ODD_H, false).unwrap();
+
+        let mut last_row = base.clone();
+        for x in 0..ODD_W {
+            last_row[((ODD_H - 1) * ODD_W + x) * 4..][..3].fill(0);
+        }
+        let row_digest = digest_rgba(&last_row, ODD_W, ODD_H, false).unwrap();
+        assert_ne!(baseline, row_digest, "最后一行不得落在 16x9 网格之外");
+
+        let mut last_col = base;
+        for y in 0..ODD_H {
+            last_col[(y * ODD_W + ODD_W - 1) * 4..][..3].fill(0);
+        }
+        let col_digest = digest_rgba(&last_col, ODD_W, ODD_H, false).unwrap();
+        assert_ne!(baseline, col_digest, "最后一列不得落在 16x9 网格之外");
+    }
+
+    #[test]
+    fn 显式跨尺度模式不把四倍同内容当篡改() {
+        fn patterned(w: usize, h: usize) -> Vec<u8> {
+            let mut out = vec![255u8; w * h * 4];
+            for y in 0..h {
+                for x in 0..w {
+                    let source_x = x * W / w;
+                    let source_y = y * H / h;
+                    let dark = (48..54).contains(&source_y) && (32..288).contains(&source_x);
+                    let value = if dark { 20 } else { 220 };
+                    out[(y * w + x) * 4..][..3].fill(value);
+                }
+            }
+            out
+        }
+
+        let small = digest_rgba(&patterned(W, H), W, H, false).unwrap();
+        let large = digest_rgba(&patterned(W * 4, H * 4), W * 4, H * 4, false).unwrap();
+        assert!(
+            !small.changed_blocks(&large).is_empty(),
+            "夹具必须让尺度敏感的 detail 平面发生差异，否则证明不了显式跨尺度模式"
+        );
+        let result = compare_with_mode(&small, &large, DigestComparisonMode::CrossScale);
+        assert_eq!(result.delta, DigestDelta::Identical);
+        assert_eq!(
+            result.fidelity,
+            DigestComparisonFidelity::DegradedCrossScaleMeanPlanes
+        );
+        assert!(result.fidelity.is_degraded());
     }
 
     #[test]
@@ -1209,16 +1379,35 @@ mod b6_采样结构复核 {
     fn 全帧扫描仍然够快() {
         const RW: usize = 1920;
         const RH: usize = 1080;
-        let time_one = |w: usize, h: usize| {
-            let px = vec![180u8; w * h * 4];
+        let small_px = vec![180u8; (RW / 2) * (RH / 2) * 4];
+        let full_px = vec![180u8; RW * RH * 4];
+        // 先热身，避免首次页错误/缓存填充只落到其中一个尺寸上。
+        let _ = digest_rgba(&small_px, RW / 2, RH / 2, false).unwrap();
+        let _ = digest_rgba(&full_px, RW, RH, false).unwrap();
+        let time_one = |px: &[u8], w: usize, h: usize| {
             let t = std::time::Instant::now();
             for _ in 0..3 {
-                let _ = digest_rgba(&px, w, h, false).unwrap();
+                let _ = digest_rgba(px, w, h, false).unwrap();
             }
             t.elapsed() / 3
         };
-        let small = time_one(RW / 2, RH / 2);
-        let full = time_one(RW, RH);
+        // CI 与本机并行构建都可能在单次计时中抢占线程。交替测量并取中位数，仍保持
+        // 原来的 6 倍斜率与 Release 30ms 上限，不用放宽性能标准来掩盖调度抖动。
+        let mut small_samples = Vec::with_capacity(5);
+        let mut full_samples = Vec::with_capacity(5);
+        for round in 0..5 {
+            if round % 2 == 0 {
+                small_samples.push(time_one(&small_px, RW / 2, RH / 2));
+                full_samples.push(time_one(&full_px, RW, RH));
+            } else {
+                full_samples.push(time_one(&full_px, RW, RH));
+                small_samples.push(time_one(&small_px, RW / 2, RH / 2));
+            }
+        }
+        small_samples.sort_unstable();
+        full_samples.sort_unstable();
+        let small = small_samples[small_samples.len() / 2];
+        let full = full_samples[full_samples.len() / 2];
         // 4 倍像素 -> 不超过 6 倍时间。二次增长会是 16 倍。
         assert!(
             full.as_nanos() <= small.as_nanos().saturating_mul(6).max(1_000_000),
@@ -1239,21 +1428,14 @@ mod b6_跨语言摘要向量 {
     /// 摘要的跨语言向量,以及为什么这个文件必须存在。
     ///
     /// `docs/frame-integrity.md` 要求 Rust 的 `digest_rgba` 与 `AgentGuardSCK.m` 的
-    /// `ag_frame_digest` **逐字节一致**。仓库里**没有任何测试钉住这一点** —— 对比 icon dHash
-    /// 有 `eval/fixtures/icon_dhash_vectors.json`、OCR 常量有一条会去 grep `.m` 的测试。
-    ///
-    /// 而这一轮把 Rust 侧改了(块内全扫 + 第四个平面 + 尊重行跨距),ObjC 侧**没动** ——
-    /// 因为改它需要 macOS 和 Xcode 来编译和验证,这个环境里做不到。所以现在两侧确定不一致:
-    /// ObjC 发的是三平面、9 点采样。
+    /// `agentguard_sck_frame_digest_rgba` **逐字节一致**。macOS 测试会把这里的三个确定性
+    /// 合成帧（另含 padded-stride 变体）同时送入 Rust 与已编译的 Objective-C 实现；任一字节
+    /// 漂移都会失败。对外 JSON 向量继续钉住 Rust 输出，方便非 macOS 消费者复核。
     ///
     /// 这条测试做两件事:
     ///
     /// 1. 把 Rust 侧的输出**钉住**,这样它不会在无人注意时再漂一次;
-    /// 2. 把向量写进 `eval/fixtures/frame_digest_vectors.json`,给移植 ObjC 那一侧的人一个
-    ///    明确的目标 —— 移植完成之后,同一份向量应当由一条编译 `.m` 的测试消费。
-    ///
-    /// 在那之前,`FrameDigest::has_detail` 让运行时能认出三平面摘要,而 `FrameConsistency`
-    /// 会把这个事实写进证据字符串。
+    /// 2. 把向量写进 `eval/fixtures/frame_digest_vectors.json`,给所有其他实现一个稳定目标。
     #[test]
     fn 摘要向量与已记录的值一致() {
         // 三个确定性的合成帧,覆盖三种形状。
@@ -1297,7 +1479,7 @@ mod b6_跨语言摘要向量 {
             ));
         }
         let doc = format!(
-            "{{\n  \"note\": \"Rust digest_rgba 的输出。移植 AgentGuardSCK.m 的 ag_frame_digest 之后,那一侧必须逐字节复现这些值。见 crates/guard-vision/src/framehash.rs::b6_跨语言摘要向量。\",\n  \"planes\": \"luma|cb|cr|detail\",\n  \"vectors\": [\n{}\n  ]\n}}\n",
+            "{{\n  \"note\": \"Rust digest_rgba 的稳定输出；macOS 上已由 mac-adapter::sck_native 跨语言测试逐字节核对已编译的 AgentGuardSCK.m 实现（含 padded stride）。\",\n  \"planes\": \"luma|cb|cr|detail\",\n  \"vectors\": [\n{}\n  ]\n}}\n",
             lines.join(",\n")
         );
 

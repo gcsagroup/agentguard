@@ -373,23 +373,26 @@ impl ApiState {
         let rules = RuleSet::from_path(&cfg.rules)
             .with_context(|| format!("load rules {}", cfg.rules.display()))?;
         check_audit_db_location(&cfg.audit_db)?;
-        let store = AuditStore::open(&cfg.audit_db)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&cfg.audit_db, std::fs::Permissions::from_mode(0o600));
-        }
-        let store = match &cfg.audit_signing_key {
+        // Resolve the signer before opening the DB. On Windows Release,
+        // `open_runtime` requires both SQLCipher and this signer and refuses
+        // before creating a file when either is absent.
+        let signer: Option<Box<dyn guard_audit::AuditSigner>> = match &cfg.audit_signing_key {
             Some(path) => {
                 // load_existing, not load_or_create: generating a key here would
                 // start signing with a key whose public half exists nowhere, which
                 // then "verifies" against the DB-embedded copy while proving nothing.
                 let key = guard_audit::FileDeviceKey::load_existing(path)
                     .with_context(|| format!("load audit signing key {}", path.display()))?;
-                store.with_signer(Box::new(key))?
+                Some(Box::new(key))
             }
-            None => store,
+            None => None,
         };
+        let store = AuditStore::open_runtime(&cfg.audit_db, signer)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&cfg.audit_db, std::fs::Permissions::from_mode(0o600));
+        }
         let mut engine =
             Engine::new(rules, guard_schema::GuardContract::default()).with_audit(store);
         if let Some(p) = &cfg.intel {

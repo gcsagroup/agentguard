@@ -72,6 +72,14 @@ pub enum Reason {
     ConfirmPending,
     EnginePaused,
     NoObserverAvailable,
+    /// A platform explicitly reported that access needed by a release-required
+    /// observer was denied. This is opt-in: platforms that do not classify their
+    /// probes keep the pre-existing `NoObserverAvailable` behaviour.
+    RequiredObservationPermission,
+    /// At least one capability the calling product marks as required for its
+    /// release contract is unavailable. Other healthy observers must not turn
+    /// that partial coverage into an `Active` claim.
+    RequiredCapabilityUnavailable,
     ObserverWarmingUp,
     ObserverNotRunning,
     ObserverError,
@@ -88,6 +96,8 @@ impl Reason {
             Reason::ConfirmPending => "confirm_pending",
             Reason::EnginePaused => "engine_paused",
             Reason::NoObserverAvailable => "no_observer_available",
+            Reason::RequiredObservationPermission => "required_observation_permission",
+            Reason::RequiredCapabilityUnavailable => "required_capability_unavailable",
             Reason::ObserverWarmingUp => "observer_warming_up",
             Reason::ObserverNotRunning => "observer_not_running",
             Reason::ObserverError => "observer_error",
@@ -109,6 +119,17 @@ pub struct StateInputs<'a> {
     pub observers_available: u32,
     /// 当前**在跑**的观察器数(轮询线程/流在工作)。
     pub observers_running: u32,
+    /// The product calling this state machine decides which capabilities are
+    /// release-required. `true` means at least one of those probes failed because
+    /// the operating system denied access, so the user must never see `Active`.
+    /// Kept separate from a generic capability failure so the shell can say
+    /// "permission needed" only when that is the actual diagnosis.
+    pub required_observation_permission: bool,
+    /// At least one release-required capability is unavailable for a reason other
+    /// than an access/permission denial (for example, no OCR language engine).
+    /// This is deliberately opt-in so a platform where OCR is optional is not
+    /// silently reclassified as incomplete.
+    pub required_capability_unavailable: bool,
     /// 观察器最近报的错(为 `Some` 就算不健康,内容给前端展示)。
     pub observer_error: Option<&'a str>,
     /// 引擎是否挂了审计库。
@@ -163,8 +184,9 @@ impl Derived {
 /// 1. 没会话 → `Stopped`(其他一切不看)。
 /// 2. 待确认 → `ConfirmationPending`(agent 已被挂起,用户此刻该做的事是拍板)。
 /// 3. 暂停 → `Paused`。
-/// 4. 没有可用观察器 → `PermissionRequired`。
-/// 5. 任何健康条件不满足 → `Degraded`(带全部原因)。
+/// 4. 调用方确认缺少所需权限 → `PermissionRequired`；没有显式分类且没有可用观察器时
+///    仍沿用 `PermissionRequired`。
+/// 5. 首发必需能力缺失或任何健康条件不满足 → `Degraded`(带全部原因)。
 /// 6. 只差第一次心跳且在宽限内 → `ObserverStarting`。
 /// 7. 否则 → `Active`。
 ///
@@ -179,7 +201,17 @@ pub fn derive(i: &StateInputs<'_>, t: &Thresholds) -> Derived {
     if i.paused {
         return Derived::one(ProtectionState::Paused, Reason::EnginePaused);
     }
-    if i.observers_available == 0 {
+    if i.required_observation_permission {
+        let mut reasons = vec![Reason::RequiredObservationPermission];
+        if i.required_capability_unavailable {
+            reasons.push(Reason::RequiredCapabilityUnavailable);
+        }
+        return Derived {
+            state: ProtectionState::PermissionRequired,
+            reasons,
+        };
+    }
+    if i.observers_available == 0 && !i.required_capability_unavailable {
         return Derived::one(
             ProtectionState::PermissionRequired,
             Reason::NoObserverAvailable,
@@ -188,6 +220,10 @@ pub fn derive(i: &StateInputs<'_>, t: &Thresholds) -> Derived {
 
     let mut degraded = Vec::new();
     let mut warming = false;
+
+    if i.required_capability_unavailable {
+        degraded.push(Reason::RequiredCapabilityUnavailable);
+    }
 
     if i.observers_running == 0 {
         degraded.push(Reason::ObserverNotRunning);
@@ -252,6 +288,8 @@ mod tests {
             pending_confirm: false,
             observers_available: 2,
             observers_running: 1,
+            required_observation_permission: false,
+            required_capability_unavailable: false,
             observer_error: None,
             audit_enabled: true,
             audit_error: None,
@@ -277,6 +315,31 @@ mod tests {
         assert_eq!(d.state, ProtectionState::Stopped);
         assert_eq!(d.reasons, vec![Reason::NoSession]);
         assert!(!d.state.is_protecting());
+    }
+
+    #[test]
+    fn 首发必需能力缺失时其余观察器有心跳也不能active() {
+        let mut i = healthy();
+        i.observers_available = 1;
+        i.required_capability_unavailable = true;
+        let d = derive(&i, &T);
+        assert_eq!(d.state, ProtectionState::Degraded);
+        assert!(d.reasons.contains(&Reason::RequiredCapabilityUnavailable));
+        assert!(!d.state.is_protecting());
+    }
+
+    #[test]
+    fn 明确的权限拒绝与普通能力缺失分开报告() {
+        let mut i = healthy();
+        i.required_observation_permission = true;
+        let d = derive(&i, &T);
+        assert_eq!(d.state, ProtectionState::PermissionRequired);
+        assert_eq!(d.reasons, vec![Reason::RequiredObservationPermission]);
+
+        // Required capability flags are opt-in. A caller that treats one optional
+        // capability (for example OCR on another SKU) as optional remains active.
+        let optional = healthy();
+        assert_eq!(derive(&optional, &T).state, ProtectionState::Active);
     }
 
     /// 报告里的原症状:会话开着、观察器没跑,旧界面显示「守护中」。

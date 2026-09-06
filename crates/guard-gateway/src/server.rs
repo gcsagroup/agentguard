@@ -3,7 +3,7 @@
 //! 这个文件是网关的全部行为，所以它是唯一一处能看清"判决怎么变成不执行"的地方。
 
 use crate::confirm::{Answer, ConfirmRequest, PendingConfirm};
-use crate::exec::{ExecOutput, ToolCall};
+use crate::exec::{ExecOutput, ExecutionMode, ToolCall};
 use crate::gate::{Gate, Outcome, ENFORCEMENT};
 use crate::mcp;
 use guard_shell::ShellAction;
@@ -15,6 +15,7 @@ pub struct Server {
     gate: Gate,
     pending: PendingConfirm,
     confirm_timeout: Duration,
+    execution_mode: ExecutionMode,
     /// 已执行/已拒绝的计数，`gateway/stats` 用。
     executed: u64,
     refused: u64,
@@ -37,6 +38,26 @@ impl Server {
             gate,
             pending,
             confirm_timeout,
+            execution_mode: ExecutionMode::host(),
+            executed: 0,
+            refused: 0,
+            session_seq: 0,
+            confirm_seq: 0,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_execution_mode(
+        gate: Gate,
+        pending: PendingConfirm,
+        confirm_timeout: Duration,
+        execution_mode: ExecutionMode,
+    ) -> Self {
+        Self {
+            gate,
+            pending,
+            confirm_timeout,
+            execution_mode,
             executed: 0,
             refused: 0,
             session_seq: 0,
@@ -54,8 +75,12 @@ impl Server {
 
     /// 工具清单。
     pub fn tools() -> Vec<Value> {
+        Self::tools_for(ExecutionMode::host())
+    }
+
+    pub(crate) fn tools_for(execution_mode: ExecutionMode) -> Vec<Value> {
         let path_prop = json!({ "type": "string", "description": "绝对路径，或 ~/ 开头" });
-        vec![
+        let mut tools = vec![
             mcp::tool(
                 "run_shell",
                 "执行一条命令。以参数向量执行，不经过 shell：不做变量展开、不做通配符展开、\
@@ -106,7 +131,16 @@ impl Server {
                 "结束当前会话。",
                 json!({ "type": "object", "properties": {} }),
             ),
-        ]
+        ];
+        if execution_mode == ExecutionMode::WindowsFailClosed {
+            tools.retain(|tool| {
+                matches!(
+                    tool.get("name").and_then(Value::as_str),
+                    Some("start_session" | "end_session")
+                )
+            });
+        }
+        tools
     }
 
     /// 处理一条请求，返回要发回去的 JSON（通知返回 `None`）。
@@ -119,7 +153,9 @@ impl Server {
                 id,
                 mcp::initialize_result("agentguard-mcp", env!("CARGO_PKG_VERSION")),
             ),
-            "tools/list" => mcp::result(id, json!({ "tools": Self::tools() })),
+            "tools/list" => {
+                mcp::result(id, json!({ "tools": Self::tools_for(self.execution_mode) }))
+            }
             "tools/call" => self.handle_tool_call(id, &req.params),
             "ping" => mcp::result(id, json!({})),
             // 网关自己的状态，方便宿主 UI 展示，也让"这是协作式"这句话有个可查询的出处。
@@ -127,6 +163,7 @@ impl Server {
                 id,
                 json!({
                     "enforcement": ENFORCEMENT,
+                    "side_effect_tools": self.execution_mode.label(),
                     "executed": self.executed,
                     "refused": self.refused,
                     "session_id": self.gate.session_id(),
@@ -228,6 +265,10 @@ impl Server {
     /// **公开出来是为了能被直接测试。** 测试可以在这里断言"返回了 Refused"**并且**"文件确实还在"——
     /// 只断言前者，就还是那种"机制存在、被直接测过、什么都没接上"的缺陷。
     pub fn gate_and_run(&mut self, call: ToolCall, action: ShellAction) -> Handled {
+        if let Some(reason) = call.platform_denial(self.execution_mode) {
+            self.refused += 1;
+            return Handled::Refused { reason };
+        }
         let outcome = self.gate.judge(&action);
         let findings = outcome.findings().to_vec();
         let render = |fs: &[crate::gate::Finding]| {
@@ -285,7 +326,7 @@ impl Server {
         }
 
         self.executed += 1;
-        let output = call.execute();
+        let output = call.execute_with_mode(self.execution_mode);
         // Alert 的判据要跟着结果回去，让智能体自己看到——告警的语义是"这值得知道"，
         // 把它藏起来就只剩下日志里的一行。
         let alerts: Vec<_> = findings

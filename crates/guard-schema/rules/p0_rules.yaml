@@ -12,7 +12,17 @@ rules:
     action: block
     require_confirm: true
     platforms: [windows, macos, browser, android, gateway]
-    match_any_text: ["确认支付", "Confirm Payment", "Pay now", "Complete purchase"]
+    match_any_text:
+      - "确认支付"
+      - "Confirm Payment"
+      - "Pay now"
+      - "立即支付"
+      - "Complete purchase"
+      - "Authorize payment"
+      - "Approve payment"
+      - "Submit payment"
+      - "Authorize charge"
+      - "Approve charge"
     description: "Agent is about to confirm a payment"
     step_kind: confirm_payment
 

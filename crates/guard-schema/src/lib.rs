@@ -5,6 +5,7 @@ pub mod events;
 pub mod plan;
 pub mod policy;
 pub mod rules;
+pub mod text;
 pub mod visual;
 
 pub use agent::*;

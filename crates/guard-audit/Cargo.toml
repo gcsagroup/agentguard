@@ -35,6 +35,20 @@ ed25519-dalek = { version = "2", features = ["rand_core"] }
 # 而 P-256 从 API 1 就有,还能走 Android Keystore 让私钥留在 TEE 里。
 p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std", "pkcs8"] }
 rand = "0.8"
-
-[dev-dependencies]
+url = "2"
 tempfile = "3"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+security-framework = "3.7"
+security-framework-sys = "2.17"

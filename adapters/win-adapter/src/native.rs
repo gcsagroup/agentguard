@@ -98,6 +98,15 @@ pub struct NativeWinAdapter {
     /// Counted per adapter rather than per process: the cadence exists so the viewtree
     /// comparison has a screen-side input, and that is a property of one observed session.
     frame_seq: u64,
+    /// The desktop copies the startup probe results into these gates. This keeps an
+    /// acceptance-forced failure from changing only the status card while the supposedly
+    /// unavailable observer continues to run.
+    uia_enabled: bool,
+    frame_capture_enabled: bool,
+    /// False when the startup probe reports OCR unavailable, including a missing language
+    /// pack or the acceptance override. Keeping the flag beside the cadence prevents a
+    /// reported-unavailable OCR surface from producing OVL-009/010 findings behind the UI's back.
+    ocr_enabled: bool,
 }
 
 impl Default for NativeWinAdapter {
@@ -110,14 +119,41 @@ impl NativeWinAdapter {
     pub fn new() -> Self {
         Self {
             inner: WinAdapter::new(),
-            consistency: FrameConsistency::default(),
+            consistency: FrameConsistency,
             pending: VecDeque::new(),
             seq: 0,
             session_id: None,
             schemas: Vec::new(),
             last_ui_text: None,
             frame_seq: 0,
+            uia_enabled: true,
+            frame_capture_enabled: true,
+            ocr_enabled: true,
         }
+    }
+
+    /// Configure the runtime surfaces from the already-completed startup probes. A missing
+    /// component, language pack, permission, or acceptance override therefore disables the
+    /// matching call path as well as the corresponding status row.
+    pub fn with_observation_capabilities(
+        mut self,
+        uia_enabled: bool,
+        frame_capture_enabled: bool,
+        ocr_enabled: bool,
+    ) -> Self {
+        self.uia_enabled = uia_enabled;
+        self.frame_capture_enabled = frame_capture_enabled;
+        self.ocr_enabled = ocr_enabled;
+        self
+    }
+
+    fn should_read_ocr(&self, subliminal_ratio: f32, subliminal_ratio_wide: f32) -> bool {
+        self.ocr_enabled
+            && guard_vision::ocr::should_ocr(
+                self.frame_seq,
+                subliminal_ratio,
+                subliminal_ratio_wide,
+            )
     }
 
     /// Form schemas used to classify observed fields, so `profile_key`, `required` and the trap
@@ -181,19 +217,23 @@ impl NativeWinAdapter {
         // switched windows between the two walks, so the frame would be attributed to an app
         // whose pixels it does not contain — and `source_app` is what every app-scoped grant
         // is checked against.
-        let walk: Option<WalkOutcome> = with_uia(|client| match client {
-            Err(e) => {
-                out.warnings.push(format!("UI Automation unavailable: {e}"));
-                None
-            }
-            Ok(client) => match client.foreground_snapshot() {
+        let walk: Option<WalkOutcome> = if self.uia_enabled {
+            with_uia(|client| match client {
                 Err(e) => {
-                    out.warnings.push(format!("UI tree walk failed: {e}"));
+                    out.warnings.push(format!("UI Automation unavailable: {e}"));
                     None
                 }
-                Ok(w) => Some(w),
-            },
-        });
+                Ok(client) => match client.foreground_snapshot() {
+                    Err(e) => {
+                        out.warnings.push(format!("UI tree walk failed: {e}"));
+                        None
+                    }
+                    Ok(w) => Some(w),
+                },
+            })
+        } else {
+            None
+        };
 
         let mut ax_text: Option<String> = None;
         let mut source_app: Option<String> = None;
@@ -262,63 +302,61 @@ impl NativeWinAdapter {
         }
 
         // --- pixels ----------------------------------------------------------------
-        match crate::capture::capture_foreground() {
-            Err(e) => out.warnings.push(format!("frame capture failed: {e}")),
-            Ok(frame) => {
-                self.frame_seq = self.frame_seq.wrapping_add(1);
-                let mut stats = frame.to_stats(ts);
-                // Pair the tree with the pixels so the AX↔screen cross-validation has both
-                // sides. Windows now has an OCR of its own — `Windows.Media.Ocr`, which ships
-                // with the OS — so `OVL-009` / `OVL-010` actually run here.
-                stats.ax_text = ax_text;
+        if self.frame_capture_enabled {
+            match crate::capture::capture_foreground() {
+                Err(e) => out.warnings.push(format!("frame capture failed: {e}")),
+                Ok(frame) => {
+                    self.frame_seq = self.frame_seq.wrapping_add(1);
+                    let mut stats = frame.to_stats(ts);
+                    // Pair the tree with the pixels so the AX↔screen cross-validation has both
+                    // sides. Windows now has an OCR of its own — `Windows.Media.Ocr`, which ships
+                    // with the OS — so `OVL-009` / `OVL-010` actually run here.
+                    stats.ax_text = ax_text;
 
-                // The A1 sanitization loop: read the frame when a subliminal band trips, so a
-                // payload hidden in low-contrast pixels surfaces as `ui_text` and meets the
-                // ordinary injection rules; and periodically, so the viewtree comparison has
-                // an input even on frames that tripped nothing. Both the trigger and the
-                // contrast are the shared policy, not this adapter's opinion.
-                if guard_vision::ocr::should_ocr(
-                    self.frame_seq,
-                    stats.subliminal_ratio,
-                    stats.subliminal_ratio_wide,
-                ) {
-                    match crate::ocr::read_text(&frame.px, frame.width, frame.height) {
-                        Ok(text) => stats.ocr_text = text,
-                        // A failed read leaves `ocr_text` absent, which makes the viewtree
-                        // check not run. Reported, because "did not run" and "found nothing"
-                        // are different and only one of them is reassuring.
-                        Err(e) => out.warnings.push(format!("OCR failed: {e}")),
+                    // The A1 sanitization loop: read the frame when a subliminal band trips, so a
+                    // payload hidden in low-contrast pixels surfaces as `ui_text` and meets the
+                    // ordinary injection rules; and periodically, so the viewtree comparison has
+                    // an input even on frames that tripped nothing. Both the trigger and the
+                    // contrast are the shared policy, not this adapter's opinion.
+                    if self.should_read_ocr(stats.subliminal_ratio, stats.subliminal_ratio_wide) {
+                        match crate::ocr::read_text(&frame.px, frame.width, frame.height) {
+                            Ok(text) => stats.ocr_text = text,
+                            // A failed read leaves `ocr_text` absent, which makes the viewtree
+                            // check not run. Reported, because "did not run" and "found nothing"
+                            // are different and only one of them is reassuring.
+                            Err(e) => out.warnings.push(format!("OCR failed: {e}")),
+                        }
                     }
-                }
-                let analysis = analyze_frame(&stats);
-                let mut metadata: HashMap<String, String> = analysis.metadata.clone();
-                if let Some(f) = self.consistency.check(&stats) {
-                    metadata.insert("frame_consistency".into(), f.evidence.clone());
-                    let marker = f.kind.marker().to_string();
-                    let ui = metadata.entry("ui_text".into()).or_default();
-                    if !ui.is_empty() {
-                        ui.push(' ');
+                    let analysis = analyze_frame(&stats);
+                    let mut metadata: HashMap<String, String> = analysis.metadata.clone();
+                    if let Some(f) = self.consistency.check(&stats) {
+                        metadata.insert("frame_consistency".into(), f.evidence.clone());
+                        let marker = f.kind.marker().to_string();
+                        let ui = metadata.entry("ui_text".into()).or_default();
+                        if !ui.is_empty() {
+                            ui.push(' ');
+                        }
+                        ui.push_str(&marker);
                     }
-                    ui.push_str(&marker);
-                }
-                // Only when there is a finding. `analyze_frame` always returns capture
-                // dimensions in metadata, so a bare `!metadata.is_empty()` was true for every
-                // frame and emitted a ScreenFrame event twice a second forever.
-                if !analysis.findings.is_empty() {
-                    let id = self.next_id("frame");
-                    out.events.push(GuardEvent {
-                        event_id: id,
-                        timestamp_ms: ts,
-                        platform: PLATFORM.into(),
-                        event_type: EventType::ScreenFrame,
-                        // The app the tree walk named, or nothing. Never a guess: an invented
-                        // `source_app` would satisfy an app-scoped grant that was never given,
-                        // and `app_in_grant` treats an empty observed name as covered by
-                        // nothing — which is the safe reading.
-                        source_app: source_app.clone().unwrap_or_default(),
-                        agent_context_id: self.session_id.clone(),
-                        metadata,
-                    });
+                    // Only when there is a finding. `analyze_frame` always returns capture
+                    // dimensions in metadata, so a bare `!metadata.is_empty()` was true for every
+                    // frame and emitted a ScreenFrame event twice a second forever.
+                    if !analysis.findings.is_empty() {
+                        let id = self.next_id("frame");
+                        out.events.push(GuardEvent {
+                            event_id: id,
+                            timestamp_ms: ts,
+                            platform: PLATFORM.into(),
+                            event_type: EventType::ScreenFrame,
+                            // The app the tree walk named, or nothing. Never a guess: an invented
+                            // `source_app` would satisfy an app-scoped grant that was never given,
+                            // and `app_in_grant` treats an empty observed name as covered by
+                            // nothing — which is the safe reading.
+                            source_app: source_app.clone().unwrap_or_default(),
+                            agent_context_id: self.session_id.clone(),
+                            metadata,
+                        });
+                    }
                 }
             }
         }
@@ -363,3 +401,24 @@ const _: () = {
     const fn assert_send<T: Send>() {}
     let _ = assert_send::<NativeWinAdapter>;
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn probed_capabilities_gate_the_matching_runtime_surfaces() {
+        let mut disabled =
+            NativeWinAdapter::new().with_observation_capabilities(false, false, false);
+        assert!(!disabled.uia_enabled);
+        assert!(!disabled.frame_capture_enabled);
+        disabled.frame_seq = guard_vision::ocr::OCR_EVERY_N_FRAMES;
+        assert!(!disabled.should_read_ocr(0.0, 0.0));
+
+        let mut enabled = NativeWinAdapter::new().with_observation_capabilities(true, true, true);
+        assert!(enabled.uia_enabled);
+        assert!(enabled.frame_capture_enabled);
+        enabled.frame_seq = guard_vision::ocr::OCR_EVERY_N_FRAMES;
+        assert!(enabled.should_read_ocr(0.0, 0.0));
+    }
+}

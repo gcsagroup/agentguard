@@ -180,6 +180,9 @@ fn normalise_for_scan(text: &str) -> (Vec<char>, Vec<usize>) {
 
 /// 零宽与软连字符类:剥掉,不作为分隔符。
 fn is_invisible_separator(c: char) -> bool {
+    if guard_schema::text::is_matching_ignorable(c) {
+        return true;
+    }
     matches!(c,
         '\u{00ad}'                     // soft hyphen
         | '\u{200b}'..='\u{200f}'      // ZWSP, ZWNJ, ZWJ, LRM, RLM

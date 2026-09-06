@@ -84,134 +84,33 @@ pub fn markers_as_ui_text(meta: &CaptureFrameMeta) -> String {
     meta.markers.join(" ")
 }
 
-/// Rapid double-capture consistency tracker — the (A)I Sees A4 countermeasure.
+/// Compatibility shim for the old consecutive-frame consistency detector.
 ///
-/// Screenshot tampering lives in the TOCTOU window between capture and use, which
-/// the paper measures at **50–500 ms, mean ≈ 210 ms** (§IV-C). Two frames taken
-/// inside that window should agree, so a disagreement is evidence of an edit.
-///
-/// The original version compared whole-frame **mean luminance** with a 0.35
-/// threshold, which the attack cannot reach: a line of injected instruction text
-/// moves the frame mean by well under a thousandth. That detector fired on app
-/// switches and missed injections — the wrong way round. It is kept only as a
-/// fallback for frames that carry no digest, and the primary signal is now the
-/// per-block [`crate::framehash`] digest, which distinguishes a *localized* edit
-/// (a few blocks changed, the rest identical) from a global repaint.
+/// Two ordinary screen captures are not an integrity boundary: notifications,
+/// cursors, typing, menus and animations can all change only a few blocks inside
+/// the same 50–500 ms window as a screenshot-substitution attack. Treating that
+/// shape as tampering caused normal desktop activity to emit `OVL-013` critical
+/// decisions. A security decision therefore requires an explicit comparison
+/// between the frame AgentGuard attested and the exact frame the agent consumed;
+/// [`crate::framehash::compare`] and `guard-cli frame-digest --expect` provide that
+/// comparison. Passive consecutive captures still carry signed `frame_digest`
+/// metadata, but never manufacture a tamper finding by themselves.
 #[derive(Debug, Default)]
-pub struct FrameConsistency {
-    last: Option<FrameStats>,
-}
+pub struct FrameConsistency;
 
-/// Max age between two frames for a meaningful comparison (ms).
-///
-/// Covers the paper's measured 50–500 ms TOCTOU range with a small margin. The
-/// old value of 700 ms was 3× the measured mean and widened the window for
-/// benign repaints to be mistaken for edits.
+/// Legacy tight-window value retained for API and historical-vector compatibility.
+/// Passive captures no longer use this as a security decision threshold.
 pub const CONSISTENCY_WINDOW_MS: i64 = 550;
 
-/// 跨轮询窗口的上界(ms)。
-///
-/// # 为什么需要第二个更宽的窗口
-///
-/// 550ms 覆盖 macOS 的 2 FPS(帧距 500ms)。但 Windows 壳每 **2500ms** 轮询一次
-/// (`POLL_INTERVAL`),而 `NativeWinAdapter::poll_once` 每轮只调一次 `check`,于是
-/// `dt = 2500` 永远落在 550 之外 —— OVL-013(`FrameRegionTamper`)在 Windows 上**结构性
-/// 不可达**,尽管它声明 `platforms: [macos, windows, android]`。
-///
-/// 2500ms 采样确实盖不住 50-500ms 的 TOCTOU 窗口:一次出现即消失的篡改会落在两次轮询之间。
-/// 但一次**持续存在**的注入(一行留在屏幕上的伪造指令)在 2.5s 后仍然在那里,跨轮询比较
-/// 抓得到它。所以第二个窗口做的是:让 Windows 至少能抓到持续型注入,而证据里说明这是
-/// 一次跨轮询比较、盖不住瞬时篡改。
-///
-/// 上界取 3000ms = 2500ms 轮询 + 抖动余量。
+/// Legacy wide-window value retained for historical-vector compatibility.
 pub const CONSISTENCY_WINDOW_WIDE_MS: i64 = 3000;
 
-/// Mean-luma jump that no benign repaint explains in-window. **Fallback only**,
-/// for frames with no digest; see the note on [`FrameConsistency`] for why this
-/// threshold cannot catch the published attack.
+/// Legacy mean-luma threshold retained for compatibility; it is not a tamper proof.
 pub const CONSISTENCY_LUMA_JUMP: f32 = 0.35;
 
 impl FrameConsistency {
-    pub fn check(&mut self, stats: &FrameStats) -> Option<OverlayFinding> {
-        let finding = self.last.as_ref().and_then(|prev| {
-            let dt = stats.timestamp_ms - prev.timestamp_ms;
-            if !(0..=CONSISTENCY_WINDOW_WIDE_MS).contains(&dt)
-                || prev.width != stats.width
-                || prev.height != stats.height
-            {
-                return None;
-            }
-            // 是紧窗口(同一采集节奏、TOCTOU 窗口内)还是跨轮询的宽窗口?后者只有 Windows
-            // 的 2500ms 轮询会走到,证据里要说清它盖不住瞬时篡改。
-            let cross_poll = dt > CONSISTENCY_WINDOW_MS;
-            let window_note = if cross_poll {
-                " [跨轮询比较(dt>550ms):只能抓到**持续存在**的注入,盖不住 50-500ms TOCTOU                  窗口内出现即消失的篡改;这是 Windows 2500ms 轮询下唯一可得的信号]"
-            } else {
-                ""
-            };
-            // Primary: structural comparison.
-            if let (Some(a), Some(b)) = (
-                prev.frame_digest
-                    .as_deref()
-                    .and_then(crate::framehash::FrameDigest::from_hex),
-                stats
-                    .frame_digest
-                    .as_deref()
-                    .and_then(crate::framehash::FrameDigest::from_hex),
-            ) {
-                // 三平面摘要要在证据里说出来。
-                //
-                // macOS 的采集路径上摘要由 `AgentGuardSCK.m` 的手写孪生实现算出来,那一侧
-                // 仍然是每块 9 个采样点、三个平面 —— 也就是本轮修掉的相位盲区在 macOS 上
-                // **依然存在**(1920×1080 与 3840×2160 上,本项目自己的 A4 样本静音)。
-                //
-                // 不说出来的话,两个都来自 ObjC 的摘要相互比较不会误报(两边 detail 都是 0),
-                // 一切看起来正常,而这一路完全没有信息。运维读到的"未检出篡改"因此含义不同,
-                // 必须让他们看得见这个区别。
-                let legacy_note = if !a.has_detail || !b.has_detail {
-                    " [注意:摘要来自没有细节平面的实现(macOS ObjC 孪生),细笔画注入在这条                     路上检测不到;见 docs/frame-integrity.md]"
-                } else {
-                    ""
-                };
-                return match crate::framehash::compare(&a, &b) {
-                    crate::framehash::DigestDelta::Localized { changed, total } => {
-                        Some(OverlayFinding {
-                            kind: guard_overlay::OverlayKind::FrameRegionTamper,
-                            severity: guard_overlay::OverlayKind::FrameRegionTamper
-                                .default_severity(),
-                            evidence: format!(
-                                "{}/{total} frame blocks changed within {dt}ms while the rest held \
-                                 still (blocks {:?}); localized edit inside the A4 TOCTOU window",
-                                changed.len(),
-                                &changed[..changed.len().min(6)]
-                            ) + legacy_note
-                                + window_note,
-                        })
-                    }
-                    // A global repaint is an app switch or a video, not a tamper.
-                    // Reporting it would reproduce the old detector's false positive.
-                    crate::framehash::DigestDelta::GlobalRepaint { .. }
-                    | crate::framehash::DigestDelta::Identical => None,
-                };
-            }
-            // Fallback for digest-less frames (simulation, older bridge).
-            let jump = (stats.mean_luma - prev.mean_luma).abs();
-            if jump > CONSISTENCY_LUMA_JUMP {
-                Some(OverlayFinding {
-                    kind: guard_overlay::OverlayKind::ScreenshotTamperHint,
-                    severity: guard_overlay::OverlayKind::ScreenshotTamperHint.default_severity(),
-                    evidence: format!(
-                        "mean_luma {0:.2}->{1:.2} within {dt}ms, no frame digest available \
-                         (coarse A4 fallback){2}",
-                        prev.mean_luma, stats.mean_luma, window_note
-                    ),
-                })
-            } else {
-                None
-            }
-        });
-        self.last = Some(stats.clone());
-        finding
+    pub fn check(&mut self, _stats: &FrameStats) -> Option<OverlayFinding> {
+        None
     }
 }
 
@@ -437,10 +336,11 @@ mod tests {
         buf
     }
 
-    /// The published A4 attack: a line of text injected into the TOCTOU window.
-    /// Mean luma barely moves, so only the block digest sees it.
+    /// A localized edit between two unrelated captures is ambiguous. Even when
+    /// it resembles the published A4 sample, passive observation must not turn
+    /// it into a security finding without the agent-consumed reference frame.
     #[test]
-    fn localized_injection_inside_toctou_window_is_flagged() {
+    fn localized_change_inside_toctou_window_is_not_passively_flagged() {
         const W: usize = 320;
         const H: usize = 180;
         let base = flat(W, H, 200);
@@ -456,7 +356,7 @@ mod tests {
                 tampered[o + 2] = 10;
             }
         }
-        let mut fc = FrameConsistency::default();
+        let mut fc = FrameConsistency;
         let a = FrameStats {
             frame_digest: Some(digest_of(&base, W, H)),
             ..frame(1000, 0.78)
@@ -466,10 +366,53 @@ mod tests {
             frame_digest: Some(digest_of(&tampered, W, H)),
             ..frame(1210, 0.78)
         };
-        assert!(fc.check(&a).is_none(), "first frame has no baseline");
-        let hit = fc.check(&b).expect("localized edit must be flagged");
-        assert_eq!(hit.kind, guard_overlay::OverlayKind::FrameRegionTamper);
-        assert!(hit.evidence.contains("blocks changed"), "{hit:?}");
+        assert!(fc.check(&a).is_none());
+        assert!(
+            fc.check(&b).is_none(),
+            "consecutive captures are not a trusted expected/actual pair"
+        );
+    }
+
+    /// A normal desktop notification is a localized, short-lived repaint and
+    /// previously had exactly the same digest shape as `OVL-013`.
+    #[test]
+    fn benign_notification_card_is_not_reported_as_tamper() {
+        const W: usize = 320;
+        const H: usize = 180;
+        let base = flat(W, H, 180);
+        let mut with_notification = base.clone();
+        for y in 12..62 {
+            for x in 212..308 {
+                let o = (y * W + x) * 4;
+                with_notification[o] = 238;
+                with_notification[o + 1] = 238;
+                with_notification[o + 2] = 238;
+            }
+        }
+        let before = FrameStats {
+            frame_digest: Some(digest_of(&base, W, H)),
+            ..frame(1_000, 0.70)
+        };
+        let after = FrameStats {
+            frame_digest: Some(digest_of(&with_notification, W, H)),
+            ..frame(1_210, 0.73)
+        };
+        let expected_delta = crate::framehash::compare(
+            &crate::framehash::FrameDigest::from_hex(before.frame_digest.as_deref().unwrap())
+                .unwrap(),
+            &crate::framehash::FrameDigest::from_hex(after.frame_digest.as_deref().unwrap())
+                .unwrap(),
+        );
+        assert!(
+            matches!(
+                expected_delta,
+                crate::framehash::DigestDelta::Localized { .. }
+            ),
+            "fixture must exercise the old false-positive shape: {expected_delta:?}"
+        );
+        let mut fc = FrameConsistency;
+        assert!(fc.check(&before).is_none());
+        assert!(fc.check(&after).is_none());
     }
 
     /// An app switch changes everything, and must not read as a tamper — the old
@@ -478,7 +421,7 @@ mod tests {
     fn global_repaint_is_not_reported_as_tamper() {
         const W: usize = 320;
         const H: usize = 180;
-        let mut fc = FrameConsistency::default();
+        let mut fc = FrameConsistency;
         fc.check(&FrameStats {
             frame_digest: Some(digest_of(&flat(W, H, 230), W, H)),
             ..frame(1000, 0.9)
@@ -505,7 +448,7 @@ mod tests {
                 tampered[o + 2] = 10;
             }
         }
-        let mut fc = FrameConsistency::default();
+        let mut fc = FrameConsistency;
         fc.check(&FrameStats {
             frame_digest: Some(digest_of(&base, W, H)),
             ..frame(1000, 0.78)
@@ -518,12 +461,9 @@ mod tests {
         assert!(hit.is_none(), "{hit:?}");
     }
 
-    /// 跨轮询窗口(550 < dt ≤ 3000)现在**会**报,但带明确的"盖不住瞬时篡改"标注。
-    ///
-    /// 这一条把 OVL-013 在 Windows(2500ms 轮询)上从结构性不可达变成可达:一次持续存在的
-    /// 注入在 2.5s 后仍然在屏幕上,跨轮询比较抓得到。
+    /// Windows 的两次 2.5s 轮询同样不是 expected/actual 完整性配对。
     #[test]
-    fn 跨轮询窗口内的持续注入会被报出并标注() {
+    fn 跨轮询窗口内的局部变化不会被动升级为篡改() {
         const W: usize = 320;
         const H: usize = 180;
         let base = flat(W, H, 200);
@@ -536,7 +476,7 @@ mod tests {
                 tampered[o + 2] = 10;
             }
         }
-        let mut fc = FrameConsistency::default();
+        let mut fc = FrameConsistency;
         fc.check(&FrameStats {
             frame_digest: Some(digest_of(&base, W, H)),
             ..frame(1000, 0.78)
@@ -546,12 +486,7 @@ mod tests {
             frame_digest: Some(digest_of(&tampered, W, H)),
             ..frame(1000 + 2500, 0.78)
         });
-        let f = hit.expect("跨轮询的持续注入应当被报出来(Windows 可达性)");
-        assert!(
-            f.evidence.contains("跨轮询"),
-            "跨轮询 finding 必须带盖不住瞬时篡改的标注:{}",
-            f.evidence
-        );
+        assert!(hit.is_none(), "跨轮询变化不能证明截图被替换");
     }
 
     #[test]
@@ -567,22 +502,17 @@ mod tests {
         );
     }
 
-    /// Digest-less frames fall back to the coarse mean-luma check.
+    /// A large luminance jump is normally an app switch or animation, not proof
+    /// of screenshot substitution.
     #[test]
-    fn frame_consistency_flags_rapid_luma_jump() {
-        let mut fc = FrameConsistency::default();
+    fn frame_consistency_does_not_flag_rapid_luma_jump() {
+        let mut fc = FrameConsistency;
         assert!(
             fc.check(&frame(1000, 0.50)).is_none(),
             "first frame: no baseline"
         );
         assert!(fc.check(&frame(1100, 0.55)).is_none(), "small drift ok");
-        // A4-style tamper: large luma jump inside the TOCTOU window.
-        let hit = fc.check(&frame(1200, 0.95));
-        assert!(hit.is_some());
-        assert_eq!(
-            hit.unwrap().kind,
-            guard_overlay::OverlayKind::ScreenshotTamperHint
-        );
+        assert!(fc.check(&frame(1200, 0.95)).is_none());
         // Outside the window (slow repaint) → no flag.
         assert!(fc.check(&frame(5000, 0.10)).is_none());
     }

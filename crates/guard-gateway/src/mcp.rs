@@ -68,18 +68,27 @@ pub fn error(id: Value, code: i64, message: impl Into<String>, data: Option<Valu
 /// 它的人）需要知道，绕过这个网关直接 spawn shell 是可行的，所以网关的存在不等于机器被保护了。
 /// 本项目在自己的能力表里已经把"通知"和"阻断门"记成同一个勾一次。
 pub fn initialize_result(server_name: &str, version: &str) -> Value {
+    let mut instructions = concat!(
+        "AgentGuard 工具网关。危险动作请调这里的工具，不要直接调 shell 或文件 API：",
+        "网关是执行者，所以它能拒绝执行，而一个旁路观察器只能事后记录。\n\n",
+        "强制力等级：cooperative（协作式）。绕过本网关直接执行是可行的，因此本网关在运行",
+        "不等于这台机器受到了内核级保护。内核级约束是另一层（见 docs/interception-design.md）。\n\n",
+        "被拒绝时，错误里会点名具体规则和理由。那是判决，不是故障，不要重试；",
+        "改成一个落在授权范围内的动作。"
+    )
+    .to_string();
+    if cfg!(target_os = "windows") {
+        instructions
+            .push_str("\n\nWindows 首个 GA 不发布 run_shell/read_file/write_file/delete_file：");
+        instructions.push_str(
+            "在同一对象句柄执行完成前，这些工具为防 junction/reparse/hard-link TOCTOU 而失败关闭。",
+        );
+    }
     json!({
         "protocolVersion": PROTOCOL_VERSION,
         "capabilities": { "tools": {} },
         "serverInfo": { "name": server_name, "version": version },
-        "instructions": concat!(
-            "AgentGuard 工具网关。危险动作请调这里的工具，不要直接调 shell 或文件 API：",
-            "网关是执行者，所以它能拒绝执行，而一个旁路观察器只能事后记录。\n\n",
-            "强制力等级：cooperative（协作式）。绕过本网关直接执行是可行的，因此本网关在运行",
-            "不等于这台机器受到了内核级保护。内核级约束是另一层（见 docs/interception-design.md）。\n\n",
-            "被拒绝时，错误里会点名具体规则和理由。那是判决，不是故障，不要重试；",
-            "改成一个落在授权范围内的动作。"
-        )
+        "instructions": instructions
     })
 }
 
