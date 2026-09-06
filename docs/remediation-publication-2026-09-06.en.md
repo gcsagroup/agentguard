@@ -2,6 +2,8 @@
 
 # Cross-platform remediation source submission (2026-09-06)
 
+At the maintainer's subsequent request, candidate `8e644da` was fast-forwarded directly into `main` using the repository-configured SSH identity, without a PR. Remote and local branches are consolidated to `main`. The original development worktree and uncommitted material are retained, and a verified Git bundle preserves recovery of the removed branches. This changes source delivery only, not the acceptance or release boundaries below.
+
 This submission consolidates earlier cross-platform remediation, the macOS workspace and authenticated gateway confirmation. **It is a source-review candidate, not an installer release; production remains No-Go.** Private reports, screenshots, device identifiers, credentials, build output and test data are excluded.
 
 ## Changes and usage

@@ -10,7 +10,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 - Integrated shared-core, encrypted-audit and confirmation-lifecycle remediation with existing desktop, mobile and browser-extension changes. Added trilingual [submission notes](docs/remediation-publication-2026-09-06.en.md) stating validation scope and outstanding gates.
 - Added workspace UI regressions and real MCP gateway file-side-effect tests to CI; aligned permission claims, proving-test mappings and generated capability matrices.
-- Source-review branch only: local credentials, raw reports and build output are excluded. No installer release; production remains No-Go.
+- At the maintainer's request, the source-review candidate was subsequently integrated into `main` using the repository's SSH identity, with remote and local branches consolidated. Local credentials, raw reports and build output are excluded. No installer release; production remains No-Go.
 
 ### macOS workspace and active-protection entry points (2026-09-06)
 
