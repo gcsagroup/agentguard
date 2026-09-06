@@ -219,6 +219,55 @@
     },
   };
 
+  // 邮件阻断与发现共用三语解释，不包含原邮件数据。
+  const MAIL_WORDS = {
+    mail_sensitive: {
+      en: ["Possible sensitive content in this email", "A password, key or payment-card pattern was found. Remove it or use an approved secure channel."],
+      zh_CN: ["邮件里可能含有敏感信息", "发现密码、密钥或支付卡号模式。请移除这些内容，或改用已批准的安全渠道。"],
+      zh_TW: ["郵件裡可能含有敏感資料", "發現密碼、金鑰或支付卡號模式。請移除這些內容，或改用已批准的安全管道。"],
+    },
+    mail_injection: {
+      en: ["Suspicious instructions in email", "The message contains wording aimed at redirecting an AI agent. Email content is not an authorization."],
+      zh_CN: ["邮件中出现给 AI 的可疑指令", "正文含有试图改变智能体行为的话术。邮件内容不能替代你的授权。"],
+      zh_TW: ["郵件中出現給 AI 的可疑指示", "內文含有試圖改變代理行為的話術。郵件內容不能取代你的授權。"],
+    },
+    mail_recipients: {
+      en: ["Email recipients could not be verified", "Check every To, Cc and Bcc entry. Unresolved contacts, unsupported address forms and excessive recipient counts are not allowed by this preview."],
+      zh_CN: ["无法完整核对收件人", "请检查收件人、抄送和密送。未解析联系人、暂不支持的地址格式或过多收件人会被阻断。"],
+      zh_TW: ["無法完整核對收件者", "請檢查收件者、副本與密件副本。未解析聯絡人、暫不支援的地址格式或過多收件者會被阻擋。"],
+    },
+    mail_attachment: {
+      en: ["Attachment handling is paused", "This experimental module cannot inspect file contents. Supported file selection, drop and paste actions, and sends with recognized attachments or embedded media, are blocked."],
+      zh_CN: ["附件操作已暂停", "实验模块尚不能检查文件内容。支持范围内的文件选择、拖放、粘贴，以及带已识别附件或内嵌媒体的发送会被阻断。"],
+      zh_TW: ["附件操作已暫停", "實驗模組尚不能檢查檔案內容。支援範圍內的檔案選擇、拖放、貼上，以及帶已識別附件或內嵌媒體的寄送會被阻擋。"],
+    },
+    mail_uninspectable: {
+      en: ["This email action could not be checked", "Settings may be unavailable, the editor may be unrecognized, or the content may exceed inspection limits. This is not a safety pass."],
+      zh_CN: ["无法完成这次邮件检查", "设置可能尚未就绪、编辑器结构未识别，或内容超出检查上限。这不代表检查通过。"],
+      zh_TW: ["無法完成這次郵件檢查", "設定可能尚未就緒、編輯器結構未識別，或內容超出檢查上限。這不代表檢查通過。"],
+    },
+    mail_link: {
+      en: ["The email link needs review", "The link uses an unsupported or unencrypted destination, contains user information, or disagrees with its displayed address."],
+      zh_CN: ["邮件链接需要核对", "链接使用不支持或未加密的目标、夹带用户信息，或与显示的地址不一致。"],
+      zh_TW: ["郵件連結需要核對", "連結使用不支援或未加密的目標、夾帶使用者資訊，或與顯示的地址不一致。"],
+    },
+  };
+  const MAIL_OUTCOME = {
+    en: ["This recognized page action was blocked. Earlier syncing/uploads and other paths are not covered by this result.", "Close this notice without replaying the action."],
+    zh_CN: ["这次已识别的页面动作已阻断。此前的同步、上传及其他路径不在此结论内。", "关闭提示，不重放操作。"],
+    zh_TW: ["這次已識別的頁面動作已阻擋。先前的同步、上傳及其他路徑不在此結論內。", "關閉提示，不重播操作。"],
+  };
+  for (const [kind, translations] of Object.entries(MAIL_WORDS)) {
+    KINDS[kind] = {};
+    GATES[kind] = {};
+    for (const locale of LOCALES) {
+      const [title, body] = translations[locale];
+      const [blocked, close] = MAIL_OUTCOME[locale];
+      KINDS[kind][locale] = { title, detail: body };
+      GATES[kind][locale] = { title, body, blocked, close };
+    }
+  }
+
   /* 确认层与 popup 的通用界面词。 */
   const UI = {
     en: {

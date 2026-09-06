@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
+import { runMailCases } from "./mail.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
@@ -96,6 +97,11 @@ const server = createServer((req, res) => {
     return;
   }
   hits.push({ method: req.method, path, t: Date.now() });
+  if (path.startsWith("/mail-fixture/")) {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("local fixture received; not real email delivery");
+    return;
+  }
   res.writeHead(501, { "content-type": "text/plain" });
   res.end("acceptance stub: not implemented");
 });
@@ -672,6 +678,7 @@ try {
   const visible = await popup.evaluate(() => document.body.innerText);
   record("P4", "popup visible text has no raw machine terms", !RAW_TERMS.test(visible), (visible.match(RAW_TERMS) || [""])[0]);
   await popup.close();
+  await runMailCases({ context, sw, extensionId, record, base, hits, out: OUT, fixtures: FIXTURES, waitUntil });
 } catch (e) {
   record("HARNESS", "harness did not throw", false, String(e && e.stack ? e.stack : e));
 } finally {
@@ -689,6 +696,8 @@ const report = {
   fixtures: "eval/acceptance-fixtures",
   native_messaging: "disabled in the GA manifest (permission absent)",
   firefox: "excluded from the first GA release scope",
+  webmail_acceptance: "experimental; synthetic Gmail/Outlook DOM only; real service/provider DOM and Edge acceptance pending",
+  known_gaps: cases.filter((item) => item.id.endsWith("-GAP")),
   cases,
   all_pass: failures === 0,
 };

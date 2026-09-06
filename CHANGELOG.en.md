@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Experimental webmail protection (2026-09-07)
+
+- Added default-off independent mail settings, Gmail/Outlook candidate DOM checks for selected secrets, recipients, injected instructions and link mismatch in the Chrome/Edge extension. Attachment contents are not scanned; recognized attachment actions are conservatively blocked.
+- Added unchanged-extension Chromium tests with synthetic mail and local receiver counts, including minimized records and explicit direct-API bypass checks. Real mailboxes and Edge remain unaccepted; no proxy or approval-based delivery is implemented. This is not a release or comprehensive-coverage claim.
+
 ### Combined mail protection design (2026-09-06)
 
 - Added a trilingual [design proposal](docs/mail-protection-design.en.md) covering enterprise mail gateways, webmail and client integrations, permission and privacy boundaries, send-approval binding and mail-specific acceptance cases.

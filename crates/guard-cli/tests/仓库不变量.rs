@@ -186,8 +186,8 @@ fn 前端不出现把字符串当代码的写法() {
     // release-gate 的计数刚因为同一个原因从 `-lt` 改成 `-ne`。
     // 新增前端文件时要一起改这个数,而那一改会出现在 diff 里,于是有人会看一眼
     // 那个新文件有没有 sink。
-    // 已检查新增 workspace、三语词表和 gateway-confirmation；外部正文仅写 textContent。
-    const 前端文件数: usize = 22;
+    // 已检查 workspace、三语词表、gateway-confirmation 及三个邮件模块/测试；正文不用代码 sink。
+    const 前端文件数: usize = 25;
     assert_eq!(
         文件.len(),
         前端文件数,

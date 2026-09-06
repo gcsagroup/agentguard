@@ -21,7 +21,7 @@
 
 ## 核心三語入口
 
-- [郵件聯合防護設計（簡體）](mail-protection-design.md) · [繁體](mail-protection-design.zh-TW.md) · [English](mail-protection-design.en.md) — 設計候選與本機互動預覽；信箱代理尚未實作，未接入真實信箱。
+- [郵件聯合防護設計（簡體）](mail-protection-design.md) · [繁體](mail-protection-design.zh-TW.md) · [English](mail-protection-design.en.md) — 已實作預設關閉的實驗性網頁信箱模組；代理仍為設計候選，真實信箱尚未驗收。
 - [2026-09-06 整改原始碼提交說明（簡體）](remediation-publication-2026-09-06.md) · [繁體](remediation-publication-2026-09-06.zh-TW.md) · [English](remediation-publication-2026-09-06.en.md) — 本輪範圍、使用入口、驗證與 No-Go 邊界。
 
 - [專案 README（簡體）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)

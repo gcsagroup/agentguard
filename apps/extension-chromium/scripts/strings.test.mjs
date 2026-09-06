@@ -17,6 +17,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const S = require(join(here, "..", "guard-strings.js"));
 const Gate = require(join(here, "..", "guard-gate.js"));
+const Mail = require(join(here, "..", "guard-mail.js"));
 
 let failures = 0;
 function test(name, fn) {
@@ -34,6 +35,17 @@ function assert(cond, msg) {
 
 const LOCALES = ["en", "zh_CN", "zh_TW"];
 const CJK = /[一-鿿]/;
+
+test("所有邮件风险都有三语发现及只阻断文案", () => {
+  for (const kind of Mail.KINDS) {
+    for (const locale of LOCALES) {
+      const finding = S.kindText(kind, locale);
+      const gate = S.gateText(kind, locale);
+      assert(finding?.title && finding.detail && gate?.body && gate.blocked && gate.close, `${kind} 缺少 ${locale} 邮件文案`);
+      assert(!("allow" in gate), "邮件提示不得提供页面内放行");
+    }
+  }
+});
 
 test("content.js 上报的每个 finding kind 在词典里都有三语人话词条", () => {
   const src = readFileSync(join(here, "..", "content.js"), "utf8");

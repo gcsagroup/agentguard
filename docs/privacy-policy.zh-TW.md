@@ -2,7 +2,9 @@
 
 [简体中文](privacy-policy.md) | [繁體中文](privacy-policy.zh-TW.md) | [English](privacy-policy.en.md)
 
-- **最後更新：** 2026-09-05
+新增預設關閉的實驗性網頁信箱模組：開啟後僅在候選 Gmail/Outlook 頁面本機讀取可識別的主旨、正文、收件人欄位及附件存在狀態。郵件專項記錄只保留固定風險類別、阻斷狀態、時間、網站來源與 Gmail/Outlook 固定名稱；不存正文、主旨、地址、附件名或完整連結，不讀取附件內容，不呼叫信箱 API 或轉送到桌面端。模組無法阻止信箱本身草稿同步、直接 API 或未覆蓋路徑；關閉只停止郵件專項，既有付款規則保持啟用。
+
+- **最後更新：** 2026-09-07
 - **產品版本：** 1.0.0-rc.1
 - **適用範圍：** macOS、Windows、Android 伴生應用程式、iOS WebShield/Safari Extension、首個 GA 的 Chrome/Edge Chromium 擴充功能、CLI 與本機 API
 

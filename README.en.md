@@ -61,7 +61,7 @@ Connect a gateway's current port and token to review, deny or approve only its c
 
 - [Documentation portal](docs/README.en.md)
 - [Desktop guide](docs/desktop-guide.en.md)
-- [Mail-client and webmail protection design (not implemented)](docs/mail-protection-design.en.md)
+- [Mail protection: experimental webmail extension and planned proxy](docs/mail-protection-design.en.md)
 - [1.0.0-rc.1 release notes](docs/RELEASE-1.0.0-rc.1.en.md)
 - [Changelog](CHANGELOG.en.md)
 - [Scope and non-goals](docs/scope-and-non-goals.md)

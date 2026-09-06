@@ -8,6 +8,51 @@
   "actionTitle": {
     "message": "AgentGuard 網頁防護"
   },
+  "mailTitle": {
+    "message": "網頁信箱防護"
+  },
+  "mailExperimental": {
+    "message": "實驗性"
+  },
+  "mailSettings": {
+    "message": "郵件設定"
+  },
+  "mailEnable": {
+    "message": "啟用網頁信箱實驗防護"
+  },
+  "mailScope": {
+    "message": "Gmail 與 Outlook 網頁版適配候選；真實信箱驗收尚未完成。"
+  },
+  "mailPrivacy": {
+    "message": "內容僅在目前頁面內檢查。新增郵件記錄不儲存內文、主旨、收件地址或附件名稱，不轉送至桌面端。"
+  },
+  "mailAttachments": {
+    "message": "尚不能檢查檔案內容：啟用後會阻擋已識別的檔案選擇、拖放、貼上及帶附件的寄送。"
+  },
+  "mailBoundary": {
+    "message": "不涵蓋直接 API、草稿自動同步、桌面用戶端或所有網頁操作。沒有單次放行或自動寄送。"
+  },
+  "mailOff": {
+    "message": "預設關閉。可在郵件設定中了解範圍後啟用。"
+  },
+  "mailUnavailable": {
+    "message": "郵件設定未就緒，無法確認此頁檢查狀態。"
+  },
+  "mailChecking": {
+    "message": "正在核對信箱頁面連線…"
+  },
+  "mailOtherPage": {
+    "message": "設定已啟用；目前頁面不在 Gmail／Outlook 信箱適配範圍。"
+  },
+  "mailNoPage": {
+    "message": "設定已啟用，但無法確認頁面連線；請重新整理信箱頁面後再試。"
+  },
+  "mailOnCandidate": {
+    "message": "{provider} 頁面檢查已啟用（實驗性，非全覆蓋）。"
+  },
+  "mailSaveError": {
+    "message": "設定無法儲存，請再試一次。"
+  },
   "settings": {
     "message": "設定"
   },
@@ -30,7 +75,7 @@
     "message": "尚無偵測記錄"
   },
   "allClear": {
-    "message": "一切正常,這個頁面上沒有發現問題。遇到付款、交個資這類動作時,AgentGuard 會先攔下來問你。"
+    "message": "暫無最近記錄。這不代表所有頁面與操作都已檢查；發生阻擋時可在這裡查看原因。"
   },
   "readError": {
     "message": "無法讀取狀態"

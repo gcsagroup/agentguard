@@ -2,7 +2,9 @@
 
 [简体中文](privacy-policy.md) | [繁體中文](privacy-policy.zh-TW.md) | [English](privacy-policy.en.md)
 
-- **Last updated:** 2026-09-05
+The new experimental webmail module is off by default. When enabled, it locally reads recognized subject, body, recipient fields and attachment-presence signals on candidate Gmail/Outlook pages. Mail-specific records retain only fixed risk category, blocked state, time, site origin and the fixed Gmail/Outlook label: no subject/body, addresses, filenames or full links. It does not inspect attachment contents, call mailbox APIs or forward mail data to the desktop. It cannot stop provider draft syncing, direct APIs or other uncovered paths. Turning it off stops mail-specific checks, not existing payment rules.
+
+- **Last updated:** 2026-09-07
 - **Product version:** 1.0.0-rc.1
 - **Applies to:** macOS, Windows, the Android companion, iOS WebShield/Safari Extension, the first-GA Chrome/Edge Chromium extension, the CLI, and the local API
 

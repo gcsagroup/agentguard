@@ -1,0 +1,7 @@
+[
+  "http://example.test",
+  "javascript:alert(1)",
+  "data:text/html,hello",
+  "https://user:pass@example.test",
+  "bad"
+]

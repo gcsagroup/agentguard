@@ -37,12 +37,30 @@ async function initialize() {
     await loadMessages(select.value);
     renderRecent();
     renderBlocklist();
+    renderMail();
+    renderSite();
   };
   // 设置收进齿轮:语言/桌面端转发不该占首屏 —— 用户打开 popup 是想知道"我安全吗"。
   const panel = document.getElementById("settings-panel");
   document.getElementById("btn-settings").addEventListener("click", () => {
     panel.hidden = !panel.hidden;
   });
+  document.getElementById("btn-mail-settings").addEventListener("click", () => {
+    panel.hidden = false;
+    document.getElementById("mail-enabled").focus();
+  });
+  document.getElementById("mail-enabled").addEventListener("change", (event) => {
+    const enabled = event.target.checked;
+    event.target.disabled = true;
+    chrome.runtime.sendMessage({ type: "set_mail_settings", enabled }, (response) => {
+      const error = chrome.runtime.lastError || !response?.ok;
+      const note = document.getElementById("mail-error");
+      note.hidden = !error;
+      note.textContent = error ? t("mailSaveError") : "";
+      renderMail();
+    });
+  });
+  renderMail();
   // E18:错过首装引导页的人从这里回去(引导页里有安全的弹层演示)。
   const btnOb = document.getElementById("btn-onboarding");
   if (btnOb) {
@@ -57,6 +75,32 @@ async function initialize() {
   renderRecent();
   renderBlocklist();
   renderSite();
+}
+
+function renderMail() {
+  const checkbox = document.getElementById("mail-enabled");
+  const state = document.getElementById("mail-state");
+  chrome.runtime.sendMessage({ type: "get_mail_settings" }, (response) => {
+    const error = chrome.runtime.lastError || !response?.ok;
+    checkbox.disabled = !!error;
+    checkbox.checked = !error && response.settings?.enabled === true;
+    if (error || !response.settings?.ready) { state.textContent = t("mailUnavailable"); return; }
+    if (!response.settings.enabled) { state.textContent = t("mailOff"); return; }
+    state.textContent = t("mailChecking");
+    if (!chrome.tabs?.query || !chrome.tabs.sendMessage) { state.textContent = t("mailNoPage"); return; }
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs?.[0];
+      const provider = self.AgentGuardMail.providerForUrl(tab?.url);
+      if (!provider) { state.textContent = t("mailOtherPage"); return; }
+      chrome.tabs.sendMessage(tab.id, { type: "mail_page_status" }, { frameId: 0 }, (pageState) => {
+        if (chrome.runtime.lastError || !pageState?.ready || !pageState.enabled || pageState.provider !== provider) {
+          state.textContent = t("mailNoPage");
+          return;
+        }
+        state.textContent = tf("mailOnCandidate", { provider: provider === "gmail" ? "Gmail" : "Outlook" });
+      });
+    });
+  });
 }
 
 /** 一条最近记录的人话标题:拦截类读作"已拦截:这一步要付款了",发现类拼各 kind 的词典标题。 */

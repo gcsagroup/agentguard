@@ -162,6 +162,8 @@ function onlyNew(findings) {
 
 /** `roots`:为 null 时整页扫注入;否则只扫这些子树(增量)。 */
 function runScan(roots) {
+  // 邮件正文由独立、默认关闭的模块在页内检查，不进入通用原始文本上报。
+  if (self.AgentGuardMail?.providerForUrl(location.href)) return;
   const injection = [];
   if (roots) {
     for (const r of roots) injection.push(...scanHiddenInjection(r));
@@ -344,7 +346,7 @@ window.addEventListener(
     const form = e.target;
     if (!form) return;
     const findings = [];
-    if (formHasTrapPII(form)) findings.push({ kind: "privacy_trap" });
+    if (!self.AgentGuardMail?.providerForUrl(location.href) && formHasTrapPII(form)) findings.push({ kind: "privacy_trap" });
     if (e.submitter && ctaText(e.submitter)) findings.push({ kind: "payment_cta" });
     gateEvent(e, findings);
   },

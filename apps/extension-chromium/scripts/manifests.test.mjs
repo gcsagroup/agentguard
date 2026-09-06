@@ -30,7 +30,7 @@ const jsFiles = (m) =>
     .filter((v, i, a) => a.indexOf(v) === i);
 
 test("Chromium manifest 装入完整内容脚本", () => {
-  assert.deepEqual(jsFiles(chrome), ["content.js", "guard-gate.js", "guard-modal.js", "guard-strings.js"]);
+  assert.deepEqual(jsFiles(chrome), ["content.js", "guard-gate.js", "guard-mail.js", "guard-modal.js", "guard-strings.js", "mail-content.js"]);
 });
 
 test("GA 权限没有 Native Messaging，通知权限有 DOM 阻断用途", () => {
@@ -98,6 +98,9 @@ test("内容脚本没有公开 request decision scope 消息信任根", () => {
   assert.doesNotMatch(content, /__agentguard_(?:req_gate|req_decision|scope)__/);
   assert.doesNotMatch(content, /window\.postMessage/);
   assert.doesNotMatch(content, /addEventListener\(\s*["']message["']/);
+  const mail = fs.readFileSync(path.join(ext, "mail-content.js"), "utf8");
+  assert.doesNotMatch(mail, /window\.postMessage|addEventListener\(\s*["']message["']/);
+  assert.doesNotMatch(mail, /requestSubmit|gateApproved|replayApproved|onAllow|fetch\(/);
 });
 
 test("DOM 只阻断脚本在 document_start 覆盖所有 frame", () => {

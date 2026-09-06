@@ -2,7 +2,9 @@
 
 [简体中文](privacy-policy.md) | [繁體中文](privacy-policy.zh-TW.md) | [English](privacy-policy.en.md)
 
-- **最后更新：** 2026-09-05
+新增默认关闭的实验性网页邮箱模块：开启后仅在候选 Gmail/Outlook 页面本地读取可识别的主题、正文、收件人字段及附件存在状态。邮件专项记录仅保留固定风险类别、阻断状态、时间、站点来源和 Gmail/Outlook 固定名称；不存正文、主题、地址、附件名或完整链接，不读取附件内容，不调用邮箱 API 或转发到桌面端。模块不能阻止邮箱自身草稿同步、直接 API 或其他未覆盖路径；关闭仅停止邮件专项，既有付款规则保持启用。
+
+- **最后更新：** 2026-09-07
 - **产品版本：** 1.0.0-rc.1
 - **适用范围：** macOS、Windows、Android 伴生应用、iOS WebShield/Safari Extension、首个 GA 的 Chrome/Edge Chromium 扩展、CLI 与本地 API
 

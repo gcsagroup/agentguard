@@ -2,7 +2,20 @@
 
 # Joint protection for email clients and webmail
 
-Status: **design candidate; no email proxy or real mailbox integration has been implemented**. This iteration supplies architecture, an interaction preview and an acceptance plan. Existing desktop, browser or MCP results do not prove email protection.
+Status: **the overall design remains a candidate; an experimental, default-off Chrome/Edge webmail module is implemented. No mail proxy or real mailbox integration exists.** The gateway, client and approval flows below remain planned.
+
+## Experimental implementation (2026-09-07)
+
+Load the updated Chromium extension, open its popup → Mail settings → Enable experimental webmail checks. This independent switch does not disable existing payment protection. Status identifies candidate pages, not verified delivery paths.
+
+- Candidate HTTPS hosts are `mail.google.com`, `outlook.live.com`, `outlook.office.com` and `outlook.office365.com`, limited to `/mail/` paths. Recognized send clicks, shortcuts and submission events check subject/body and To/Cc/Bcc for selected secrets, valid card-number patterns and common prompt injection. This is not comprehensive DLP and does not infer internal/external recipients.
+- Reading checks identify common injected instructions; recognized link clicks check protocol and visible-host mismatch, not reputation or email authenticity. Unicode normalization affects matching only.
+- **No attachment-content inspection exists.** Recognized file selection, drops, file pastes and sends with recognized attachments/inline media are blocked while enabled. Other file controls on mailbox pages may also be blocked. Complex addresses, unknown subject/body structure and text-budget overflow are conservatively blocked.
+- Checks remain local. Mail-specific records retain only risk category, blocked state, time and site origin; no subject/body, addresses, attachment names or full links. No mailbox API, additional permission or Native Messaging is added. Mail-specific reading scans do not run while disabled.
+- Notices provide Close only: **no approval, one-time release or automatic sending**. Closing a notice does not send. Earlier submissions and draft syncing cannot be recalled.
+- **Gaps:** direct APIs, automatic draft syncing, unknown controls/attachment paths, uninjected frames, closed Shadow DOM, desktop clients and other providers. Actual Gmail/Outlook DOM and Edge acceptance are pending; current evidence uses the unchanged extension in real Chromium with synthetic DOM and local receiver counts.
+
+Reproduce with Node 22: `make check-extension-gate`, `make e2e-extension`, `make ui-preview`; the latter two require Playwright/Chromium. Cases are named `WM-*`; `*-GAP` deliberately confirms direct-API bypass and is not a protection pass. The overall MAIL-01–10 plan below is not completed by this module.
 
 ## Goal and preferred approach
 

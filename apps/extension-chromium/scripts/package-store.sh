@@ -30,6 +30,8 @@ trap 'rm -rf "$WORK"' EXIT
 cp "$ROOT/manifest.json" "$STAGE/"
 cp "$ROOT/background.js" "$STAGE/"
 cp "$ROOT/guard-gate.js" "$STAGE/"
+cp "$ROOT/guard-mail.js" "$STAGE/"
+cp "$ROOT/mail-content.js" "$STAGE/"
 cp "$ROOT/guard-strings.js" "$STAGE/"
 cp "$ROOT/guard-modal.js" "$STAGE/"
 cp "$ROOT/onboarding.html" "$STAGE/"

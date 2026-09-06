@@ -6,6 +6,12 @@ This is the browser-extension implementation for the first GA. On Chrome and Edg
 
 > The first GA supports Chrome and Edge only. Firefox remains a source prototype: it is not packaged and is not an acceptance gate for the first GA. Safari is a separate Xcode/Swift product line. The GA manifest has no `nativeMessaging` permission, and the release package neither connects to nor includes a Native Messaging host.
 
+## Experimental webmail checks (off by default)
+
+Popup → Mail settings → enable experimental webmail checks. Candidate Gmail/Outlook adapters inspect recognized send, reading and link actions. Selected secrets and unresolved recipients block sending. Attachment contents are not inspected: recognized attachment actions are blocked, with no one-time release or automatic sending.
+
+Mail-specific checks stay local and records omit raw content and addresses. No permission or mailbox API is added. Direct APIs, draft syncing, unknown controls and desktop clients remain outside coverage. Current evidence uses synthetic DOM in real Chromium; actual Gmail/Outlook and Edge acceptance is pending. See [implementation scope and planned design](../../docs/mail-protection-design.en.md).
+
 ## Load unpacked
 
 Chrome:

@@ -48,7 +48,7 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | apps/desktop-macos/src-tauri | 43 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
 | **Rust total** | **1210** | |
-| apps/extension-chromium/scripts/*.test.mjs | 45 | node `test(` |
+| apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari extension node `test(` |
 | eval/e2e-extension/run.mjs | 39 | real-browser E2E checks `record(` |
 | apps/android-companion/app/src/test | 60 | Kotlin JVM `@Test`(纯函数) |

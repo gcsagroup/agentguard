@@ -64,7 +64,7 @@ npm run tauri dev
 
 - [文档门户](docs/README.md)
 - [桌面端使用说明](docs/desktop-guide.md)
-- [邮件客户端与网页邮箱防护设计（尚未实现）](docs/mail-protection-design.md)
+- [邮件防护：实验性网页扩展与后续代理设计](docs/mail-protection-design.md)
 - [1.0.0-rc.1 发布说明](docs/RELEASE-1.0.0-rc.1.md)
 - [变更记录](CHANGELOG.md)
 - [范围与非目标](docs/scope-and-non-goals.md)

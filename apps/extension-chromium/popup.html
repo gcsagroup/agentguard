@@ -22,6 +22,15 @@
       <div class="muted" id="site-line"></div>
     </div>
 
+    <section class="mail-card" aria-labelledby="mail-title">
+      <div class="row">
+        <h2 id="mail-title" data-i18n="mailTitle">Webmail protection</h2>
+        <span class="mail-badge" data-i18n="mailExperimental">Experimental</span>
+      </div>
+      <p id="mail-state" class="muted" aria-live="polite"></p>
+      <button id="btn-mail-settings" class="ghost" data-i18n="mailSettings">Mail settings</button>
+    </section>
+
     <div id="settings-panel" hidden>
       <div class="row">
         <label for="locale" class="muted" data-i18n="language">Language</label>
@@ -32,6 +41,18 @@
           <option value="zh_TW" data-i18n="traditionalChinese">繁體中文</option>
         </select>
       </div>
+      <fieldset class="mail-options">
+        <legend data-i18n="mailTitle">Webmail protection</legend>
+        <div class="row">
+          <input type="checkbox" id="mail-enabled" disabled />
+          <label for="mail-enabled" data-i18n="mailEnable">Enable experimental webmail checks</label>
+        </div>
+        <p class="muted" data-i18n="mailScope">Gmail and Outlook webmail adapters; real-mailbox acceptance is pending.</p>
+        <p class="muted" data-i18n="mailPrivacy">Checked locally on the page. Message content and addresses are not stored or forwarded.</p>
+        <p class="muted" data-i18n="mailAttachments">Files cannot be inspected yet: recognized attachment actions are blocked while enabled.</p>
+        <p class="muted" data-i18n="mailBoundary">Does not cover direct API calls, draft syncing, desktop clients or every website action.</p>
+        <p id="mail-error" role="alert" hidden></p>
+      </fieldset>
       <div id="native-settings">
         <div class="row">
           <input type="checkbox" id="native" />
@@ -52,6 +73,7 @@
     <p class="muted section" data-i18n="blockedHosts">Blocked sites</p>
     <ul id="blocklist"></ul>
     <script src="guard-strings.js"></script>
+    <script src="guard-mail.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

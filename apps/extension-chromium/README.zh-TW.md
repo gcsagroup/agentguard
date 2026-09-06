@@ -6,6 +6,12 @@
 
 > 首個 GA 只支援 Chrome 與 Edge。Firefox 僅保留原始碼原型，不產生發布套件，也不是首個 GA 的驗收門；Safari 屬於獨立 Xcode/Swift 產品線。GA manifest 不包含 `nativeMessaging`，發布套件不連線或攜帶 Native Messaging host。
 
+## 網頁信箱試用（實驗性，預設關閉）
+
+擴充功能彈出視窗 →「郵件設定」→ 啟用網頁信箱實驗防護。候選適配 Gmail/Outlook 已識別的寄送、閱讀及連結動作；敏感主旨/正文或無法核對的收件人會阻斷。尚無附件內容掃描，已識別附件操作保守阻斷，沒有單次放行或自動寄送。
+
+郵件專項只在頁面本機檢查，記錄不保存原文或地址；不新增權限、不連接信箱 API。直接 API、草稿同步、未知控制項與桌面用戶端不在保證內。目前僅完成合成 DOM 的真實 Chromium 驗證，實際 Gmail/Outlook 與 Edge 尚待驗收。詳見[實作範圍與後續設計](../../docs/mail-protection-design.zh-TW.md)。
+
 ## 載入未封裝擴充功能
 
 Chrome：

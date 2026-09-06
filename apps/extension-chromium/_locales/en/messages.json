@@ -8,6 +8,51 @@
   "actionTitle": {
     "message": "AgentGuard Web Shield"
   },
+  "mailTitle": {
+    "message": "Webmail protection"
+  },
+  "mailExperimental": {
+    "message": "Experimental"
+  },
+  "mailSettings": {
+    "message": "Mail settings"
+  },
+  "mailEnable": {
+    "message": "Enable experimental webmail checks"
+  },
+  "mailScope": {
+    "message": "Candidate Gmail and Outlook web adapters; real-mailbox acceptance is incomplete."
+  },
+  "mailPrivacy": {
+    "message": "Content is checked only in this page. New mail records omit bodies, subjects, addresses and filenames, with no desktop forwarding."
+  },
+  "mailAttachments": {
+    "message": "File contents cannot be checked yet: recognized file selection, drop, paste and sends with attachments are blocked while enabled."
+  },
+  "mailBoundary": {
+    "message": "Does not cover direct APIs, automatic draft syncing, desktop clients or every web action. No one-time release or automatic sending."
+  },
+  "mailOff": {
+    "message": "Off by default. Review the scope in Mail settings before enabling."
+  },
+  "mailUnavailable": {
+    "message": "Mail settings are unavailable; page checks cannot be confirmed."
+  },
+  "mailChecking": {
+    "message": "Checking the mailbox page connection…"
+  },
+  "mailOtherPage": {
+    "message": "Enabled in settings; this page is outside the Gmail/Outlook mail adapters."
+  },
+  "mailNoPage": {
+    "message": "Enabled in settings, but the page connection is unconfirmed. Reload the mailbox and retry."
+  },
+  "mailOnCandidate": {
+    "message": "Page checks enabled for {provider} (experimental, not full coverage)."
+  },
+  "mailSaveError": {
+    "message": "Settings could not be saved. Please retry."
+  },
   "settings": {
     "message": "Settings"
   },
@@ -30,7 +75,7 @@
     "message": "No detections yet"
   },
   "allClear": {
-    "message": "All clear — nothing suspicious on this page. When something risky happens (a payment, personal info being sent), AgentGuard stops it and asks you first."
+    "message": "No recent records. This does not mean every page or action was checked. When an action is blocked, its reason appears here."
   },
   "readError": {
     "message": "Unable to read status"

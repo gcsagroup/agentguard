@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>合成邮箱 · 不连接真实账号</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.6 system-ui,sans-serif; margin: 24px; background: light-dark(#f5f7fa,#10151d); color: light-dark(#182230,#e8eef7); }
+    main { max-width: 760px; margin: auto; }
+    section, form { padding: 18px; margin: 14px 0; border: 1px solid light-dark(#c7d0da,#44546b); border-radius: 12px; }
+    h1 { font-size: 22px; margin: 0; } h2 { font-size: 16px; }
+    label { display: block; margin-bottom: 8px; } input { width: 70%; padding: 6px; font: inherit; }
+    #editor { min-height: 100px; border: 1px solid light-dark(#aebdcd,#556981); padding: 10px; }
+    button { padding: 8px 18px; margin-top: 12px; font: inherit; }
+    #file { display: block; width: 90%; margin-top: 12px; }
+    .note { color: light-dark(#53637a,#a6b8cf); }
+  </style>
+</head>
+<body>
+<main>
+  <h1 id="provider-title">网页邮箱本地验收夹具</h1>
+  <p class="note">全部为合成数据。测试浏览器把邮件域名映射到本地夹具，不连接 Gmail 或 Outlook；“发送”仅记入本机接收计数。</p>
+  <section aria-label="阅读区">
+    <h2>合成来信</h2>
+    <div id="reading" class="a3s" role="document">这是一封普通测试邮件。</div>
+  </section>
+  <form id="compose" role="dialog" aria-label="新邮件">
+    <label>收件人 <input id="to" name="to" aria-label="To" value="alice@team.example"></label>
+    <label>抄送 <input id="cc" name="cc" aria-label="Cc"></label>
+    <label>密送 <input id="bcc" name="bcc" aria-label="Bcc"></label>
+    <label>主题 <input id="subject" name="subjectbox" value="本地测试"></label>
+    <div id="editor" role="textbox" aria-label="Message body" contenteditable="true" g_editable="true">明天下午见，よろしくお願いします，مرحبا 👋</div>
+    <div id="attachments"></div>
+    <input id="file" type="file" aria-label="添加测试附件">
+    <button id="send" type="button" aria-label="Send (Ctrl+Enter)">Send</button>
+    <button id="form-send" type="submit" aria-label="Send now">Send now</button>
+  </form>
+  <p id="result" role="status">本页面尚未请求投递。</p>
+</main>
+<script>
+  // 故意让页面自己的处理器位于 window capture；扩展必须更早阻断，而非只遮住按钮。
+  const isOutlook = location.hostname.startsWith("outlook.");
+  document.getElementById("provider-title").textContent = `${isOutlook ? "Outlook" : "Gmail"} 合成页面`;
+  if (isOutlook) {
+    document.getElementById("reading").className = "";
+    document.getElementById("editor").removeAttribute("g_editable");
+    for (const id of ["to", "cc", "bcc", "subject"]) document.getElementById(id).removeAttribute("name");
+    document.getElementById("subject").ariaLabel = "Add a subject";
+  } else document.getElementById("reading").removeAttribute("role");
+  window.mailFixture = { earlySend: false, keyupSend: false, accepted: 0, uploadEvents: 0 };
+  async function deliver(path = "send") {
+    const body = JSON.stringify({
+      to: document.getElementById("to").value,
+      cc: document.getElementById("cc").value,
+      bcc: document.getElementById("bcc").value,
+      subject: document.getElementById("subject").value,
+      body: document.getElementById("editor").textContent,
+    });
+    await fetch(`/mail-fixture/${path}`, { method: "POST", body });
+    window.mailFixture.accepted += 1;
+    document.getElementById("result").textContent = `本机接收端已收到 ${window.mailFixture.accepted} 次请求；不是实际邮件投递。`;
+  }
+  window.mailFixture.direct = () => deliver("direct");
+  window.addEventListener("pointerdown", (event) => {
+    if (window.mailFixture.earlySend && event.target.closest?.("#send")) deliver("early-send");
+  }, true);
+  window.addEventListener("click", (event) => {
+    if (event.target.closest?.("#send")) deliver();
+  }, true);
+  window.addEventListener("submit", (event) => { event.preventDefault(); deliver("form-send"); }, true);
+  for (const type of ["keydown", "keyup"]) window.addEventListener(type, (event) => {
+    if ((type === "keyup") !== window.mailFixture.keyupSend) return;
+    if ((event.key === "Enter" && (event.ctrlKey || event.metaKey)) ||
+        (isOutlook && event.altKey && event.key.toLowerCase() === "s")) deliver("keyboard-send");
+  }, true);
+  for (const type of ["input", "change", "drop", "paste"]) window.addEventListener(type, (event) => {
+    const transfer = event.dataTransfer || event.clipboardData;
+    if ((event.target.id === "file" && event.target.files?.length) || transfer?.files?.length) {
+      window.mailFixture.uploadEvents += 1;
+      deliver("upload");
+    }
+  }, true);
+</script>
+</body>
+</html>

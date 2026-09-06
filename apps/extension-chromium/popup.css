@@ -15,6 +15,16 @@ body {
   color: #e8eef7;
 }
 h1 { font-size: 14px; line-height: 1.2; margin: 0; }
+h2 { font-size: 13px; margin: 0; }
+.mail-card { background: #14202e; border: 1px solid #33465f; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.mail-card p { margin: 0 0 8px; line-height: 1.5; }
+.mail-badge { margin-left: auto; color: #e0b566; font-size: 11px; }
+.mail-options { min-width: 0; margin: 12px 0; padding: 10px 0; border: 0; border-top: 1px solid #33465f; }
+.mail-options legend { font-size: 12px; }
+.mail-options label { font-size: 12px; }
+.mail-options .row { align-items: flex-start; }
+#settings-panel .mail-options p { margin: 6px 0; line-height: 1.5; }
+#mail-error { color: #ff9d9d; font-size: 12px; }
 .brand-mark {
   width: 20px;
   height: 20px;

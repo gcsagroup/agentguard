@@ -176,6 +176,7 @@ check-shells: node-toolchain-check
 # GA Chromium manifest/包范围(E4)+ 人话词典(E16)。真 Chrome/Edge 商店候选仍需分别验收。
 check-extension-gate: node-toolchain-check
 	node apps/extension-chromium/scripts/gate.test.mjs
+	node apps/extension-chromium/scripts/mail.test.mjs
 	node apps/extension-chromium/scripts/content-event.test.mjs
 	node apps/extension-chromium/scripts/manifests.test.mjs
 	node apps/extension-chromium/scripts/strings.test.mjs

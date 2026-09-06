@@ -237,6 +237,8 @@
     } catch (e) {
       console.debug("AgentGuard focus failed", e);
     }
+    // 仅返回给 isolated 调用者，用于去重和清理提示；不包含放行动作。
+    return { element: host, close };
   }
 
   const Modal = { showBlocked };

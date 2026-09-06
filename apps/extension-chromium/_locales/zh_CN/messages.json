@@ -8,6 +8,51 @@
   "actionTitle": {
     "message": "AgentGuard 网页防护"
   },
+  "mailTitle": {
+    "message": "网页邮箱防护"
+  },
+  "mailExperimental": {
+    "message": "实验性"
+  },
+  "mailSettings": {
+    "message": "邮件设置"
+  },
+  "mailEnable": {
+    "message": "启用网页邮箱实验防护"
+  },
+  "mailScope": {
+    "message": "Gmail 与 Outlook 网页版适配候选；真实邮箱验收尚未完成。"
+  },
+  "mailPrivacy": {
+    "message": "内容仅在当前页面内检查。新增邮件记录不保存正文、主题、收件地址或附件名，不转发到桌面端。"
+  },
+  "mailAttachments": {
+    "message": "尚不能检查文件内容：开启后会阻断已识别的文件选择、拖放、粘贴及带附件的发送。"
+  },
+  "mailBoundary": {
+    "message": "不覆盖直接 API、草稿自动同步、桌面客户端或所有网页操作。没有一次性放行或自动发送。"
+  },
+  "mailOff": {
+    "message": "默认关闭。可在邮件设置中了解范围后开启。"
+  },
+  "mailUnavailable": {
+    "message": "邮件设置未就绪，不能确认此页检查状态。"
+  },
+  "mailChecking": {
+    "message": "正在核对邮箱页面连接…"
+  },
+  "mailOtherPage": {
+    "message": "设置已开启；当前页面不在 Gmail／Outlook 邮箱适配范围。"
+  },
+  "mailNoPage": {
+    "message": "设置已开启，但无法确认页面连接；请刷新邮箱页面后重试。"
+  },
+  "mailOnCandidate": {
+    "message": "{provider} 页面检查已开启（实验性，非全覆盖）。"
+  },
+  "mailSaveError": {
+    "message": "设置未能保存，请重试。"
+  },
   "settings": {
     "message": "设置"
   },
@@ -30,7 +75,7 @@
     "message": "暂无检测记录"
   },
   "allClear": {
-    "message": "一切正常,这个页面上没有发现问题。遇到付款、交个人信息这类动作时,AgentGuard 会先拦下来问你。"
+    "message": "暂无最近记录。这不代表所有页面和操作都已检查；发生阻断时可在这里查看原因。"
   },
   "readError": {
     "message": "无法读取状态"

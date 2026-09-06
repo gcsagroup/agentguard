@@ -21,6 +21,11 @@
   <div class="muted" id="site-line"></div>
 </div>
 
+<section class="mail-card" aria-labelledby="mail-title">
+  <div class="row"><h2 id="mail-title" data-i18n="mailTitle">网页邮箱防护</h2><span class="mail-badge" data-i18n="mailExperimental">实验性</span></div>
+  <p id="mail-state" class="muted" aria-live="polite"></p>
+  <button id="btn-mail-settings" class="ghost" data-i18n="mailSettings">邮件设置</button>
+</section>
 <div id="settings-panel" hidden>
   <div class="row">
     <label for="locale" class="muted" data-i18n="language">Language</label>
@@ -31,6 +36,15 @@
       <option value="zh_TW" data-i18n="traditionalChinese">繁體中文</option>
     </select>
   </div>
+  <fieldset class="mail-options">
+    <legend data-i18n="mailTitle">网页邮箱防护</legend>
+    <div class="row"><input type="checkbox" id="mail-enabled" disabled /><label for="mail-enabled" data-i18n="mailEnable">启用实验性网页邮箱检查</label></div>
+    <p class="muted" data-i18n="mailScope"></p>
+    <p class="muted" data-i18n="mailPrivacy"></p>
+    <p class="muted" data-i18n="mailAttachments"></p>
+    <p class="muted" data-i18n="mailBoundary"></p>
+    <p id="mail-error" role="alert" hidden></p>
+  </fieldset>
   <div id="native-settings">
     <div class="row">
       <input type="checkbox" id="native" />
@@ -71,6 +85,7 @@ const blocklist = state === "empty"
         "tracker.example": { rule_id: "SCOPE-HOST" },
       },
     };
+let mailEnabled = false;
 window.chrome = {
   storage: { local: {
     get() { return Promise.resolve({ localeOverride: new URLSearchParams(location.search).get("locale") || "zh_CN" }); },
@@ -78,7 +93,10 @@ window.chrome = {
   }, onChanged: { addListener() {} } },
   i18n: { getUILanguage() { return "zh-CN"; } },
   // P1-1:状态卡「正在检查:host」。popup 打开就是用户手势,真环境里 activeTab 给到 URL。
-  tabs: { query(_q, cb) { cb([{ url: "https://shop.example.com/checkout/pay?session=abc" }]); } },
+  tabs: {
+    query(_q, cb) { cb([{ id: 1, url: "https://mail.google.com/mail/u/0/fixture" }]); },
+    sendMessage(_id, _message, _options, cb) { cb({ provider: "gmail", ready: true, enabled: mailEnabled }); },
+  },
   runtime: {
     getURL(p) { return "/apps/extension-chromium/" + p; },
     sendMessage(msg, cb) {
@@ -90,12 +108,15 @@ window.chrome = {
         link: { enabled: false, connected: false, lastOk: 0, lastError: "", host: "" },
       });
       else if (msg.type === "get_blocklist") cb(blocklist);
+      else if (msg.type === "get_mail_settings") cb({ ok: true, settings: { ready: true, enabled: mailEnabled } });
+      else if (msg.type === "set_mail_settings") { mailEnabled = msg.enabled === true; cb({ ok: true }); }
       else if (cb) cb({});
     },
   },
 };
 </script>
 <script src="/apps/extension-chromium/guard-strings.js"></script>
+<script src="/apps/extension-chromium/guard-mail.js"></script>
 <script src="/apps/extension-chromium/popup.js"></script>
 </body>
 </html>

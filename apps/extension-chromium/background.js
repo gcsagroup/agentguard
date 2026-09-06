@@ -2,6 +2,7 @@
 // self.AgentGuardGate / self.AgentGuardStrings。内容脚本按 manifest 顺序拿到
 // 同一份文件;这里 background(module:Chromium service worker / Firefox event page)靠 import 拿到。
 import "./guard-gate.js";
+import "./guard-mail.js";
 import "./guard-strings.js";
 
 const NATIVE_HOST = "com.agentguard.native";
@@ -82,10 +83,12 @@ chrome.storage.local.get(["nativeEnabled", "recent", "enginePaused"], (data) => 
 
 /** 出站/落盘前的 URL 最小化(P1-1)。Gate 没加载到就宁可不带 URL。 */
 function safeUrl(raw) {
+  if (self.AgentGuardMail.providerForUrl(raw)) return new URL(raw).origin;
   const Gate = self.AgentGuardGate;
   return Gate ? Gate.minimizeUrl(raw) : "";
 }
-function safeTitle(raw) {
+function safeTitle(raw, url) {
+  if (self.AgentGuardMail.providerForUrl(url)) return "";
   const Gate = self.AgentGuardGate;
   return Gate ? Gate.clampTitle(raw) : "";
 }
@@ -98,6 +101,8 @@ function pushRecent(entry) {
 
 function findingsToEvents(payload) {
   const events = [];
+  // 邮箱检查没有 Native 转发授权，通用信封也不能夹带原邮件内容。
+  if (self.AgentGuardMail.providerForUrl(payload.url)) return events;
   for (const f of payload.findings || []) {
     if (f.kind === "payment_cta" || f.kind === "prompt_injection" || f.kind === "invisible_injection") {
       events.push({
@@ -448,12 +453,47 @@ function linkState() {
   };
 }
 
+// 设置只能由扩展自己的弹窗修改；不接受网页或内容脚本伪造的开关消息。
+function mailControlSender(sender) {
+  return sender?.id === chrome.runtime.id && sender.url === chrome.runtime.getURL("popup.html");
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === "get_mail_settings" || msg?.type === "set_mail_settings") {
+    if (!mailControlSender(sender)) { sendResponse({ ok: false }); return; }
+    if (msg.type === "get_mail_settings") {
+      chrome.storage.local.get(["webmailProtection"], (data) => {
+        const ok = !chrome.runtime.lastError;
+        sendResponse({ ok, settings: ok ? self.AgentGuardMail.settings(data?.webmailProtection) : null });
+      });
+    } else {
+      if (typeof msg.enabled !== "boolean") { sendResponse({ ok: false }); return; }
+      chrome.storage.local.set({ webmailProtection: { version: 1, enabled: msg.enabled } }, () => {
+        sendResponse({ ok: !chrome.runtime.lastError });
+      });
+    }
+    return true;
+  }
+  if (msg?.type !== "agentguard_mail_event") return;
+  const provider = self.AgentGuardMail.providerForUrl(sender?.url);
+  if (sender?.id !== chrome.runtime.id || !provider || !self.AgentGuardMail.KINDS.includes(msg.kind) ||
+      typeof msg.blocked !== "boolean") { sendResponse({ ok: false }); return; }
+  pushRecent({
+    ts: Date.now(),
+    url: new URL(sender.url).origin,
+    title: provider === "gmail" ? "Gmail" : "Outlook",
+    ...(msg.blocked ? { kind: "prevented", prevented_kind: msg.kind } : { count: 1, kinds: [msg.kind] }),
+  });
+  setBadge("!", "#b00020");
+  if (msg.blocked) notifyDomBlocked(msg.kind);
+  sendResponse({ ok: true });
+});
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== "agentguard_findings") return;
   const entry = {
     ts: msg.ts,
     url: safeUrl(msg.url),
-    title: safeTitle(msg.title),
+    title: safeTitle(msg.title, msg.url),
     count: (msg.findings || []).length,
     kinds: [...new Set((msg.findings || []).map((f) => f.kind))],
   };
@@ -477,7 +517,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   pushRecent({
     ts: msg.ts,
     url: safeUrl(msg.url),
-    title: safeTitle(msg.title),
+    title: safeTitle(msg.title, msg.url),
     kind: "prevented",
     reason: msg.reason,
     prevented_kind: msg.kind,

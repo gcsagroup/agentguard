@@ -27,6 +27,8 @@ for archive in "$WORK/chrome.zip"; do
   fi
   cmp "$ROOT/background.js" <(unzip -p "$archive" background.js)
   cmp "$ROOT/content.js" <(unzip -p "$archive" content.js)
+  cmp "$ROOT/guard-mail.js" <(unzip -p "$archive" guard-mail.js)
+  cmp "$ROOT/mail-content.js" <(unzip -p "$archive" mail-content.js)
   cmp "$ROOT/rules/payment-shape-block.json" <(unzip -p "$archive" rules/payment-shape-block.json)
   if unzip -Z1 "$archive" | grep -qx 'guard-page.js'; then
     echo "包中不应再含公开 MAIN-world 判决脚本" >&2
