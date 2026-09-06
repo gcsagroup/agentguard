@@ -61,6 +61,7 @@ npm run tauri dev
 
 - [文件入口](docs/README.zh-TW.md)
 - [桌面端使用說明](docs/desktop-guide.zh-TW.md)
+- [郵件用戶端與網頁信箱防護設計（尚未實作）](docs/mail-protection-design.zh-TW.md)
 - [1.0.0-rc.1 發佈說明](docs/RELEASE-1.0.0-rc.1.zh-TW.md)
 - [變更記錄](CHANGELOG.zh-TW.md)
 - [範圍與非目標](docs/scope-and-non-goals.md)

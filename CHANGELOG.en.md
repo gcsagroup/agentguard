@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Combined mail protection design (2026-09-06)
+
+- Added a trilingual [design proposal](docs/mail-protection-design.en.md) covering enterprise mail gateways, webmail and client integrations, permission and privacy boundaries, send-approval binding and mail-specific acceptance cases.
+- This update completes only design and local interaction-preview checks. No mail proxy, real account connection or mail-route change is implemented; existing generic tests do not count as mail-protection acceptance.
+
 ### Cross-platform CI regression fixes (2026-09-06)
 
 - Fixed capability-matrix output to UTF-8 and reproduced Windows cp1252 pipes in repository tests. Correctly scoped macOS-only adapter code without disabling strict compiler warnings.

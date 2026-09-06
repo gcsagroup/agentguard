@@ -21,6 +21,7 @@
 
 ## 核心三语入口
 
+- [邮件联合防护设计（简体）](mail-protection-design.md) · [繁體](mail-protection-design.zh-TW.md) · [English](mail-protection-design.en.md) — 设计候选与本地交互预览；邮箱代理尚未实现，未接入真实邮箱。
 - [2026-09-06 整改源码提交说明（简体）](remediation-publication-2026-09-06.md) · [繁體](remediation-publication-2026-09-06.zh-TW.md) · [English](remediation-publication-2026-09-06.en.md) — 本轮范围、使用入口、验证与 No-Go 边界。
 
 - [项目 README（简体）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)

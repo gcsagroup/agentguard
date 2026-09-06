@@ -21,6 +21,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 
 ## Core trilingual entry points
 
+- [Combined mail protection design (Simplified Chinese)](mail-protection-design.md) · [繁體](mail-protection-design.zh-TW.md) · [English](mail-protection-design.en.md) — Candidate design and local interaction preview; no mail proxy implementation or real mailbox connection.
 - [2026-09-06 remediation source submission notes (Simplified Chinese)](remediation-publication-2026-09-06.md) · [繁體](remediation-publication-2026-09-06.zh-TW.md) · [English](remediation-publication-2026-09-06.en.md) — Scope, entry points, validation and No-Go boundaries for this integration.
 
 - [Project README (Simplified Chinese)](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
