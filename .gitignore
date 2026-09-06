@@ -42,6 +42,7 @@ policies/device-cache.yaml
 policies/entitlement.json
 
 # Generated eval / acceptance artifacts (regenerate via make)
+/.artifacts/
 /evidence/
 eval/leaderboard.json
 eval/leaderboard.html
@@ -72,3 +73,7 @@ docs/.status-dashboard.body.html
 eval/ui-preview/out/
 eval/e2e-extension/out/
 eval/acceptance-fixtures/generated/
+# 随应用封装的接入资源，每次构建由白名单来源重新生成。
+apps/desktop-macos/setup-assets/*
+!apps/desktop-macos/setup-assets/README.md
+apps/desktop-macos/.setup-package.*/

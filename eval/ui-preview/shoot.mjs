@@ -1,11 +1,11 @@
-/* E16 视觉冒烟(make ui-preview):用无头 Chromium 真渲染确认弹层与 popup,截图 + 行为断言。
+/* E16 视觉冒烟(make ui-preview):用无头 Chromium 真渲染阻断提示与 popup,截图 + 行为断言。
  *
  * 为什么存在:仓库的 JS 测试只能钉逻辑(词典覆盖、门判决),钉不住"用户实际看到什么"。
  * 这个 harness 把两块最重要的界面在真浏览器里渲染出来:
  *   - 截图落在 eval/ui-preview/out/(gitignore),改 UI 后跑一遍肉眼对比;
  *   - 顺手做三条行为断言,失败则非零退出:
- *       1. 确认层「先不要」真的挡住页面自己的点击处理器;
- *       2. 确认层「允许这一次」真的重放动作(处理器运行);
+ *       1. 阻断提示只有「关闭」,关闭前后页面自己的点击处理器都不会运行;
+ *       2. 页面脚本伪造 allow 按钮也不能取得授权或重放动作;
  *       3. popup 可见文本里没有裸术语(蛇形枚举 / 规则 ID)——details 折叠时
  *          技术标识必须不可见,这是 E16 的核心承诺,用 innerText(尊重可见性)验。
  *
@@ -29,6 +29,15 @@ mkdirSync(OUT, { recursive: true });
 
 // playwright 解析:本地 node_modules 优先,退回全局(npm root -g)。
 async function loadPlaywright() {
+  const explicit = process.env.AGENTGUARD_PLAYWRIGHT_MODULE;
+  if (explicit) {
+    try {
+      return createRequire(import.meta.url)(explicit);
+    } catch (e) {
+      console.error(`AGENTGUARD_PLAYWRIGHT_MODULE 无法加载:${e && e.message}`);
+      process.exit(1);
+    }
+  }
   try {
     return await import("playwright");
   } catch {
@@ -66,9 +75,11 @@ const server = createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}`;
 
-const executablePath = existsSync("/opt/pw-browsers/chromium")
-  ? "/opt/pw-browsers/chromium"
-  : undefined;
+const executablePath = [
+  process.env.AGENTGUARD_CHROMIUM_BIN,
+  "/opt/pw-browsers/chromium",
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+].find((p) => p && existsSync(p));
 const browser = await chromium.launch({ executablePath });
 
 let failures = 0;
@@ -80,13 +91,13 @@ const check = (name, cond, extra) => {
   }
 };
 
-// 1) 确认弹层:付款拦截(zh)——「先不要」挡住 + 展开「为什么」+ 无障碍断言(E17b)。
+// 1) 阻断提示:付款拦截(zh)——只有「关闭」+ 展开「为什么」+ 无障碍断言(E17b)。
 {
   const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
   await page.goto(`${base}/gate-preview.html`);
   await page.click("#pay");
   await page.waitForTimeout(250);
-  // a11y:alertdialog 语义 + 默认焦点在「先不要」。
+  // a11y:alertdialog 语义 + 默认焦点在「关闭」。
   const dialog = page.locator('[role="alertdialog"]');
   check("弹层有 alertdialog 语义", (await dialog.count()) === 1);
   check(
@@ -97,8 +108,10 @@ const check = (name, cond, extra) => {
     })
   );
   check(
-    "打开时焦点落在「先不要」",
-    await page.evaluate(() => document.activeElement && document.activeElement.textContent === "先不要")
+    "打开时焦点落在「关闭」",
+    await page.evaluate(
+      () => document.activeElement && document.activeElement.dataset.agentguardAction === "close"
+    )
   );
   // 焦点圈:按 3 次 Tab 应回到起点,不逃出弹层。
   const cycle = [];
@@ -108,18 +121,18 @@ const check = (name, cond, extra) => {
   }
   check(
     "Tab 焦点圈锁在弹层内并循环",
-    cycle.length === 3 && cycle[2] === "先不要" && !cycle.includes("Confirm Payme"),
+    cycle.length === 3 && cycle[0].includes("为什么") && cycle[1] === "关闭" && cycle[2].includes("为什么"),
     cycle.join(" → ")
   );
   await page.screenshot({ path: join(OUT, "1-gate-payment-zh.png") });
   await page.click("summary");
   await page.waitForTimeout(150);
   await page.screenshot({ path: join(OUT, "2-gate-payment-zh-why.png") });
-  // Esc = 先不要,且焦点还原到打开前的元素(#pay)。
+  // Esc = 关闭提示,动作仍保持阻断,且焦点还原到打开前的元素(#pay)。
   await page.keyboard.press("Escape");
   await page.waitForTimeout(100);
   const result = await page.textContent("#result");
-  check("Esc(=先不要)挡住页面自己的点击处理器", result === "", `页面处理器运行了:${result}`);
+  check("Esc 关闭提示后动作仍保持阻断", result === "", `页面处理器运行了:${result}`);
   check(
     "关闭后焦点还原到触发元素",
     await page.evaluate(() => document.activeElement && document.activeElement.id === "pay")
@@ -127,7 +140,7 @@ const check = (name, cond, extra) => {
   await page.close();
 }
 
-// 1b) 确认弹层:深色模式(prefers-color-scheme: dark)。
+// 1b) 阻断提示:深色模式(prefers-color-scheme: dark)。
 {
   const page = await browser.newPage({
     viewport: { width: 900, height: 640 },
@@ -144,40 +157,38 @@ const check = (name, cond, extra) => {
   await page.close();
 }
 
-// 2) 确认弹层:「允许这一次」重放动作(处理器运行)。
+// 2) 阻断提示:只有 Close；页面脚本即使伪造 allow 按钮也不能授权或重放动作。
 {
   const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
   await page.goto(`${base}/gate-preview.html`);
   await page.click("#pay");
   await page.waitForTimeout(250);
-  await page.getByRole("button", { name: "允许这一次", exact: true }).click();
+  const actions = await page.evaluate(() =>
+    [...document.querySelectorAll('[role="alertdialog"] button')].map(
+      (button) => button.dataset.agentguardAction || ""
+    )
+  );
+  check("阻断提示原生控件只有 Close", actions.length === 1 && actions[0] === "close", actions.join(","));
+  await page.evaluate(() => {
+    const fake = document.createElement("button");
+    fake.dataset.agentguardAction = "allow";
+    fake.textContent = "允许这一次";
+    document.querySelector('[role="alertdialog"]').append(fake);
+    fake.click();
+  });
+  await page.waitForTimeout(100);
+  check(
+    "页面脚本伪造 allow 按钮不能授权或重放",
+    (await page.locator('[role="alertdialog"]').count()) === 1 && (await page.textContent("#result")) === ""
+  );
+  await page.locator('button[data-agentguard-action="close"]').click();
   await page.waitForTimeout(150);
   const result = await page.textContent("#result");
-  check("「允许这一次」重放动作", result.includes("已确认支付"), `处理器没运行:${result}`);
-  await page.close();
-}
-
-// 3) 确认弹层:越界目的地(中继消息路径,带主机名替换)。
-{
-  const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
-  await page.goto(`${base}/gate-preview.html`);
-  await page.evaluate(() => {
-    window.postMessage(
-      {
-        type: "__agentguard_req_gate__",
-        id: 1,
-        url: "https://tracker.example/x",
-        reason: "目的地 tracker.example 不在这个任务声明的允许网站里",
-        kind: "out_of_scope_host",
-        host: "tracker.example",
-      },
-      "*"
-    );
-  });
-  await page.waitForTimeout(250);
-  const modalText = await page.evaluate(() => document.body.innerText);
-  check("越界弹层把主机名替换进正文", modalText.includes("tracker.example"));
-  await page.screenshot({ path: join(OUT, "3-gate-scope-zh.png") });
+  check(
+    "真实用户关闭提示后动作仍不重放",
+    (await page.locator('[role="alertdialog"]').count()) === 0 && result === "",
+    `页面处理器运行了:${result}`
+  );
   await page.close();
 }
 
@@ -205,7 +216,7 @@ for (const [name, qs, assertClean] of [
 }
 
 // 4b) 安装引导页(E17a):真页面 + chrome 桩(addInitScript,页面脚本运行前注入);
-//     演示按钮弹的是真渲染器,点「先不要」应显示"拦住了"的结果行。
+//     演示按钮弹的是真渲染器,点「关闭」应显示动作仍被拦住的结果行。
 {
   const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
   await page.addInitScript(() => {
@@ -247,10 +258,10 @@ for (const [name, qs, assertClean] of [
   await page.waitForTimeout(250);
   check("引导页演示弹出真弹层", (await page.locator('[role="alertdialog"]').count()) === 1);
   await page.screenshot({ path: join(OUT, "10-onboarding-demo.png") });
-  await page.getByRole("button", { name: "先不要", exact: true }).click();
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
   await page.waitForTimeout(150);
   const outcome = await page.textContent("#demo-outcome");
-  check("演示的「先不要」给出结果说明", outcome.includes("拦住了"), outcome);
+  check("演示的「关闭」说明动作仍保持阻断", outcome.includes("仍保持阻断"), outcome);
   await page.close();
 }
 
@@ -261,6 +272,19 @@ for (const [name, qs, assertClean] of [
   await page.waitForTimeout(350);
   await page.click("#btn-settings");
   await page.waitForTimeout(150);
+  const nativeUi = await page.evaluate(() => {
+    const panel = document.getElementById("native-settings");
+    const visibleText = document.body.innerText;
+    return {
+      hidden: !!(panel && panel.hidden),
+      leaked: /连接桌面端|Native Messaging|Connect the desktop app/i.test(visibleText),
+    };
+  });
+  check(
+    "首个 GA 设置态隐藏 Native 控件与文案",
+    nativeUi.hidden && !nativeUi.leaked,
+    JSON.stringify(nativeUi)
+  );
   await page.screenshot({ path: join(OUT, "7-popup-settings-zh.png"), fullPage: true });
   await page.close();
 }

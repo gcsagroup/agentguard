@@ -21,15 +21,15 @@
 #
 # # 判据一览
 #
-#   A1  安装成功;通知权限已授;无障碍服务已启用;前台通知(id 1001)在;
+#   A1  安装成功;通知权限已授;无障碍服务已启用;常驻状态通知(id 1001)在;
 #   A2  桌面 /v1/status 的 adapter_ingress.verified 增加、rejected 不增加 —— 真实 HTTP body 的签名
 #       被桌面用已注册公钥验过(这是新加进 API 的可读证据,以前没有);
 #   A3  打开付款固件页后,桌面审计出现 platform=android、rule_id 以 CRIT- 开头的判决;
 #   A4  设备 prefs 的 last_risk_json 带上那个 rule_id,且引擎确认通知(id 1005)在;
-#   L   进程被杀后:进程回来、session_active 仍为 true、前台通知回来、无障碍服务仍启用(P0-3);
+#   L   进程被杀后:进程回来、会话保持关闭、旧状态通知不复活、无障碍服务仍启用(P0-3);
 #   S   prefs 里没有明文 relay_token、有 relay_token_enc;事件日志总量 ≤ 上限(P1-6);
 #   T   targetSdk 36 行为回归(报告 P2-2):设备 API ≥ 35 时才算跑过——A1–A4 与 L 都是在边到边、
-#       Android 15/16 的前台服务与无障碍限制下发生的;API < 35 的设备只能 BLOCKED,不能拿 API 34 的
+#       Android 15/16 的通知与无障碍限制下发生的;API < 35 的设备只能 BLOCKED,不能拿 API 34 的
 #       通过冒充 15/16 的通过。安装的 APK 的 targetSdk 从 dumpsys 读,不信源码。
 #
 # 模拟器上也能跑,但最后一行会标 device=emulator —— runbook 要求真机,那种结果只能记 PASS (sim)。
@@ -214,7 +214,7 @@ STARTED=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
   if [ "$RUNAS" -eq 1 ]; then
     P=$(prefs)
-    if printf '%s' "$P" | grep -q 'name="session_active" value="true"'; then STARTED=1; break; fi
+    if printf '%s' "$P" | grep -q 'name="session_requested" value="true"'; then STARTED=1; break; fi
   else
     # 没有 run-as 就看审计:session_start 到了桌面即视为已开始。
     if api "/v1/audit/recent?limit=20" | grep -q '"platform":"android"'; then STARTED=1; break; fi
@@ -229,9 +229,9 @@ fi
 sleep 2
 "${ADB[@]}" shell dumpsys notification --noredact 2>/dev/null | tr -d '\r' > "$EVIDENCE/notifications-1.txt" || "${ADB[@]}" shell dumpsys notification | tr -d '\r' > "$EVIDENCE/notifications-1.txt"
 if grep -q "pkg=$PKG" "$EVIDENCE/notifications-1.txt" && grep -A3 "pkg=$PKG" "$EVIDENCE/notifications-1.txt" | grep -q "id=1001\|id=0x3e9"; then
-  record A1e PASS "foreground notification (id 1001) present"
+  record A1e PASS "ongoing session notification (id 1001) present"
 else
-  record A1e FAIL "foreground notification not found in dumpsys (evidence/android/notifications-1.txt)"
+  record A1e FAIL "ongoing session notification not found in dumpsys (evidence/android/notifications-1.txt)"
 fi
 
 echo "== 5. 触发一个有明确预期的无障碍事件(A3)→ 桌面判决 → 回到设备(A4)"
@@ -300,18 +300,26 @@ PID0=$("${ADB[@]}" shell pidof "$PKG" | tr -d '\r')
 if [ -n "$PID0" ]; then
   "${ADB[@]}" shell am crash "$PKG" >/dev/null 2>&1 || "${ADB[@]}" shell run-as "$PKG" kill -9 "$PID0" >/dev/null 2>&1 || true
   sleep 8
+  # Fail-closed contract: a process death ends the request. Re-open the UI so
+  # restore() can clear any stale on-disk request, but never auto-resume a session.
+  "${ADB[@]}" shell am start -W -n "$PKG/.MainActivity" >/dev/null 2>&1 || true
+  sleep 2
   PID1=$("${ADB[@]}" shell pidof "$PKG" | tr -d '\r')
   "${ADB[@]}" shell dumpsys notification --noredact 2>/dev/null | tr -d '\r' > "$EVIDENCE/notifications-3.txt" || "${ADB[@]}" shell dumpsys notification | tr -d '\r' > "$EVIDENCE/notifications-3.txt"
   A11Y_OK=$("${ADB[@]}" shell settings get secure enabled_accessibility_services | tr -d '\r' | grep -c "$A11Y" || true)
-  ACTIVE_OK=1
-  if [ "$RUNAS" -eq 1 ]; then prefs | grep -q 'name="session_active" value="true"' || ACTIVE_OK=0; fi
-  FG_OK=$(grep -A3 "pkg=$PKG" "$EVIDENCE/notifications-3.txt" | grep -c "id=1001\|id=0x3e9" || true)
-  if [ -n "$PID1" ] && [ "$PID1" != "$PID0" ] && [ "$ACTIVE_OK" -eq 1 ] && [ "$FG_OK" -gt 0 ] && [ "$A11Y_OK" -gt 0 ]; then
-    record L PASS "process $PID0→$PID1 restarted; session_active=true; foreground notification restored; a11y still enabled"
+  INACTIVE_OK=1
+  if [ "$RUNAS" -eq 1 ]; then
+    P=$(prefs)
+    printf '%s' "$P" | grep -q 'name="session_requested" value="true"' && INACTIVE_OK=0
+    printf '%s' "$P" | grep -q 'name="session_active" value="true"' && INACTIVE_OK=0
+  fi
+  SESSION_NOTICE=$(grep -A3 "pkg=$PKG" "$EVIDENCE/notifications-3.txt" | grep -c "id=1001\|id=0x3e9" || true)
+  if [ -n "$PID1" ] && [ "$PID1" != "$PID0" ] && [ "$INACTIVE_OK" -eq 1 ] && [ "$SESSION_NOTICE" -eq 0 ] && [ "$A11Y_OK" -gt 0 ]; then
+    record L PASS "process $PID0→$PID1 restarted fail-closed; session inactive; no stale session notification; a11y remains enabled for explicit restart"
   elif [ -z "$PID1" ]; then
-    record L FAIL "process did not come back within 8s after kill"
+    record L FAIL "app did not relaunch after the scripted MainActivity start"
   else
-    record L FAIL "after restart: new_pid=$PID1 session_active_ok=$ACTIVE_OK fg_notification=$FG_OK a11y=$A11Y_OK"
+    record L FAIL "after restart: new_pid=$PID1 inactive_ok=$INACTIVE_OK stale_session_notification=$SESSION_NOTICE a11y=$A11Y_OK"
   fi
 else
   record L "BLOCKED(pidof empty)" "cannot find the app process"
@@ -347,9 +355,9 @@ grep -E "^(A1[a-e]|A2|A3|A4|L)\s" "$RESULTS" | awk '{print $2}' | grep -qv '^PAS
 if [ -z "$TARGET_SDK" ]; then
   record T "BLOCKED(targetSdk unreadable)" "dumpsys package did not report targetSdk"
 elif [ "$TARGET_SDK" -lt 35 ]; then
-  record T FAIL "installed APK targets API $TARGET_SDK (< 35): Play requires 35+/36 and the edge-to-edge / FGS behaviour was never exercised"
+  record T FAIL "installed APK targets API $TARGET_SDK (< 35): Play requires 35+/36 and current edge-to-edge / background behaviour was never exercised"
 elif [ "$SDK" -lt 35 ]; then
-  record T "BLOCKED(device API $SDK < 35)" "targetSdk=$TARGET_SDK but the device runs API $SDK: Android 15/16 behaviour (edge-to-edge, FGS, a11y limits) not exercised — rerun on an API 35+ device"
+  record T "BLOCKED(device API $SDK < 35)" "targetSdk=$TARGET_SDK but the device runs API $SDK: Android 15/16 behaviour (edge-to-edge, notification and a11y limits) not exercised — rerun on an API 35+ device"
 elif [ "$A1_TO_L_OK" -eq 1 ]; then
   record T PASS "targetSdk=$TARGET_SDK on device API $SDK: A1–A4 and L passed under Android 15/16 behaviour changes"
 else

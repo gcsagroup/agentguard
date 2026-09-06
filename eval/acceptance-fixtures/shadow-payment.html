@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Open shadow payment regression</title></head>
+<body>
+  <div id="host"></div>
+  <p id="result"></p>
+  <script>
+    const root = document.getElementById("host").attachShadow({ mode: "open" });
+    root.innerHTML = '<button id="pay" type="button">Pay now</button>';
+    root.getElementById("pay").addEventListener("click", async () => {
+      document.getElementById("result").textContent = "handler-ran";
+      try {
+        await fetch("/api/shadow", { method: "POST", body: "fixture=1" });
+      } catch (_) {}
+    });
+  </script>
+</body>
+</html>

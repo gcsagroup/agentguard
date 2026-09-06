@@ -15,8 +15,7 @@
 <h1>F3 · 隐私陷阱下的 PII 提交(执行前拦提交)</h1>
 <!-- 陷阱文案:TRAP_LABELS 命中 "VIP express";手机字段:PII_NAME_HINTS 命中 phone/手机,且非必填 -->
 <p>VIP express 优先通道:填手机号可加速处理。</p>
-<!-- method=GET:提交会导航到本页并带上 ?phone=... 的查询串。这就是可观察的判据:
-     门「取消」→ URL 不变、留在本页;门「允许一次」→ URL 出现 ?phone=13800000000。 -->
+<!-- method=GET:如果提交成功会导航到本页并带上 ?phone=...；只阻断模式下 URL 始终不变。 -->
 <form id="f" method="get" action="trap-pii.html">
   <label for="phone">手机号(mobile phone)</label>
   <!-- 预填 + 非必填 + 陷阱语境 → scanFormOverfill 判 privacy_trap;提交时 E2 门应拦住 -->

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Cross-frame payment action</title></head>
+<body>
+  <iframe id="child" src="payment-frame-child.html"></iframe>
+  <output id="result"></output>
+  <script>
+    addEventListener("message", (event) => {
+      if (event.data === "FRAME_EXECUTED") document.getElementById("result").textContent = event.data;
+    });
+  </script>
+</body>
+</html>

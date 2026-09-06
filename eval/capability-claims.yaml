@@ -17,8 +17,8 @@ claims:
     claim: 签名、防篡改的审计轨迹——改一行并重算哈希链,签名仍然戳穿它
     area: audit
     source:
-      doc: apps/extension-chromium/STORE.en.md
-      anchor: "signed, tamper-evident audit chain"
+      doc: docs/audit-signing.md
+      anchor: "Each appended record is signed with an Ed25519 device key"
     mechanism: guard-audit 每行 Ed25519 签名 + 哈希链;verify 从行重算哈希而非信列里的值
     proven_by:
       - { test: rehashed_tamper_passes_chain_but_fails_signatures, file: crates/guard-audit/src/store.rs }
@@ -28,8 +28,8 @@ claims:
     claim: 威胁情报更新是签名的(Ed25519),给了公钥就拒未签名 / sha256 降级
     area: intel
     source:
-      doc: apps/extension-chromium/STORE.en.md
-      anchor: "Threat intel updates are signed (Ed25519)"
+      doc: docs/入站信任.md
+      anchor: "给了公钥就要真实性"
     mechanism: guard-intel::verify;给公钥即要求真实性,sha256/未签名一律拒
     proven_by:
       - { test: 有公钥时拒绝未签名, file: crates/guard-intel/src/lib.rs }
@@ -40,8 +40,8 @@ claims:
     claim: 检测隐藏 / 潜意识的提示注入文本
     area: vision
     source:
-      doc: apps/extension-chromium/STORE.en.md
-      anchor: "hidden / subliminal prompt-injection text"
+      doc: docs/platform-matrix.md
+      anchor: "subliminal bands, chroma+luma stego"
     mechanism: guard-vision::stego 全行扫描 LSB / chroma+luma 隐写
     proven_by:
       - { test: 真正的lsb隐写仍然被抓到, file: crates/guard-vision/src/stego.rs }
@@ -88,17 +88,6 @@ claims:
     mechanism: android-adapter env_survey → 引擎逐项标记(日志读取者本身即一条发现)
     proven_by:
       - { test: hostile_env_survey_emits_both_markers, file: adapters/android-adapter/src/lib.rs }
-
-  - id: critical-notify-not-block
-    claim: Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行
-    area: browser
-    source:
-      doc: apps/extension-chromium/STORE.en.md
-      anchor: "raises a notification after the fact"
-    mechanism: guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知
-    proven_by:
-      - { test: critical判决产生notify供扩展弹通知, file: crates/guard-nm-host/src/main.rs }
-    note: 这条 claim 说的是**宿主 native-messaging 路径**——异步观测,只能事后通知;但页面内的付款/陷阱动作已由 E2 内容脚本同步门在执行前拦(见 browser-preexec-block)。桌面壳子仍是唯一的阻断式模态
 
   - id: session-scope
     claim: 会话作用域(Aura §4.4):授权在会话开始记录、不越过会话存活
@@ -159,68 +148,55 @@ claims:
     note: 只到 TCP 端口、不按主机/IP、不含 UDP;syscall 路径本容器测不到(真机 E2E 未验证)
 
   - id: browser-preexec-block
-    claim: 浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)
+    claim: 首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作
     area: browser
     source:
       doc: docs/浏览器执行前阻断.md
-      anchor: "执行前阻断"
-    mechanism: content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js
+      anchor: "页面内提示不是授权 UI"
+    mechanism: manifest 在 document_start 向所有可注入 frame 装 isolated content script;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调
     proven_by:
       - { test: 付款 CTA 要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: 隐私陷阱 PII 提交要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
-      - { test: 付款按钮允许一次只产生一次确认并提交一次, file: apps/extension-chromium/scripts/content-event.test.mjs }
-    note: 只覆盖页面自身 DOM 动作;click→submit 接线有模拟 DOM 事件链测试;MAIN world 的 postMessage 通道可被页面观察/伪造,不能抵抗主动对抗页面;真 Chrome/Firefox E2E 仍未验证
+      - { test: 首个 GA 的 DOM 门只阻断且没有页面内放行或动作重放, file: apps/extension-chromium/scripts/gate.test.mjs }
+      - { test: 付款按钮每次都阻断且页面提示没有放行路径, file: apps/extension-chromium/scripts/content-event.test.mjs }
+      - { test: 危险表单提交也没有可泄漏的批准状态, file: apps/extension-chromium/scripts/content-event.test.mjs }
+      - { test: DOM 只阻断脚本在 document_start 覆盖所有 frame, file: apps/extension-chromium/scripts/manifests.test.mjs }
+    note: 只承诺浏览器实际注入脚本且能观察到 click/submit 的 HTTP(S) frame;直接 form.submit()、未注入 frame 与不触发被监听事件的路径不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证
 
   - id: browser-fetch-gate
-    claim: 拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)
+    claim: 明确付款关键词的 HTTP(S) 非 GET/HEAD 请求仅在已声明资源类型上由静态 DNR 默认硬拦,页面不能放行
     area: browser
     source:
       doc: docs/浏览器执行前阻断.md
-      anchor: "页面直发的"
-    mechanism: guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发
+      anchor: "静态 DNR 的精确支持面"
+    mechanism: Chromium GA manifest 默认启用 payment_shape_block;规则按非 GET/HEAD + 明确路径关键词或 op/action/operation 查询值 + main_frame/sub_frame/xmlhttprequest/ping 在浏览器网络层 block
     proven_by:
-      - { test: 付款形状的 POST 请求要在发出前拦, file: apps/extension-chromium/scripts/gate.test.mjs }
-      - { test: 只读方法不拦(GET/HEAD 不该有副作用), file: apps/extension-chromium/scripts/gate.test.mjs }
-    note: MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁
+      - { test: Chromium 默认启用付款形状静态 DNR 硬阻断, file: apps/extension-chromium/scripts/manifests.test.mjs }
+    note: 声明面只到 HTTP(S) 非 GET/HEAD、规则列出的路径组件关键词(含明确编码变体)或 op/action/operation 查询值及字符边界,以及 fetch/XHR、beacon、顶层/子框架 form 导航;不看 body,不覆盖自定义别名或未声明表面,无网络一次性放行;Chrome/Edge 商店候选仍须分别留证
 
   - id: cross-browser-consistency
-    claim: Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移
+    claim: 首个 GA 只交付 Chrome/Edge 共用的 Chromium 包,GA manifest 禁用 Native Messaging;Firefox 仅保留源码原型且不作为验收门
     area: browser
     source:
       doc: docs/跨浏览器.md
-      anchor: "manifests.test.mjs"
-    mechanism: manifest.json 与 manifest.firefox.json 由结构测试钉住一致
+      anchor: "首个 GA 支持范围"
+    mechanism: manifest.json 是唯一 GA 浏览器 manifest且不含 nativeMessaging;package-store.sh 只生成 Chrome/Edge ZIP并拒绝 --firefox
     proven_by:
-      - { test: 两份 manifest 装的是同一套内容脚本文件, file: apps/extension-chromium/scripts/manifests.test.mjs }
-    note: Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证
+      - { test: GA 权限没有 Native Messaging，通知权限有 DOM 阻断用途, file: apps/extension-chromium/scripts/manifests.test.mjs }
+      - { test: Chromium manifest 装入完整内容脚本, file: apps/extension-chromium/scripts/manifests.test.mjs }
+    note: Firefox 排除由 package-store.test.sh 的真实打包回归另行钉住;Firefox 原型文件存在或结构相似不能升级为支持声明;Chrome 与 Edge 仍需分别完成商店候选验收;Safari 是独立产品线
 
-  - id: engine-to-browser-dnr
-    claim: 引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)
+  - id: browser-page-message-not-authority
+    claim: 页面消息不是允许或 scope 的信任根,伪造旧 decision/scope 不能配置网络放行
     area: browser
     source:
       doc: docs/浏览器执行前阻断.md
-      anchor: "block_hosts"
-    mechanism: guard-nm-host 从 INTEL-DOMAIN / SCOPE-HOST 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则
+      anchor: "页面消息不再是信任根"
+    mechanism: 删除 guard-page.js 与全部 MAIN-world 注入;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外
     proven_by:
-      - { test: 恶意域判决在响应里带上block_hosts, file: crates/guard-nm-host/src/main.rs }
-      - { test: 只从恶意域判决抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
-      - { test: 越界目的地也抠出要拦的主机, file: crates/guard-nm-host/src/main.rs }
-      - { test: "恶意域累积保留:下一批 benign 判决不会把它清掉", file: apps/extension-chromium/scripts/gate.test.mjs }
-      - { test: "越界目的地随会话过期,不永久拦掉用户对该主机的正常访问", file: apps/extension-chromium/scripts/gate.test.mjs }
-    note: E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;此 DNR 桥的越界只对网络流事件成立,但浏览器侧的越界已由 E9 本地允许表门覆盖(见 browser-local-scope-gate),不再是残余;DNR fail-open;真 Chrome/Firefox E2E 未验证
-
-  - id: browser-local-scope-gate
-    claim: 任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)
-    area: browser
-    source:
-      doc: docs/浏览器执行前阻断.md
-      anchor: "scope_hosts"
-    mechanism: nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像)
-    proven_by:
-      - { test: host_in_scope向量表_rust与js同源, file: apps/extension-chromium/scripts/gate.test.mjs }
-      - { test: "scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", file: apps/extension-chromium/scripts/gate.test.mjs }
-      - { test: host_scope_向量表是rust与js的单一真相源, file: crates/guard-schema/src/plan.rs }
-    note: 下发的是策略(允许表)不是浏览历史;host_in_scope 由共享向量表(eval/host-scope-vectors.json)钉住 Rust/JS 同源;MAIN world 客户端检查尽力而为;真机未验证
+      - { test: Chromium 不注入 MAIN world 页面判决代码, file: apps/extension-chromium/scripts/manifests.test.mjs }
+      - { test: 内容脚本没有公开 request decision scope 消息信任根, file: apps/extension-chromium/scripts/manifests.test.mjs }
+    note: 敌对 E2E 另测伪 decision/scope 与旧 15 秒超时;结构测试防止公开通道回归;页面提示只是可被页面影响的信息层,没有授权能力
 
   - id: macos-realtime-tree
     claim: macOS 树观测由 AXObserver 推送驱动,变到抓的延迟有上界(不是纯轮询)
@@ -245,7 +221,7 @@ claims:
     proven_by:
       - { test: "content.js 上报的每个 finding kind 在词典里都有三语人话词条", file: apps/extension-chromium/scripts/strings.test.mjs }
       - { test: "guard-schema events.rs 里的每个规则 ID 在词典里都有三语人话词条", file: apps/extension-chromium/scripts/strings.test.mjs }
-      - { test: "guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)", file: apps/extension-chromium/scripts/strings.test.mjs }
+      - { test: "guard-gate 会执行前阻断的每个 kind,词典都有只阻断提示文案", file: apps/extension-chromium/scripts/strings.test.mjs }
     note: 覆盖率靠源码字面量提取,动态拼接的标识符看不见;翻译质量测试保证不了(见文档边界节)
 
   - id: protection-state-truthful
@@ -303,28 +279,28 @@ claims:
     note: 词表是有限的:用词表外的动词写的隐藏指令会被漏掉,这是精确率换来的召回代价;注入短语规则(OVL-004 等)不受影响,仍对 ui_text 全文生效
 
   - id: extension-url-minimization
-    claim: 转发给宿主与本地最近列表里的 URL 都最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不外传
+    claim: 扩展本地最近列表里的 URL 最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不记录
     area: extension
     source:
       doc: apps/extension-chromium/STORE.en.md
       anchor: "token-shaped path segments become"
-    mechanism: guard-gate.js minimizeUrl(默认 query 白名单为空,写死并有测试钉住),background.js 所有 url 出口经它
+    mechanism: guard-gate.js minimizeUrl(默认 query 白名单为空,写死并有测试钉住),background.js 写入本地最近列表前统一调用
     proven_by:
       - { test: "minimizeUrl:去掉 userinfo / fragment / 全部 query,只留 origin+path", file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: "minimizeUrl:path 里像 token 的段打成 …", file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: "minimizeUrl:非 http(s) 与畸形输入不外传", file: apps/extension-chromium/scripts/gate.test.mjs }
-    note: 令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字
+    note: 令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字;GA 不通过 Native Messaging 转发
 
   - id: guard-starts-when-you-press-start
-    claim: 点「开始守护」就开始观察——授权过的观察器随会话启动、随会话停;主界面用人话说出现在在看什么,并有三步使用说明与一个自检
+    claim: macOS 桌面开始守护要求辅助功能与加密记录就绪；按授权矩阵启动观察器，结束守护停止会话与观察器；自检不代表真实阻断
     area: shells
     source:
       doc: docs/desktop-guide.md
-      anchor: "启动你授权过的观察器"
+      anchor: "加密记录已就绪且辅助功能可用后"
     mechanism: macOS 壳子 observers_for_session(授权矩阵 → 该开什么)+ start_guard_session 在 drop(adapter) 后调 arm_ax_observer / arm_sck_capture(Windows 壳子一直如此);主界面 #watching 与三步「怎么用」卡片(含自检按钮)由 shell-a11y harness 在真 Chromium 里断言
     proven_by:
       - { test: 授权过的观察器随会话武装_没授权的不武装, file: apps/desktop-macos/src-tauri/src/lib.rs }
-      - { test: 未授权时不武装任何观察器_但会话仍可开始, file: apps/desktop-macos/src-tauri/src/lib.rs }
+      - { test: 未授权时不武装观察器且桌面入口提前拒绝, file: apps/desktop-macos/src-tauri/src/lib.rs }
       - { test: 会话开始真的武装观察器_且在放掉adapter锁之后, file: apps/desktop-macos/src-tauri/src/lib.rs }
       - { test: 隐私面板锚点只认那两个已知面板, file: apps/desktop-macos/src-tauri/src/lib.rs }
     note: 修的是真机反馈的功能缺陷——以前 start_guard_session 不武装任何观察器,唯一入口是折叠的开发者面板;Rust 侧钉决策与接线,界面侧由 shell-a11y(不进 release-gate,CI 单跑)钉"主界面有三步说明、有自检、无裸键值对、在看什么会随状态变";AXObserver 注册与 TCC 授权本身仍只有真机能验(macOS 清单第 18 项 / Windows W11)
@@ -342,19 +318,6 @@ claims:
       - { test: 指纹集有上限_满了整体清空而不是无界增长, file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: "scanDelayMs:至少防抖400ms_两轮扫描至少隔1500ms", file: apps/extension-chromium/scripts/gate.test.mjs }
     note: 去重是每页(内容脚本生命周期)的,刷新页面会重报;增量扫描与跳过自家弹层是成本优化,E2E 关掉它们仍绿(不声称已钉);E2E 不进 release-gate,CI 单跑
-
-  - id: native-link-replay-protection
-    claim: 扩展↔宿主长连接带连接级 nonce 与单调 seq,宿主拒绝重放、乱序、nonce 不符的帧;hello 带回暂停状态
-    area: native-host
-    source:
-      doc: apps/extension-chromium/STORE.en.md
-      anchor: "rejects replayed, out-of-order or mismatched frames"
-    mechanism: guard-nm-host SeqGuard(hello 登记 nonce/seq,之后逐帧校验);background.js connectNative + postFrame 编号
-    proven_by:
-      - { test: hello之后帧必须带同一nonce且seq单调递增, file: crates/guard-nm-host/src/main.rs }
-      - { test: hello带回暂停状态, file: crates/guard-nm-host/src/main.rs }
-      - { test: 没有hello的连接按legacy放行, file: crates/guard-nm-host/src/main.rs }
-    note: 只约束帧,不认证进程(STORE「本机 host 安全边界」如实写明);没有 hello 的旧调用方按 legacy 放行且 stderr 记一行
 
   - id: device-policy-enforced
     claim: 设备策略只在验过签后装进引擎并真的作用于判决——只收紧不放宽;未验证的只显示不执法;同步失败保持上一份

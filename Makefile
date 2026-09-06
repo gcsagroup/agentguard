@@ -2,8 +2,18 @@
 # 哪个壳子跑 shell-run-linux:make shell-run-linux SHELL_NAME=windows
 SHELL_NAME ?= macos
 DARWIN_CHECK_CRATES = -p guard-jail -p guard-schema -p guard-trust -p guard-vision -p guard-overlay -p guard-privacy -p guard-shell -p guard-netmon -p guard-billing -p android-adapter -p browser-adapter -p win-adapter
+CARGO_DENY_VERSION = 0.20.2
 
-.PHONY: capability-matrix ui-preview shell-a11y shell-run-linux e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+.PHONY: bootstrap-rust toolchain-check node-toolchain-check capability-matrix ui-preview shell-a11y shell-run-linux e2e-extension acceptance-fixtures sim-mac check-shell-apps release-gate release-gate-strict release-gate-ga ga-sbom-license-check check-supply-chain check-macos-cfg check-macos-path-semantics check-fmt preflight-baseline check-clippy check-jail check-windows check-android check-ios check-shells test eval scoreboard coverage capability-claims dashboard check-extension-gate acceptance leaderboard sim-capture sim-android package-ext check webhook-demo webhook-serve api-serve test-sqlcipher sck-probe audit-keygen audit-verify audit-signing-demo frame-digest-demo clean check-msrv preflight release-manifest check-macos-paths
+
+bootstrap-rust:
+	./scripts/bootstrap-rust.sh --install
+
+toolchain-check:
+	./scripts/bootstrap-rust.sh --check
+
+node-toolchain-check:
+	./scripts/check-node.sh
 
 test:
 	cargo test --workspace
@@ -135,13 +145,18 @@ check-jail:
 	cargo run -q -p guard-jail --bin agentguard-jail -- --probe
 	cargo test -p guard-jail
 
-## Kotlin unit tests + APK. Needs ANDROID_HOME and JDK 21 (verified; Gradle minimum is 17).
+## Kotlin Debug/Release unit tests + lint + debug APK. Needs ANDROID_HOME and JDK 21.
 check-android:
-	cd apps/android-companion && ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+	cd apps/android-companion && ./gradlew --no-daemon :app:testDebugUnitTest :app:testReleaseUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:compileReleaseKotlin
+
+## iOS limited Safari WebShield: real Simulator tests plus unsigned strict Release builds/analyze.
+## Signing, entitlements on a physical device, Safari permissions and TestFlight remain external gates.
+check-ios:
+	bash scripts/check-ios.sh
 
 ## Both shells' front ends, and every shell script. Nothing checked these before: a syntax
 ## error in main.js produced a window whose buttons did nothing while Rust stayed green.
-check-shells:
+check-shells: node-toolchain-check
 	@# `set -e` inside the loop, and no fallback. The first version of this target had
 	@# `node --check "$$f" || node --input-type=module -e "import(...)"` as a fallback, which
 	@# made the whole target vacuous: a file with a syntax error passed. `node --check` handles
@@ -158,8 +173,8 @@ check-shells:
 	@echo "shell scripts parse"
 
 # 浏览器执行前阻断的纯决策逻辑单测(E2)+ click→submit DOM 事件链(E2)+
-# 跨浏览器 manifest 一致性(E4)+ 人话词典(E16)。真 Chrome/Firefox E2E 未验证。
-check-extension-gate:
+# GA Chromium manifest/包范围(E4)+ 人话词典(E16)。真 Chrome/Edge 商店候选仍需分别验收。
+check-extension-gate: node-toolchain-check
 	node apps/extension-chromium/scripts/gate.test.mjs
 	node apps/extension-chromium/scripts/content-event.test.mjs
 	node apps/extension-chromium/scripts/manifests.test.mjs
@@ -167,8 +182,8 @@ check-extension-gate:
 	bash apps/extension-chromium/scripts/package-store.test.sh
 
 ## E16 视觉冒烟(开发工具,不进 release-gate:需要 playwright+Chromium)。
-## 真渲染确认弹层与 popup → 截图到 eval/ui-preview/out/ + 行为断言(先不要挡住/允许重放/可见文本无裸术语)。
-ui-preview:
+## 真渲染阻断提示与 popup → 截图到 eval/ui-preview/out/ + 行为断言(动作不执行/提示无放行/可见文本无裸术语)。
+ui-preview: node-toolchain-check
 	node eval/ui-preview/shoot.mjs
 
 # 把桌面壳子在 Linux/WebKitGTK 下**真的跑起来**并点一遍主路径(真机反馈:"不能编译 mac 的跑一下?")。
@@ -178,17 +193,17 @@ shell-run-linux:
 	bash eval/ui-preview/shell-run-linux.sh $(SHELL_NAME)
 
 ## 桌面壳子确认弹层的读屏/键盘可达性(真机报告 P2-4;开发工具,不进 release-gate:需要 playwright)。
-## 用桩顶替 window.__TAURI__,在真 Chromium 里断言:alertdialog 语义、焦点落「先不要」、<main> inert、
-## Tab 焦点圈、Esc=先不要(回传展示过的 request_id)、焦点还原、读屏播报通道有人话。两个壳子同一套断言。
-shell-a11y:
+## 用桩顶替 window.__TAURI__,在真 Chromium 里断言:alertdialog 语义、焦点落安全的暂停按钮、<main> inert、
+## Tab 焦点圈、Esc=暂停后续受保护操作(回传展示过的 request_id)、焦点还原、读屏播报通道有人话。
+shell-a11y: node-toolchain-check
 	node eval/ui-preview/shell-a11y.mjs
 
 ## Chromium 扩展真浏览器 E2E(开发工具,不进 release-gate:需要 playwright+Chromium)。
-## 把 apps/extension-chromium 原样装进真 Chromium,对 eval/acceptance-fixtures 跑 F1–F5 等价机器判据
-## (注入上报 / 付款点击拦住→允许一次重放 / 陷阱表单拦提交 / 直发 fetch 到服务器前拦住 / 不误拦 / popup)。
+## 把 apps/extension-chromium 原样装进真 Chromium,对 eval/acceptance-fixtures 跑 39 条机器判据
+## (规则支持/注入上报/DOM 与 open Shadow/frame 只阻断/DNR 正负例/升级清理/变异节流/popup)。
 ## 结论落 eval/e2e-extension/out/report.json,最后一行 AGENTGUARD_E2E_EXTENSION=PASS|FAIL。
-## 不装 Native Messaging 宿主(F6/F7 仍真机);Firefox 的 Playwright 装不了扩展,仍 BLOCKED。
-e2e-extension:
+## 首个 GA 无 Native Messaging；Firefox 仅保留源码原型，不打包、不提交、不作 GA 门禁。
+e2e-extension: node-toolchain-check
 	node eval/e2e-extension/run.mjs
 
 ## 真机验收固件(Windows W3/W4/W5;macOS 像素用例同用)。三步:
@@ -196,7 +211,7 @@ e2e-extension:
 ##   2. Playwright 把 W4/W5 HTML 在真 Chromium 里渲染成像素(字体/反锯齿由浏览器决定,Python 算不出);
 ##   3. guard-vision 读回全部像素并断言"固件真的触发它声称的规则、对照图零 finding"。
 ## 第 1、3 步的契约每次 `cargo test` 都在跑(tests/验收固件.rs);第 2 步需要 playwright,所以在这里。
-acceptance-fixtures:
+acceptance-fixtures: node-toolchain-check
 	python3 scripts/acceptance/make-fixtures.py
 	node scripts/acceptance/render-fixtures.mjs
 	AGENTGUARD_RENDERED_FIXTURES=$(CURDIR)/eval/acceptance-fixtures/generated/rendered \
@@ -280,7 +295,8 @@ preflight-baseline:
 # 发布门禁。跑完所有能自动验的,然后把需要凭据/真机的那几项**列出来并说清判据**。
 #
 # 软模式(默认)从不打印"可以发布" —— 它打印"自动部分通过,以下 N 项未验证"。
-# `--strict` 要求那几项都有证据文件,给真正发布时用。
+# `--strict` 是 12 类证据的 RC 技术门禁；通过不等于 GA 已批准或已上线。
+# `--ga` 在 RC 之上再要求 7 类 GA 闭环证据，共 19 类。
 #
 # 脚本自己带一条自检:登记的证据项数不对就报脚本 bug 而不是发布通过。
 # 那条自检不是多余的 —— 这个脚本第一版就因为 bash 的 `local` 不接受非 ASCII 变量名
@@ -290,6 +306,13 @@ release-gate:
 
 release-gate-strict:
 	./scripts/release-gate.sh --strict
+
+release-gate-ga:
+	./scripts/release-gate.sh --ga
+
+# 只检查或收集真实 SBOM/许可证资产；不生成 NOTICE 审批、不伪造 PASS。
+ga-sbom-license-check:
+	./scripts/ga-sbom-license.sh check
 
 # 发布产物清单(SHA-256)。不是代码签名 —— 脚本自己会把这条限制打出来。
 release-manifest:
@@ -313,14 +336,17 @@ check-fmt:
 # `cargo publish` 能把 `guard-core` 这种通用名字永久钉在 crates.io 上(那边的版本
 # 不可撤销)。每一条放行的理由写在 deny.toml 里,`ignore` 是空的。
 #
-# 需要 `cargo install cargo-deny --locked`。没装的时候**明确失败**并说怎么装 ——
+# 本地版本与 CI 里 SHA 固定的 cargo-deny-action 镜像同为 0.20.2。没装或版本漂移时
+# **明确失败**并说怎么装 ——
 # 一条静默跳过的供应链检查和一条不存在的没有区别。
 ## 三棵树都查(真机报告 P2-6):根 workspace 用 deny.toml;两个 Tauri 壳子是独立 workspace,
 ## 以前它们的 lockfile 从来没被 CVE / 许可检查过。壳子用 deny.shells.toml(只发 macOS/Windows 目标;
 ## 每条例外都写了理由与撤销条件;共享策略段由仓库不变量测试盯着和根文件逐字一致)。
 check-supply-chain:
 	@command -v cargo-deny >/dev/null 2>&1 || { \
-		echo "cargo-deny 没装。装:cargo install cargo-deny --locked" >&2; exit 1; }
+		echo "cargo-deny 没装。装:cargo install cargo-deny --version $(CARGO_DENY_VERSION) --locked" >&2; exit 1; }
+	@test "$$(cargo-deny --version)" = "cargo-deny $(CARGO_DENY_VERSION)" || { \
+		echo "cargo-deny 版本漂移:当前 $$(cargo-deny --version)，要求 $(CARGO_DENY_VERSION)" >&2; exit 1; }
 	cargo deny check
 	cargo deny --config deny.shells.toml --manifest-path apps/desktop-macos/src-tauri/Cargo.toml check
 	cargo deny --config deny.shells.toml --manifest-path apps/desktop-windows/src-tauri/Cargo.toml check
@@ -328,7 +354,7 @@ check-supply-chain:
 check-clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 
-check: check-fmt check-supply-chain check-clippy test eval coverage scoreboard leaderboard sim-capture check-shells check-macos-paths preflight
+check: toolchain-check node-toolchain-check check-fmt check-supply-chain check-clippy test eval coverage scoreboard leaderboard sim-capture check-shells check-macos-paths preflight
 	@echo "all local checks passed"
 	@echo "platform checks are separate targets, because each needs a toolchain:"
 	@echo "  make check-msrv       (rustup toolchain install $(MSRV))"

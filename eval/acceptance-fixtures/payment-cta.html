@@ -12,14 +12,14 @@
 </head>
 <body>
 <h1>F2 · 付款 CTA(执行前拦点击)</h1>
-<p>点下面的按钮。<b>期望</b>:AgentGuard 内容脚本在捕获阶段同步拦住这次点击,弹出「执行前拦截」确认层
-(允许一次 / 取消)。点「取消」→ 下方不出现「已确认支付」;点「允许一次」→ 才出现。</p>
+<p>点下面的按钮。<b>期望</b>:AgentGuard 内容脚本在捕获阶段同步拦住点击并显示只阻断提示。
+提示没有放行按钮；关闭后再次点击仍会阻断，下方永远不出现「已确认支付」。</p>
 
 <button id="pay">Confirm Payment</button>
 <div id="result"></div>
 
 <script>
-  // 页面自己的点击处理器:只有当扩展**放行**、点击真正到达时才运行。
+  // 页面自己的点击处理器:受保护的标签支持面内不应运行。
   document.getElementById("pay").addEventListener("click", function () {
     document.getElementById("result").textContent = "已确认支付(页面处理器已运行)";
   });

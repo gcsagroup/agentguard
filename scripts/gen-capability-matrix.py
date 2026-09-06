@@ -10,9 +10,11 @@ iOS 列着"我们交付"的三项而仓库里只有一个 40 行的 SwiftUI 片�
 
 提取的都是**机械事实**,不做判断:
   * 各端真正发出的事件种类:Android 看 PayloadSerializer 里哪些 `fun` 被主代码调用(定义了但没人
-    调用的如实标"未发出");扩展看 background.js 往宿主推的 `type:` 与 content.js 的 finding `kind:`;
+    调用的如实标"未发出");扩展先看 GA manifest 是否允许 Native Messaging,再看 background.js
+    往宿主推的 `type:` 与 content.js 的 finding `kind:`;
     桌面端看平台适配器(adapters/*-adapter,不含 sim.rs)与其调用的 guard_vision::uitree 构造器里
-    `event_type: EventType::*` 的构造;iOS 看有没有可构建的工程文件。
+    `event_type: EventType::*` 的构造;iOS 看有没有可构建的工程文件,或包含正式 App、Safari 扩展、
+    WebShieldCore 与测试 target 的 XcodeGen spec。
   * 测试数:静态数 `#[test]` / `#[tokio::test]`、node 的 `test(`、Kotlin 的 `@Test`、E2E 的 `record(`。
     静态计数 ≠ 实际运行数(cfg 开关、ignore、参数化),它回答的是"源码里写了多少条",足够钉住漂移。
   * 版本:Cargo / Tauri / manifest / Gradle 里写的字符串。tag 与发布产物是否存在**不在**此表
@@ -74,11 +76,21 @@ def android_kinds() -> tuple[list[str], list[str]]:
 
 
 def extension_kinds() -> tuple[list[str], list[str]]:
-    """(推给宿主的信封 type, 内容脚本的 finding kind)。"""
+    """(GA 实际可推给宿主的信封 type, 内容脚本的 finding kind)。
+
+    background.js 保留后续 Native 原型代码不等于 GA 可达能力；manifest 没有
+    nativeMessaging 时，宿主信封种类必须如实为空。
+    """
     bg = read(REPO / "apps/extension-chromium/background.js")
     # 只数推给宿主的**事件**:事件对象是 `type: "<kind>", app: "browser"` 这一形态;
     # 帧类型(hello)与通知类型(basic)也叫 type,但不是事件。
-    types = sorted(set(re.findall(r'type: "([a-z_]+)",\s*\n\s*app: "browser"', bg)))
+    manifest = json.loads(read(REPO / "apps/extension-chromium/manifest.json"))
+    native_enabled = "nativeMessaging" in manifest.get("permissions", [])
+    types = (
+        sorted(set(re.findall(r'type: "([a-z_]+)",\s*\n\s*app: "browser"', bg)))
+        if native_enabled
+        else []
+    )
     content = read(REPO / "apps/extension-chromium/content.js")
     kinds: set[str] = set()
     for line in content.splitlines():
@@ -129,6 +141,23 @@ def desktop_kinds(adapter: str) -> list[str]:
 
 def ios_buildable() -> bool:
     root = REPO / "apps/ios-webshield"
+    spec = root / "project.yml"
+    if spec.exists():
+        source = read(spec)
+        required_targets = (
+            "AgentGuardWebShield",
+            "AgentGuardWebShieldExtension",
+            "WebShieldCore",
+            "WebShieldCoreTests",
+            "AgentGuardWebShieldUITests",
+        )
+        has_targets = all(re.search(rf"^  {re.escape(target)}:\s*$", source, re.M) for target in required_targets)
+        required_inputs = (
+            root / "App/Sources/AgentGuardWebShieldApp.swift",
+            root / "Extension/Sources/SafariWebExtensionHandler.swift",
+            root / "Extension/Resources/manifest.json",
+        )
+        return has_targets and all(source_path.exists() for source_path in required_inputs)
     return any(root.rglob("*.xcodeproj")) or any(root.rglob("*.xcworkspace")) or (root / "Package.swift").exists()
 
 
@@ -158,6 +187,11 @@ def count_node_tests() -> int:
     for p in sorted((REPO / "apps/extension-chromium/scripts").glob("*.test.mjs")):
         n += len(re.findall(r"^\s*test\(", read(p), re.M))
     return n
+
+
+def count_ios_node_tests() -> int:
+    root = REPO / "apps/ios-webshield/Tests/ExtensionTests"
+    return sum(len(re.findall(r"^\s*test\(", read(p), re.M)) for p in sorted(root.glob("*.test.cjs")))
 
 
 def count_kotlin_tests() -> tuple[int, int, int]:
@@ -221,8 +255,11 @@ def versions() -> list[tuple[str, str]]:
     for shell in ("desktop-macos", "desktop-windows"):
         conf = json.loads(read(REPO / f"apps/{shell}/src-tauri/tauri.conf.json"))
         rows.append((f"apps/{shell} (tauri.conf.json)", conf["version"]))
-    for mf in ("manifest.json", "manifest.firefox.json"):
-        rows.append((f"apps/extension-chromium/{mf}", json.loads(read(REPO / "apps/extension-chromium" / mf))["version"]))
+    for mf, label in (
+        ("manifest.json", "apps/extension-chromium/manifest.json (Chrome / Edge GA)"),
+        ("manifest.firefox.json", "apps/extension-chromium/manifest.firefox.json (source prototype; not GA)"),
+    ):
+        rows.append((label, json.loads(read(REPO / "apps/extension-chromium" / mf))["version"]))
     gradle = read(REPO / "apps/android-companion/app/build.gradle.kts")
     for key in ("versionName", "versionCode", "minSdk", "targetSdk", "compileSdk"):
         m = re.search(rf"^\s*{key}\s*=\s*\"?([^\"\n]+)\"?", gradle, re.M)
@@ -243,20 +280,21 @@ L = {
         "android": "Android 伴生应用",
         "android_src": "`PayloadSerializer.kt` 里被主代码调用的 `fun`",
         "android_note": "定义了但**没有任何调用方**、因此从未发出:{silent}。`deeplink` 是刻意的——AccessibilityService 看不到 intent,要看就得注册成链接处理器,那是比一类事件大得多的侵入(见 docs/android-completeness.md)。界面文字里出现的 `intent://` 一类**字样**由本地扫描器按文本规则报,不是 deeplink 事件。",
-        "ext": "Chromium / Firefox 扩展",
-        "ext_src": "`background.js` 推给宿主的 `type:`;`content.js` 的 finding `kind:`",
-        "ext_note": "内容脚本 finding 种类:{kinds}。信封只有 {types}——付款/注入类 finding 折成 `ui_text`,表单类折成 `form_fill`;两份 manifest 装同一套内容脚本(结构测试钉住),所以 Firefox 与 Chromium 一行。",
+        "ext": "Chrome / Edge 扩展",
+        "ext_src": "GA manifest 的权限门;`background.js` 的宿主 `type:`;`content.js` 的 finding `kind:`",
+        "ext_note": "内容脚本 finding 种类:{kinds}。GA manifest 没有 `nativeMessaging`,所以实际发给宿主的 guard-schema 信封为 {types};background.js 中保留的事件映射只是不可达原型。首个 GA 仅交付共用同一 Chromium 包的 Chrome / Edge。Firefox 只保留源码原型,不打包且不作为首个 GA 验收门。",
         "mac": "macOS 桌面壳", "win": "Windows 桌面壳",
         "shell_src": "`adapters/{adapter}/src` 与其调用的 `guard_vision::uitree` 构造器里的 `event_type: EventType::*`(不含 sim.rs 仿真适配器与测试模块;壳子的演示按钮事件不算)",
         "shell_note": "树快照、从树里抠出的表单填写、像素帧;会话事件由壳子经引擎 API 发起,不在此计。macOS 的 ScreenCaptureKit 帧经 `ingest_capture_frame` 以带帧元数据的 `ui_tree_delta` 进引擎,所以那一行没有 `screen_frame`——这是实现事实,不是漏。",
-        "ios": "iOS", "ios_src": "`apps/ios-webshield` 有无 `.xcodeproj` / `.xcworkspace` / `Package.swift`",
-        "ios_none": "(无)", "ios_note_no": "没有可构建的工程,没有接入引擎——今天只有一个 SwiftUI 源码片段。iOS **不是**已支持平台;docs/ios-limited-sku.md 写的是目标,不是现状。",
-        "ios_note_yes": "存在工程文件;事件接线仍需人工确认。",
+        "ios": "iOS", "ios_src": "可构建工程,或含 App / Safari 扩展 / Core / 测试 targets 的 `project.yml`",
+        "ios_none": "(无 guard-schema 事件)", "ios_note_no": "没有可构建的工程,没有接入引擎——iOS **不是**已支持平台。",
+        "ios_note_yes": "存在正式 XcodeGen 工程定义、Safari Web Extension 与本地审计接线;它是 isolated-world DOM 点击/提交受限 SKU,未接 Rust 引擎,签名、真机 Safari 与 TestFlight 仍需外部验收。",
         "h_tests": "## 测试数(静态计数)",
         "tests_intro": "数的是源码里写了多少条,不是一次运行跑了多少条(cfg / ignore / 参数化会让运行数不同)。",
         "th_where": "位置", "th_count": "条数", "th_kind": "形态",
         "rust_kind": "Rust `#[test]` / `#[tokio::test]`", "rust_total": "Rust 合计",
         "node": "apps/extension-chromium/scripts/*.test.mjs", "node_kind": "node `test(`",
+        "ios_node": "apps/ios-webshield/Tests/ExtensionTests", "ios_node_kind": "Safari 扩展 node `test(`",
         "e2e": "eval/e2e-extension/run.mjs", "e2e_kind": "真浏览器 E2E 判据 `record(`",
         "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`(纯函数)",
         "ktr": "apps/android-companion/app/src/test(Robolectric)", "ktr_kind": "Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面)",
@@ -279,20 +317,21 @@ L = {
         "android": "Android 伴生應用",
         "android_src": "`PayloadSerializer.kt` 裡被主程式碼呼叫的 `fun`",
         "android_note": "定義了但**沒有任何呼叫方**、因此從未發出:{silent}。`deeplink` 是刻意的——AccessibilityService 看不到 intent,要看就得註冊成連結處理器,那是比一類事件大得多的侵入(見 docs/android-completeness.md)。介面文字裡出現的 `intent://` 一類**字樣**由本機掃描器按文字規則回報,不是 deeplink 事件。",
-        "ext": "Chromium / Firefox 擴充功能",
-        "ext_src": "`background.js` 推給宿主的 `type:`;`content.js` 的 finding `kind:`",
-        "ext_note": "內容腳本 finding 種類:{kinds}。信封只有 {types}——付款/注入類 finding 折成 `ui_text`,表單類折成 `form_fill`;兩份 manifest 裝同一套內容腳本(結構測試釘住),所以 Firefox 與 Chromium 一列。",
+        "ext": "Chrome / Edge 擴充功能",
+        "ext_src": "GA manifest 的權限門;`background.js` 的宿主 `type:`;`content.js` 的 finding `kind:`",
+        "ext_note": "內容腳本 finding 種類:{kinds}。GA manifest 沒有 `nativeMessaging`,所以實際傳給宿主的 guard-schema 信封為 {types};background.js 中保留的事件對應只是不可達原型。首個 GA 僅交付共用同一 Chromium 套件的 Chrome / Edge。Firefox 只保留原始碼原型,不封裝且不作為首個 GA 驗收門。",
         "mac": "macOS 桌面殼", "win": "Windows 桌面殼",
         "shell_src": "`adapters/{adapter}/src` 與其呼叫的 `guard_vision::uitree` 建構器裡的 `event_type: EventType::*`(不含 sim.rs 模擬適配器與測試模組;殼子的示範按鈕事件不算)",
         "shell_note": "樹快照、從樹裡摘出的表單填寫、像素幀;工作階段事件由殼子經引擎 API 發起,不在此計。macOS 的 ScreenCaptureKit 幀經 `ingest_capture_frame` 以帶幀中繼資料的 `ui_tree_delta` 進引擎,所以那一列沒有 `screen_frame`——這是實作事實,不是漏。",
-        "ios": "iOS", "ios_src": "`apps/ios-webshield` 有無 `.xcodeproj` / `.xcworkspace` / `Package.swift`",
-        "ios_none": "(無)", "ios_note_no": "沒有可建置的工程,沒有接入引擎——今天只有一個 SwiftUI 原始碼片段。iOS **不是**已支援平台;docs/ios-limited-sku.md 寫的是目標,不是現狀。",
-        "ios_note_yes": "存在工程檔;事件接線仍需人工確認。",
+        "ios": "iOS", "ios_src": "可建置工程,或含 App / Safari 延伸功能 / Core / 測試 targets 的 `project.yml`",
+        "ios_none": "(無 guard-schema 事件)", "ios_note_no": "沒有可建置的工程,沒有接入引擎——iOS **不是**已支援平台。",
+        "ios_note_yes": "已有正式 XcodeGen 工程定義、Safari Web Extension 與本機稽核接線;它是 isolated-world DOM 點擊/提交受限 SKU,未接 Rust 引擎,簽署、真機 Safari 與 TestFlight 仍需外部驗收。",
         "h_tests": "## 測試數(靜態計數)",
         "tests_intro": "數的是原始碼裡寫了多少條,不是一次執行跑了多少條(cfg / ignore / 參數化會讓執行數不同)。",
         "th_where": "位置", "th_count": "條數", "th_kind": "形態",
         "rust_kind": "Rust `#[test]` / `#[tokio::test]`", "rust_total": "Rust 合計",
         "node": "apps/extension-chromium/scripts/*.test.mjs", "node_kind": "node `test(`",
+        "ios_node": "apps/ios-webshield/Tests/ExtensionTests", "ios_node_kind": "Safari 延伸功能 node `test(`",
         "e2e": "eval/e2e-extension/run.mjs", "e2e_kind": "真瀏覽器 E2E 判據 `record(`",
         "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`(纯函数)",
         "ktr": "apps/android-companion/app/src/test(Robolectric)", "ktr_kind": "Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面)",
@@ -315,20 +354,21 @@ L = {
         "android": "Android companion",
         "android_src": "`fun`s in `PayloadSerializer.kt` that main code calls",
         "android_note": "Defined but **never called**, hence never emitted: {silent}. `deeplink` is deliberate — an AccessibilityService does not see intents; observing them means registering as a link handler, a far larger intrusion than one event kind (see docs/android-completeness.md). `intent://`-shaped **strings** in on-screen text are reported by the local text scanner; that is not a deeplink event.",
-        "ext": "Chromium / Firefox extension",
-        "ext_src": "`type:` pushed to the host in `background.js`; finding `kind:` in `content.js`",
-        "ext_note": "Content-script finding kinds: {kinds}. The envelope carries only {types} — payment/injection findings fold into `ui_text`, form findings into `form_fill`; both manifests install the same content scripts (pinned by a structural test), so Firefox and Chromium share one row.",
+        "ext": "Chrome / Edge extension",
+        "ext_src": "GA-manifest permission gate; host `type:` in `background.js`; finding `kind:` in `content.js`",
+        "ext_note": "Content-script finding kinds: {kinds}. The GA manifest has no `nativeMessaging`, so guard-schema envelopes actually sent to a host are {types}; event mappings retained in background.js are unreachable prototype code. The first GA ships only the shared Chromium package for Chrome / Edge. Firefox remains a source prototype; it is neither packaged nor an acceptance gate for the first GA.",
         "mac": "macOS desktop shell", "win": "Windows desktop shell",
         "shell_src": "`event_type: EventType::*` constructed in `adapters/{adapter}/src` and the `guard_vision::uitree` builders it calls (the sim.rs simulation adapters and test modules excluded; the shell's demo-button events do not count)",
         "shell_note": "Tree snapshots, form fills lifted from the tree, pixel frames; session events are issued by the shell through the engine API and are not counted here. macOS ScreenCaptureKit frames enter the engine via `ingest_capture_frame` as `ui_tree_delta` carrying frame metadata, which is why that row has no `screen_frame` — an implementation fact, not an omission.",
-        "ios": "iOS", "ios_src": "whether `apps/ios-webshield` has a `.xcodeproj` / `.xcworkspace` / `Package.swift`",
-        "ios_none": "(none)", "ios_note_no": "No buildable project, no engine wiring — today there is one SwiftUI source fragment. iOS is **not** a supported platform; docs/ios-limited-sku.md describes a target, not the present.",
-        "ios_note_yes": "Project files exist; event wiring still needs manual confirmation.",
+        "ios": "iOS", "ios_src": "a buildable project, or `project.yml` with App / Safari extension / Core / test targets",
+        "ios_none": "(no guard-schema event)", "ios_note_no": "No buildable project and no engine wiring; iOS is **not** a supported platform.",
+        "ios_note_yes": "A formal XcodeGen definition, Safari Web Extension, and local audit wiring exist. This is an isolated-world DOM click/submit limited SKU, not a Rust-engine integration; signing, real-device Safari, and TestFlight acceptance remain external gates.",
         "h_tests": "## Test counts (static)",
         "tests_intro": "Counts what is written in the source, not what one run executes (cfg gates, ignores and parameterisation change the run count).",
         "th_where": "Where", "th_count": "Count", "th_kind": "Form",
         "rust_kind": "Rust `#[test]` / `#[tokio::test]`", "rust_total": "Rust total",
         "node": "apps/extension-chromium/scripts/*.test.mjs", "node_kind": "node `test(`",
+        "ios_node": "apps/ios-webshield/Tests/ExtensionTests", "ios_node_kind": "Safari extension node `test(`",
         "e2e": "eval/e2e-extension/run.mjs", "e2e_kind": "real-browser E2E checks `record(`",
         "kt": "apps/android-companion/app/src/test", "kt_kind": "Kotlin JVM `@Test`(纯函数)",
         "ktr": "apps/android-companion/app/src/test(Robolectric)", "ktr_kind": "Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面)",
@@ -365,6 +405,7 @@ def render(lang: str, facts: dict) -> str:
         lines.append(f"| {where} | {n} | {t['rust_kind']} |")
     lines.append(f"| **{t['rust_total']}** | **{sum(n for _, n in facts['rust'])}** | |")
     lines.append(f"| {t['node']} | {facts['node']} | {t['node_kind']} |")
+    lines.append(f"| {t['ios_node']} | {facts['ios_node']} | {t['ios_node_kind']} |")
     lines.append(f"| {t['e2e']} | {facts['e2e']} | {t['e2e_kind']} |")
     lines.append(f"| {t['kt']} | {facts['kt']} | {t['kt_kind']} |")
     lines.append(f"| {t['ktr']} | {facts['kt_robo']} | {t['ktr_kind']} |")
@@ -395,6 +436,7 @@ def collect() -> dict:
         "ios_buildable": ios_buildable(),
         "rust": rust_test_table(),
         "node": count_node_tests(),
+        "ios_node": count_ios_node_tests(),
         "e2e": count_e2e_checks(),
         "kt": kt,
         "kt_robo": kt_robo,

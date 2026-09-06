@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Android observation tree limit regression</title>
+</head>
+<body>
+  <h1>Observation tree limit</h1>
+  <div id="nodes"></div>
+  <button type="button">Transfer TREE-LIMIT-CANARY-5YQ8</button>
+  <script>
+    const container = document.getElementById("nodes");
+    const fragment = document.createDocumentFragment();
+    for (let index = 0; index < 540; index += 1) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = `safe-${index}`;
+      fragment.appendChild(button);
+    }
+    container.appendChild(fragment);
+  </script>
+</body>
+</html>

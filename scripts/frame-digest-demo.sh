@@ -39,6 +39,16 @@ open(f"{work}/clean.raw", "wb").write(bytes(clean))
 open(f"{work}/tampered.raw", "wb").write(bytes(tampered))
 open(f"{work}/other.raw", "wb").write(bytes(flat(40)))
 
+# Exact 4x nearest-neighbour copy for the explicit cross-scale contract check.
+scaled = bytearray()
+for y in range(H * 4):
+    source_y = y // 4
+    for x in range(W * 4):
+        source_x = x // 4
+        o = (source_y * W + source_x) * 4
+        scaled.extend(tampered[o:o + 4])
+open(f"{work}/tampered4.raw", "wb").write(bytes(scaled))
+
 # How much did whole-frame mean luma move? This is what the old detector saw.
 def mean(buf):
     t = 0.0
@@ -62,12 +72,36 @@ echo
 
 echo "== same frame =="
 "$BIN" frame-digest --raw "$WORK/clean.raw" --width 320 --height 180 --expect "$D" \
+  --comparison-mode same-scale \
   | tail -1 | sed 's/^/  /'
+
+echo
+echo "== ambiguous comparison is refused =="
+if "$BIN" frame-digest --raw "$WORK/clean.raw" --width 320 --height 180 \
+     --expect "$D" > "$WORK/out.txt" 2>&1; then
+  echo "  FAIL: comparison without a declared scale mode was accepted" >&2
+  exit 1
+fi
+grep -E -- "--expect requires --comparison-mode" "$WORK/out.txt" | sed 's/^/  /'
+
+echo
+echo "== legacy three-plane digest (same frame, explicitly degraded) =="
+LEGACY_D="$(printf '%s' "$D" | cut -d'|' -f1-3)"
+"$BIN" frame-digest --raw "$WORK/clean.raw" --width 320 --height 180 \
+  --expect "$LEGACY_D" --comparison-mode same-scale > "$WORK/out.txt"
+grep -E "DEGRADED|match within declared capability" "$WORK/out.txt" | sed 's/^/  /'
+
+echo
+echo "== exact 4x copy (explicit cross-scale, degraded but not tampered) =="
+TAMPER_D="$("$BIN" frame-digest --raw "$WORK/tampered.raw" --width 320 --height 180 | head -1)"
+"$BIN" frame-digest --raw "$WORK/tampered4.raw" --width 1280 --height 720 \
+  --expect "$TAMPER_D" --comparison-mode cross-scale > "$WORK/out.txt"
+grep -E "DEGRADED|match within declared capability" "$WORK/out.txt" | sed 's/^/  /'
 
 echo
 echo "== tampered: injected text (must be rejected) =="
 if "$BIN" frame-digest --raw "$WORK/tampered.raw" --width 320 --height 180 \
-     --expect "$D" > "$WORK/out.txt" 2>&1; then
+     --expect "$D" --comparison-mode same-scale > "$WORK/out.txt" 2>&1; then
   echo "  FAIL: tampered frame was accepted" >&2
   exit 1
 fi
@@ -77,7 +111,7 @@ echo "  → rejected, as required"
 echo
 echo "== an entirely different screen (must not be called an edit) =="
 if "$BIN" frame-digest --raw "$WORK/other.raw" --width 320 --height 180 \
-     --expect "$D" > "$WORK/out.txt" 2>&1; then
+     --expect "$D" --comparison-mode same-scale > "$WORK/out.txt" 2>&1; then
   echo "  FAIL: different screen was accepted" >&2
   exit 1
 fi

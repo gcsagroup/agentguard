@@ -5,9 +5,9 @@
  * 桩只喂预置数据,不碰任何真实后端 —— 它证明的是前端那一层的合同:
  *
  *   1. 弹层是 role=alertdialog,aria-labelledby / aria-describedby 指向存在的标题与正文;
- *   2. 弹出时焦点落在「先不要」(安全默认),<main> 置 inert —— 背景控件既不可点也不在 Tab 序列里;
+ *   2. 弹出时焦点落在“暂停后续受保护操作”(安全默认),<main> 置 inert —— 背景控件既不可点也不在 Tab 序列里;
  *   3. Tab / Shift+Tab 只在弹层内循环(报告实测:以前要穿过 11–12 个背景控件);
- *   4. Esc = 先不要:resolve_confirm 收到 approve:false 与**展示过的那条** request_id(P0-5);
+ *   4. Esc = 暂停后续受保护操作:resolve_confirm 收到 approve:false 与**展示过的那条** request_id(P0-5);
  *   5. 关闭后 inert 撤掉、焦点还原到打开前的元素;
  *   6. 读屏播报通道 #sr-announce 在弹出与状态变化时有文案,且文案是词表里的人话不是 key;
  *   7. 审计时间线是 role=log + aria-live=off(可导航、不打断),aria-label 随语言。
@@ -77,11 +77,13 @@ const check = (name, cond, extra) => {
 const TAURI_STUB = `
 (() => {
   const calls = [];
+  const listeners = new Map();
   const state = {
     pending: null,
     status: {
       protection_state: "active", state_reasons: [], session_active: true, rules_loaded: 12,
-      policy_id: "standard", audit_enabled: true, intel_version: "baseline", privacy_composite: 1.0,
+      policy_id: "standard", audit_enabled: true, audit_ready: true,
+      audit_bootstrap_state: "ready", audit_error: "", intel_version: "baseline", privacy_composite: 1.0,
       observers_available: true, observers_running: true, heartbeat_age_ms: 900, suppressed_events: 0,
       confirms_timed_out: 0, orphaned_confirms: 0, pending_count: 0, policy: null,
       accessibility: true, screen_capture: true, protection_mode: "full", capabilities: { uia: true, capture: true, ocr: false },
@@ -118,12 +120,22 @@ const TAURI_STUB = `
     get_tcc_status: () => tcc,
     probe_permissions: () => ({ accessibility: tcc.accessibility, screen_capture: tcc.screen_capture }),
     open_privacy_settings: () => null,
+    recover_legacy_audit: () => {
+      state.status = { ...state.status, audit_ready: true, audit_enabled: true, audit_error: "", audit_bootstrap_state: "ready", audit_legacy_available: false };
+      return { history_records: 1 };
+    },
+    retry_audit_initialization: () => null,
     inject_demo_threat: () => [],
     export_session_report: () => "",
   };
   window.__TAURI__ = {
     core: { invoke: async (cmd, args) => { calls.push({ cmd, args }); const f = responses[cmd]; return f ? f(args) : null; } },
-    event: { listen: async () => () => {} },
+    event: {
+      listen: async (event, callback) => {
+        listeners.set(event, callback);
+        return () => listeners.delete(event);
+      },
+    },
   };
   window.__agTest = {
     calls,
@@ -133,6 +145,11 @@ const TAURI_STUB = `
     // 所以桩要能整片改 status,也要能改 TCC/能力探测的回答。
     patchStatus: (patch) => { state.status = { ...state.status, ...patch }; },
     patchTcc: (patch) => { tcc = { ...tcc, ...patch }; },
+    emit: async (event, payload) => {
+      const callback = listeners.get(event);
+      if (!callback) throw new Error("listener not registered: " + event);
+      return await callback({ event, payload });
+    },
   };
 })();
 `;
@@ -144,11 +161,43 @@ const PENDING = {
   severity: "Critical",
   source_app: "Booking",
   ui_excerpt: "Confirm Payment $299",
+  effect: "observed_only",
+  external_action_blocked: false,
+};
+
+const WINDOWS_EFFECT_COPY = {
+  en: "Observed only (effect=observed_only; external_action_blocked=false): the external action has already happened and AgentGuard cannot undo it. “Pause protected follow-ups” affects only future observation in this session.",
+  "zh-Hans": "仅事后观察（effect=observed_only；external_action_blocked=false）：外部动作已经发生，AgentGuard 无法撤销。「暂停后续受保护操作」只影响本次会话的后续观察。",
+  "zh-Hant": "僅事後觀察（effect=observed_only；external_action_blocked=false）：外部動作已經發生，AgentGuard 無法撤銷。「暫停後續受保護操作」只影響本次工作階段的後續觀察。",
+};
+
+const WINDOWS_REQUIRED_REASON_COPY = {
+  en: {
+    capability: "At least one Windows release-required observation capability (UI Automation, screen capture, or OCR) is unavailable. Protection is incomplete; see Live observation for the exact reason.",
+    permission: "Windows denied access required by at least one observation capability. Permission is required; see Live observation for the exact reason.",
+  },
+  "zh-Hans": {
+    capability: "Windows 首发所需的观察能力（UI Automation、屏幕捕获或 OCR）至少有一项不可用。当前守护不完整；具体原因见「实时观察」。",
+    permission: "Windows 拒绝了至少一项观察能力所需的访问。当前需要授权；具体原因见「实时观察」。",
+  },
+  "zh-Hant": {
+    capability: "Windows 首發所需的觀察能力（UI Automation、螢幕擷取或 OCR）至少有一項不可用。目前守護不完整；具體原因見「即時觀察」。",
+    permission: "Windows 拒絕了至少一項觀察能力所需的存取。現在需要授權；具體原因見「即時觀察」。",
+  },
 };
 
 for (const shell of ["macos", "windows"]) {
   console.log(`\n== apps/desktop-${shell}`);
   const page = await browser.newPage({ viewport: { width: 1100, height: 760 }, locale: "en-US" });
+  // macOS 改版后语言位于设置页；测试按真实导航进入，不强制操作隐藏控件。
+  const chooseLocale = async (language) => {
+    if (shell !== "macos") return page.selectOption("#locale-select", language);
+    const previous = await page.locator("[data-page]:not([hidden])").getAttribute("data-page");
+    await page.click('.nav-list [data-route="settings"]');
+    await page.click("#tab-general");
+    await page.selectOption("#locale-select", language);
+    await page.click(`.sidebar [data-route="${previous}"]`);
+  };
   await page.addInitScript(TAURI_STUB);
   const errors = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -166,7 +215,8 @@ for (const shell of ["macos", "windows"]) {
       role: m.getAttribute("role"),
       modal: m.getAttribute("aria-modal"),
       labelOk: !!(lab && document.getElementById(lab)),
-      descOk: !!(desc && document.getElementById(desc)),
+      descOk: !!(desc && desc.split(/\s+/).every((id) => document.getElementById(id))),
+      descHasEffect: (desc || "").split(/\s+/).includes("confirm-effect"),
       timelineRole: document.getElementById("timeline")?.getAttribute("role"),
       timelineLive: document.getElementById("timeline")?.getAttribute("aria-live"),
       timelineLabel: document.getElementById("timeline")?.ariaLabel || document.getElementById("timeline")?.getAttribute("aria-label"),
@@ -176,6 +226,7 @@ for (const shell of ["macos", "windows"]) {
   });
   check("弹层 role=alertdialog + aria-modal", sem.role === "alertdialog" && sem.modal === "true", JSON.stringify(sem));
   check("aria-labelledby / aria-describedby 指向存在的元素", sem.labelOk && sem.descOk);
+  if (shell === "windows") check("Windows 弹层的读屏说明包含产品效果边界", sem.descHasEffect);
   check("时间线是 role=log、aria-live=off、有翻译过的 aria-label", sem.timelineRole === "log" && sem.timelineLive === "off" && !!sem.timelineLabel && !sem.timelineLabel.includes("a11y."), JSON.stringify(sem.timelineLabel));
   check("有读屏播报通道 #sr-announce", sem.announcer);
   check("初始弹层隐藏", sem.hiddenInitially);
@@ -195,10 +246,37 @@ for (const shell of ["macos", "windows"]) {
       focus: document.activeElement && document.activeElement.id,
       inert: document.getElementById("app-main").inert === true,
       announce: document.getElementById("sr-announce").textContent,
+      title: document.getElementById("confirm-title").innerText,
+      deny: document.getElementById("confirm-deny").innerText,
+      approve: document.getElementById("confirm-approve").innerText,
+      effect: document.getElementById("confirm-effect")?.innerText,
+      effectHidden: document.getElementById("confirm-effect")?.hidden,
+      effectCode: document.getElementById("confirm-effect")?.dataset.effect,
+      externalActionBlocked: document.getElementById("confirm-effect")?.dataset.externalActionBlocked,
     }));
-    check("焦点落在「先不要」(#confirm-deny)", opened.focus === "confirm-deny", JSON.stringify(opened));
+    check("焦点落在安全的暂停按钮(#confirm-deny)", opened.focus === "confirm-deny", JSON.stringify(opened));
     check("<main> 置 inert(背景不可达)", opened.inert);
     check("播报了「有一条确认等你」且不是 key 名", opened.announce.length > 0 && !opened.announce.includes("a11y.") && opened.announce.includes(PENDING.human_message), JSON.stringify(opened.announce));
+    check(
+      "观察式桌面弹层不谎称已拦截外部动作",
+      /detected/i.test(opened.title) && /pause protected follow-ups/i.test(opened.deny) && /continue monitoring/i.test(opened.approve) && !/blocked|allow once/i.test(`${opened.title} ${opened.deny} ${opened.approve}`),
+      JSON.stringify(opened),
+    );
+    if (shell === "windows") {
+      check(
+        "Windows 产品说明绑定后端 observed_only / 未拦截事实",
+        !opened.effectHidden && opened.effectCode === PENDING.effect && opened.externalActionBlocked === "false",
+        JSON.stringify(opened),
+      );
+      for (const [language, expected] of Object.entries(WINDOWS_EFFECT_COPY)) {
+        await chooseLocale(language);
+        await page.waitForTimeout(250);
+        const actual = await page.evaluate(() => document.getElementById("confirm-effect").innerText);
+        check(`Windows 产品效果说明 ${language} 固定文案`, actual === expected, JSON.stringify(actual));
+      }
+      await chooseLocale("en");
+      await page.waitForTimeout(250);
+    }
     await page.screenshot({ path: join(OUT, `shell-${shell}-confirm.png`) });
 
     // 3. Tab 循环:3 次 Tab 应在两个按钮间循环,永不到背景。
@@ -220,7 +298,7 @@ for (const shell of ["macos", "windows"]) {
     });
     check("背景按钮不再是命中目标(inert / 遮罩)", !bgClickable);
 
-    // 4. Esc = 先不要,回传展示过的 request_id。
+    // 4. Esc = 暂停后续受保护操作,回传展示过的 request_id。
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
     const after = await page.evaluate(() => ({
@@ -283,6 +361,11 @@ for (const shell of ["macos", "windows"]) {
     check("三步各有标题与说明(没有漏词条留下的空段落)", howto.headed && howto.explained, JSON.stringify({ headed: howto.headed, explained: howto.explained }));
     check("每步带实时状态徽章,且徽章是人话不是 key 名", howto.chips.length >= 2 && howto.chips.every((c) => c.length > 0 && !c.includes("chip")), JSON.stringify(howto.chips));
     check("「自检」按钮在主界面(不进开发者面板就能看到它工作)", howto.selftest);
+    check(
+      "使用说明明确桌面观察不能撤销已发生动作、真正阻断只在执行前闸门",
+      /cannot undo/i.test(howto.text) && /pre-execution gate/i.test(howto.text) && !/holds a dangerous action before it happens/i.test(howto.text),
+      JSON.stringify(howto.text.replace(/\s+/g, " ").slice(0, 320)),
+    );
   }
 
   // 未开始守护时,"在看什么"必须说"什么都没在看" —— 不能空着,更不能说在看。
@@ -292,6 +375,55 @@ for (const shell of ["macos", "windows"]) {
   });
   check("主界面有一行人话说明「现在在看什么」", !!watching && watching.length > 10, JSON.stringify(watching));
 
+  if (shell === "macos") {
+    await page.evaluate(() => window.__agTest.patchStatus({
+      audit_ready: false, audit_error: "Keychain timeout", audit_bootstrap_state: "failed",
+      accessibility: true, screen_capture: true, protection_mode: "full", state_reasons: ["no_session"],
+    }));
+    await page.click("#btn-refresh");
+    await page.waitForFunction(() => document.getElementById("btn-start").disabled);
+    const unavailable = await page.evaluate(() => ({
+      title: document.getElementById("coverage-title").textContent,
+      green: document.getElementById("coverage-banner").classList.contains("full"),
+      reasons: document.getElementById("state-why").textContent,
+      disabled: document.getElementById("btn-start").disabled,
+    }));
+    check("钥匙串失败首屏明确守护不可用，不能显示绿色完整保护", unavailable.disabled && !unavailable.green && /encrypted activity log is not ready/.test(unavailable.title), JSON.stringify(unavailable));
+    check("钥匙串失败显示可操作说明而非原始异常", /Keychain access has not completed/.test(unavailable.reasons) && !/Press Start|Keychain timeout/.test(unavailable.reasons), JSON.stringify(unavailable));
+    await page.screenshot({ path: join(OUT, "shell-macos-keychain-unavailable.png"), fullPage: true });
+  }
+  if (shell === "macos" || shell === "windows") {
+    await page.evaluate(() => window.__agTest.patchStatus({
+      audit_ready: false, audit_legacy_available: true, audit_operation_running: false,
+      audit_error: "protected audit initialization failed: legacy plaintext audit database detected at /Users/fixture/Library/Application Support/agentguard/audit-macos.db",
+    }));
+    await chooseLocale("zh-Hans");
+    await page.click("#btn-refresh");
+    const recovery = await page.evaluate(() => ({
+      message: document.getElementById("audit-recovery-message").textContent,
+      reason: document.getElementById("state-why").textContent,
+      detailsClosed: !document.querySelector("#audit-recovery-panel details").open,
+    }));
+    check("旧库失败首屏为中文操作说明且隐藏内部路径", /旧版未加密/.test(recovery.message) && !/protected audit|\/Users\//.test(recovery.reason) && recovery.detailsClosed, JSON.stringify(recovery));
+    await page.click("#btn-audit-migrate");
+    check("迁移确认默认焦点为暂不处理", await page.evaluate(() => document.activeElement.id === "audit-migrate-cancel"));
+    await page.keyboard.press("Escape");
+    check("取消升级没有调用数据迁移", await page.evaluate(() => !document.getElementById("audit-recovery-dialog").open && !window.__agTest.calls.some((call) => call.cmd === "recover_legacy_audit")));
+    await page.screenshot({ path: join(OUT, `shell-${shell}-legacy-recovery.png`), fullPage: true });
+    await page.click("#btn-audit-migrate");
+    await page.click("#audit-migrate-confirm");
+    await page.waitForFunction(() => !document.getElementById("btn-start").disabled);
+    check("只有显式确认才调用一次保留历史升级", await page.evaluate(() => {
+      const calls = window.__agTest.calls.filter((call) => call.cmd === "recover_legacy_audit");
+      return calls.length === 1 && calls[0].args.approved === true && document.getElementById("audit-recovery-panel").hidden;
+    }));
+    await chooseLocale("en");
+    await page.evaluate(() => window.__agTest.patchStatus({ audit_ready: true, audit_error: "", audit_bootstrap_state: "ready" }));
+    await page.click("#btn-refresh");
+    await page.waitForFunction(() => !document.getElementById("btn-start").disabled);
+    check("钥匙串迟到恢复后开始按钮恢复可用", await page.isEnabled("#btn-start"));
+  }
+
   // 上面那条裸术语检查只有在时间线**真的渲染了行**时才有意义(桩返回空列表时它是空转的,
   // 而那正是 `UiTreeDelta` 能一路漏到真机界面上的原因)。这里先钉住"渲染了",再钉"没裸术语"。
   const timeline = await page.evaluate(() => {
@@ -299,7 +431,8 @@ for (const shell of ["macos", "windows"]) {
     return { rows: box ? box.children.length : 0, text: box ? box.innerText : "" };
   });
   check("审计时间线渲染了后端返回的行(裸术语检查因此不是空转)", timeline.rows >= 2, JSON.stringify(timeline.rows));
-  check("时间线把用户当时的选择说成人话(不是 user=deny)", /you held it|你按住了它|你按住了它/.test(timeline.text), JSON.stringify(timeline.text.replace(/\s+/g, " ").slice(0, 160)));
+  check("时间线把用户当时的选择说成人话(不是 user=deny)", /you paused protected follow-ups|你暂停了后续受保护操作|你暫停了後續受保護操作/.test(timeline.text), JSON.stringify(timeline.text.replace(/\s+/g, " ").slice(0, 160)));
+  check("时间线把策略 Block 显示成风险检测而非既成拦截", /Risk detected|检测到风险|偵測到風險/.test(timeline.text) && !/\bBlocked\b|已拦截|已攔截/.test(timeline.text), JSON.stringify(timeline.text.replace(/\s+/g, " ").slice(0, 160)));
 
   // 裸术语:主界面(把默认折叠的开发者面板整段排除后)的可见文本里不许出现这些。
   // ScreenCaptureKit / UI Automation 这类**括号补充**是 E16 允许的,禁的是
@@ -323,7 +456,7 @@ for (const shell of ["macos", "windows"]) {
   await page.evaluate(() => {
     window.__agTest.patchTcc({ accessibility: true, screen_capture: true, protection_mode: "full" });
     window.__agTest.patchStatus({
-      protection_state: "active", session_active: true, accessibility: true, screen_capture: true,
+      protection_state: "observer_starting", session_active: true, accessibility: true, screen_capture: true,
       protection_mode: "full", uia_native: true, frame_capture: true, ocr: true,
       sck_streaming: true, sck_auto_poll: true, ax_auto_poll: true,
       capabilities: { uia: true, capture: true, ocr: true },
@@ -331,6 +464,136 @@ for (const shell of ["macos", "windows"]) {
   });
   await page.click("#btn-refresh");
   await page.waitForTimeout(400);
+
+  // W11:Windows 的 start_guard_session 会先返回 observer_starting,首个 native-poll
+  // 才证明观察器已经工作。页面必须靠这个事件自行收敛到 active/Watching,不能要求用户
+  // 再点一次刷新。这里先把 Starting 真实渲染出来,随后只改后端桩并发事件。
+  if (shell === "windows") {
+    const beforePoll = await page.evaluate(() => ({
+      pill: document.getElementById("status-pill").innerText.trim(),
+      watching: document.getElementById("watching").innerText.trim(),
+      calls: window.__agTest.calls.length,
+    }));
+    const startedAt = Date.now();
+    await page.evaluate(async () => {
+      window.__agTest.patchStatus({ protection_state: "active" });
+      await window.__agTest.emit("native-poll", { decisions: [], warnings: [] });
+    });
+    const elapsedMs = Date.now() - startedAt;
+    const afterPoll = await page.evaluate(() => ({
+      pill: document.getElementById("status-pill").innerText.trim(),
+      watching: document.getElementById("watching").innerText.trim(),
+      calls: window.__agTest.calls.slice(-3).map((c) => c.cmd),
+    }));
+    check(
+      "W11 原生轮询后无需手动刷新即可 observer_starting → active",
+      /Starting/i.test(beforePoll.pill) && /Protecting/i.test(afterPoll.pill),
+      JSON.stringify({ beforePoll, afterPoll }),
+    );
+    check(
+      "W11 原生轮询串行刷新审计和状态",
+      JSON.stringify(afterPoll.calls) === JSON.stringify(["list_audit", "get_status", "get_pending_confirm"]),
+      JSON.stringify(afterPoll.calls),
+    );
+    check(
+      "W11 自动收敛到 Watching 且满足 ≤10s 合同",
+      /Watching/i.test(afterPoll.watching) && elapsedMs <= 10_000,
+      JSON.stringify({ elapsedMs, before: beforePoll.watching, after: afterPoll.watching }),
+    );
+
+    // W10: a healthy remaining frame observer must not hide a missing Windows
+    // release-required surface. Exercise the same native-poll refresh path as the
+    // real backend: no Refresh click is allowed between the state changes.
+    const w10InitialPill = await page.locator("#status-pill").innerText();
+    await page.evaluate(async () => {
+      window.__agTest.patchStatus({
+        protection_state: "degraded",
+        state_reasons: ["required_capability_unavailable"],
+        uia_native: false,
+        uia_detail: "forced unavailable for acceptance (AGENTGUARD_FORCE_CAP_UNAVAILABLE=uia)",
+        frame_capture: true,
+        frame_capture_detail: "captured foreground window",
+        ocr: true,
+        ocr_detail: "OCR engine ready",
+        protection_mode: "degraded",
+      });
+      await window.__agTest.emit("native-poll", { decisions: [], warnings: [] });
+    });
+    const w10Degraded = await page.evaluate(() => ({
+      pill: document.getElementById("status-pill").innerText.trim(),
+      reason: document.querySelector("#state-why .state-why-item")?.innerText.trim(),
+      capabilities: document.getElementById("observe-status").innerText,
+      calls: window.__agTest.calls.slice(-3).map((c) => c.cmd),
+    }));
+    check(
+      "W10 UIA 缺失且 frame 有心跳时自动从 Protecting 降为 Protection incomplete",
+      /Protecting/i.test(w10InitialPill) && /Protection incomplete/i.test(w10Degraded.pill),
+      JSON.stringify({ w10InitialPill, w10Degraded }),
+    );
+    check(
+      "W10 降级由 native-poll 串行刷新且点名 UIA 的实际原因",
+      JSON.stringify(w10Degraded.calls) === JSON.stringify(["list_audit", "get_status", "get_pending_confirm"]) &&
+        /UI Automation/.test(w10Degraded.capabilities) && /forced unavailable/.test(w10Degraded.capabilities),
+      JSON.stringify(w10Degraded),
+    );
+
+    for (const [language, expected] of Object.entries(WINDOWS_REQUIRED_REASON_COPY)) {
+      await chooseLocale(language);
+      await page.waitForTimeout(250);
+      const actual = await page.locator("#state-why .state-why-item").innerText();
+      check(`W10 必需能力缺失原因 ${language} 固定文案`, actual.trim() === expected.capability, JSON.stringify(actual));
+    }
+
+    // Permission denial is a different state/reason from a missing OCR engine or
+    // forced capability. Render it independently so future wording cannot collapse
+    // the two diagnoses into a generic red status.
+    await page.evaluate(async () => {
+      window.__agTest.patchStatus({
+        protection_state: "permission_required",
+        state_reasons: ["required_observation_permission"],
+        uia_detail: "CUIAutomation failed: E_ACCESSDENIED 0x80070005",
+      });
+      await window.__agTest.emit("native-poll", { decisions: [], warnings: [] });
+    });
+    for (const [language, expected] of Object.entries(WINDOWS_REQUIRED_REASON_COPY)) {
+      await chooseLocale(language);
+      await page.waitForTimeout(250);
+      const actual = await page.locator("#state-why .state-why-item").innerText();
+      check(`W10 权限拒绝原因 ${language} 固定文案`, actual.trim() === expected.permission, JSON.stringify(actual));
+    }
+
+    await chooseLocale("en");
+    await page.evaluate(async () => {
+      window.__agTest.patchStatus({
+        protection_state: "active",
+        state_reasons: [],
+        uia_native: true,
+        uia_detail: "UI Automation ready",
+        frame_capture: true,
+        frame_capture_detail: "captured foreground window",
+        ocr: true,
+        ocr_detail: "OCR engine ready",
+        protection_mode: "partial",
+      });
+      await window.__agTest.emit("native-poll", { decisions: [], warnings: [] });
+    });
+    const w10Restored = await page.evaluate(() => ({
+      pill: document.getElementById("status-pill").innerText.trim(),
+      reasons: document.querySelectorAll("#state-why .state-why-item").length,
+      calls: window.__agTest.calls.slice(-3).map((c) => c.cmd),
+    }));
+    check(
+      "W10 必需能力恢复后无需手动刷新即可回到 Protecting",
+      /Protecting/i.test(w10Restored.pill) && w10Restored.reasons === 0 &&
+        JSON.stringify(w10Restored.calls) === JSON.stringify(["list_audit", "get_status", "get_pending_confirm"]),
+      JSON.stringify(w10Restored),
+    );
+  } else {
+    await page.evaluate(() => window.__agTest.patchStatus({ protection_state: "active" }));
+    await page.click("#btn-refresh");
+    await page.waitForTimeout(400);
+  }
+
   const watching2 = await page.evaluate(() => document.getElementById("watching").innerText.trim());
   const chips2 = await page.evaluate(() => [...document.querySelectorAll("#howto .chip")].map((c) => c.innerText.trim()));
   check("开始守护后「在看什么」这行确实变了(不是一句装饰)", watching2 !== watching && watching2.length > 10, JSON.stringify([watching, watching2]));

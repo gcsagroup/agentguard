@@ -7,21 +7,20 @@
  * (docs/acceptance-chrome.md)F1–F5 的等价用例与 P2-3 的告警风暴回归,每一条都是机器判据:
  *
  *   F1  隐藏注入文本 → background 的 `recent` 出现 invisible_injection,popup「最近」列表有条目;
- *   F2  付款 CTA 点击 → 页面处理器**没有**运行、确认层(role=alertdialog)出现;
- *       「先不要」→ 仍没运行;再点、「允许这一次」→ 运行了;`recent` 里有 prevented/payment_cta;
- *   F3  陷阱语境下的 PII 表单提交 → URL 不变(没提交);允许一次后 URL 带上 ?phone=…;
- *   F4  页面直发 POST /pay/checkout → 本地服务器**一个字节都没收到**就弹了确认;拒绝 → 页面拿到
- *       AbortError、服务器仍没收到;允许 → 服务器收到、页面拿到 HTTP 501;
- *   F5  GET /pay/status、POST /api/search → 不弹、直达服务器(不误拦);
+ *   F2  付款 CTA 点击 → 页面处理器**没有**运行、只阻断提示(role=alertdialog)出现;
+ *       页面篡改并真实点击提示也不能重放动作；提示内不存在 allow；`recent` 有 prevented/payment_cta;
+ *   F3  陷阱语境下的 PII 表单提交 → URL 始终不变，提示关闭后再次提交仍阻断;
+ *   F4  付款形状非只读请求由静态 DNR 硬拦:fetch/XHR/beacon/form 均不触达服务器,没有页面可伪造的
+ *       “允许一次”;伪 decision/scope 消息与旧 15 秒超时都不能让请求在稍后发出;
+ *   F5  GET /pay/status、普通 POST 与已知前缀/嵌套查询误报样例 → 不弹、直达服务器;
  *   M   变异风暴(真机报告 P2-3):每 50 ms 改 DOM、每秒重渲染同一段隐藏注入、页面有个付款按钮 →
  *       5 秒只多一条(M1)、注入与按钮各只报一次(M2)、后到的另一段注入仍报且只报一次(M3)、
  *       30 段突发全部计数但 ≤4 条(M4,两轮扫描 ≥1.5 s);
  *   P   popup:默认不转发(#native 未勾、link 行是「关」的文案)、今日计数行有数、可见文本无裸术语。
  *
- * 它**不是**真机验收本身:跑在容器里的 Chromium 141,不是用户的 Chrome/Edge;没有 Native Messaging
- * 宿主(nativeEnabled 默认 false,这里不装宿主,F6/F7 仍由真机做);Firefox 的 Playwright 不支持
- * 装扩展,Firefox 真 E2E 仍 BLOCKED(见 docs/acceptance-firefox.md)。它证明的是:
- * 「扩展的内容脚本 + 页面世界钩子 + background + popup 这条链在真浏览器里按文档说的动」——
+ * 它**不是**商店候选验收本身:跑在配置的测试 Chromium(版本写进 report),不是用户的 Chrome/Edge;
+ * 首个 GA 没有 Native Messaging。Firefox 是不打包、不提交、不作 GA 门禁的源码原型。它证明的是:
+ * 「扩展的 isolated 内容脚本 + 浏览器 DNR + background + popup 这条链在真浏览器里按文档说的动」——
  * 这是 node 单测(scripts/gate.test.mjs 只钉纯逻辑)钉不住的那一层。
  *
  * 刻意**不**进 release-gate:门禁要在最小容器里可复现。这个需要 playwright + Chromium。
@@ -47,6 +46,15 @@ mkdirSync(OUT, { recursive: true });
 
 // playwright 解析:本地 node_modules 优先,退回全局(npm root -g)。和 ui-preview 一致。
 async function loadPlaywright() {
+  const explicit = process.env.AGENTGUARD_PLAYWRIGHT_MODULE;
+  if (explicit) {
+    try {
+      return createRequire(import.meta.url)(explicit);
+    } catch (e) {
+      console.error(`AGENTGUARD_PLAYWRIGHT_MODULE 无法加载:${e && e.message}`);
+      process.exit(2);
+    }
+  }
   try {
     return await import("playwright");
   } catch {
@@ -124,15 +132,27 @@ async function waitUntil(fn, { timeout = 8000, step = 100, what = "condition" } 
 // ---------------------------------------------------------------------------
 // 启动:持久化上下文 + 未打包扩展。Chromium ≥ 112 的 headless 能装扩展;不能时退回 xvfb 有头。
 // ---------------------------------------------------------------------------
-const executablePath = existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
+let playwrightChromium;
+try {
+  playwrightChromium = chromium.executablePath();
+} catch {
+  playwrightChromium = undefined;
+}
+const executablePath = [
+  process.env.AGENTGUARD_CHROMIUM_BIN,
+  "/opt/pw-browsers/chromium",
+  playwrightChromium,
+  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+].find((p) => p && existsSync(p));
 const headed = process.argv.includes("--headed");
 const profile = mkdtempSync(join(tmpdir(), "agentguard-e2e-"));
-const context = await chromium.launchPersistentContext(profile, {
+const launchOptions = {
   headless: !headed,
   executablePath,
   locale: "en-US",
   args: [`--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`, "--lang=en-US"],
-});
+};
+let context = await chromium.launchPersistentContext(profile, launchOptions);
 let sw = context.serviceWorkers()[0];
 if (!sw) {
   try {
@@ -152,25 +172,135 @@ if (!sw) {
     process.exit(2);
   }
 }
-const extensionId = new URL(sw.url()).hostname;
 // chrome.* 在 worker 刚起来那几十毫秒里可能还没挂满;等到 storage 可用再用。
 await waitUntil(() => sw.evaluate(() => !!(globalThis.chrome && chrome.storage && chrome.storage.local)), {
   what: "chrome.storage in service worker",
 });
+
+// 模拟从含 Native 能力的旧版原地升级：在同一 profile 留下 pause、host blocklist 与动态
+// DNR，完整关闭并重开浏览器，让 GA worker 的真实启动路径负责清理。
+await sw.evaluate(async () => {
+  await chrome.storage.local.set({
+    nativeEnabled: true,
+    enginePaused: true,
+    blocklist: {
+      persistent: ["stale-block.example"],
+      session: [],
+      provenance: { "stale-block.example": { kind: "malicious", rule_id: "legacy" } },
+    },
+  });
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: (await chrome.declarativeNetRequest.getDynamicRules()).map((rule) => rule.id),
+    addRules: [{
+      id: 1,
+      priority: 1,
+      action: { type: "block" },
+      condition: { urlFilter: "||stale-block.example^", resourceTypes: ["main_frame"] },
+    }],
+  });
+});
+await context.close();
+context = await chromium.launchPersistentContext(profile, launchOptions);
+sw = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker", { timeout: 15000 });
+await waitUntil(() => sw.evaluate(() => !!(globalThis.chrome && chrome.storage && chrome.storage.local)), {
+  what: "restarted chrome.storage",
+});
+const upgradeState = await waitUntil(async () => {
+  const state = await sw.evaluate(async () => {
+    const stored = await chrome.storage.local.get(["nativeEnabled", "enginePaused", "blocklist"]);
+    return {
+      stored,
+      dynamicRules: await chrome.declarativeNetRequest.getDynamicRules(),
+      badge: await chrome.action.getBadgeText({}),
+    };
+  });
+  const b = state.stored.blocklist || {};
+  return state.stored.nativeEnabled === false &&
+    state.stored.enginePaused === false &&
+    Array.isArray(b.persistent) && b.persistent.length === 0 &&
+    Array.isArray(b.session) && b.session.length === 0 &&
+    state.dynamicRules.length === 0 && state.badge === "" ? state : null;
+}, { what: "legacy Native state cleanup" }).catch(() => null);
+const extensionId = new URL(sw.url()).hostname;
 const readRecent = () =>
   sw.evaluate(() => new Promise((res) => chrome.storage.local.get(["recent"], (d) => res(d.recent || []))));
 const clearRecent = () => sw.evaluate(() => new Promise((res) => chrome.storage.local.set({ recent: [] }, res)));
 const browserVersion = context.browser() ? context.browser().version() : "persistent-context";
 console.log(`Chromium ${browserVersion} · extension ${extensionId} · fixtures ${base} · ${headed ? "headed(xvfb)" : "headless"}`);
+const enabledStaticRulesets = await sw.evaluate(() => chrome.declarativeNetRequest.getEnabledRulesets());
+const paymentStaticRules = JSON.parse(
+  readFileSync(join(EXT, "rules", "payment-shape-block.json"), "utf8")
+);
+const paymentRegexSupport = await sw.evaluate(async (rules) => {
+  return Promise.all(
+    rules.map(async (rule) => {
+      try {
+        const result = await chrome.declarativeNetRequest.isRegexSupported({
+          regex: rule.condition.regexFilter,
+          isCaseSensitive: rule.condition.isUrlFilterCaseSensitive === true,
+        });
+        return { id: rule.id, ...result };
+      } catch (error) {
+        return {
+          id: rule.id,
+          isSupported: false,
+          reason: String(error && error.message ? error.message : error),
+        };
+      }
+    })
+  );
+}, paymentStaticRules);
+const paymentRuleProbe = await sw.evaluate(async (url) => {
+  if (typeof chrome.declarativeNetRequest.testMatchOutcome !== "function") {
+    return { unavailable: true };
+  }
+  try {
+    return await chrome.declarativeNetRequest.testMatchOutcome({
+      url,
+      initiator: new URL(url).origin,
+      method: "post",
+      type: "xmlhttprequest",
+    });
+  } catch (error) {
+    return { error: String(error && error.message ? error.message : error) };
+  }
+}, `${base}/pay/checkout`);
 
 const DIALOG = '[role="alertdialog"]';
-const ALLOW = `${DIALOG} button[data-agentguard-action="allow"]`;
-const CANCEL = `${DIALOG} button[data-agentguard-action="cancel"]`;
+const CLOSE = `${DIALOG} button[data-agentguard-action="close"]`;
 // 裸术语:确认层/popup 的可见文本里不该出现这些机器 kind(E16 的承诺)。
 const RAW_TERMS = /\b(payment_cta|invisible_injection|prompt_injection|privacy_trap|optional_pii|payment_request|out_of_scope_host|no_egress)\b/;
 
 const page = await context.newPage();
 try {
+  record(
+    "D0",
+    "browser reports the packaged payment_shape_block static DNR ruleset enabled",
+    enabledStaticRulesets.includes("payment_shape_block"),
+    `enabled=${JSON.stringify(enabledStaticRulesets)}`
+  );
+  record(
+    "D0b",
+    "browser accepts every packaged payment-path regular expression",
+    paymentRegexSupport.length === paymentStaticRules.length &&
+      paymentRegexSupport.every((result) => result.isSupported === true),
+    JSON.stringify(paymentRegexSupport)
+  );
+  record(
+    "D0c",
+    "browser rule matcher selects the static block for a POST /pay/checkout request",
+    Array.isArray(paymentRuleProbe.matchedRules) &&
+      paymentRuleProbe.matchedRules.some((match) => match.ruleId === paymentStaticRules[0].id),
+    JSON.stringify(paymentRuleProbe)
+  );
+
+  // ---------------- U1 从含 Native 能力的旧版本升级 ----------------
+  record(
+    "U1",
+    "upgrade to the no-Native GA clears legacy pause, host blocklist, dynamic DNR, and badge",
+    !!upgradeState,
+    upgradeState ? JSON.stringify(upgradeState) : "legacy state did not converge"
+  );
   // ---------------- F1 隐藏注入 ----------------
   await page.goto(fixture("injection.html"));
   const recentF1 = await waitUntil(
@@ -210,16 +340,30 @@ try {
     const dialogText = await page.locator(DIALOG).innerText();
     record("F2b", "dialog visible text has no raw machine terms", !RAW_TERMS.test(dialogText), dialogText.replace(/\s+/g, " ").slice(0, 200));
     const focused = await page.evaluate(() => document.activeElement && document.activeElement.dataset.agentguardAction);
-    record("F2c", "default focus is on 'not now' (cancel), not on allow", focused === "cancel", `activeElement.dataset.agentguardAction=${focused}`);
-    await page.click(CANCEL);
-    await page.waitForSelector(DIALOG, { state: "detached", timeout: 3000 }).catch(() => null);
+    record("F2c", "default focus is on close and no in-page allow control exists", focused === "close" && (await page.locator(`${DIALOG} [data-agentguard-action="allow"]`).count()) === 0, `activeElement.dataset.agentguardAction=${focused}`);
+    // 敌对页面把唯一按钮改成透明全屏，随后注入一次真实鼠标点击。旧版 allow 会借这次
+    // isTrusted 点击重放付款；现在按钮只能关闭说明层，没有任何危险动作回调。
+    await page.locator(CLOSE).evaluate((button) => {
+      Object.assign(button.style, { position: "fixed", inset: "0", opacity: "0", zIndex: "2147483647" });
+    });
+    await page.click(CLOSE, { position: { x: 4, y: 4 } });
+    await page.waitForTimeout(150);
+    const afterHostileRealClick = await page.locator("#result").innerText();
+    record(
+      "H1",
+      "hostile page rewrite plus a real click cannot release or replay the blocked action",
+      (await page.locator(DIALOG).count()) === 0 && afterHostileRealClick === "",
+      `dialog=${await page.locator(DIALOG).count()} result=${JSON.stringify(afterHostileRealClick)}`
+    );
+    await page.screenshot({ path: join(OUT, "h1-hostile-notice-click-still-blocked.png") });
     const resultAfterCancel = await page.locator("#result").innerText();
-    record("F2d", "'not now' closes the dialog and the payment handler still did not run", (await page.locator(DIALOG).count()) === 0 && resultAfterCancel === "", `result="${resultAfterCancel}"`);
+    record("F2d", "closing the notice leaves the payment action blocked", (await page.locator(DIALOG).count()) === 0 && resultAfterCancel === "", `result="${resultAfterCancel}"`);
     await page.click("#pay");
     await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 });
-    await page.click(ALLOW);
-    const resultAfterAllow = await waitUntil(async () => (await page.locator("#result").innerText()) || null, { what: "#result after allow" }).catch(() => "");
-    record("F2e", "'allow once' replays the click exactly once and the page handler runs", resultAfterAllow.includes("已确认支付") && (await page.locator(DIALOG).count()) === 0, `result="${resultAfterAllow}"`);
+    await page.click(CLOSE);
+    await page.waitForSelector(DIALOG, { state: "detached", timeout: 3000 }).catch(() => null);
+    const resultAfterSecondBlock = await page.locator("#result").innerText();
+    record("F2e", "a second payment click is blocked again; no approval state persists", resultAfterSecondBlock === "" && (await page.locator(DIALOG).count()) === 0, `result="${resultAfterSecondBlock}"`);
     const recentF2 = await waitUntil(async () => {
       const r = await readRecent();
       return r.filter((e) => e.kind === "prevented" && e.prevented_kind === "payment_cta").length >= 2 ? r : null;
@@ -235,36 +379,170 @@ try {
   const f3Dialog = (await page.locator(DIALOG).count()) === 1;
   record("F3a", "PII submit under a trap label is held before navigation", f3Dialog && page.url() === urlBefore && !page.url().includes("phone="), `url=${page.url()}`);
   if (f3Dialog) {
-    await page.click(CANCEL);
+    await page.click(CLOSE);
     await page.waitForTimeout(400);
-    record("F3b", "'not now' → still on the same URL, nothing submitted", page.url() === urlBefore, `url=${page.url()}`);
+    record("F3b", "closing the notice leaves the form unsubmitted", page.url() === urlBefore, `url=${page.url()}`);
     await page.click("#f button[type=submit]");
     await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 });
-    await Promise.all([page.waitForURL(/phone=13800000000/, { timeout: 5000 }).catch(() => null), page.click(ALLOW)]);
-    record("F3c", "'allow once' → the form actually submits (URL carries ?phone=…)", page.url().includes("phone=13800000000"), `url=${page.url()}`);
+    await page.click(CLOSE);
+    await page.waitForTimeout(400);
+    record("F3c", "a second privacy-trap submit remains blocked with no in-page release", page.url() === urlBefore && !page.url().includes("phone="), `url=${page.url()}`);
   }
 
-  // ---------------- F4 / F5 页面直发 fetch ----------------
+  // 页面在 head 里尽早注册 window capture + stopImmediatePropagation。manifest 的
+  // document_start window-capture 监听必须先到，页面处理器仍不得运行。
+  await page.goto(fixture("early-capture.html"));
+  await page.click("#pay");
+  await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 }).catch(() => null);
+  record(
+    "H0",
+    "document_start window capture blocks a page that tries to stop propagation first",
+    (await page.locator(DIALOG).count()) === 1 && (await page.locator("#result").innerText()) === "",
+    `dialog=${await page.locator(DIALOG).count()} result=${JSON.stringify(await page.locator("#result").innerText())}`
+  );
+  if ((await page.locator(DIALOG).count()) === 1) await page.click(CLOSE);
+
+  // open Shadow DOM 会把 window 看到的 target 重定向到 host；必须沿 composedPath 找到真实按钮。
+  hits.length = 0;
+  await page.goto(fixture("shadow-payment.html"));
+  await page.locator("#host").locator("#pay").click();
+  await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 }).catch(() => null);
+  record(
+    "H5",
+    "payment CTA in an open shadow root is blocked through the composed event path",
+    (await page.locator(DIALOG).count()) === 1 &&
+      (await page.locator("#result").innerText()) === "" &&
+      !sawHit("POST", "/api/shadow"),
+    `dialog=${await page.locator(DIALOG).count()} result=${JSON.stringify(await page.locator("#result").innerText())} hits=${JSON.stringify(hits)}`
+  );
+
+  // all_frames:true：子框架里普通、会产生事件的付款按钮也必须由该 frame 的内容脚本阻断。
+  hits.length = 0;
+  await page.goto(fixture("payment-frame.html"));
+  const child = page.frameLocator("#child");
+  await child.locator("#pay").click();
+  await child.locator(DIALOG).waitFor({ state: "visible", timeout: 5000 }).catch(() => null);
+  record(
+    "F3d",
+    "payment action in a clean child frame is blocked before handler and form POST",
+    (await child.locator(DIALOG).count()) === 1 &&
+      (await page.locator("#result").innerText()) === "" &&
+      !sawHit("POST", "/api/iframe"),
+    `dialog=${await child.locator(DIALOG).count()} parent=${JSON.stringify(await page.locator("#result").innerText())} hits=${JSON.stringify(hits)}`
+  );
+  // 不在小尺寸 iframe 内点击提示；下一次导航会销毁 frame，阻断判据已经完成。
+
+  // ---------------- F4 / H2-H4 浏览器拥有的付款形状静态 DNR 硬阻断 ----------------
   hits.length = 0;
   await page.goto(fixture("fetch-gate.html"));
-  await page.click('button[data-url="/pay/checkout"]');
-  await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 }).catch(() => null);
-  const f4Dialog = (await page.locator(DIALOG).count()) === 1;
-  record("F4a", "POST /pay/checkout is held before a single byte reaches the server", f4Dialog && !sawHit("POST", "/pay/checkout"), `dialog=${f4Dialog} hits=${JSON.stringify(hits)}`);
-  if (f4Dialog) {
-    await page.click(CANCEL);
-    const logAfterCancel = await waitUntil(async () => {
-      const t = await page.locator("#log").innerText();
-      return /AbortError/.test(t) ? t : null;
-    }, { what: "AbortError in page log" }).catch(() => "");
-    record("F4b", "'not now' → page gets AbortError, server still never saw the request", /AbortError/.test(logAfterCancel) && !sawHit("POST", "/pay/checkout"), `hits=${JSON.stringify(hits)}`);
-    await page.click('button[data-url="/pay/checkout"]');
-    await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 });
-    await page.click(ALLOW);
-    const allowed = await waitUntil(() => (sawHit("POST", "/pay/checkout") ? true : null), { what: "server hit after allow" }).catch(() => false);
-    const logAfterAllow = await page.locator("#log").innerText();
-    record("F4c", "'allow once' → the original fetch goes out and the page sees HTTP 501 from the stub", allowed && /HTTP 501/.test(logAfterAllow), `hits=${JSON.stringify(hits)}`);
-  }
+  const blockedFetch = await page.evaluate(async () => {
+    try {
+      await fetch("/pay/checkout", { method: "POST", body: "fixture=1" });
+      return { blocked: false };
+    } catch (e) {
+      return { blocked: true, name: e && e.name, message: e && e.message };
+    }
+  });
+  await page.waitForTimeout(250);
+  record(
+    "F4a",
+    "payment-shaped fetch is hard-blocked by DNR with no approval dialog and zero server requests",
+    blockedFetch.blocked && !sawHit("POST", "/pay/checkout") && (await page.locator(DIALOG).count()) === 0,
+    `result=${JSON.stringify(blockedFetch)} hits=${JSON.stringify(hits)}`
+  );
+
+  await page.evaluate(() => {
+    // 旧实现会先公开 req_gate（含可预测 id）；敌对页据此立刻回一个同 id 的 allow。
+    // 新实现根本不发布请求，也没有页面判决接收者；即使以后误把旧通道接回，静态 DNR 仍应兜底。
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || data.type !== "__agentguard_req_gate__") return;
+      window.postMessage(
+        { type: "__agentguard_req_decision__", id: data.id, allow: true },
+        "*"
+      );
+    });
+    window.postMessage({ type: "__agentguard_req_decision__", id: 1, allow: true }, "*");
+  });
+  await page.evaluate(async () => {
+    try { await fetch("/pay/spoof-decision", { method: "POST" }); } catch (_) {}
+  });
+  await page.waitForTimeout(250);
+  record(
+    "H2",
+    "forged legacy decision messages cannot authorize a payment-shaped request",
+    !sawHit("POST", "/pay/spoof-decision") && (await page.locator(DIALOG).count()) === 0,
+    `hits=${JSON.stringify(hits)}`
+  );
+
+  await page.evaluate(() => {
+    window.postMessage({ type: "__agentguard_scope__", allowlist: [location.hostname] }, "*");
+  });
+  await page.evaluate(async () => {
+    try { await fetch("/transfer/spoof-scope", { method: "POST" }); } catch (_) {}
+  });
+  await page.waitForTimeout(250);
+  record(
+    "H3",
+    "forged legacy scope messages cannot weaken the browser-owned payment block",
+    !sawHit("POST", "/transfer/spoof-scope") && (await page.locator(DIALOG).count()) === 0,
+    `hits=${JSON.stringify(hits)}`
+  );
+
+  await page.evaluate(async () => {
+    try { await fetch("/charge/timeout", { method: "POST" }); } catch (_) {}
+  });
+  await page.waitForTimeout(15500);
+  record(
+    "H4",
+    "a blocked request stays blocked past the removed 15 s fail-open timeout",
+    !sawHit("POST", "/charge/timeout"),
+    `hits=${JSON.stringify(hits)}`
+  );
+
+  await page.click("#xhr-pay");
+  await page.waitForTimeout(400);
+  record("F4b", "payment-shaped XHR is hard-blocked with zero server requests", !sawHit("POST", "/payment/xhr"), `hits=${JSON.stringify(hits)}`);
+
+  const beaconQueued = await page.evaluate(() => navigator.sendBeacon("/checkout/beacon", "fixture=1"));
+  await page.waitForTimeout(500);
+  record("F4c", "payment-shaped sendBeacon is blocked before the server", !sawHit("POST", "/checkout/beacon"), `queued=${beaconQueued} hits=${JSON.stringify(hits)}`);
+
+  await page.click("#form-pay button[type=submit]");
+  await page.waitForTimeout(500);
+  record("F4d", "payment-shaped form POST into a subframe is blocked before the server", !sawHit("POST", "/charge/form"), `hits=${JSON.stringify(hits)}`);
+
+  const encodedAndQuery = await page.evaluate(async () => {
+    const urls = [
+      "/%70ay",
+      "/p%61y",
+      "/api%2Fpay",
+      "/%6f%72%64%65%72%2d%63%6f%6e%66%69%72%6d",
+      "/api?op=pay",
+    ];
+    const results = [];
+    for (const url of urls) {
+      try {
+        await fetch(url, { method: "POST", body: "fixture=1" });
+        results.push({ url, blocked: false });
+      } catch (_) {
+        results.push({ url, blocked: true });
+      }
+    }
+    return results;
+  });
+  await page.waitForTimeout(400);
+  record(
+    "F4e",
+    "documented encoded pay variants and explicit operation query are hard-blocked",
+    encodedAndQuery.every((r) => r.blocked) &&
+      !sawHit("POST", "/pay") &&
+      !sawHit("POST", "/api/pay") &&
+      !sawHit("POST", "/api"),
+    `results=${JSON.stringify(encodedAndQuery)} hits=${JSON.stringify(hits)}`
+  );
+
+  // ---------------- F5 明确不在静态规则支持面 ----------------
   hits.length = 0;
   await page.click('button[data-url="/pay/status"]');
   await waitUntil(() => (sawHit("GET", "/pay/status") ? true : null), { what: "GET /pay/status" }).catch(() => null);
@@ -274,6 +552,37 @@ try {
   await waitUntil(() => (sawHit("POST", "/api/search") ? true : null), { what: "POST /api/search" }).catch(() => null);
   const f5bDialog = await page.locator(DIALOG).count();
   record("F5b", "POST /api/search is not gated (no payment shape, no scope declared)", sawHit("POST", "/api/search") && f5bDialog === 0, `hits=${JSON.stringify(hits)} dialog=${f5bDialog}`);
+  await page.evaluate(async () => {
+    try { await fetch("/api/submit", { method: "POST", body: "op=pay" }); } catch (_) {}
+  });
+  await waitUntil(() => (sawHit("POST", "/api/submit") ? true : null), { what: "body-only unsupported boundary" }).catch(() => null);
+  record(
+    "F5c",
+    "body-only payment semantics are explicitly outside MV3 static-DNR coverage",
+    sawHit("POST", "/api/submit"),
+    `hits=${JSON.stringify(hits)}`
+  );
+  const falsePositiveProbes = await page.evaluate(async () => {
+    const urls = ["/pay%72oll", "/api?next=https://x.invalid/?op=pay"];
+    const results = [];
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, { method: "POST", body: "fixture=1" });
+        results.push({ url, reached: true, status: response.status });
+      } catch (error) {
+        results.push({ url, reached: false, error: String(error) });
+      }
+    }
+    return results;
+  });
+  await page.waitForTimeout(300);
+  record(
+    "F5d",
+    "pay-prefixed words and nested query text are not mistaken for declared payment markers",
+    falsePositiveProbes.every((result) => result.reached) &&
+      sawHit("POST", "/payroll") && sawHit("POST", "/api"),
+    `results=${JSON.stringify(falsePositiveProbes)} hits=${JSON.stringify(hits)}`
+  );
 
   // ---------------- M 变异风暴(P2-3) ----------------
   // 页面每 50 ms 改一次 DOM,正文藏一段隐藏注入。以前:每次变化 400 ms 后整页重扫、不去重,
@@ -345,9 +654,17 @@ try {
   await popup.waitForTimeout(300);
   await popup.screenshot({ path: join(OUT, "popup.png") });
   const nativeChecked = await popup.locator("#native").isChecked();
-  const linkLine = await popup.locator("#link-line").innerText();
+  const nativeSettingsHidden = await popup.locator("#native-settings").isHidden();
+  const nativePermission = await sw.evaluate(() =>
+    (chrome.runtime.getManifest().permissions || []).includes("nativeMessaging")
+  );
   const en = JSON.parse(readFileSync(join(EXT, "_locales", "en", "messages.json"), "utf8"));
-  record("P1", "desktop forwarding is OFF by default and the popup says so", !nativeChecked && linkLine.trim() === en.linkOff.message, `native=${nativeChecked} link="${linkLine}"`);
+  record(
+    "P1",
+    "GA manifest has no Native Messaging permission and the unavailable control is hidden",
+    !nativePermission && !nativeChecked && nativeSettingsHidden,
+    `permission=${nativePermission} checked=${nativeChecked} hidden=${nativeSettingsHidden}`
+  );
   const today = await popup.locator("#today-line").innerText();
   record("P2", "today line counts findings and blocks from this run", /\d+/.test(today) && !/Today: 0 found · 0 blocked/.test(today), `"${today}"`);
   const items = await popup.locator("#list li").allInnerTexts();
@@ -370,8 +687,8 @@ const report = {
   extension_id: extensionId,
   extension_dir: "apps/extension-chromium",
   fixtures: "eval/acceptance-fixtures",
-  native_messaging: "not installed in this run (nativeEnabled=false; F6/F7 are real-device cases)",
-  firefox: "BLOCKED — Playwright cannot load extensions into Firefox; see docs/acceptance-firefox.md",
+  native_messaging: "disabled in the GA manifest (permission absent)",
+  firefox: "excluded from the first GA release scope",
   cases,
   all_pass: failures === 0,
 };

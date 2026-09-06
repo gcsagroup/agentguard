@@ -1,5 +1,5 @@
 {
-  "note": "Rust digest_rgba 的输出。移植 AgentGuardSCK.m 的 ag_frame_digest 之后,那一侧必须逐字节复现这些值。见 crates/guard-vision/src/framehash.rs::b6_跨语言摘要向量。",
+  "note": "Rust digest_rgba 的稳定输出；macOS 上已由 mac-adapter::sck_native 跨语言测试逐字节核对已编译的 AgentGuardSCK.m 实现（含 padded stride）。",
   "planes": "luma|cb|cr|detail",
   "vectors": [
     {"name": "solid_200", "width": 320, "height": 180, "bgra": false, "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc|888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888|888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888|000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},

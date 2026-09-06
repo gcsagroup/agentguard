@@ -58,12 +58,16 @@ def parse_acceptance(rel):
     done = total = 0
     for line in section.splitlines():
         s = line.strip()
-        # macOS 清单包含 5b/5c；Windows/Firefox 使用 W1/F1。后缀不能被漏计，
+        # macOS 清单包含 5b/5c；Windows 使用 W1。后缀不能被漏计，
         # 否则清单明明有 16 行，仪表盘却会错误显示 0/14。
         if not re.match(r'^\|\s*[WF]?\d+[a-z]?\s*\|', s, re.I):
             continue
         cells = [c.strip() for c in s.strip("|").split("|")]
         if len(cells) < 3:
+            continue
+        # Windows first-ga-v1 明确排除 W7；保留该行只为记录遗留原型，
+        # 不能让仪表盘继续显示 11 项或把 N/A 算成发布进度。
+        if rel == "docs/acceptance-windows.md" and cells[0].upper() == "W7":
             continue
         total += 1
         # 末两列 = 实测 + 证据;任一非空即认为这条已走过。
@@ -164,7 +168,9 @@ def build_body(claims_doc, gate_status):
     gs = gate_status or {}
     ap = gs.get("automated_pass")
     af = gs.get("automated_fail")
-    un = gs.get("unverified_count", len(evid))
+    # Evidence scope is a live release contract, so derive its count from the current gate.
+    # A historical gate-status snapshot may still say eight from the retired Firefox requirement.
+    un = len(evid)
     gs_when = gs.get("generated_at", "")
 
     parts = []
@@ -194,15 +200,16 @@ def build_body(claims_doc, gate_status):
     ]
     parts.append('<div class="tiles">' + "".join(tiles) + "</div>")
 
-    # 真机验收进度(三份清单各自 X/N)
+    # 真机验收进度(两份严格门禁清单各自 X/N)。Chrome/Edge 正式候选 ZIP 的 B1-B5
+    # 尚无结构化 kind；Firefox 是首个 GA 排除项，二者都不能伪装成这里的 PASS 进度。
     accept = [
         ("macOS 桌面", "docs/acceptance-macos.md", "AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS"),
         ("Windows 桌面", "docs/acceptance-windows.md", "AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS"),
-        ("Firefox 扩展", "docs/acceptance-firefox.md", "AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX"),
     ]
     parts.append('<h2>真机验收进度</h2>')
-    parts.append('<p class="sub">这三条只有真设备能验;进度直接数各 <code>acceptance-*.md</code> 里填了实测/'
-                 '证据的用例。模板全空即 0——在真机走完前如实显示为未开始,不是缺陷。</p>')
+    parts.append('<p class="sub">这两条只有真设备能验；进度直接数各 <code>acceptance-*.md</code> 里填了实测/'
+                 '证据的用例。模板全空即 0。Chrome/Edge 另按候选 ZIP 完成 B1-B5，当前 CLI 未建结构化 kind；'
+                 'Firefox 仅源码原型且不进入首个 GA。</p>')
     prows = []
     for name, rel, _env in accept:
         done, total = parse_acceptance(rel)

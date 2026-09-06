@@ -13,8 +13,8 @@
         }
       ],
       "source": {
-        "anchor": "signed, tamper-evident audit chain",
-        "doc": "apps/extension-chromium/STORE.en.md"
+        "anchor": "Each appended record is signed with an Ed25519 device key",
+        "doc": "docs/audit-signing.md"
       }
     },
     {
@@ -34,8 +34,8 @@
         }
       ],
       "source": {
-        "anchor": "Threat intel updates are signed (Ed25519)",
-        "doc": "apps/extension-chromium/STORE.en.md"
+        "anchor": "给了公钥就要真实性",
+        "doc": "docs/入站信任.md"
       }
     },
     {
@@ -55,8 +55,8 @@
         }
       ],
       "source": {
-        "anchor": "hidden / subliminal prompt-injection text",
-        "doc": "apps/extension-chromium/STORE.en.md"
+        "anchor": "subliminal bands, chroma+luma stego",
+        "doc": "docs/platform-matrix.md"
       }
     },
     {
@@ -129,23 +129,6 @@
       "source": {
         "anchor": "a11y services, broadcast sinks, log readers",
         "doc": "docs/platform-matrix.md"
-      }
-    },
-    {
-      "area": "browser",
-      "claim": "Critical 判决弹出命名规则的浏览器通知——事后告警,不是阻断式先批后行",
-      "id": "critical-notify-not-block",
-      "mechanism": "guard-nm-host 为 Block/Critical/require_confirm 判决构造 notify 供扩展弹通知",
-      "note": "这条 claim 说的是**宿主 native-messaging 路径**——异步观测,只能事后通知;但页面内的付款/陷阱动作已由 E2 内容脚本同步门在执行前拦(见 browser-preexec-block)。桌面壳子仍是唯一的阻断式模态",
-      "proven_by": [
-        {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "critical判决产生notify供扩展弹通知"
-        }
-      ],
-      "source": {
-        "anchor": "raises a notification after the fact",
-        "doc": "apps/extension-chromium/STORE.en.md"
       }
     },
     {
@@ -255,10 +238,10 @@
     },
     {
       "area": "browser",
-      "claim": "浏览器扩展在页面动作执行前拦截付款/陷阱提交(不是事后通知)",
+      "claim": "首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作",
       "id": "browser-preexec-block",
-      "mechanism": "content.js 捕获阶段同步 preventDefault + 本地确认;判决逻辑 guard-gate.js",
-      "note": "只覆盖页面自身 DOM 动作;click→submit 接线有模拟 DOM 事件链测试;MAIN world 的 postMessage 通道可被页面观察/伪造,不能抵抗主动对抗页面;真 Chrome/Firefox E2E 仍未验证",
+      "mechanism": "manifest 在 document_start 向所有可注入 frame 装 isolated content script;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调",
+      "note": "只承诺浏览器实际注入脚本且能观察到 click/submit 的 HTTP(S) frame;直接 form.submit()、未注入 frame 与不触发被监听事件的路径不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证",
       "proven_by": [
         {
           "file": "apps/extension-chromium/scripts/gate.test.mjs",
@@ -269,108 +252,83 @@
           "test": "隐私陷阱 PII 提交要执行前拦下"
         },
         {
-          "file": "apps/extension-chromium/scripts/content-event.test.mjs",
-          "test": "付款按钮允许一次只产生一次确认并提交一次"
-        }
-      ],
-      "source": {
-        "anchor": "执行前阻断",
-        "doc": "docs/浏览器执行前阻断.md"
-      }
-    },
-    {
-      "area": "browser",
-      "claim": "拦截页面直发的付款形状 fetch/XHR(补上 DOM 门拦不了直接 fetch 的残余)",
-      "id": "browser-fetch-gate",
-      "mechanism": "guard-page.js(world:MAIN)包裹 fetch/XHR,付款形状请求 await 确认才发",
-      "note": "MAIN world 里页面与我们平权,早于我们抢到 fetch 的脚本绕得过——尽力而为不是铁壁",
-      "proven_by": [
-        {
           "file": "apps/extension-chromium/scripts/gate.test.mjs",
-          "test": "付款形状的 POST 请求要在发出前拦"
+          "test": "首个 GA 的 DOM 门只阻断且没有页面内放行或动作重放"
         },
         {
-          "file": "apps/extension-chromium/scripts/gate.test.mjs",
-          "test": "只读方法不拦(GET/HEAD 不该有副作用)"
+          "file": "apps/extension-chromium/scripts/content-event.test.mjs",
+          "test": "付款按钮每次都阻断且页面提示没有放行路径"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/content-event.test.mjs",
+          "test": "危险表单提交也没有可泄漏的批准状态"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/manifests.test.mjs",
+          "test": "DOM 只阻断脚本在 document_start 覆盖所有 frame"
         }
       ],
       "source": {
-        "anchor": "页面直发的",
+        "anchor": "页面内提示不是授权 UI",
         "doc": "docs/浏览器执行前阻断.md"
       }
     },
     {
       "area": "browser",
-      "claim": "Chrome 与 Firefox 装同一套防护,内容脚本/权限不漂移",
-      "id": "cross-browser-consistency",
-      "mechanism": "manifest.json 与 manifest.firefox.json 由结构测试钉住一致",
-      "note": "Edge 同 Chromium;Safari 是 Xcode 包壳的设计项、不在此列;真机未验证",
+      "claim": "明确付款关键词的 HTTP(S) 非 GET/HEAD 请求仅在已声明资源类型上由静态 DNR 默认硬拦,页面不能放行",
+      "id": "browser-fetch-gate",
+      "mechanism": "Chromium GA manifest 默认启用 payment_shape_block;规则按非 GET/HEAD + 明确路径关键词或 op/action/operation 查询值 + main_frame/sub_frame/xmlhttprequest/ping 在浏览器网络层 block",
+      "note": "声明面只到 HTTP(S) 非 GET/HEAD、规则列出的路径组件关键词(含明确编码变体)或 op/action/operation 查询值及字符边界,以及 fetch/XHR、beacon、顶层/子框架 form 导航;不看 body,不覆盖自定义别名或未声明表面,无网络一次性放行;Chrome/Edge 商店候选仍须分别留证",
       "proven_by": [
         {
           "file": "apps/extension-chromium/scripts/manifests.test.mjs",
-          "test": "两份 manifest 装的是同一套内容脚本文件"
+          "test": "Chromium 默认启用付款形状静态 DNR 硬阻断"
         }
       ],
       "source": {
-        "anchor": "manifests.test.mjs",
+        "anchor": "静态 DNR 的精确支持面",
+        "doc": "docs/浏览器执行前阻断.md"
+      }
+    },
+    {
+      "area": "browser",
+      "claim": "首个 GA 只交付 Chrome/Edge 共用的 Chromium 包,GA manifest 禁用 Native Messaging;Firefox 仅保留源码原型且不作为验收门",
+      "id": "cross-browser-consistency",
+      "mechanism": "manifest.json 是唯一 GA 浏览器 manifest且不含 nativeMessaging;package-store.sh 只生成 Chrome/Edge ZIP并拒绝 --firefox",
+      "note": "Firefox 排除由 package-store.test.sh 的真实打包回归另行钉住;Firefox 原型文件存在或结构相似不能升级为支持声明;Chrome 与 Edge 仍需分别完成商店候选验收;Safari 是独立产品线",
+      "proven_by": [
+        {
+          "file": "apps/extension-chromium/scripts/manifests.test.mjs",
+          "test": "GA 权限没有 Native Messaging，通知权限有 DOM 阻断用途"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/manifests.test.mjs",
+          "test": "Chromium manifest 装入完整内容脚本"
+        }
+      ],
+      "source": {
+        "anchor": "首个 GA 支持范围",
         "doc": "docs/跨浏览器.md"
       }
     },
     {
       "area": "browser",
-      "claim": "引擎判决的主机(恶意域 + 越出 scope.hosts 的目的地)会被浏览器在网络层硬拦(判决→DNR)",
-      "id": "engine-to-browser-dnr",
-      "mechanism": "guard-nm-host 从 INTEL-DOMAIN / SCOPE-HOST 判决抠主机(共享前缀契约)放进 block_hosts;background.js 装 DNR 规则",
-      "note": "E8 累积语义——恶意域累积保留(落 storage)、越界随会话过期;SCOPE-HOST 只在声明 hosts 时发;此 DNR 桥的越界只对网络流事件成立,但浏览器侧的越界已由 E9 本地允许表门覆盖(见 browser-local-scope-gate),不再是残余;DNR fail-open;真 Chrome/Firefox E2E 未验证",
+      "claim": "页面消息不是允许或 scope 的信任根,伪造旧 decision/scope 不能配置网络放行",
+      "id": "browser-page-message-not-authority",
+      "mechanism": "删除 guard-page.js 与全部 MAIN-world 注入;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外",
+      "note": "敌对 E2E 另测伪 decision/scope 与旧 15 秒超时;结构测试防止公开通道回归;页面提示只是可被页面影响的信息层,没有授权能力",
       "proven_by": [
         {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "恶意域判决在响应里带上block_hosts"
+          "file": "apps/extension-chromium/scripts/manifests.test.mjs",
+          "test": "Chromium 不注入 MAIN world 页面判决代码"
         },
         {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "只从恶意域判决抠出要拦的主机"
-        },
-        {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "越界目的地也抠出要拦的主机"
-        },
-        {
-          "file": "apps/extension-chromium/scripts/gate.test.mjs",
-          "test": "恶意域累积保留:下一批 benign 判决不会把它清掉"
-        },
-        {
-          "file": "apps/extension-chromium/scripts/gate.test.mjs",
-          "test": "越界目的地随会话过期,不永久拦掉用户对该主机的正常访问"
+          "file": "apps/extension-chromium/scripts/manifests.test.mjs",
+          "test": "内容脚本没有公开 request decision scope 消息信任根"
         }
       ],
       "source": {
-        "anchor": "block_hosts",
-        "doc": "docs/浏览器执行前阻断.md"
-      }
-    },
-    {
-      "area": "browser",
-      "claim": "任务允许表下发到浏览器,本地判出站目的地是否越界(不回传 URL,后缀伪造拒同 Rust)",
-      "id": "browser-local-scope-gate",
-      "mechanism": "nm-host 带 granted_hosts 快照;guard-page.js 本地 scopeGateHost + hostInScope(Rust host_in_scope 的 JS 镜像)",
-      "note": "下发的是策略(允许表)不是浏览历史;host_in_scope 由共享向量表(eval/host-scope-vectors.json)钉住 Rust/JS 同源;MAIN world 客户端检查尽力而为;真机未验证",
-      "proven_by": [
-        {
-          "file": "apps/extension-chromium/scripts/gate.test.mjs",
-          "test": "host_in_scope向量表_rust与js同源"
-        },
-        {
-          "file": "apps/extension-chromium/scripts/gate.test.mjs",
-          "test": "scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦"
-        },
-        {
-          "file": "crates/guard-schema/src/plan.rs",
-          "test": "host_scope_向量表是rust与js的单一真相源"
-        }
-      ],
-      "source": {
-        "anchor": "scope_hosts",
+        "anchor": "页面消息不再是信任根",
         "doc": "docs/浏览器执行前阻断.md"
       }
     },
@@ -416,7 +374,7 @@
         },
         {
           "file": "apps/extension-chromium/scripts/strings.test.mjs",
-          "test": "guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)"
+          "test": "guard-gate 会执行前阻断的每个 kind,词典都有只阻断提示文案"
         }
       ],
       "source": {
@@ -534,10 +492,10 @@
     },
     {
       "area": "extension",
-      "claim": "转发给宿主与本地最近列表里的 URL 都最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不外传",
+      "claim": "扩展本地最近列表里的 URL 最小化——去 userinfo/fragment/全部 query,形似令牌的路径段打成 …;非 http(s) 不记录",
       "id": "extension-url-minimization",
-      "mechanism": "guard-gate.js minimizeUrl(默认 query 白名单为空,写死并有测试钉住),background.js 所有 url 出口经它",
-      "note": "令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字",
+      "mechanism": "guard-gate.js minimizeUrl(默认 query 白名单为空,写死并有测试钉住),background.js 写入本地最近列表前统一调用",
+      "note": "令牌形状是启发式(≥16 位 hex / ≥20 位 base64url),短令牌或嵌在普通词里的令牌看不出来;title 本地保留但截断到 120 字;GA 不通过 Native Messaging 转发",
       "proven_by": [
         {
           "file": "apps/extension-chromium/scripts/gate.test.mjs",
@@ -559,7 +517,7 @@
     },
     {
       "area": "shells",
-      "claim": "点「开始守护」就开始观察——授权过的观察器随会话启动、随会话停;主界面用人话说出现在在看什么,并有三步使用说明与一个自检",
+      "claim": "macOS 桌面开始守护要求辅助功能与加密记录就绪；按授权矩阵启动观察器，结束守护停止会话与观察器；自检不代表真实阻断",
       "id": "guard-starts-when-you-press-start",
       "mechanism": "macOS 壳子 observers_for_session(授权矩阵 → 该开什么)+ start_guard_session 在 drop(adapter) 后调 arm_ax_observer / arm_sck_capture(Windows 壳子一直如此);主界面",
       "note": "修的是真机反馈的功能缺陷——以前 start_guard_session 不武装任何观察器,唯一入口是折叠的开发者面板;Rust 侧钉决策与接线,界面侧由 shell-a11y(不进 release-gate,CI 单跑)钉\"主界面有三步说明、有自检、无裸键值对、在看什么会随状态变\";AXObserver 注册与 TCC 授权本身仍只有真机能验(macOS 清单第 18 项 / Windows W11)",
@@ -570,7 +528,7 @@
         },
         {
           "file": "apps/desktop-macos/src-tauri/src/lib.rs",
-          "test": "未授权时不武装任何观察器_但会话仍可开始"
+          "test": "未授权时不武装观察器且桌面入口提前拒绝"
         },
         {
           "file": "apps/desktop-macos/src-tauri/src/lib.rs",
@@ -582,7 +540,7 @@
         }
       ],
       "source": {
-        "anchor": "启动你授权过的观察器",
+        "anchor": "加密记录已就绪且辅助功能可用后",
         "doc": "docs/desktop-guide.md"
       }
     },
@@ -613,31 +571,6 @@
       "source": {
         "anchor": "同一页里同一条发现只上报一次，页面不停变化不会刷屏",
         "doc": "apps/extension-chromium/README.md"
-      }
-    },
-    {
-      "area": "native-host",
-      "claim": "扩展↔宿主长连接带连接级 nonce 与单调 seq,宿主拒绝重放、乱序、nonce 不符的帧;hello 带回暂停状态",
-      "id": "native-link-replay-protection",
-      "mechanism": "guard-nm-host SeqGuard(hello 登记 nonce/seq,之后逐帧校验);background.js connectNative + postFrame 编号",
-      "note": "只约束帧,不认证进程(STORE「本机 host 安全边界」如实写明);没有 hello 的旧调用方按 legacy 放行且 stderr 记一行",
-      "proven_by": [
-        {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "hello之后帧必须带同一nonce且seq单调递增"
-        },
-        {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "hello带回暂停状态"
-        },
-        {
-          "file": "crates/guard-nm-host/src/main.rs",
-          "test": "没有hello的连接按legacy放行"
-        }
-      ],
-      "source": {
-        "anchor": "rejects replayed, out-of-order or mismatched frames",
-        "doc": "apps/extension-chromium/STORE.en.md"
       }
     },
     {
@@ -913,8 +846,8 @@
     }
   ],
   "report": {
-    "distinct_tests": 101,
+    "distinct_tests": 94,
     "problems": [],
-    "total_claims": 39
+    "total_claims": 36
   }
 }

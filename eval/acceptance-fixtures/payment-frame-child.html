@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Payment child frame</title></head>
+<body>
+  <form method="post" action="/api/iframe">
+    <button id="pay" type="submit">Pay now</button>
+  </form>
+  <script>
+    document.getElementById("pay").addEventListener("click", () => parent.postMessage("FRAME_EXECUTED", "*"));
+  </script>
+</body>
+</html>

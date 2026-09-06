@@ -7,6 +7,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # 与 rust-toolchain.toml 保持一致；MSRV job 在自己的测试 step 显式覆盖为 1.87。
+  AGENTGUARD_RUST_TOOLCHAIN: '1.95.0'
 
 # 每个 `uses:` 都钉在 commit SHA 上,尾注是它对应的 tag(真机报告 P2-6)。
 # 浮动 tag(`@v4`)意味着这条流水线的一半代码由第三方随时可换 —— 对一个签发布证据的
@@ -31,8 +33,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
           components: rustfmt, clippy
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: cargo fmt --check
         run: cargo fmt --all --check
@@ -69,7 +74,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - name: Cache cargo
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Test
@@ -149,7 +157,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Test the workspace on Windows
         run: cargo test --workspace
@@ -165,6 +176,29 @@ jobs:
       - name: Build the desktop shell
         working-directory: apps/desktop-windows/src-tauri
         run: cargo test --locked
+      - name: Windows Release audit must fail closed to SQLCipher
+        shell: bash
+        working-directory: apps/desktop-windows/src-tauri
+        run: |
+          set -euo pipefail
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          # 调试断言不能把 Release 变回开发模式，曾实测绕过加密与内置资源门禁。
+          export CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true
+          if cargo check --release --locked >"$log" 2>&1; then
+            cat "$log"
+            echo 'plaintext desktop-windows Release unexpectedly compiled' >&2
+            exit 1
+          fi
+          cat "$log"
+          grep -Fq 'desktop-windows Release requires SQLCipher' "$log"
+          cargo check --release --locked --no-default-features --features audit-sqlcipher
+          cargo test --release --locked --no-default-features --features audit-sqlcipher \
+            --lib release开启调试断言仍保持安全发布语义 -- --exact >"$log" 2>&1
+          cat "$log"
+          grep -Fq '1 passed; 0 failed' "$log"
+          cargo test --manifest-path ../../../Cargo.toml --locked -p guard-audit \
+            --features sqlcipher sqlcipher_roundtrip_rejects_wrong_key
       - name: Smoke-test the desktop window
         shell: pwsh
         working-directory: apps/desktop-windows/src-tauri
@@ -200,7 +234,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: Build the mac adapter with the Objective-C bridges
         # The AX walker and the ScreenCaptureKit bridge are compiled by build.rs through
@@ -209,6 +246,34 @@ jobs:
       - name: Test the desktop shell
         working-directory: apps/desktop-macos/src-tauri
         run: cargo test
+      - name: 真实网关确认的文件副作用回归
+        run: |
+          cargo build --locked -p guard-gateway --bin agentguard-mcp
+          AGENTGUARD_GATEWAY_TEST_BIN="$GITHUB_WORKSPACE/target/debug/agentguard-mcp" \
+            cargo test --manifest-path apps/desktop-macos/src-tauri/Cargo.toml --locked \
+            --no-default-features --features audit-sqlcipher gateway_confirm -- --include-ignored
+      - name: macOS Release audit must fail closed to SQLCipher
+        working-directory: apps/desktop-macos/src-tauri
+        run: |
+          set -euo pipefail
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          # 同一反例同时覆盖 macOS，避免两个桌面壳的发布语义再次分叉。
+          export CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true
+          if cargo check --release --locked >"$log" 2>&1; then
+            cat "$log"
+            echo 'plaintext desktop-macos Release unexpectedly compiled' >&2
+            exit 1
+          fi
+          cat "$log"
+          grep -Fq 'desktop-macos Release requires SQLCipher' "$log"
+          cargo check --release --locked --no-default-features --features audit-sqlcipher
+          cargo test --release --locked --no-default-features --features audit-sqlcipher \
+            --lib release开启调试断言仍保持安全发布语义 -- --exact >"$log" 2>&1
+          cat "$log"
+          grep -Fq '1 passed; 0 failed' "$log"
+          cargo test --manifest-path ../../../Cargo.toml --locked -p guard-audit \
+            --features sqlcipher sqlcipher_roundtrip_rejects_wrong_key
       - name: Signing script parses (bash -n)
         run: bash -n apps/desktop-macos/scripts/sign-and-notarize.sh
       - name: Signing script signs a bundle ad-hoc and codesign verifies it
@@ -254,7 +319,7 @@ jobs:
           # network dependency inside the build step, and when it fails the error is a
           # Gradle stack trace about a missing platform rather than "the SDK is not here".
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-      - name: JVM unit tests (no device, no instrumented tests; Robolectric runs the framework)
+      - name: JVM unit tests for Debug and Release (no device; Robolectric runs the framework)
         # The Kotlin half had zero tests. Some of these now run under Robolectric — the real
         # Android framework on the JVM, which is what lets `onAccessibilityEvent` and the Compose
         # screen be tested at all (`AccessibilityEvent` answers `Stub!` without it). Robolectric
@@ -265,19 +330,19 @@ jobs:
         # eval/fixtures/icon_dhash_vectors.json, so a drift fails on both sides instead of
         # silently turning every icon comparison into noise.
         working-directory: apps/android-companion
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
-      - name: Android lint (warnings are errors — real-device report P2-2)
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:testReleaseUnitTest
+      - name: Android Debug and Release lint (warnings are errors — real-device report P2-2)
         # 14 warnings were cleared and `lint { warningsAsErrors = true }` is set in
         # app/build.gradle.kts, so a new warning fails this job instead of sitting in an HTML
         # report nobody opens. The report is still uploaded below for the failing case.
         working-directory: apps/android-companion
-        run: ./gradlew --no-daemon :app:lintDebug
+        run: ./gradlew --no-daemon :app:lintDebug :app:lintRelease
       - name: Upload the lint report (only useful when the step above failed)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: agentguard-companion-lint
-          path: apps/android-companion/app/build/reports/lint-results-debug.*
+          path: apps/android-companion/app/build/reports/lint-results-*.*
       - name: Assemble the DEBUG APK (Android debug certificate — not a release artifact)
         working-directory: apps/android-companion
         run: ./gradlew --no-daemon :app:assembleDebug
@@ -286,6 +351,48 @@ jobs:
         with:
           name: agentguard-companion-debug
           path: apps/android-companion/app/build/outputs/apk/debug/*.apk
+      - name: Compile the Release variant without creating a publishable artifact
+        # No production keystore exists in CI. This still compiles the exact Release source set
+        # (where the experimental relay is hard-disabled) and leaves signing/AAB validation to
+        # the credentialed release workflow. Never upload a debug-signed "release" candidate.
+        working-directory: apps/android-companion
+        run: ./gradlew --no-daemon :app:compileReleaseKotlin
+
+  ios:
+    name: iOS limited Safari WebShield (strict Simulator + unsigned Release)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: 核对 Node.js 使用仓库 .nvmrc 钉住的主版本
+        run: make node-toolchain-check
+      - name: Install checksum-pinned XcodeGen 2.46.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip="$RUNNER_TEMP/xcodegen-2.46.0.zip"
+          root="$RUNNER_TEMP/xcodegen-2.46.0"
+          curl --fail --location --silent --show-error \
+            https://github.com/yonaskolb/XcodeGen/releases/download/2.46.0/xcodegen.zip \
+            --output "$zip"
+          echo '4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806  '"$zip" | shasum -a 256 -c -
+          mkdir -p "$root"
+          ditto -x -k "$zip" "$root"
+          "$root/xcodegen/bin/xcodegen" --version | grep -Eq '(^|[^0-9])2\.46\.0([^0-9]|$)'
+          echo "$root/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Run the complete iOS source, Simulator, Release and Analyze gate
+        shell: bash
+        env:
+          AGENTGUARD_IOS_RESULT_ROOT: ${{ runner.temp }}/agentguard-ios
+        run: bash scripts/check-ios.sh
+      - name: Upload iOS test result bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-webshield-test-results
+          path: ${{ runner.temp }}/agentguard-ios/tests.xcresult
 
   browser-e2e:
     name: Chromium extension real-browser E2E + acceptance fixtures
@@ -294,10 +401,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: 核对 Node.js 使用仓库 .nvmrc 钉住的主版本
+        run: make node-toolchain-check
       - name: Install Playwright Chromium
         # Global install, matching how eval/e2e-extension/run.mjs resolves playwright (local
         # node_modules first, then `npm root -g`). The repository has no package.json at the
@@ -309,6 +421,8 @@ jobs:
         # Stubs window.__TAURI__ and asserts alertdialog semantics, focus trap, Escape,
         # inert background and the screen-reader announcement channel in real Chromium.
         run: make shell-a11y
+      - name: macOS 新工作区与网关确认界面回归
+        run: node eval/ui-preview/workspace.test.mjs
       - name: Real-browser E2E (C1–C5 of docs/acceptance-chrome.md)
         # Loads apps/extension-chromium unpacked into a real Chromium and asserts the
         # pre-execution gates against eval/acceptance-fixtures. Not part of release-gate
@@ -335,7 +449,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: 探测这台 runner 上有哪些后端
         # 先打印出来。一个静默跳过的安全测试和一个不存在的测试没有区别，所以要能在日志里
@@ -352,7 +469,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: 把 macOS 的 cfg 改写成 linux 再编
         # Linux 上 cargo check 会整块跳过 #[cfg(target_os = "macos")],所以那半边
@@ -394,7 +514,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master; toolchain pinned below
         with:
-          toolchain: stable
+          toolchain: ${{ env.AGENTGUARD_RUST_TOOLCHAIN }}
+      - name: 核对 PATH / cargo / rustc 使用仓库钉住的工具链
+        shell: bash
+        run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
       - name: 门禁 —— 自检结论必须和基线一致
         # 以前这里是 `cargo run ... preflight || true`,和 Makefile 里那个前缀减号
@@ -417,6 +540,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: 核对 Node.js 使用仓库 .nvmrc 钉住的主版本
+        run: make node-toolchain-check
       - name: Syntax-check every shell script and front-end module
         # No JS was checked by anything before. A syntax error in main.js produced a shell
         # whose buttons silently did nothing, and the Rust side would still be green.

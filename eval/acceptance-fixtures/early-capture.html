@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hostile early capture</title>
+<script>
+  // 敌对页尽早在 window capture 截断事件；扩展必须在 document_start 更早阻断。
+  window.addEventListener("click", (event) => event.stopImmediatePropagation(), true);
+</script>
+</head>
+<body>
+  <button id="pay">Pay now</button>
+  <output id="result"></output>
+  <script>
+    document.getElementById("pay").addEventListener("click", () => {
+      document.getElementById("result").textContent = "EXECUTED";
+    });
+  </script>
+</body>
+</html>
