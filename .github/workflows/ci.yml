@@ -180,6 +180,15 @@ jobs:
         working-directory: apps/desktop-windows/src-tauri
         run: |
           set -euo pipefail
+          # 使用 runner 预装的 x64 MSVC OpenSSL；不回退到明文审计或其他 ABI。
+          openssl_root="$(cygpath -u "${ProgramFiles:?}/OpenSSL")"
+          test -f "$openssl_root/include/openssl/crypto.h"
+          test -f "$openssl_root/lib/VC/x64/MD/libcrypto.lib"
+          test -f "$openssl_root/bin/libcrypto-3-x64.dll"
+          export OPENSSL_DIR="$(cygpath -m "$openssl_root")"
+          export OPENSSL_INCLUDE_DIR="$OPENSSL_DIR/include"
+          export OPENSSL_LIB_DIR="$OPENSSL_DIR/lib/VC/x64/MD"
+          export PATH="$openssl_root/bin:$PATH"
           log="$(mktemp)"
           trap 'rm -f "$log"' EXIT
           # 调试断言不能把 Release 变回开发模式，曾实测绕过加密与内置资源门禁。

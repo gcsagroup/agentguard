@@ -17,6 +17,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 - Replaced the stale webhook smoke input with runtime-generated temporary events. Real CLI cases cover acceptance, retries, stale/future timestamps, ordering, missing fields and refunds; the historical fixture and ten-minute replay window remain unchanged.
 - Signing CI now verifies that the default release path rejects a missing identity, then explicitly opts into ad-hoc signing for its temporary stand-in. Distribution signing, notarization and release gates remain unchanged.
 - Windows packaging assertions tolerate CRLF checkouts while still requiring DPAPI-backed production keys and rejecting plaintext signer fallback.
+- Windows encrypted-audit CI explicitly verifies and uses the runner's preinstalled x64 MSVC OpenSSL headers, library and runtime; missing dependencies fail instead of skipping SQLCipher tests.
 
 ### Cross-platform remediation source integration (2026-09-06)
 
