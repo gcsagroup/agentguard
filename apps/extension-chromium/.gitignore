@@ -1,0 +1,2 @@
+# Chromium may compile static DNR rules beside an unpacked extension during local/E2E loads.
+_metadata/

@@ -221,3 +221,9 @@ details.dev[open] > summary { margin-bottom: 0.75rem; }
 .chip.todo, .chip.off { background: #243044; color: #9fb2cb; }
 
 .muted.small { font-size: 0.8rem; }
+/* 原生 dialog 提供焦点约束和 Escape 取消；默认按钮为暂不处理。 */
+.recovery-dialog { background: #151d2a; color: #e6edf5; border: 1px solid #65758d; border-radius: 14px; padding: 1.4rem; max-width: min(540px, 90vw); }
+.recovery-dialog::backdrop { background: rgba(4, 8, 14, 0.78); }
+.recovery-dialog p { line-height: 1.6; }
+#audit-recovery-details { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+#audit-recovery-panel details { margin-top: 1rem; }

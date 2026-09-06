@@ -10,13 +10,16 @@ printf 'stale\n' >"$WORK/stale.txt"
 (
   cd "$WORK"
   zip -q "$WORK/chrome.zip" stale.txt
-  zip -q "$WORK/firefox.zip" stale.txt
 )
 
 "$ROOT/scripts/package-store.sh" "$WORK/chrome.zip" >/dev/null
-"$ROOT/scripts/package-store.sh" --firefox "$WORK/firefox.zip" >/dev/null
+if "$ROOT/scripts/package-store.sh" --firefox "$WORK/firefox.zip" >/dev/null 2>&1; then
+  echo "首个 GA 不得生成 Firefox 商店包" >&2
+  exit 1
+fi
+[[ ! -e "$WORK/firefox.zip" ]] || { echo "拒绝 Firefox 打包后仍产生了文件" >&2; exit 1; }
 
-for archive in "$WORK/chrome.zip" "$WORK/firefox.zip"; do
+for archive in "$WORK/chrome.zip"; do
   unzip -t "$archive" >/dev/null
   if unzip -Z1 "$archive" | grep -qx 'stale.txt'; then
     echo "旧 ZIP 条目仍在：$archive" >&2
@@ -24,8 +27,16 @@ for archive in "$WORK/chrome.zip" "$WORK/firefox.zip"; do
   fi
   cmp "$ROOT/background.js" <(unzip -p "$archive" background.js)
   cmp "$ROOT/content.js" <(unzip -p "$archive" content.js)
+  cmp "$ROOT/rules/payment-shape-block.json" <(unzip -p "$archive" rules/payment-shape-block.json)
+  if unzip -Z1 "$archive" | grep -qx 'guard-page.js'; then
+    echo "包中不应再含公开 MAIN-world 判决脚本" >&2
+    exit 1
+  fi
 done
 
 cmp "$ROOT/manifest.json" <(unzip -p "$WORK/chrome.zip" manifest.json)
-cmp "$ROOT/manifest.firefox.json" <(unzip -p "$WORK/firefox.zip" manifest.json)
-echo "package-store: 全新 ZIP 替换与目标 manifest 检查通过"
+if unzip -p "$WORK/chrome.zip" manifest.json | grep -q 'nativeMessaging'; then
+  echo "GA 包不得包含 nativeMessaging 权限" >&2
+  exit 1
+fi
+echo "package-store: Chrome/Edge 全新 ZIP、GA manifest 与 Firefox 排除门禁通过"

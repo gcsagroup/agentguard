@@ -70,20 +70,14 @@ test("guard-schema events.rs 里的每个规则 ID 在词典里都有三语人�
   }
 });
 
-test("guard-gate 会执行前阻断的每个 kind,词典都有确认层文案(标题/正文/两种后果)", () => {
+test("guard-gate 会执行前阻断的每个 kind,词典都有只阻断提示文案", () => {
   for (const kind of Object.keys(S.KINDS)) {
     const d = Gate.gateForFinding(kind);
     if (!d.block) continue;
     for (const locale of LOCALES) {
       const g = S.gateText(kind, locale);
-      assert(g && g.title && g.body && g.allow && g.cancel, `门 "${kind}" 缺 ${locale} 确认文案`);
-    }
-  }
-  // fetch 门与越界门不来自 finding kind,单独点名。
-  for (const kind of ["payment_request", "out_of_scope_host", "no_egress"]) {
-    for (const locale of LOCALES) {
-      const g = S.gateText(kind, locale);
-      assert(g && g.title && g.body && g.allow && g.cancel, `门 "${kind}" 缺 ${locale} 确认文案`);
+      assert(g && g.title && g.body && g.blocked && g.close, `门 "${kind}" 缺 ${locale} 阻断文案`);
+      assert(!("allow" in g), `门 "${kind}" 的 ${locale} 文案不得暴露页面内放行`);
     }
   }
 });
@@ -108,12 +102,6 @@ test("词典每张表三语齐全,中文词条真的是中文(不许英文残留
       `UI.${locale} 的键和 en 不一致`
     );
   }
-});
-
-test("gateText 的 {host} 占位真的被替换", () => {
-  const g = S.gateText("out_of_scope_host", "zh_CN", { host: "tracker.example" });
-  assert(g.body.includes("tracker.example"), `body 没替换 host:${g.body}`);
-  assert(!g.body.includes("{host}"), "body 还残留 {host} 占位");
 });
 
 test("pickLocale:覆盖优先,否则按浏览器语言归一,兜底 en", () => {

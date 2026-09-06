@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="accessibility_service_description">在 AgentGuard 会话期间观察界面节点，并将检测结果序列化为 JSON。</string>
+    <string name="accessibility_service_description">仅在守护会话期间检查屏幕操作风险。服务可读取界面文字（包括敏感输入），并在本机保存已脱敏的检测结果。</string>
     <string name="notification_channel_name">AgentGuard 会话</string>
     <string name="notification_title">AgentGuard 会话运行中</string>
-    <string name="notification_text">正在监控辅助功能事件</string>
+    <string name="notification_text">正在检查屏幕操作风险</string>
     <string name="app_title">AgentGuard 移动伴侣</string>
-    <string name="session_active">会话：%1$s</string>
-    <string name="session_inactive">没有活动会话</string>
-    <string name="events_path">事件：%1$s</string>
     <string name="start_session">开始守护会话</string>
     <string name="stop_session">停止守护会话</string>
     <string name="refresh_risk">刷新最近风险</string>
@@ -19,8 +16,8 @@
     <!-- 两个双短横是 CLI 参数(bind / allow-lan 前缀)本身,不是排版破折号:换成 — 复制粘贴就坏了。 -->
     <string name="relay_help" tools:ignore="TypographyDashes">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
     <string name="last_risk_none">最近风险：无</string>
-    <string name="last_risk">最近风险：%1$s — %2$s</string>
-    <string name="last_risk_raw">最近风险：%1$s</string>
+    <string name="last_risk">最近风险：%1$s</string>
+    <string name="last_risk_unavailable">最近风险详情暂不可用</string>
     <string name="language_system">语言：跟随系统</string>
     <string name="language_en">语言：English</string>
     <string name="language_zh_hans">语言：简体中文</string>
@@ -29,14 +26,28 @@
     <string name="risk_optional_pii">已填写非必要个人信息：%1$s</string>
     <string name="risk_payment">检测到支付确认</string>
     <string name="risk_transfer">检测到资金转账</string>
+    <string name="risk_permanent_delete">检测到永久删除</string>
+    <string name="risk_broad_send">检测到群发或公开发送</string>
+    <string name="risk_install">检测到软件安装</string>
     <string name="risk_trap_widget">检测到隐私陷阱控件</string>
     <string name="risk_overlay">检测到浮层或提示词注入标记</string>
+    <string name="risk_prompt_injection">检测到提示词注入</string>
+    <string name="risk_observation_incomplete">窗口观察超过安全上限；保护已停止</string>
     <string name="risk_engine_confirm">守护引擎要求确认此操作</string>
-    <string name="task_profile_label">任务名（留空 = 不限定范围）</string>
+    <string name="task_profile_label">要守护的任务（可选）</string>
+    <string name="task_profile_help">请简要描述任务，例如“支付账单”；留空则使用通用守护。</string>
     <string name="guard_stopped">未在守护——没有会话</string>
-    <string name="guard_permission_required">会话已开始，但无障碍服务没有连上——什么都没被观察。请打开无障碍设置。</string>
+    <string name="guard_permission_required">辅助功能服务未连接，守护已停止。请先授权，再重新开始会话。</string>
     <string name="guard_degraded">守护不完整：%1$s</string>
     <string name="guard_active">守护中</string>
+    <string name="reason_no_session">没有活动会话</string>
+    <string name="reason_accessibility_not_bound">辅助功能服务未连接</string>
+    <string name="reason_relay_error">桌面中继错误</string>
+    <string name="reason_relay_never_connected">桌面中继尚未连接</string>
+    <string name="reason_relay_stale">桌面中继状态已过期</string>
+    <string name="reason_notifications_denied">通知权限被拒绝</string>
+    <string name="show_developer_settings">显示开发者设置</string>
+    <string name="hide_developer_settings">隐藏开发者设置</string>
     <string name="relay_state_disabled">桌面中继关闭——判决只留在这台手机上</string>
     <string name="relay_state_connecting">桌面中继已开，还没连上过引擎</string>
     <string name="relay_state_connected">桌面中继已连接（上次成功 %1$s）</string>
@@ -44,17 +55,21 @@
     <string name="token_saved">令牌已保存（加密存放，不回显）</string>
     <string name="save">保存</string>
     <string name="token_missing">还没有保存令牌</string>
-    <string name="clear_events">删除本地事件记录（%1$s）</string>
+    <string name="clear_events">删除全部本地事件记录（%1$s）</string>
+    <string name="local_events_note">事件记录只保存在本机；删除记录不会改变守护设置。</string>
+    <string name="clear_events_title">删除全部本地事件记录？</string>
+    <string name="clear_events_message">此操作会永久删除这台手机上保存的风险历史。</string>
+    <string name="clear_events_confirm">删除</string>
+    <string name="cancel">取消</string>
     <plurals name="events_cleared">
         <item quantity="other">已删除 %1$d 个文件</item>
     </plurals>
-    <string name="notif_permission_rationale">需要确认时是靠通知找到你的。不给通知权限，被拦下的操作只会写进日志。</string>
+    <string name="notif_permission_rationale">风险结果依靠通知及时提醒。不给通知权限时，检测结果只会保存在本机，无法及时提醒；Android 观察不会撤销已经发生的操作。</string>
     <string name="risk_deeplink">检测到可疑深层链接</string>
     <string name="risk_broadcast_input_sink">另一个应用（%1$s）正在监听智能体的文本输入广播 — 键入的所有内容都可被读取</string>
     <string name="risk_foreign_a11y">另一个无障碍服务（%1$s）已启用，可读取键入文本（含密码）</string>
-    <string name="env_clean">环境：没有可见应用监听输入广播，也没有其他无障碍服务被启用</string>
-    <string name="env_risk">环境风险：%1$s</string>
-    <string name="env_unknown">环境检查不可用（%1$s）</string>
+    <string name="env_risk">检测到设备隐私风险。其他应用可能读取文本或本地日志；请先检查辅助功能设置和已安装应用再继续。</string>
+    <string name="env_unknown">设备隐私检查未能完成，因此无法确认当前环境安全。</string>
     <string name="show_adapter_key">显示适配器公钥</string>
     <string name="adapter_key_help">把它填到 policies/adapter-registry.yaml 里 adapter_id: android-companion 那张卡上,并写 key_algorithm: ecdsa-p256。不填的话桌面会把这个伴生应用的调查当成未签名:可以增加风险,但清不掉风险。</string>
 </resources>

@@ -22,6 +22,7 @@ object ProtectionState {
         RELAY_ERROR,
         RELAY_NEVER_CONNECTED,
         RELAY_STALE,
+        NOTIFICATIONS_DENIED,
     }
 
     data class Derived(val guard: Guard, val relay: Relay, val reasons: List<Reason>)
@@ -44,6 +45,7 @@ object ProtectionState {
         relayLastOkMs: Long,
         relayLastErrorMs: Long,
         nowMs: Long,
+        notificationsGranted: Boolean = true,
     ): Derived {
         val reasons = ArrayList<Reason>()
 
@@ -68,6 +70,9 @@ object ProtectionState {
             }
             !accessibilityBound -> {
                 reasons.add(0, Reason.ACCESSIBILITY_NOT_BOUND); Guard.PERMISSION_REQUIRED
+            }
+            !notificationsGranted -> {
+                reasons.add(0, Reason.NOTIFICATIONS_DENIED); Guard.DEGRADED
             }
             relayEnabled && relay != Relay.CONNECTED -> Guard.DEGRADED
             else -> Guard.ACTIVE

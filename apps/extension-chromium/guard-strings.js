@@ -87,15 +87,15 @@
     payment_cta: {
       en: {
         title: "A payment button is on this page",
-        detail: "A button here confirms a payment or transfer. AgentGuard asks before it is clicked.",
+        detail: "A recognized payment or transfer action is blocked. This page cannot authorize it.",
       },
       zh_CN: {
         title: "页面上有付款/转账按钮",
-        detail: "这个页面上有会确认付款或转账的按钮。点它之前 AgentGuard 会先问你。",
+        detail: "已识别的付款或转账动作会被阻断，这个网页不能授权放行。",
       },
       zh_TW: {
         title: "頁面上有付款/轉帳按鈕",
-        detail: "這個頁面上有會確認付款或轉帳的按鈕。點它之前 AgentGuard 會先問你。",
+        detail: "已識別的付款或轉帳動作會被阻擋，這個網頁不能授權放行。",
       },
     },
     outbound_request: {
@@ -116,9 +116,9 @@
     /* popup 的「最近」列表里,执行前拦截自己也是一条记录(background 记为 kind:"prevented",
      * 真实种类在 prevented_kind 里)。这里给"拦截了一次动作"这个事件本身一个人话名。 */
     prevented: {
-      en: { title: "Blocked before it happened", detail: "AgentGuard stopped an action and asked first." },
-      zh_CN: { title: "在发生前拦下了一次动作", detail: "AgentGuard 拦住了这一步,先问过你才放行。" },
-      zh_TW: { title: "在發生前攔下了一次動作", detail: "AgentGuard 攔住了這一步,先問過你才放行。" },
+      en: { title: "Blocked before it happened", detail: "AgentGuard stopped the action; this page cannot release it." },
+      zh_CN: { title: "在发生前拦下了一次动作", detail: "AgentGuard 已阻断这一步，这个网页不能放行。" },
+      zh_TW: { title: "在發生前攔下了一次動作", detail: "AgentGuard 已阻擋這一步，這個網頁不能放行。" },
     },
   };
 
@@ -173,109 +173,48 @@
   };
 
   /* ------------------------------------------------------------------
-   * 执行前确认层。key 是门的种类:DOM 门用 finding kind(payment_cta / privacy_trap),
-   * fetch 门用 payment_request,越界门用 out_of_scope_host / no_egress。
-   * body 可以带 {host} 占位;allow / cancel 是两个按钮各自的后果说明。
+   * 执行前阻断提示。key 是 isolated DOM 门的 finding kind(payment_cta / privacy_trap)。
+   * 页面内提示只解释结果，不承担授权；付款形状网络请求由静态 DNR 硬拦。
    * ------------------------------------------------------------------ */
   const GATES = {
     payment_cta: {
       en: {
         title: "About to confirm a payment",
         body: "This click confirms a payment or money transfer.",
-        allow: "Allow once: the payment goes ahead.",
-        cancel: "Not now: nothing happens, you stay on this page.",
+        blocked: "Blocked: this page cannot continue the payment.",
+        close: "Close this notice; the payment remains blocked.",
       },
       zh_CN: {
         title: "这一步要付款了",
         body: "这次点击会确认一笔付款或转账。",
-        allow: "允许这一次:付款会继续进行。",
-        cancel: "先不要:什么都不会发生,页面保持原样。",
+        blocked: "已阻断：这个网页不能继续付款。",
+        close: "关闭提示后，付款仍保持阻断。",
       },
       zh_TW: {
         title: "這一步要付款了",
         body: "這次點擊會確認一筆付款或轉帳。",
-        allow: "允許這一次:付款會繼續進行。",
-        cancel: "先不要:什麼都不會發生,頁面保持原樣。",
+        blocked: "已阻擋：這個網頁不能繼續付款。",
+        close: "關閉提示後，付款仍維持阻擋。",
       },
     },
     privacy_trap: {
       en: {
         title: "About to send personal info",
         body: "This form is nudging you (“VIP express”…) to submit personal details this task doesn't need.",
-        allow: "Allow once: the info is submitted to the site.",
-        cancel: "Not now: nothing is sent.",
+        blocked: "Blocked: this page cannot submit the personal info.",
+        close: "Close this notice; nothing is sent.",
       },
       zh_CN: {
         title: "要把个人信息交出去了",
         body: "这个表单在用诱导话术让你提交这次任务并不需要的个人信息(比如手机号)。",
-        allow: "允许这一次:这些信息会被提交给网站。",
-        cancel: "先不要:什么都不会发出去。",
+        blocked: "已阻断：这个网页不能提交这些个人信息。",
+        close: "关闭提示后，信息仍不会发出。",
       },
       zh_TW: {
         title: "要把個人資料交出去了",
         body: "這個表單在用誘導話術讓你提交這次任務並不需要的個人資料(例如手機號)。",
-        allow: "允許這一次:這些資料會被提交給網站。",
-        cancel: "先不要:什麼都不會發出去。",
-      },
-    },
-    payment_request: {
-      en: {
-        title: "Page wants to send a payment request",
-        body: "A script on this page is trying to send a payment-shaped request in the background.",
-        allow: "Allow once: the request is sent.",
-        cancel: "Not now: the request never leaves your browser.",
-      },
-      zh_CN: {
-        title: "网页想直接发起一笔付款",
-        body: "页面脚本正试图在后台直接发送一笔付款形状的请求。",
-        allow: "允许这一次:这个请求会被发出。",
-        cancel: "先不要:请求不会离开你的浏览器。",
-      },
-      zh_TW: {
-        title: "網頁想直接發起一筆付款",
-        body: "頁面腳本正試圖在背景直接發送一筆付款形狀的請求。",
-        allow: "允許這一次:這個請求會被發出。",
-        cancel: "先不要:請求不會離開你的瀏覽器。",
-      },
-    },
-    out_of_scope_host: {
-      en: {
-        title: "Visiting a site outside this task",
-        body: "The current task declared which sites it needs. {host} isn't one of them.",
-        allow: "Allow once: this one request goes through.",
-        cancel: "Not now: the request is not sent.",
-      },
-      zh_CN: {
-        title: "要访问任务之外的网站",
-        body: "当前任务声明过它需要访问哪些网站,{host} 不在清单里。",
-        allow: "允许这一次:只放行这一个请求。",
-        cancel: "先不要:这个请求不会被发出。",
-      },
-      zh_TW: {
-        title: "要造訪任務之外的網站",
-        body: "目前任務聲明過它需要造訪哪些網站,{host} 不在清單裡。",
-        allow: "允許這一次:只放行這一個請求。",
-        cancel: "先不要:這個請求不會被發出。",
-      },
-    },
-    no_egress: {
-      en: {
-        title: "This task promised not to touch the network",
-        body: "The current task was declared offline, but the page is trying to send a request.",
-        allow: "Allow once: this one request goes through.",
-        cancel: "Not now: the request is not sent.",
-      },
-      zh_CN: {
-        title: "这个任务说好不联网的",
-        body: "当前任务被声明为不出网,但页面正试图发送一个请求。",
-        allow: "允许这一次:只放行这一个请求。",
-        cancel: "先不要:这个请求不会被发出。",
-      },
-      zh_TW: {
-        title: "這個任務說好不連網的",
-        body: "目前任務被聲明為不出網,但頁面正試圖發送一個請求。",
-        allow: "允許這一次:只放行這一個請求。",
-        cancel: "先不要:這個請求不會被發出。",
+        blocked: "已阻擋：這個網頁不能提交這些個人資料。",
+        close: "關閉提示後，資料仍不會送出。",
       },
     },
   };
@@ -286,8 +225,7 @@
       brand: "AgentGuard paused this step",
       why: "Why was this blocked?",
       whyTech: "Technical id",
-      allow: "Allow once",
-      cancel: "Not now",
+      close: "Close",
       justNow: "just now",
       minutesAgo: "{n} min ago",
       hoursAgo: "{n} h ago",
@@ -300,8 +238,7 @@
       brand: "AgentGuard 拦下了这一步",
       why: "为什么拦住我?",
       whyTech: "技术标识",
-      allow: "允许这一次",
-      cancel: "先不要",
+      close: "关闭",
       justNow: "刚刚",
       minutesAgo: "{n} 分钟前",
       hoursAgo: "{n} 小时前",
@@ -314,8 +251,7 @@
       brand: "AgentGuard 攔下了這一步",
       why: "為什麼攔住我?",
       whyTech: "技術標識",
-      allow: "允許這一次",
-      cancel: "先不要",
+      close: "關閉",
       justNow: "剛剛",
       minutesAgo: "{n} 分鐘前",
       hoursAgo: "{n} 小時前",
@@ -359,15 +295,15 @@
     return entry[locale] || entry.en;
   }
 
-  /** 执行前门 → {title, body, allow, cancel},body 已做 {host} 替换;不认识的返回 null。 */
+  /** 执行前阻断提示 → {title, body, blocked, close};不认识的返回 null。 */
   function gateText(kind, locale, vars) {
     const entry = GATES[kind];
     if (!entry) return null;
     const g = entry[locale] || entry.en;
-    return { title: g.title, body: sub(g.body, vars), allow: g.allow, cancel: g.cancel };
+    return { title: g.title, body: sub(g.body, vars), blocked: g.blocked, close: g.close };
   }
 
-  /** 通用界面词表(brand / why / allow / cancel / 相对时间模板)。 */
+  /** 通用界面词表(brand / why / close / 相对时间模板)。 */
   function ui(locale) {
     return UI[locale] || UI.en;
   }

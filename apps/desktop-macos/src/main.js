@@ -1,4 +1,6 @@
 import { currentLocale, initializeI18n, t } from "./i18n.js";
+import { initializeWorkspace, renderWorkspace, renderRecent, permissionFeedback, showFeedback, sourceLabel } from "./workspace.js";
+import { uiText } from "./workspace-i18n.js";
 
 const { invoke } = window.__TAURI__.core;
 
@@ -10,6 +12,38 @@ const modal = () => document.getElementById("confirm-modal");
 const tccPanel = () => document.getElementById("tcc-panel");
 
 let lastStatus = null;
+let statusRefreshPending = null;
+let statusUnavailable = false;
+let recoveryRequestRunning = false;
+
+function legacyAuditAvailable(st) {
+  return !st.audit_ready && (st.audit_legacy_available || /AUDIT_LEGACY_PLAINTEXT|legacy plaintext audit database/i.test(st.audit_error || ""));
+}
+
+function auditSummary(st) {
+  const error = st.audit_error || "";
+  if (st.audit_recovery_running || recoveryRequestRunning) return t("recovery.working");
+  if (st.audit_bootstrap_state === "pending") return t("recovery.initializing");
+  if (/AUDIT_SOURCE_BUSY/.test(error)) return t("recovery.busy");
+  if (/AUDIT_LEGACY_CHANGED/.test(error)) return t("recovery.changed");
+  if (/AUDIT_KEY_OR_DATABASE_INVALID|file is not a database/i.test(error)) return t("recovery.invalidKey");
+  if (/keychain/i.test(error)) return t("recovery.keychain");
+  if (legacyAuditAvailable(st)) return t("recovery.legacy");
+  return t("recovery.failed");
+}
+
+function renderAuditRecovery(st) {
+  const panel = document.getElementById("audit-recovery-panel");
+  if (!panel) return;
+  panel.hidden = !!st.audit_ready;
+  document.getElementById("audit-recovery-message").textContent = auditSummary(st);
+  document.getElementById("audit-recovery-details").textContent = `${st.audit_data_path || ""}\n${st.audit_error || ""}`;
+  const working = !!(st.audit_operation_running || recoveryRequestRunning);
+  const migrate = document.getElementById("btn-audit-migrate");
+  migrate.hidden = !legacyAuditAvailable(st);
+  migrate.disabled = working;
+  document.getElementById("btn-audit-retry").disabled = working;
+}
 
 function actionClass(action) {
   const a = (action || "").toLowerCase();
@@ -140,9 +174,13 @@ async function refreshCoverage(st, tcc) {
   const lines = document.getElementById("coverage-lines");
   if (!banner || !title || !lines) return;
   const mode = (st && st.protection_mode) || (tcc && tcc.protection_mode) || "sim";
-  banner.className = `card coverage ${mode}`;
+  // 权限刷新只带 TCC 结果，不能覆盖最近一次审计失败或观察器状态。
+  const status = st || lastStatus;
+  const auditUnavailable = status && !status.audit_ready;
+  const appearance = auditUnavailable ? "partial" : status?.protection_state === "active" ? mode : "idle";
+  banner.className = `card coverage ${appearance}`;
   title.textContent = t(
-    mode === "full" ? "coverage.full" : mode === "partial" ? "coverage.partial" : "coverage.sim",
+    auditUnavailable ? "coverage.auditUnavailable" : mode === "full" ? "coverage.full" : mode === "partial" ? "coverage.partial" : "coverage.sim",
   );
   lines.replaceChildren();
   const source = st || tcc || {};
@@ -194,7 +232,9 @@ function renderStateReasons(st) {
   const box = document.getElementById("state-why");
   if (!box) return;
   box.replaceChildren();
-  const reasons = st.state_reasons || [];
+  const reasons = !st.audit_ready
+    ? ["audit_disabled", ...(st.state_reasons || []).filter((code) => code !== "no_session" && code !== "audit_disabled")]
+    : st.state_reasons || [];
   if (reasons.length === 0) {
     box.hidden = true;
     return;
@@ -204,7 +244,7 @@ function renderStateReasons(st) {
     // 原因文本里的 {detail} 是操作系统/数据库的错误原文,可能含被观察窗口的标题 —— 走 textContent。
     const li = document.createElement("li");
     li.textContent = t(`reason.${code}`, {
-      detail: code === "observer_error" ? st.observer_error : st.audit_error,
+      detail: code === "observer_error" ? st.observer_error : auditSummary(st),
       age: Math.round((st.heartbeat_age_ms || 0) / 1000),
     });
     box.appendChild(li);
@@ -219,7 +259,9 @@ function renderWatching(st) {
   const el = document.getElementById("watching");
   if (!el) return;
   const suffix = ` ${t("watching.rules", { rules: st.rules_loaded, intel: st.intel_version })}`;
-  if (!st.session_active) {
+  if (!st.audit_ready) {
+    el.textContent = t("watching.auditUnavailable", { detail: auditSummary(st) }) + suffix;
+  } else if (!st.session_active) {
     el.textContent = t("watching.none") + suffix;
   } else {
     const ax = !!st.ax_auto_poll;
@@ -232,6 +274,11 @@ function renderWatching(st) {
     "chip-perm",
     st.accessibility && st.screen_capture ? "done" : st.accessibility || st.screen_capture ? "partial" : "todo",
   );
+  const start = document.getElementById("btn-start");
+  if (start) {
+    start.disabled = !st.audit_ready;
+    start.title = st.audit_ready ? "" : auditSummary(st);
+  }
 }
 
 /** 步骤徽章:done / partial / todo / on / off。文案走词典,颜色走 class。 */
@@ -250,9 +297,25 @@ function policyLine(p) {
   return t("policy.notEnforced", { id: p.policy_id, ver: p.version, why: p.last_error || "" });
 }
 
-async function refreshStatus() {
+function refreshStatus() {
+  // 合并同时发生的事件/轮询，避免旧响应把较新的权限结果覆盖。
+  if (!statusRefreshPending) {
+    statusRefreshPending = loadStatus().finally(() => { statusRefreshPending = null; });
+  }
+  return statusRefreshPending;
+}
+
+async function loadStatus() {
   const st = await invoke("get_status");
   lastStatus = st;
+  const identity = document.getElementById("build-identity");
+  if (identity && st.build_version) {
+    const builtAt = new Date(Number(st.build_time) * 1000).toLocaleString();
+    identity.textContent = t(st.build_profile ? "build.acceptance" : "build.production", {
+      version: st.build_version, revision: st.build_revision, time: builtAt, profile: st.build_profile || "", path: st.audit_data_path || "",
+    });
+  }
+  renderAuditRecovery(st);
   const state = st.protection_state || "stopped";
   pill().textContent = t(`state.${state}`);
   pill().className = `pill ${PILL_CLASS[state] || "idle"}`;
@@ -273,9 +336,11 @@ async function refreshStatus() {
   caps().textContent =
     `${t("status.rules")} ${st.rules_loaded} · intel ${st.intel_version} · AX=${st.accessibility} · Capture=${st.screen_capture} · ${sckPart}${sckMsg}${axMsg}${folded}${pendingN}${timedOut}${orphaned} · ${policyLine(st.policy)}`;
   renderWatching(st);
+  renderWorkspace(st);
   const tcc = await invoke("get_tcc_status");
   await refreshCoverage(st, tcc);
   await maybeShowConfirm();
+  if (statusUnavailable) { statusUnavailable = false; showFeedback(""); }
 }
 
 // 审计行用 DOM 拼,不用字符串拼。
@@ -312,13 +377,17 @@ function auditRow(r) {
 
   const head = document.createElement("div");
   const strong = document.createElement("strong");
-  // E18:第一眼是人话动作词(已拦截/提醒/放行/记录),不是引擎枚举;
+  // E18:第一眼是人话效果词(检测到风险/提醒/无需干预/记录),不是引擎枚举。
+  // 桌面端拿到的是已经呈现在 AX/SCK 里的状态,因此后端的策略动作 `Block`
+  // 只能显示为风险判决,不能冒充已经阻止了外部应用的动作。
   // rule_id 挪到下面的 meta 行(和 popup 的"技术标识收进详情"同一原则)。
   strong.textContent = t(`action.${actionClass(r.action)}`);
   head.appendChild(strong);
 
   const msg = document.createElement("div");
-  msg.textContent = r.human_message ?? "";
+  const rawMessage = r.human_message ?? "";
+  const summaryOnly = /^rule=\S+ action=\S+ severity=\S+ detail_omitted=true$/.test(rawMessage);
+  msg.textContent = summaryOnly ? uiText("summaryOnly") : rawMessage;
 
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -326,7 +395,7 @@ function auditRow(r) {
   // 枚举的 Debug 名,`user=deny` 是键值对,两样都是给开发者看的。规则 ID 与来源应用留下(那是
   // "为什么拦我"的溯源,用户会需要);事件种类是纯诊断,收进开发者面板的原始日志;
   // 用户当时的选择改成人话。审计库里存的原样不动 —— 变的是显示,不是记录。
-  const bits = [r.rule_id, r.source_app].filter((x) => !!x);
+  const bits = [r.rule_id, sourceLabel(r.source_app)].filter((x) => !!x);
   if (r.user_decision) {
     // 只认这三个已知值(guard_audit::UserDecision);认不出的宁可不显示,也不把原始值怼给用户
     // ——白名单而不是 t(`...${值}`),因为 t() 缺词条时会把 key 名渲染到界面上。
@@ -336,27 +405,82 @@ function auditRow(r) {
   meta.textContent = bits.join(" · ");
 
   el.append(head, msg, meta);
+  if (summaryOnly || sourceLabel(r.source_app) !== (r.source_app || "")) {
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = uiText("technicalDetails");
+    const raw = document.createElement("pre");
+    raw.textContent = `${r.source_app || ""}\n${rawMessage}`;
+    details.append(summary, raw);
+    el.append(details);
+  }
   return el;
 }
 
-async function refreshAudit() {
-  const rows = await invoke("list_audit", { limit: 40 });
-  timeline().replaceChildren();
-  for (const r of rows) {
-    timeline().appendChild(auditRow(r));
+let auditRows = [];
+let auditReadFailed = false;
+function renderAuditRows() {
+  const source = document.getElementById("activity-source");
+  const selected = source.value;
+  source.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = uiText("allSources");
+  source.append(all);
+  const sources = [...new Set(auditRows.map((row) => row.source_app).filter(Boolean))].sort();
+  for (const name of sources) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = sourceLabel(name);
+    source.append(option);
   }
+  source.value = sources.includes(selected) ? selected : "";
+  const filtered = auditRows.filter((row) => !source.value || row.source_app === source.value);
+  timeline().replaceChildren();
+  for (const row of filtered) timeline().append(auditRow(row));
+  if (!filtered.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = uiText(auditReadFailed || lastStatus && !lastStatus.audit_ready ? "recordsUnavailable" : "emptyActivity");
+    timeline().append(empty);
+  }
+}
+
+async function refreshAudit() {
+  if (lastStatus && !lastStatus.audit_ready) {
+    auditRows = [];
+    renderAuditRows();
+    renderRecent([]);
+    return;
+  }
+  let rows;
+  try {
+    rows = await invoke("list_audit", { limit: 40 });
+    auditReadFailed = false;
+  } catch {
+    auditReadFailed = true;
+    auditRows = [];
+    renderAuditRows();
+    renderRecent([], true);
+    return;
+  }
+  auditRows = rows;
+  renderAuditRows();
+  renderRecent(rows);
 }
 
 function pushDecisions(list) {
   for (const d of list || []) {
     const li = document.createElement("li");
-    li.textContent = `${d.action} [${d.rule_id}] ${d.human_message}`;
+    li.textContent = `${t(`action.${actionClass(d.action)}`)} [${d.rule_id}] ${d.human_message}`;
     decisions().prepend(li);
   }
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
   initializeI18n();
+  initializeWorkspace(invoke);
+  document.getElementById("activity-source").onchange = renderAuditRows;
   await invoke("set_tray_locale", { locale: currentLocale() });
   window.addEventListener("agentguard-locale-change", async () => {
     await invoke("set_tray_locale", { locale: currentLocale() });
@@ -364,6 +488,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     await refreshTcc();
   });
   document.getElementById("btn-tcc").onclick = async () => {
+    const button = document.getElementById("btn-tcc");
+    button.disabled = true;
+    showFeedback(uiText("checking"));
+    try {
     await invoke("acknowledge_tcc");
     const caps = await invoke("probe_permissions");
     pushDecisions([{
@@ -371,8 +499,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       rule_id: "TCC-PROBE",
       human_message: `AX=${caps.accessibility} Capture=${caps.screen_capture}`,
     }]);
-    await refreshTcc();
+    const tcc = await refreshTcc();
     await refreshStatus();
+    permissionFeedback(tcc);
+    } catch (_) { showFeedback(uiText("actionFailed"), true); }
+    finally { button.disabled = false; }
   };
 
   // 「打开系统设置」:直接跳到该点的那一页,而不是让用户按着一行四层路径自己找。
@@ -385,6 +516,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       } catch (err) {
         // 打不开(非 macOS / 系统拒绝)不是静默失败:界面上说出来,用户还能照文字路径自己走。
         pushDecisions([{ action: "LogOnly", rule_id: "TCC-OPEN", human_message: String(err) }]);
+        showFeedback(uiText("actionFailed"), true);
       }
     };
   }
@@ -417,13 +549,18 @@ window.addEventListener("DOMContentLoaded", async () => {
     // An empty selection sends `null`, which opens an unscoped session — the pre-existing
     // behaviour. A named profile selects its plan and its Aura §4.4 resource ceiling.
     const profile = document.getElementById("task-profile")?.value || null;
-    const sid = await invoke("start_guard_session", {
-      taskProfile: profile,
-      taskApps: null,
-    });
-    pushDecisions([{ action: "LogOnly", rule_id: "SESSION-START", human_message: `session ${sid}` }]);
-    await refreshStatus();
-    await refreshAudit();
+    try {
+      const sid = await invoke("start_guard_session", {
+        taskProfile: profile,
+        taskApps: null,
+      });
+      pushDecisions([{ action: "LogOnly", rule_id: "SESSION-START", human_message: `session ${sid}` }]);
+      await refreshStatus();
+      await refreshAudit();
+    } catch (err) {
+      pushDecisions([{ action: "Alert", rule_id: "AUDIT-STARTUP", human_message: String(err) }]);
+      await refreshStatus();
+    }
   };
 
   document.getElementById("btn-end").onclick = async () => {
@@ -570,6 +707,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       pushDecisions([{ action: "Alert", rule_id: "AX-POLL", human_message: String(err) }]);
       await refreshStatus();
     });
+    await listen("audit-bootstrap-changed", async () => {
+      await refreshStatus();
+      await refreshAudit();
+    });
   } catch (_) {
     /* event API unavailable in non-tauri preview */
   }
@@ -580,9 +721,55 @@ window.addEventListener("DOMContentLoaded", async () => {
     await refreshTcc();
   };
 
+  const recoveryDialog = document.getElementById("audit-recovery-dialog");
+  document.getElementById("btn-audit-migrate").onclick = () => {
+    if (!recoveryRequestRunning && lastStatus && legacyAuditAvailable(lastStatus)) recoveryDialog.showModal();
+  };
+  document.getElementById("audit-migrate-cancel").onclick = () => recoveryDialog.close();
+  document.getElementById("audit-migrate-confirm").onclick = async () => {
+    if (recoveryRequestRunning) return;
+    recoveryDialog.close();
+    recoveryRequestRunning = true;
+    renderAuditRecovery(lastStatus || {});
+    try {
+      const result = await invoke("recover_legacy_audit", { approved: true });
+      announce(t("recovery.success", { count: result.history_records }));
+    } catch (error) {
+      document.getElementById("audit-recovery-details").textContent = String(error);
+      announce(t("recovery.failed"));
+    } finally {
+      recoveryRequestRunning = false;
+      await refreshStatus();
+    }
+  };
+  document.getElementById("btn-audit-retry").onclick = async () => {
+    try { await invoke("retry_audit_initialization"); }
+    catch (error) { document.getElementById("audit-recovery-details").textContent = String(error); }
+    await refreshStatus();
+  };
+  // 从系统设置返回后主动核对；只做只读预检，不弹授权框、不修改系统权限。
+  const refreshVisibleStatus = () => {
+    if (!document.hidden) refreshStatus().catch(() => {
+      statusUnavailable = true;
+      showFeedback(uiText("statusFailed"), true);
+      pill().textContent = uiText("unavailable");
+      pill().className = "pill idle";
+      document.getElementById("desktop-state").textContent = uiText("unavailable");
+      document.getElementById("overview-title").textContent = uiText("checkTitle");
+      document.getElementById("overview-summary").textContent = uiText("statusFailed");
+      document.getElementById("btn-start").disabled = true;
+      document.getElementById("btn-resume").disabled = true;
+    });
+  };
+  window.addEventListener("focus", refreshVisibleStatus);
+  setInterval(refreshVisibleStatus, 3000);
+
   document.getElementById("btn-export-report").onclick = async () => {
+    try {
     const msg = await invoke("export_session_report", { limit: 500 });
     pushDecisions([{ action: "LogOnly", rule_id: "AUDIT-REPORT", human_message: msg }]);
+    showFeedback(msg);
+    } catch (_) { showFeedback(uiText("actionFailed"), true); }
   };
 
   document.getElementById("auto-approve").onchange = async (e) => {
@@ -596,6 +783,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   try {
     const sec = await invoke("security_status");
+    document.getElementById("btn-sync-policy").hidden = sec.release_build !== false;
     if (!sec.auto_approve_allowed) {
       const row = document.getElementById("auto-approve-row");
       if (row) row.style.display = "none";

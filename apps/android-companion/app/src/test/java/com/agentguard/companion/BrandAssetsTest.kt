@@ -49,13 +49,13 @@ class BrandAssetsTest {
         assertTrue(manifest.contains("android:icon=\"@mipmap/ic_launcher\""))
         assertTrue(manifest.contains("android:roundIcon=\"@mipmap/ic_launcher_round\""))
 
-        val foregroundService = read(
-            "app/src/main/java/com/agentguard/companion/GuardForegroundService.kt",
+        val sessionNotification = read(
+            "app/src/main/java/com/agentguard/companion/GuardSessionNotification.kt",
         )
         val accessibilityService = read(
             "app/src/main/java/com/agentguard/companion/GuardAccessibilityService.kt",
         )
-        listOf(foregroundService, accessibilityService).forEach { source ->
+        listOf(sessionNotification, accessibilityService).forEach { source ->
             assertTrue(source.contains("setSmallIcon(R.drawable.ic_stat_agentguard)"))
             assertFalse(source.contains("setSmallIcon(android.R.drawable"))
         }

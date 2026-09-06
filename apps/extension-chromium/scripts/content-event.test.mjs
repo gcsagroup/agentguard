@@ -1,9 +1,8 @@
 /**
  * content.js 的 click → submit 接线回归测试。
  *
- * 这里用一个最小 DOM 事件模型执行真实 content.js，而不是再做源码正则。它覆盖一个纯决策
- * 测试看不到的链路：付款 submit 按钮在「允许一次」后重放 click，浏览器随后同步触发 submit；
- * 整条动作只能确认一次，也不能把未消费的表单批准泄漏到下一次提交。
+ * 这里用一个最小 DOM 事件模型执行真实 content.js，而不是再做源码正则。它覆盖纯决策
+ * 测试看不到的链路：危险 click/submit 在 window capture 被阻断，页面提示没有任何放行回调。
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -28,6 +27,12 @@ function installHarness() {
   const listeners = new Map();
   const prompts = [];
 
+  function addListener(type, handler) {
+    const group = listeners.get(type) || [];
+    group.push(handler);
+    listeners.set(type, group);
+  }
+
   const document = {
     body: { innerText: "" },
     documentElement: {},
@@ -35,16 +40,12 @@ function installHarness() {
     querySelectorAll: () => [],
     querySelector: () => null,
     createTreeWalker: () => ({ nextNode: () => null }),
-    addEventListener(type, handler) {
-      const group = listeners.get(type) || [];
-      group.push(handler);
-      listeners.set(type, group);
-    },
+    addEventListener: addListener,
   };
 
   const window = {
     postMessage() {},
-    addEventListener() {},
+    addEventListener: addListener,
   };
   window.window = window;
 
@@ -69,9 +70,8 @@ function installHarness() {
     self: {
       AgentGuardGate: Gate,
       AgentGuardModal: {
-        askAllowOnce(spec, onAllow) {
+        showBlocked(spec) {
           prompts.push(spec);
-          onAllow();
         },
       },
     },
@@ -87,10 +87,11 @@ function installHarness() {
     }
   }
 
-  function event(target, submitter) {
+  function event(target, submitter, composedPath = null) {
     return {
       target,
       submitter,
+      composedPath: () => composedPath || [target],
       defaultPrevented: false,
       immediatePropagationStopped: false,
       preventDefault() { this.defaultPrevented = true; },
@@ -132,24 +133,47 @@ function installHarness() {
     return el;
   }
 
-  return { button, form, prompts, submit };
+  function dispatchClick(target, composedPath) {
+    const e = event(target, null, composedPath);
+    dispatch("click", e);
+    return e;
+  }
+
+  return { button, dispatchClick, form, prompts, submit };
 }
 
-test("付款按钮允许一次只产生一次确认并提交一次", () => {
+test("付款按钮每次都阻断且页面提示没有放行路径", () => {
   const h = installHarness();
-  h.button(true).click();
-  assert.equal(h.prompts.length, 1, "click 重放后的 submit 不应再次询问");
-  assert.equal(h.form.submitted, 1, "批准后应只提交一次");
+  const button = h.button(true);
+  button.click();
+  assert.equal(h.prompts.length, 1);
+  assert.equal(h.form.submitted, 0, "危险动作不得提交");
+  button.click();
+  assert.equal(h.prompts.length, 2, "关闭或篡改上次提示不能产生放行令牌");
+  assert.equal(h.form.submitted, 0);
 });
 
-test("没有发生提交的点击不会把表单批准泄漏到下一次提交", () => {
+test("危险表单提交也没有可泄漏的批准状态", () => {
   const h = installHarness();
   const button = h.button(false);
   button.click();
   assert.equal(h.prompts.length, 1);
   h.submit(button);
   assert.equal(h.prompts.length, 2, "未消费的表单令牌必须在 click 重放结束时清掉");
-  assert.equal(h.form.submitted, 1);
+  assert.equal(h.form.submitted, 0);
+});
+
+test("开放 Shadow DOM 的付款按钮按 composedPath 阻断", () => {
+  const h = installHarness();
+  const button = h.button(false);
+  const host = { innerText: "", value: "", closest: () => null };
+  const event = h.dispatchClick(host, [button, { closest: () => null }, host]);
+  assert.equal(event.defaultPrevented, true, "shadow host 的事件重定向不得隐藏内部付款按钮");
+  assert.equal(h.prompts.length, 1);
+});
+
+test("源码不包含动作重放或页面内 allow 回调", () => {
+  assert.doesNotMatch(source, /requestSubmit|gateApproved|replayApproved|onAllow|isTrusted/);
 });
 
 console.log(`\ncontent-event: ${passed} 条测试全部通过`);

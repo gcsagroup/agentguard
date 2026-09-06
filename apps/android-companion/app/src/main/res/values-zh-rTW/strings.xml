@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="accessibility_service_description">在 AgentGuard 工作階段期間觀察介面節點，並將偵測結果序列化為 JSON。</string>
+    <string name="accessibility_service_description">僅在守護工作階段期間檢查螢幕操作風險。服務可讀取介面文字（包括敏感輸入），並在本機儲存已去識別化的偵測結果。</string>
     <string name="notification_channel_name">AgentGuard 工作階段</string>
     <string name="notification_title">AgentGuard 工作階段執行中</string>
-    <string name="notification_text">正在監控輔助使用事件</string>
+    <string name="notification_text">正在檢查螢幕操作風險</string>
     <string name="app_title">AgentGuard 行動伴侶</string>
-    <string name="session_active">工作階段：%1$s</string>
-    <string name="session_inactive">沒有使用中的工作階段</string>
-    <string name="events_path">事件：%1$s</string>
     <string name="start_session">開始守護工作階段</string>
     <string name="stop_session">停止守護工作階段</string>
     <string name="refresh_risk">重新整理最近風險</string>
@@ -19,8 +16,8 @@
     <!-- 兩個雙短橫是 CLI 參數(bind / allow-lan 前綴)本身,不是排版破折號:換成 — 複製貼上就壞了。 -->
     <string name="relay_help" tools:ignore="TypographyDashes">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
     <string name="last_risk_none">最近風險：無</string>
-    <string name="last_risk">最近風險：%1$s — %2$s</string>
-    <string name="last_risk_raw">最近風險：%1$s</string>
+    <string name="last_risk">最近風險：%1$s</string>
+    <string name="last_risk_unavailable">最近風險詳細資料暫時無法使用</string>
     <string name="language_system">語言：跟隨系統</string>
     <string name="language_en">語言：English</string>
     <string name="language_zh_hans">語言：简体中文</string>
@@ -29,14 +26,28 @@
     <string name="risk_optional_pii">已填寫非必要個資：%1$s</string>
     <string name="risk_payment">偵測到付款確認</string>
     <string name="risk_transfer">偵測到資金轉帳</string>
+    <string name="risk_permanent_delete">偵測到永久刪除</string>
+    <string name="risk_broad_send">偵測到群發或公開傳送</string>
+    <string name="risk_install">偵測到軟體安裝</string>
     <string name="risk_trap_widget">偵測到隱私陷阱元件</string>
     <string name="risk_overlay">偵測到浮層或提示詞注入標記</string>
+    <string name="risk_prompt_injection">偵測到提示詞注入</string>
+    <string name="risk_observation_incomplete">視窗觀察超過安全上限；保護已停止</string>
     <string name="risk_engine_confirm">守護引擎要求確認此操作</string>
-    <string name="task_profile_label">任務名（留空 = 不限定範圍）</string>
+    <string name="task_profile_label">要守護的任務（選填）</string>
+    <string name="task_profile_help">請簡要描述任務，例如「支付帳單」；留空則使用一般守護。</string>
     <string name="guard_stopped">未在守護——沒有工作階段</string>
-    <string name="guard_permission_required">工作階段已開始，但無障礙服務沒有連上——什麼都沒被觀察。請開啟無障礙設定。</string>
+    <string name="guard_permission_required">輔助使用服務未連線，守護已停止。請先授權，再重新開始工作階段。</string>
     <string name="guard_degraded">守護不完整：%1$s</string>
     <string name="guard_active">守護中</string>
+    <string name="reason_no_session">沒有使用中的工作階段</string>
+    <string name="reason_accessibility_not_bound">輔助使用服務未連線</string>
+    <string name="reason_relay_error">桌面中繼錯誤</string>
+    <string name="reason_relay_never_connected">桌面中繼尚未連線</string>
+    <string name="reason_relay_stale">桌面中繼狀態已過期</string>
+    <string name="reason_notifications_denied">通知權限遭拒</string>
+    <string name="show_developer_settings">顯示開發者設定</string>
+    <string name="hide_developer_settings">隱藏開發者設定</string>
     <string name="relay_state_disabled">桌面中繼關閉——判決只留在這台手機上</string>
     <string name="relay_state_connecting">桌面中繼已開，還沒連上過引擎</string>
     <string name="relay_state_connected">桌面中繼已連接（上次成功 %1$s）</string>
@@ -44,17 +55,21 @@
     <string name="token_saved">權杖已儲存（加密存放，不回顯）</string>
     <string name="save">儲存</string>
     <string name="token_missing">還沒有儲存權杖</string>
-    <string name="clear_events">刪除本機事件記錄（%1$s）</string>
+    <string name="clear_events">刪除全部本機事件記錄（%1$s）</string>
+    <string name="local_events_note">事件記錄只保存在本機；刪除記錄不會變更守護設定。</string>
+    <string name="clear_events_title">刪除全部本機事件記錄？</string>
+    <string name="clear_events_message">此操作會永久刪除這支手機上儲存的風險歷史。</string>
+    <string name="clear_events_confirm">刪除</string>
+    <string name="cancel">取消</string>
     <plurals name="events_cleared">
         <item quantity="other">已刪除 %1$d 個檔案</item>
     </plurals>
-    <string name="notif_permission_rationale">需要確認時是靠通知找到你的。不給通知權限，被攔下的操作只會寫進日誌。</string>
+    <string name="notif_permission_rationale">風險結果依靠通知及時提醒。不給通知權限時，偵測結果只會保存在本機，無法及時提醒；Android 觀察不會撤銷已經發生的操作。</string>
     <string name="risk_deeplink">偵測到可疑深層連結</string>
     <string name="risk_broadcast_input_sink">另一個應用程式（%1$s）正在監聽代理的文字輸入廣播 — 鍵入的所有內容都可被讀取</string>
     <string name="risk_foreign_a11y">另一個無障礙服務（%1$s）已啟用，可讀取鍵入文字（含密碼）</string>
-    <string name="env_clean">環境：沒有可見應用程式監聽輸入廣播，也沒有其他無障礙服務被啟用</string>
-    <string name="env_risk">環境風險：%1$s</string>
-    <string name="env_unknown">環境檢查不可用（%1$s）</string>
+    <string name="env_risk">偵測到裝置隱私風險。其他應用程式可能讀取文字或本機記錄；請先檢查輔助使用設定和已安裝的應用程式再繼續。</string>
+    <string name="env_unknown">裝置隱私檢查未能完成，因此無法確認目前環境安全。</string>
     <string name="show_adapter_key">顯示轉接器公鑰</string>
     <string name="adapter_key_help">把它填到 policies/adapter-registry.yaml 中 adapter_id: android-companion 那張卡上，並寫 key_algorithm: ecdsa-p256。不填的話桌面會把這個伴生應用程式的調查當成未簽章：可以增加風險，但清不掉風險。</string>
 </resources>

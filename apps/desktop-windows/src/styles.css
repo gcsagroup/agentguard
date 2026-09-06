@@ -1,3 +1,8 @@
+.recovery-dialog { background: #151d2a; color: #e6edf5; border: 1px solid #65758d; border-radius: 14px; padding: 1.4rem; max-width: min(540px, 90vw); }
+.recovery-dialog::backdrop { background: rgba(4, 8, 14, 0.78); }
+.recovery-dialog p { line-height: 1.6; }
+#audit-recovery-details { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; }
+#audit-recovery-panel details { margin-top: 1rem; }
 :root {
   font-family: "Segoe UI", "PingFang SC", system-ui, sans-serif;
   color: #e8eef7;
@@ -154,6 +159,15 @@ button:hover { filter: brightness(1.08); }
 }
 .modal-card h2 { margin: 0 0 0.6rem; }
 button.danger { background: #c2414b; }
+.confirm-effect {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid #f0a35a;
+  border-radius: 6px;
+  background: #3a2210;
+  color: #ffd7ae;
+  font-size: 0.84rem;
+}
 
 /* 从 index.html 的内联 <style> 搬过来的。
  *

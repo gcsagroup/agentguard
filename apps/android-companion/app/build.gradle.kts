@@ -14,6 +14,9 @@ android {
         targetSdk = 36
         versionCode = 1000001
         versionName = "1.0.0-rc.1"
+        // Relay v1 authenticates requests but not responses. Keep the production variant
+        // incapable of enabling it until Relay v2 response authentication is reviewed.
+        buildConfigField("boolean", "EXPERIMENTAL_RELAY_ENABLED", "false")
     }
 
     signingConfigs {
@@ -34,8 +37,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "EXPERIMENTAL_RELAY_ENABLED", "true")
+        }
         release {
             isMinifyEnabled = false
+            buildConfigField("boolean", "EXPERIMENTAL_RELAY_ENABLED", "false")
             signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -55,6 +62,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     bundle {
@@ -107,7 +115,7 @@ dependencies {
     testImplementation("org.json:json:20240303")
     testImplementation("junit:junit:4.13.2")
     // JVM 上跑真 Android 框架(见 testOptions 的注释)。**不是**设备测试的替代品:
-    // Robolectric 用的是自己的 android-all 实现,真机的 OEM 行为、TalkBack、前台服务限制
+    // Robolectric 用的是自己的 android-all 实现,真机的 OEM 行为、TalkBack、通知与后台限制
     // 仍然只有设备能验 —— docs/acceptance-runbook.md §5 与 android-e2e.sh 才是那一层。
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("androidx.test:core-ktx:1.6.1")

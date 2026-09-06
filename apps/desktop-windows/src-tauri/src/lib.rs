@@ -1,10 +1,47 @@
 //! AgentGuard Tauri backend: engine + audit + confirm modal + win-adapter simulation.
 
+// 发布壳会自动生成审计加密密钥，因此“Release 但明文”不是一个合法兼容模式。
+// 只在 debug 允许 audit-sqlite；Release 少了显式 feature 时必须在产物生成前失败。
+#[cfg(all(
+    any(agentguard_release_profile, not(debug_assertions)),
+    not(feature = "audit-sqlcipher")
+))]
+compile_error!(
+    "desktop-windows Release requires SQLCipher; rebuild with \
+     --no-default-features --features audit-sqlcipher"
+);
+
+#[cfg(all(feature = "audit-sqlite", feature = "audit-sqlcipher"))]
+compile_error!(
+    "audit-sqlite and audit-sqlcipher are mutually exclusive; use \
+     --no-default-features --features audit-sqlcipher for Release"
+);
+
 use std::path::PathBuf;
+
+// Cargo 的 Release 身份独立于 debug_assertions，诊断开关不能打开开发资源或明文审计。
+const DEVELOPMENT_BUILD: bool = cfg!(all(debug_assertions, not(agentguard_release_profile)));
+
+#[path = "../../../desktop-build-info.rs"]
+mod build_info;
+
+#[cfg(all(test, agentguard_release_profile))]
+#[test]
+fn release开启调试断言仍保持安全发布语义() {
+    let status = security_status().unwrap();
+    assert!(status.release_build && status.sqlcipher && status.intel_fail_closed);
+    assert!(!status.auto_approve_allowed);
+    assert_eq!(
+        load_intel().unwrap().version,
+        runtime_resources::intel().unwrap().version
+    );
+    assert!(load_task_plans().unwrap().is_some());
+}
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use anyhow::Context as _;
 use guard_audit::{
     auto_approve_allowed, default_audit_key_path, ensure_audit_key_file, sqlcipher_enabled,
     AuditRecord, AuditStore, SessionReport, UserDecision,
@@ -12,12 +49,11 @@ use guard_audit::{
 use guard_billing::load_or_free;
 use guard_core::acceptance_trace::{TraceLine, TraceWriter};
 use guard_core::confirm_queue::{
-    ConfirmQueue, PersistedPending, ResolveOutcome, DEFAULT_CONFIRM_TTL_MS,
+    ConfirmQueue, PendingItem, PersistedPending, ResolveOutcome, DEFAULT_CONFIRM_TTL_MS,
 };
 use guard_core::device_policy::EnforcedPolicy;
 use guard_core::observe_state::{self, StateInputs, Thresholds};
 use guard_core::{AutoApprove, ConfirmRequest, Engine};
-use guard_intel::load_release;
 use guard_intel::PublicKeyBytes;
 use guard_netmon::{evaluate_flow, FlowSummary};
 use guard_schema::{Decision, DecisionAction, EventType, GuardEvent};
@@ -27,6 +63,8 @@ use guard_sync::{
 use serde::Serialize;
 use tauri::{Emitter, Manager, State};
 use win_adapter::{capabilities, AdapterCapabilities, PlatformAdapter, SimObservation, WinAdapter};
+
+mod runtime_resources;
 
 /// The live Windows observer, on Windows only.
 ///
@@ -40,6 +78,10 @@ type NativeObserver = win_adapter::NativeWinAdapter;
 
 struct AppState {
     engine: Mutex<Engine>,
+    audit_ready: AtomicBool,
+    audit_operation_running: AtomicBool,
+    audit_recovery_running: AtomicBool,
+    audit_initialization_error: Mutex<String>,
     adapter: Mutex<WinAdapter>,
     auto_approve: Mutex<bool>,
     // P0-5:带不可变 request_id 的有界确认队列(与 macOS 壳子共用 guard_core::ConfirmQueue)。
@@ -273,6 +315,16 @@ struct StatusDto {
     rules_loaded: usize,
     policy_id: String,
     audit_enabled: bool,
+    audit_ready: bool,
+    audit_bootstrap_state: &'static str,
+    audit_operation_running: bool,
+    audit_recovery_running: bool,
+    audit_data_path: String,
+    build_version: &'static str,
+    build_revision: &'static str,
+    build_time: &'static str,
+    build_profile: &'static str,
+    audit_legacy_available: bool,
     paused: bool,
     session_active: bool,
     uia_native: bool,
@@ -325,6 +377,10 @@ struct DecisionDto {
     rule_id: String,
     human_message: String,
     require_confirm: bool,
+    /// Windows 桌面壳处理的是 UIA/GDI 已经看到的状态。内部 `DecisionAction::Block`
+    /// 是风险判决，不是对外部应用动作的执行前拦截证明。
+    effect: &'static str,
+    external_action_blocked: bool,
 }
 
 #[derive(Serialize)]
@@ -336,6 +392,162 @@ struct ConfirmDto {
     human_message: String,
     source_app: String,
     ui_excerpt: Option<String>,
+    /// “暂不继续”只暂停 AgentGuard 本会话和后续观察，不能撤销已经观察到的动作。
+    effect: &'static str,
+    external_action_blocked: bool,
+}
+
+const OBSERVED_ONLY_EFFECT: &str = "observed_only";
+const EXTERNAL_ACTION_BLOCKED: bool = false;
+
+/// Windows 审计列表的展示契约。
+///
+/// `AuditRecord::action` 必须保留，因为规则、确认队列和签名链都依赖这个内部判决；
+/// 展示层额外声明实际效果，避免把 `Block` 误读成外部动作已被阻止。
+#[derive(Serialize)]
+struct ObservedAuditRecordDto {
+    #[serde(flatten)]
+    record: AuditRecord,
+    effect: &'static str,
+    external_action_blocked: bool,
+}
+
+impl From<AuditRecord> for ObservedAuditRecordDto {
+    fn from(record: AuditRecord) -> Self {
+        Self {
+            record,
+            effect: OBSERVED_ONLY_EFFECT,
+            external_action_blocked: EXTERNAL_ACTION_BLOCKED,
+        }
+    }
+}
+
+/// Windows 桌面报告只总结旁路观测效果。
+///
+/// 公共 `SessionReport` 继续使用 `block_count` 表达内部 `DecisionAction::Block`，因为
+/// 执行前网关等消费者仍需要该语义。Windows 壳不能把它原样写给用户，因此这里使用
+/// `risk_verdict_count`，并把实际效果作为机器可读字段写进 JSON 和 Markdown。
+#[derive(Debug, Serialize)]
+struct ObservedSessionReport {
+    generated_at_ms: i64,
+    record_count: usize,
+    risk_verdict_count: usize,
+    alert_count: usize,
+    allow_count: usize,
+    log_only_count: usize,
+    confirm_decisions: guard_audit::ConfirmStats,
+    confirm_source: guard_audit::ConfirmSource,
+    by_rule: Vec<guard_audit::RuleCount>,
+    by_source_app: Vec<guard_audit::AppCount>,
+    top_messages: Vec<String>,
+    summary_note: String,
+    effect: &'static str,
+    external_action_blocked: bool,
+}
+
+impl From<SessionReport> for ObservedSessionReport {
+    fn from(report: SessionReport) -> Self {
+        let risk_total = report.block_count + report.alert_count;
+        let summary_note = if risk_total == 0 {
+            "本窗口未记录高危风险判决；这只表示旁路观察未命中，不代表外部动作受控。".to_string()
+        } else {
+            format!(
+                "本窗口记录高危风险判决/告警 {risk_total} 次；这些是旁路观测结果，未阻止外部应用中已经发生的动作。"
+            )
+        };
+        Self {
+            generated_at_ms: report.generated_at_ms,
+            record_count: report.record_count,
+            risk_verdict_count: report.block_count,
+            alert_count: report.alert_count,
+            allow_count: report.allow_count,
+            log_only_count: report.log_only_count,
+            confirm_decisions: report.confirm_decisions,
+            confirm_source: report.confirm_source,
+            by_rule: report.by_rule,
+            by_source_app: report.by_source_app,
+            top_messages: report.top_messages,
+            summary_note,
+            effect: OBSERVED_ONLY_EFFECT,
+            external_action_blocked: EXTERNAL_ACTION_BLOCKED,
+        }
+    }
+}
+
+impl ObservedSessionReport {
+    fn to_markdown(&self) -> String {
+        let mut md = String::new();
+        md.push_str("# AgentGuard Windows 会话摘要\n\n");
+        md.push_str(&format!("生成时间 (ms): {}\n\n", self.generated_at_ms));
+        md.push_str("## 效果边界\n\n");
+        md.push_str(&format!(
+            "- `effect={}`\n- `external_action_blocked={}`\n\n",
+            self.effect, self.external_action_blocked
+        ));
+        md.push_str("Windows 桌面端在 UIA/GDI 呈现后进行旁路观察；风险确认只能暂停本会话和后续观察，不能撤销外部应用中已经发生的动作。\n\n");
+        md.push_str("## 概览\n\n");
+        md.push_str(&format!(
+            "| 指标 | 值 |\n| --- | --- |\n| 记录数 | {} |\n| 风险判决（内部动作枚举） | {} |\n| Alert | {} |\n| Allow | {} |\n| LogOnly | {} |\n\n",
+            self.record_count,
+            self.risk_verdict_count,
+            self.alert_count,
+            self.allow_count,
+            self.log_only_count
+        ));
+        md.push_str(&format!(
+            "确认：approve={} deny={} timeout={} pending≈{}（来源：{}）\n\n",
+            self.confirm_decisions.approve,
+            self.confirm_decisions.deny,
+            self.confirm_decisions.timeout,
+            self.confirm_decisions.pending,
+            self.confirm_source.label()
+        ));
+        md.push_str(&format!("> {}\n\n", self.summary_note));
+        md.push_str("## 规则命中\n\n");
+        for rule in &self.by_rule {
+            md.push_str(&format!("- `{}`: {}\n", rule.rule_id, rule.count));
+        }
+        md.push_str("\n## 来源应用\n\n");
+        for app in &self.by_source_app {
+            md.push_str(&format!("- {}: {}\n", app.source_app, app.count));
+        }
+        if !self.top_messages.is_empty() {
+            md.push_str("\n## 高危摘要\n\n");
+            for message in &self.top_messages {
+                md.push_str(&format!("- {message}\n"));
+            }
+        }
+        md
+    }
+
+    fn write_json(&self, path: &std::path::Path) -> anyhow::Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, serde_json::to_string_pretty(self)?)?;
+        Ok(())
+    }
+
+    fn write_markdown(&self, path: &std::path::Path) -> anyhow::Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, self.to_markdown())?;
+        Ok(())
+    }
+
+    fn completion_message(&self, json_path: &std::path::Path, md_path: &std::path::Path) -> String {
+        format!(
+            "{} · risk_verdicts={} alerts={} · effect={} external_action_blocked={} → {} / {}",
+            self.summary_note,
+            self.risk_verdict_count,
+            self.alert_count,
+            self.effect,
+            self.external_action_blocked,
+            json_path.display(),
+            md_path.display()
+        )
+    }
 }
 
 /// Honest coverage level, from the **probed** capabilities.
@@ -383,6 +595,49 @@ fn protection_coverage(caps: &AdapterCapabilities, observing: bool) -> (String, 
     (mode.into(), summary)
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct RequiredCapabilityGap {
+    permission: bool,
+    capability: bool,
+}
+
+/// Classify a failed probe as an access denial only when the native error says so.
+/// Windows UIA/GDI do not normally have macOS-style permission grants, so a missing
+/// component, language pack, foreground window, or an acceptance-forced failure is a
+/// capability gap and must be shown as `degraded`, not as a made-up permission prompt.
+fn probe_detail_is_access_denied(detail: &str) -> bool {
+    let detail = detail.to_ascii_lowercase();
+    [
+        "access is denied",
+        "access denied",
+        "permission denied",
+        "permission required",
+        "e_accessdenied",
+        "0x80070005",
+        "not authorized",
+    ]
+    .iter()
+    .any(|marker| detail.contains(marker))
+}
+
+/// The Windows first-release contract requires all three observation surfaces.
+/// `graphics_capture` is deliberately excluded: this build truthfully uses GDI and
+/// documents its cross-process-overlay limitation instead of claiming composed capture.
+fn required_windows_capability_gap(caps: &AdapterCapabilities) -> RequiredCapabilityGap {
+    let mut gap = RequiredCapabilityGap::default();
+    for capability in [&caps.uia_native, &caps.frame_capture, &caps.ocr] {
+        if capability.available {
+            continue;
+        }
+        if probe_detail_is_access_denied(&capability.detail) {
+            gap.permission = true;
+        } else {
+            gap.capability = true;
+        }
+    }
+    gap
+}
+
 fn cap_zh(available: &bool, detail: &str) -> String {
     if *available {
         "可用".into()
@@ -398,17 +653,20 @@ fn cap_zh(available: &bool, detail: &str) -> String {
 /// heuristics. It is worth noticing though, because a missing schema directory turns a
 /// trap field into an ordinary one.
 #[cfg(windows)]
-fn load_form_schemas() -> Vec<guard_privacy::AppFormSchema> {
+fn load_form_schemas() -> anyhow::Result<Vec<guard_privacy::AppFormSchema>> {
+    if !DEVELOPMENT_BUILD {
+        return runtime_resources::forms();
+    }
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     for candidate in [
         manifest.join("../../../policies/forms"),
         PathBuf::from("policies/forms"),
     ] {
         if candidate.is_dir() {
-            return guard_privacy::load_form_schemas(candidate);
+            return Ok(guard_privacy::load_form_schemas(candidate));
         }
     }
-    Vec::new()
+    Ok(Vec::new())
 }
 
 fn rules_path() -> PathBuf {
@@ -433,7 +691,7 @@ fn audit_db_path() -> PathBuf {
         return PathBuf::from(p);
     }
     let mut dir = dirs_next_data();
-    dir.push("agentguard");
+    dir.push(build_info::data_directory());
     let _ = std::fs::create_dir_all(&dir);
     dir.push("audit.db");
     dir
@@ -460,7 +718,7 @@ fn entitlement_path() -> PathBuf {
         return PathBuf::from(p);
     }
     let mut dir = dirs_next_data();
-    dir.push("agentguard");
+    dir.push(build_info::data_directory());
     let _ = std::fs::create_dir_all(&dir);
     dir.push("entitlement.json");
     dir
@@ -484,24 +742,10 @@ fn device_policy_path() -> PathBuf {
     candidates[1].clone()
 }
 
-fn intel_pubkey_path() -> PathBuf {
-    if let Ok(p) = std::env::var("AGENTGUARD_INTEL_PUBKEY") {
-        return PathBuf::from(p);
+fn load_intel() -> anyhow::Result<guard_intel::ThreatBundle> {
+    if !DEVELOPMENT_BUILD {
+        return runtime_resources::intel();
     }
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let candidates = [
-        manifest.join("../../../intel/keys/public.hex"),
-        PathBuf::from("intel/keys/public.hex"),
-    ];
-    for c in &candidates {
-        if c.exists() {
-            return c.clone();
-        }
-    }
-    candidates[0].clone()
-}
-
-fn load_intel() -> guard_intel::ThreatBundle {
     let bundle = if let Ok(p) = std::env::var("AGENTGUARD_INTEL") {
         PathBuf::from(p)
     } else {
@@ -515,82 +759,202 @@ fn load_intel() -> guard_intel::ThreatBundle {
             .find(|c| c.exists())
             .unwrap_or_else(|| PathBuf::from("intel/bundle.json"))
     };
-    let pk = intel_pubkey_path();
-    if cfg!(debug_assertions) {
-        return guard_intel::load_or_default(&bundle).unwrap_or_default();
-    }
-    match load_release(&bundle, &pk) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("intel load_release failed ({e}); using empty bundle (fail-closed)");
-            guard_intel::ThreatBundle::default()
-        }
+    guard_intel::load_or_default(&bundle).context("加载开发环境情报")
+}
+
+/// Current-user DPAPI envelope for the device audit signing seed, next to the
+/// audit DB (Aura §4.4.6 attribution). This protects the exportable software key
+/// at rest; it is not a TPM-backed identity claim.
+fn desktop_audit_key_path() -> PathBuf {
+    if build_info::PROFILE.is_empty() {
+        default_audit_key_path()
+    } else {
+        audit_db_path().with_file_name("audit.key")
     }
 }
 
-/// Device audit signing key next to the audit DB (Aura §4.4.6 attribution).
-/// Generated on first run; see docs/audit-signing.md for the threat model —
-/// a key on the same disk stops DB tampering, not a compromised host.
 fn audit_signing_key_path() -> std::path::PathBuf {
-    let mut p = default_audit_key_path();
+    let mut p = desktop_audit_key_path();
     p.set_file_name("audit-signing.key");
     p
 }
 
-fn open_audit_store() -> AuditStore {
-    let store = open_audit_store_unsigned();
-    let key = match guard_audit::FileDeviceKey::load_or_create(audit_signing_key_path()) {
-        Ok(k) => k,
-        Err(e) => {
-            eprintln!("audit signing key unavailable ({e}); records will be unsigned");
-            return store;
-        }
-    };
-    match store.with_signer(Box::new(key)) {
-        Ok(signed) => signed,
-        Err(e) => {
-            // with_signer consumed the store; reopen through the same path so an
-            // encrypted DB stays encrypted.
-            eprintln!("audit signer attach failed ({e}); records will be unsigned");
-            open_audit_store_unsigned()
-        }
-    }
-}
-
-fn open_audit_store_unsigned() -> AuditStore {
+fn open_audit_store() -> anyhow::Result<AuditStore> {
     let path = audit_db_path();
+    // Load/provision the signer before touching the DB. Release must never create
+    // an encrypted database and then continue (or reopen it) unsigned when signer
+    // attachment fails.
+    #[cfg(target_os = "windows")]
+    let signer = guard_audit::WindowsDpapiDeviceKey::load_or_create(audit_signing_key_path())
+        .context("load or provision current-user DPAPI Windows audit signing key")?;
+    // The Windows shell's source-level tests also compile on macOS/Linux. This
+    // branch is test/development portability only and cannot enter a Windows build.
+    #[cfg(not(target_os = "windows"))]
+    let signer = guard_audit::FileDeviceKey::load_or_create(audit_signing_key_path())
+        .context("load or provision non-Windows test audit signing key")?;
     if sqlcipher_enabled() {
-        let key = ensure_audit_key_file(default_audit_key_path()).expect("audit key");
-        AuditStore::open_with_key(&path, Some(&key)).expect("open encrypted audit db")
+        let key = ensure_audit_key_file(desktop_audit_key_path())
+            .context("load or provision DPAPI-protected Windows audit encryption key")?;
+        let path = guard_audit::resolve_recovered_audit(&path, &signer)?;
+        AuditStore::open_protected(&path, &key, Box::new(signer))
+            .context("open encrypted and signed Windows audit database")
     } else {
-        if !cfg!(debug_assertions) {
-            eprintln!(
-                "warning: release build without sqlcipher — rebuild with --features audit-sqlcipher"
-            );
-        }
-        AuditStore::open(&path).expect("open audit db")
+        // The compile_error above makes this branch debug-only. Keep local
+        // development convenient, but do not weaken signer failure semantics.
+        AuditStore::open(&path)
+            .context("open debug plaintext audit database")?
+            .with_signer(Box::new(signer))
+            .context("attach debug audit signer")
     }
 }
 
-fn build_engine() -> Engine {
+fn build_engine_without_audit() -> anyhow::Result<Engine> {
     // The task-plan library, so a session that names a `task_profile` gets its trajectory plan and
     // its Aura §4.4 resource ceiling. Neither shell loaded it, which meant the whole plan mechanism
     // was unreachable from the desktop apps however the session was opened.
-    let mut engine = Engine::from_paths(rules_path(), None::<PathBuf>)
-        .expect("load rules")
-        .with_intel(load_intel())
-        .with_audit(open_audit_store());
-    if let Some(plans) = load_task_plans() {
+    let rules = if DEVELOPMENT_BUILD {
+        guard_schema::RuleSet::from_path(rules_path()).context("加载开发环境规则")?
+    } else {
+        runtime_resources::rules()?
+    };
+    // 所有必须资源先验证，再创建受保护审计库；损坏候选不得留下半初始化数据库。
+    let intel = load_intel()?;
+    let plans = load_task_plans()?;
+    if !DEVELOPMENT_BUILD {
+        runtime_resources::device_policy()?;
+        #[cfg(windows)]
+        runtime_resources::forms()?;
+    }
+    let mut engine = Engine::new(rules, guard_schema::GuardContract::default()).with_intel(intel);
+    if let Some(plans) = plans {
         engine = engine.with_task_plans(plans);
     }
-    engine
+    Ok(engine)
+}
+
+fn build_engine() -> anyhow::Result<Engine> {
+    Ok(build_engine_without_audit()?.with_audit(open_audit_store()?))
+}
+
+fn require_audit_ready(state: &AppState) -> Result<(), String> {
+    if state.audit_ready.load(Ordering::Acquire)
+        && !state.audit_operation_running.load(Ordering::Acquire)
+    {
+        Ok(())
+    } else {
+        Err("活动记录尚未就绪，请先完成记录设置；守护未启动".into())
+    }
+}
+
+struct AuditOperationGuard<'a>(&'a AtomicBool);
+impl Drop for AuditOperationGuard<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+#[tauri::command]
+async fn retry_audit_initialization(app: tauri::AppHandle) -> Result<(), String> {
+    {
+        let state = app.state::<AppState>();
+        if state.audit_ready.load(Ordering::Acquire) {
+            return Err("加密记录已经就绪".into());
+        }
+        state
+            .audit_operation_running
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| "已有记录设置操作正在执行")?;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let _running = AuditOperationGuard(&state.audit_operation_running);
+        let result = (|| -> anyhow::Result<()> {
+            let mut engine = build_engine()?;
+            let orphaned = restore_orphaned_confirms(&engine);
+            let policy = restore_device_policy_at_startup(&mut engine);
+            *state
+                .engine
+                .lock()
+                .map_err(|_| anyhow::anyhow!("记录引擎锁不可用"))? = engine;
+            *state
+                .policy_status
+                .lock()
+                .map_err(|_| anyhow::anyhow!("策略状态锁不可用"))? = policy;
+            state.orphaned_confirms.store(orphaned, Ordering::Relaxed);
+            Ok(())
+        })();
+        *state
+            .audit_initialization_error
+            .lock()
+            .map_err(|e| e.to_string())? = result
+            .as_ref()
+            .err()
+            .map(|error| format!("{error:#}"))
+            .unwrap_or_default();
+        state.audit_ready.store(result.is_ok(), Ordering::Release);
+        result.map_err(|error| format!("{error:#}"))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn recover_legacy_audit(
+    app: tauri::AppHandle,
+    approved: bool,
+) -> Result<guard_audit::RecoveryReceipt, String> {
+    if !approved {
+        return Err("尚未确认保留历史并升级；未修改数据".into());
+    }
+    {
+        let state = app.state::<AppState>();
+        if state.audit_ready.load(Ordering::Acquire) {
+            return Err("记录已就绪，不能重复迁移".into());
+        }
+        state
+            .audit_operation_running
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| "已有数据操作正在执行")?;
+        state.audit_recovery_running.store(true, Ordering::Release);
+    }
+    let worker = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let state = worker.state::<AppState>();
+        let _running = AuditOperationGuard(&state.audit_operation_running);
+        let _recovering = AuditOperationGuard(&state.audit_recovery_running);
+        let result = (|| -> anyhow::Result<guard_audit::RecoveryReceipt> {
+            #[cfg(windows)]
+            let signer =
+                guard_audit::WindowsDpapiDeviceKey::load_or_create(audit_signing_key_path())?;
+            #[cfg(not(windows))]
+            let signer = guard_audit::FileDeviceKey::load_or_create(audit_signing_key_path())?;
+            let key = ensure_audit_key_file(desktop_audit_key_path())?;
+            guard_audit::migrate_legacy_audit(&audit_db_path(), &key, &signer)
+        })();
+        if let Err(error) = &result {
+            *state
+                .audit_initialization_error
+                .lock()
+                .map_err(|e| e.to_string())? = format!("历史升级未完成：{error:#}");
+        }
+        result.map_err(|error| format!("{error:#}"))
+    })
+    .await
+    .map_err(|error| error.to_string())?;
+    if result.is_ok() {
+        retry_audit_initialization(app).await?;
+    }
+    result
 }
 
 /// The operator's task-plan library, if it is where we expect it.
 ///
 /// Absent is not an error: a deployment without plans runs exactly as it did, which is the same
 /// `require_plan: false` reasoning the library itself documents.
-fn load_task_plans() -> Option<guard_schema::TaskPlanLibrary> {
+fn load_task_plans() -> anyhow::Result<Option<guard_schema::TaskPlanLibrary>> {
+    if !DEVELOPMENT_BUILD {
+        return runtime_resources::plans().map(Some);
+    }
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let candidates = [
         std::env::var("AGENTGUARD_TASK_PLANS")
@@ -607,11 +971,11 @@ fn load_task_plans() -> Option<guard_schema::TaskPlanLibrary> {
             .ok()
             .and_then(|y| guard_schema::TaskPlanLibrary::from_yaml_str(&y).ok())
         {
-            Some(lib) => return Some(lib),
+            Some(lib) => return Ok(Some(lib)),
             None => continue,
         }
     }
-    None
+    Ok(None)
 }
 
 #[tauri::command]
@@ -625,7 +989,19 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let caps = &state.capabilities;
     let score = engine.privacy_score();
     let ent = load_or_free(entitlement_path());
-    let device_policy = DevicePolicy::from_path(device_policy_path()).unwrap_or_default();
+    let device_policy = if DEVELOPMENT_BUILD {
+        DevicePolicy::from_path(device_policy_path()).unwrap_or_default()
+    } else {
+        runtime_resources::device_policy().map_err(|error| error.to_string())?
+    };
+    let audit_ready = state.audit_ready.load(Ordering::Acquire) && st.audit_enabled;
+    let audit_error = st.audit_error.clone().unwrap_or_else(|| {
+        state
+            .audit_initialization_error
+            .lock()
+            .map(|error| error.clone())
+            .unwrap_or_else(|_| "记录状态锁不可用".into())
+    });
     let observing = state.polling.load(Ordering::Relaxed);
     let (protection_mode, protection_summary) = protection_coverage(caps, observing);
     let observe_error = state
@@ -643,6 +1019,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let started = state.observer_started_ms.load(Ordering::Relaxed);
     let observers_available =
         caps.uia_native.available as u32 + caps.frame_capture.available as u32;
+    let required_gap = required_windows_capability_gap(caps);
     // 一个轮询循环同时驱动 UI 树和窗口捕获,所以"在跑"是 0 或 1。
     let observers_running = observing as u32;
     let derived = observe_state::derive(
@@ -652,9 +1029,11 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
             pending_confirm: !pending.is_empty(),
             observers_available,
             observers_running,
+            required_observation_permission: required_gap.permission,
+            required_capability_unavailable: required_gap.capability,
             observer_error: observe_error.as_deref(),
-            audit_enabled: st.audit_enabled,
-            audit_error: st.audit_error.as_deref(),
+            audit_enabled: audit_ready,
+            audit_error: (!audit_error.is_empty()).then_some(audit_error.as_str()),
             observer_started_ms: (started > 0).then_some(started),
             last_heartbeat_ms: (hb > 0).then_some(hb),
             now_ms: now,
@@ -675,7 +1054,24 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     Ok(StatusDto {
         rules_loaded: st.rules_loaded,
         policy_id: st.policy_id,
-        audit_enabled: st.audit_enabled,
+        audit_enabled: audit_ready,
+        audit_ready,
+        audit_bootstrap_state: if audit_ready {
+            "ready"
+        } else if state.audit_operation_running.load(Ordering::Acquire) {
+            "pending"
+        } else {
+            "failed"
+        },
+        audit_operation_running: state.audit_operation_running.load(Ordering::Acquire),
+        audit_recovery_running: state.audit_recovery_running.load(Ordering::Acquire),
+        audit_data_path: audit_db_path().display().to_string(),
+        build_version: env!("CARGO_PKG_VERSION"),
+        build_revision: build_info::REVISION,
+        build_time: build_info::TIME,
+        build_profile: build_info::PROFILE,
+        audit_legacy_available: !audit_ready
+            && guard_audit::has_legacy_plaintext_audit(&audit_db_path()).unwrap_or(false),
         paused: st.paused,
         session_active: adapter.has_session(),
         uia_native: caps.uia_native.available,
@@ -704,7 +1100,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         observers_available,
         observers_running,
         heartbeat_age_ms: (hb > 0).then(|| now.saturating_sub(hb)),
-        audit_error: st.audit_error.unwrap_or_default(),
+        audit_error,
         suppressed_events,
         confirms_timed_out: state.confirms_timed_out.load(Ordering::Relaxed),
         orphaned_confirms: state.orphaned_confirms.load(Ordering::Relaxed),
@@ -717,112 +1113,239 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     })
 }
 
-/// P1-4:待确认落盘(不含观测文本摘录),重启后不静默丢。与 macOS 壳子同形。
-fn pending_confirms_path() -> PathBuf {
+/// 旧版本的全局明文 sidecar 路径。只用于识别并警告；绝不读取、导入、执行或删除。
+fn legacy_pending_confirms_path() -> PathBuf {
     let mut p = dirs_next_data();
     p.push("agentguard");
-    let _ = std::fs::create_dir_all(&p);
     p.push("pending-confirms.json");
     p
 }
 
-fn persist_pending(state: &AppState) {
-    let snapshot = match state.pending.lock() {
-        Ok(q) => q.snapshot(),
-        Err(_) => return,
-    };
-    let path = pending_confirms_path();
-    if snapshot.is_empty() {
-        let _ = std::fs::remove_file(&path);
-        return;
-    }
-    let tmp = path.with_extension("json.tmp");
-    let write = serde_json::to_vec(&snapshot)
-        .map_err(|e| e.to_string())
-        .and_then(|bytes| std::fs::write(&tmp, bytes).map_err(|e| e.to_string()))
-        .and_then(|_| std::fs::rename(&tmp, &path).map_err(|e| e.to_string()));
-    if let Err(e) = write {
-        eprintln!("agentguard: pending-confirms persist failed: {e}");
+fn warn_legacy_pending_sidecar() {
+    let path = legacy_pending_confirms_path();
+    warn_legacy_pending_sidecar_at(&path);
+}
+
+fn warn_legacy_pending_sidecar_at(path: &std::path::Path) {
+    if std::fs::symlink_metadata(path).is_ok() {
+        eprintln!(
+            "agentguard: ignored legacy untrusted sidecar {}; it was not read, imported, executed, or deleted",
+            path.display()
+        );
     }
 }
 
-/// P1-4:启动时处理上次遗留的待确认——逐条写 Timeout 回执再删文件;有一条写不进就保留文件。
-fn restore_orphaned_confirms(engine: &Engine) -> usize {
-    let path = pending_confirms_path();
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return 0;
+fn required_pending_audit_id(item: &PersistedPending) -> Result<&str, String> {
+    item.audit_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| format!("待确认请求 {} 缺少审计 ID；保持队列不变", item.request_id))
+}
+
+fn commit_pending_transition(
+    store: &AuditStore,
+    decisions: &[(&str, UserDecision)],
+    remaining: &[PersistedPending],
+) -> Result<(), String> {
+    let json = if remaining.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_string(remaining).map_err(|e| format!("序列化待确认快照失败:{e}"))?)
+    };
+    store
+        .commit_pending_confirmation_transition(decisions, json.as_deref())
+        .map_err(|e| format!("提交待确认审计事务失败:{e}"))
+}
+
+fn commit_timeout_transition(
+    store: &AuditStore,
+    removed: &[PersistedPending],
+    remaining: &[PersistedPending],
+) -> Result<(), String> {
+    let audit_ids: Vec<&str> = removed
+        .iter()
+        .map(required_pending_audit_id)
+        .collect::<Result<_, _>>()?;
+    let decisions: Vec<_> = audit_ids
+        .iter()
+        .map(|audit_id| (*audit_id, UserDecision::Timeout))
+        .collect();
+    commit_pending_transition(store, &decisions, remaining)
+}
+
+fn enqueue_pending_with_engine(
+    queue: &mut ConfirmQueue,
+    engine: &Engine,
+    req: ConfirmRequest,
+    now_ms: u64,
+) -> Result<(u64, Option<PersistedPending>), String> {
+    req.audit_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| "高危确认缺少审计 ID；拒绝入队".to_string())?;
+    let store = engine
+        .audit()
+        .ok_or_else(|| "审计不可用；拒绝修改待确认队列".to_string())?;
+    let mut committed_eviction = None;
+    let request_id = queue.try_enqueue_at(req, now_ms, |evicted, remaining| {
+        if let Some(item) = evicted {
+            commit_timeout_transition(store, std::slice::from_ref(item), remaining)?;
+            committed_eviction = Some(item.clone());
+        } else {
+            commit_pending_transition(store, &[], remaining)?;
+        }
+        Ok::<_, String>(())
+    })?;
+    Ok((request_id, committed_eviction))
+}
+
+fn resolve_pending_with_engine(
+    engine: &mut Engine,
+    queue: &mut ConfirmQueue,
+    request_id: u64,
+    approve: bool,
+) -> Result<(ResolveOutcome, bool), String> {
+    let decision = if approve {
+        UserDecision::Approve
+    } else {
+        UserDecision::Deny
+    };
+    let outcome = {
+        let store = engine.audit();
+        queue.try_resolve(request_id, approve, |removed, remaining| {
+            let store = store.ok_or_else(|| "审计不可用；确认请求保持待处理".to_string())?;
+            let audit_id = required_pending_audit_id(removed)?;
+            commit_pending_transition(store, &[(audit_id, decision)], remaining)
+        })?
+    };
+    if matches!(outcome, ResolveOutcome::Resolved { .. }) {
+        if approve {
+            engine.resume();
+        } else {
+            engine.pause();
+        }
+    }
+    Ok((outcome, !queue.is_empty()))
+}
+
+fn expire_pending_with_engine(
+    engine: &mut Engine,
+    queue: &mut ConfirmQueue,
+    now_ms: u64,
+) -> Result<Vec<PendingItem>, String> {
+    let expired = {
+        let store = engine.audit();
+        queue.try_expire(now_ms, DEFAULT_CONFIRM_TTL_MS, |removed, remaining| {
+            let store = store.ok_or_else(|| "审计不可用；超时请求保持待处理".to_string())?;
+            commit_timeout_transition(store, removed, remaining)
+        })?
+    };
+    if !expired.is_empty() {
+        engine.pause();
+    }
+    Ok(expired)
+}
+
+fn bump_pending_generation_with_engine(
+    engine: &Engine,
+    queue: &mut ConfirmQueue,
+) -> Result<Vec<PersistedPending>, String> {
+    let store = engine
+        .audit()
+        .ok_or_else(|| "审计不可用；会话代际与待确认队列保持不变".to_string())?;
+    let mut removed_items = Vec::new();
+    queue.try_bump_generation(|removed, remaining| {
+        commit_timeout_transition(store, removed, remaining)?;
+        removed_items = removed.to_vec();
+        Ok::<_, String>(())
+    })?;
+    Ok(removed_items)
+}
+
+/// 从当前审计库恢复上次遗留的待确认。损坏 JSON 保留供诊断，且不会铸造回执。
+fn restore_orphaned_from_store(store: &AuditStore) -> usize {
+    let text = match store.pending_confirmations_json() {
+        Ok(Some(text)) => text,
+        Ok(None) => return 0,
+        Err(e) => {
+            eprintln!("agentguard: pending confirmations could not be loaded from audit DB: {e}");
+            return 0;
+        }
     };
     let items: Vec<PersistedPending> = match serde_json::from_str(&text) {
         Ok(v) => v,
         Err(e) => {
-            eprintln!("agentguard: pending-confirms.json unreadable ({e}); leaving it in place");
+            eprintln!(
+                "agentguard: pending confirmations in audit DB are unreadable ({e}); retaining the value and minting no receipts"
+            );
             return 0;
         }
     };
-    let mut done = 0usize;
-    let mut failed = false;
-    if let Some(store) = engine.audit() {
-        for it in &items {
-            if let Some(id) = &it.audit_id {
-                match store.set_user_decision(id, UserDecision::Timeout) {
-                    Ok(()) => done += 1,
-                    Err(e) => {
-                        failed = true;
-                        eprintln!(
-                            "agentguard: orphaned confirm {} receipt failed: {e}",
-                            it.request_id
-                        );
-                    }
-                }
-            } else {
-                done += 1;
-            }
+    if items.len() > 64 {
+        eprintln!(
+            "agentguard: pending confirmations in audit DB exceed the queue limit; retaining the value and minting no receipts"
+        );
+        return 0;
+    }
+    let audit_ids: Vec<&str> = match items
+        .iter()
+        .map(|item| {
+            item.audit_id
+                .as_deref()
+                .filter(|id| !id.trim().is_empty())
+                .ok_or(())
+        })
+        .collect()
+    {
+        Ok(ids) => ids,
+        Err(()) => {
+            eprintln!(
+                "agentguard: pending confirmations in audit DB contain a missing audit id; retaining the value and minting no receipts"
+            );
+            return 0;
         }
-    } else {
-        failed = !items.is_empty();
+    };
+    if let Err(e) = store.timeout_pending_confirmations_and_clear(&audit_ids) {
+        eprintln!(
+            "agentguard: pending-confirmation recovery failed atomically ({e}); retaining the value and minting no partial receipt set"
+        );
+        return 0;
     }
-    if !failed {
-        let _ = std::fs::remove_file(&path);
-    }
-    done
+    items.len()
 }
 
-/// P1-4:超时的确认按拒绝处理:Timeout 回执、引擎暂停、落盘、计数。
+fn restore_orphaned_confirms(engine: &Engine) -> usize {
+    warn_legacy_pending_sidecar();
+    match engine.audit() {
+        Some(store) => restore_orphaned_from_store(store),
+        None => 0,
+    }
+}
+
+/// P1-4:整批 Timeout 回执和剩余快照先原子提交；失败时请求仍在队列且可重试。
 fn sweep_expired_confirms(state: &AppState) -> Result<Vec<u64>, String> {
+    // 队列修改与快照写入都由同一 engine 锁排序，旧快照不能在等待锁后覆盖新快照。
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     let expired = {
         let mut q = state.pending.lock().map_err(|e| e.to_string())?;
-        q.expire(now_epoch_ms(), DEFAULT_CONFIRM_TTL_MS)
+        expire_pending_with_engine(&mut engine, &mut q, now_epoch_ms())?
     };
     if expired.is_empty() {
         return Ok(Vec::new());
     }
     let mut ids = Vec::with_capacity(expired.len());
-    {
-        let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-        for it in &expired {
-            if let (Some(store), Some(id)) = (engine.audit(), it.request.audit_id.as_ref()) {
-                if let Err(e) = store.set_user_decision(id, UserDecision::Timeout) {
-                    eprintln!(
-                        "agentguard: timeout receipt for {} failed: {e}",
-                        it.request_id
-                    );
-                    continue;
-                }
-            }
-            ids.push(it.request_id);
-            state.trace.write(&TraceLine {
-                request_id: Some(it.request_id),
-                audit_id: it.request.audit_id.clone(),
-                rule_id: Some(it.request.rule_id.clone()),
-                ..trace_line("confirm_expired")
-            });
-        }
-        engine.pause();
+    for it in &expired {
+        ids.push(it.request_id);
+        state.trace.write(&TraceLine {
+            request_id: Some(it.request_id),
+            audit_id: it.request.audit_id.clone(),
+            rule_id: Some(it.request.rule_id.clone()),
+            ..trace_line("confirm_expired")
+        });
     }
     state
         .confirms_timed_out
         .fetch_add(ids.len(), Ordering::Relaxed);
-    persist_pending(state);
     Ok(ids)
 }
 
@@ -874,6 +1397,8 @@ fn get_pending_confirm(
         human_message: p.request.human_message.clone(),
         source_app: p.request.source_app.clone(),
         ui_excerpt: p.request.ui_excerpt.clone(),
+        effect: OBSERVED_ONLY_EFFECT,
+        external_action_blocked: EXTERNAL_ACTION_BLOCKED,
     }))
 }
 
@@ -891,12 +1416,11 @@ fn resolve_confirm(
     approve: bool,
 ) -> Result<ResolveDto, String> {
     // P0-5:按 request_id compare-and-swap,只解析用户看到的那条。
+    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
     let (outcome, has_next) = {
         let mut q = state.pending.lock().map_err(|e| e.to_string())?;
-        let outcome = q.resolve(request_id, approve);
-        (outcome, !q.is_empty())
+        resolve_pending_with_engine(&mut engine, &mut q, request_id, approve)?
     };
-    persist_pending(&state);
     let ResolveOutcome::Resolved { approve, audit_id } = outcome else {
         state.trace.write(&TraceLine {
             request_id: Some(request_id),
@@ -917,50 +1441,23 @@ fn resolve_confirm(
         ..trace_line("confirm_resolved")
     });
 
-    {
-        let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-        // 审计落库失败 = 确认失败(报告 P0-5:以前是 `let _ = ...`,回执没写却报成功)。
-        if let (Some(store), Some(id)) = (engine.audit(), audit_id.as_ref()) {
-            let ud = if approve {
-                UserDecision::Approve
-            } else {
-                UserDecision::Deny
-            };
-            store
-                .set_user_decision(id, ud)
-                .map_err(|e| format!("确认回执写入签名审计失败,确认未生效:{e}"))?;
-        }
-        if approve {
-            engine.resume();
-        }
-    }
-    if !approve {
-        force_pause(&state)?;
-    }
+    // 两阶段 helper 已保证回执、新快照、内存移除和引擎状态按顺序完成；失败时请求仍在。
     Ok(ResolveDto {
         resolved: true,
         has_next,
     })
 }
 
-fn force_pause(state: &State<'_, AppState>) -> Result<(), String> {
-    // Engine lacks force_pause; approximate by gated deny on a payment marker once.
-    // Prefer calling resume-only API: add pause() on Engine.
-    let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-    // Use internal: process_gated already has pause — call a helper method.
-    engine.pause();
-    Ok(())
-}
-
 #[tauri::command]
 fn list_audit(
     state: State<'_, AppState>,
     limit: Option<usize>,
-) -> Result<Vec<AuditRecord>, String> {
+) -> Result<Vec<ObservedAuditRecordDto>, String> {
     let engine = state.engine.lock().map_err(|e| e.to_string())?;
     let store = engine.audit().ok_or("audit disabled")?;
     store
         .list_recent(limit.unwrap_or(50))
+        .map(|records| records.into_iter().map(Into::into).collect())
         .map_err(|e| e.to_string())
 }
 
@@ -974,9 +1471,9 @@ fn export_session_report(
     let records = store
         .list_recent(limit.unwrap_or(500))
         .map_err(|e| e.to_string())?;
-    let report = SessionReport::from_records(&records);
+    let report = ObservedSessionReport::from(SessionReport::from_records(&records));
     let mut dir = dirs_next_data();
-    dir.push("agentguard");
+    dir.push(build_info::data_directory());
     dir.push("reports");
     let _ = std::fs::create_dir_all(&dir);
     let stamp = report.generated_at_ms;
@@ -984,23 +1481,13 @@ fn export_session_report(
     let md_path = dir.join(format!("session-{stamp}.md"));
     report.write_json(&json_path).map_err(|e| e.to_string())?;
     report.write_markdown(&md_path).map_err(|e| e.to_string())?;
-    Ok(format!(
-        "{} · blocks={} alerts={} → {} / {}",
-        report.privacy_note,
-        report.block_count,
-        report.alert_count,
-        json_path.display(),
-        md_path.display()
-    ))
+    Ok(report.completion_message(&json_path, &md_path))
 }
 
 #[tauri::command]
 fn set_auto_approve(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
-    if enabled && !auto_approve_allowed() {
-        return Err(
-            "auto-approve disabled in release builds (set AGENTGUARD_ALLOW_AUTO_APPROVE=1 to override)"
-                .into(),
-        );
+    if enabled && !(DEVELOPMENT_BUILD && auto_approve_allowed()) {
+        return Err("auto-approve is unavailable in release builds".into());
     }
     *state.auto_approve.lock().map_err(|e| e.to_string())? = enabled;
     Ok(())
@@ -1009,10 +1496,10 @@ fn set_auto_approve(state: State<'_, AppState>, enabled: bool) -> Result<(), Str
 #[tauri::command]
 fn security_status() -> Result<SecurityStatusDto, String> {
     Ok(SecurityStatusDto {
-        release_build: !cfg!(debug_assertions),
+        release_build: !DEVELOPMENT_BUILD,
         sqlcipher: sqlcipher_enabled(),
-        auto_approve_allowed: auto_approve_allowed(),
-        intel_fail_closed: !cfg!(debug_assertions),
+        auto_approve_allowed: DEVELOPMENT_BUILD && auto_approve_allowed(),
+        intel_fail_closed: !DEVELOPMENT_BUILD,
     })
 }
 
@@ -1026,6 +1513,7 @@ struct SecurityStatusDto {
 
 #[tauri::command]
 fn resume_session(state: State<'_, AppState>) -> Result<(), String> {
+    require_audit_ready(state.inner())?;
     state.engine.lock().map_err(|e| e.to_string())?.resume();
     Ok(())
 }
@@ -1037,8 +1525,8 @@ fn start_guard_session(
     task_profile: Option<String>,
     task_apps: Option<Vec<String>>,
 ) -> Result<String, String> {
+    require_audit_ready(state.inner())?;
     let sid = uuid::Uuid::new_v4().to_string();
-    let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     // Aura §4.4: naming the task is what selects its plan, and with it the resource ceiling. Both
     // arguments are optional, so a caller that does not know the task opens an unscoped session
     // exactly as before — but a caller that does know can no longer only *not* say so, which was
@@ -1050,18 +1538,30 @@ fn start_guard_session(
         apps: task_apps.unwrap_or_default(),
         ..Default::default()
     };
+    // 先把上一代待确认全部以系统 Timeout 结案；事务失败时不启动新会话。
+    let removed = {
+        let engine = state.engine.lock().map_err(|e| e.to_string())?;
+        let mut queue = state.pending.lock().map_err(|e| e.to_string())?;
+        bump_pending_generation_with_engine(&engine, &mut queue)?
+    };
+    state
+        .confirms_timed_out
+        .fetch_add(removed.len(), Ordering::Relaxed);
+    for item in removed {
+        state.trace.write(&TraceLine {
+            request_id: Some(item.request_id),
+            audit_id: item.audit_id,
+            rule_id: Some(item.rule_id),
+            ..trace_line("confirm_session_timeout")
+        });
+    }
+
+    let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     adapter.start_task_session(sid.clone(), "Claude", &task);
     state.trace.write(&TraceLine {
         session_id: Some(sid.clone()),
         ..trace_line("session_start")
     });
-    // P0-3/P0-5:新会话推进 generation 并清空上一会话遗留的待确认。
-    state
-        .pending
-        .lock()
-        .map_err(|e| e.to_string())?
-        .bump_generation();
-    persist_pending(&state);
     reset_observation_memory(&state)?;
     drain_and_process(&state, &mut adapter)?;
     // Observation begins with the session and ends with it. Polling outside a session would
@@ -1095,6 +1595,24 @@ fn reset_observation_memory(state: &State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
+    // 审计事务先行；失败时会话、观察器、队列与引擎状态都保持原样，调用方可重试。
+    let removed = {
+        let engine = state.engine.lock().map_err(|e| e.to_string())?;
+        let mut queue = state.pending.lock().map_err(|e| e.to_string())?;
+        bump_pending_generation_with_engine(&engine, &mut queue)?
+    };
+    state
+        .confirms_timed_out
+        .fetch_add(removed.len(), Ordering::Relaxed);
+    for item in removed {
+        state.trace.write(&TraceLine {
+            request_id: Some(item.request_id),
+            audit_id: item.audit_id,
+            rule_id: Some(item.rule_id),
+            ..trace_line("confirm_session_timeout")
+        });
+    }
+
     state.polling.store(false, Ordering::Relaxed);
     state.trace.write(&trace_line("session_end"));
     #[cfg(windows)]
@@ -1105,13 +1623,6 @@ fn end_guard_session(state: State<'_, AppState>) -> Result<(), String> {
     }
     let mut adapter = state.adapter.lock().map_err(|e| e.to_string())?;
     adapter.end_session("Claude");
-    // P0-3:会话结束清空待确认队列(观察器已由 polling=false 停掉)。
-    state
-        .pending
-        .lock()
-        .map_err(|e| e.to_string())?
-        .bump_generation();
-    persist_pending(&state);
     drain_and_process(&state, &mut adapter)?;
     reset_observation_memory(&state)?;
     // SESSION-PAUSED 是会话级状态("Session paused after critical deny"),会话结束即失效;
@@ -1208,8 +1719,8 @@ fn inject_demo_threat(
 
 #[tauri::command]
 fn reload_intel(state: State<'_, AppState>) -> Result<String, String> {
+    let intel = load_intel().map_err(|error| error.to_string())?;
     let mut engine = state.engine.lock().map_err(|e| e.to_string())?;
-    let intel = load_intel();
     let ver = intel.version.clone();
     engine.reload_intel(intel);
     Ok(ver)
@@ -1220,6 +1731,9 @@ fn sync_device_policy(
     state: State<'_, AppState>,
     source: Option<String>,
 ) -> Result<String, String> {
+    if !DEVELOPMENT_BUILD && source.is_none() {
+        return Err("此发布版本未配置企业策略来源，无法同步".into());
+    }
     let src = source.unwrap_or_else(|| {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../../policies/enterprise-poc.yaml")
@@ -1271,6 +1785,7 @@ fn process_one(
     event: &guard_schema::GuardEvent,
     approve: bool,
 ) -> Result<DecisionDto, String> {
+    require_audit_ready(state.inner())?;
     if approve {
         let d = engine
             .process_gated(event, &AutoApprove)
@@ -1288,12 +1803,19 @@ fn process_one(
             event.metadata.get("ui_text").cloned(),
         );
         let (audit_id, rule_id) = (req.audit_id.clone(), req.rule_id.clone());
-        let id = state
-            .pending
-            .lock()
-            .map_err(|e| e.to_string())?
-            .enqueue_at(req, now_epoch_ms());
-        persist_pending(state);
+        let (id, evicted) = {
+            let mut queue = state.pending.lock().map_err(|e| e.to_string())?;
+            enqueue_pending_with_engine(&mut queue, engine, req, now_epoch_ms())?
+        };
+        if let Some(item) = evicted {
+            state.confirms_timed_out.fetch_add(1, Ordering::Relaxed);
+            state.trace.write(&TraceLine {
+                request_id: Some(item.request_id),
+                audit_id: item.audit_id,
+                rule_id: Some(item.rule_id),
+                ..trace_line("confirm_capacity_timeout")
+            });
+        }
         state.trace.write(&TraceLine {
             request_id: Some(id),
             audit_id,
@@ -1310,6 +1832,8 @@ fn to_dto(d: &Decision) -> DecisionDto {
         rule_id: d.rule_id.clone(),
         human_message: d.human_message.clone(),
         require_confirm: d.require_confirm,
+        effect: OBSERVED_ONLY_EFFECT,
+        external_action_blocked: EXTERNAL_ACTION_BLOCKED,
     }
 }
 
@@ -1440,6 +1964,7 @@ fn poll_native_once(
 /// One-shot observation, for a UI button and for tests.
 #[tauri::command]
 fn poll_native(state: State<'_, AppState>) -> Result<PollDto, String> {
+    require_audit_ready(state.inner())?;
     let (decisions, warnings) = poll_native_once(&state)?;
     Ok(PollDto {
         decisions,
@@ -1610,7 +2135,12 @@ pub fn run() {
             caps.uia_native, caps.frame_capture
         ))
     };
-    let engine = build_engine();
+    let engine = build_engine_without_audit().expect("Windows 必需规则资源无效，拒绝启动");
+    let (engine, audit_initialization_error) = match open_audit_store() {
+        Ok(audit) => (engine.with_audit(audit), String::new()),
+        Err(error) => (engine, format!("{error:#}")),
+    };
+    let audit_ready = audit_initialization_error.is_empty();
     // P1-4:上次运行没处理完的确认——逐条写 Timeout 回执。
     let orphaned = restore_orphaned_confirms(&engine);
     // P1-9:只恢复能再验过签的缓存策略;没公钥就只显示、不执法。
@@ -1618,6 +2148,10 @@ pub fn run() {
     let policy_status = restore_device_policy_at_startup(&mut engine);
     let state = AppState {
         engine: Mutex::new(engine),
+        audit_ready: AtomicBool::new(audit_ready),
+        audit_operation_running: AtomicBool::new(false),
+        audit_recovery_running: AtomicBool::new(false),
+        audit_initialization_error: Mutex::new(audit_initialization_error),
         adapter: Mutex::new(WinAdapter::new()),
         auto_approve: Mutex::new(false),
         pending: Mutex::new(ConfirmQueue::new(64)),
@@ -1625,7 +2159,17 @@ pub fn run() {
         #[cfg(windows)]
         observer: Mutex::new(
             if caps.uia_native.available || caps.frame_capture.available {
-                Some(NativeObserver::new().with_schemas(load_form_schemas()))
+                Some(
+                    NativeObserver::new()
+                        .with_schemas(load_form_schemas().unwrap_or_else(|error| {
+                            panic!("Windows 表单规则加载失败，拒绝启动观察: {error:#}")
+                        }))
+                        .with_observation_capabilities(
+                            caps.uia_native.available,
+                            caps.frame_capture.available,
+                            caps.ocr.available,
+                        ),
+                )
             } else {
                 None
             },
@@ -1654,6 +2198,8 @@ pub fn run() {
             export_session_report,
             set_auto_approve,
             security_status,
+            retry_audit_initialization,
+            recover_legacy_audit,
             resume_session,
             start_guard_session,
             end_guard_session,
@@ -1665,6 +2211,319 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod pending_persistence_tests {
+    use super::*;
+
+    fn audit_record(id: &str) -> AuditRecord {
+        AuditRecord {
+            id: id.into(),
+            timestamp_ms: 1,
+            platform: "windows".into(),
+            event_type: "ui_tree_delta".into(),
+            source_app: "Chrome".into(),
+            agent_session_id: None,
+            rule_id: "PAY-001".into(),
+            severity: "critical".into(),
+            action: "Block".into(),
+            human_message: "需要确认".into(),
+            evidence_ref: None,
+            user_decision: None,
+            event_json: "{}".into(),
+            attributed_agent: None,
+        }
+    }
+
+    fn pending(audit_id: &str) -> PersistedPending {
+        PersistedPending {
+            request_id: 7,
+            generation: 2,
+            enqueued_ms: 10,
+            audit_id: Some(audit_id.into()),
+            rule_id: "PAY-001".into(),
+            severity: "Critical".into(),
+            source_app: "Chrome".into(),
+        }
+    }
+
+    fn confirm(audit_id: &str) -> ConfirmRequest {
+        ConfirmRequest {
+            audit_id: Some(audit_id.into()),
+            rule_id: "PAY-001".into(),
+            severity: "Critical".into(),
+            human_message: "需要确认".into(),
+            source_app: "Chrome".into(),
+            ui_excerpt: None,
+        }
+    }
+
+    fn engine_with(store: AuditStore) -> Engine {
+        Engine::new(
+            guard_schema::RuleSet {
+                version: "test".into(),
+                rules: vec![],
+            },
+            guard_schema::GuardContract::default(),
+        )
+        .with_audit(store)
+    }
+
+    #[test]
+    fn 同库待确认在重启时写timeout并清理运行时状态() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-7")).unwrap();
+        store
+            .save_pending_confirmations_json(&serde_json::to_string(&[pending("audit-7")]).unwrap())
+            .unwrap();
+
+        assert_eq!(restore_orphaned_from_store(&store), 1);
+        assert_eq!(store.pending_confirmations_json().unwrap(), None);
+        assert_eq!(
+            store.list_recent(1).unwrap()[0].user_decision.as_deref(),
+            Some("timeout")
+        );
+        assert_eq!(store.head().unwrap().unwrap().receipt_count, 1);
+    }
+
+    #[test]
+    fn 损坏的同库json保留且不铸造回执() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-7")).unwrap();
+        store.save_pending_confirmations_json("{broken").unwrap();
+
+        assert_eq!(restore_orphaned_from_store(&store), 0);
+        assert_eq!(
+            store.pending_confirmations_json().unwrap().as_deref(),
+            Some("{broken")
+        );
+        assert_eq!(store.list_recent(1).unwrap()[0].user_decision, None);
+        assert_eq!(store.head().unwrap().unwrap().receipt_count, 0);
+    }
+
+    #[test]
+    fn 缺少审计id的同库状态保留且不铸造回执() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-7")).unwrap();
+        let mut item = pending("audit-7");
+        item.audit_id = None;
+        let json = serde_json::to_string(&[item]).unwrap();
+        store.save_pending_confirmations_json(&json).unwrap();
+
+        assert_eq!(restore_orphaned_from_store(&store), 0);
+        assert_eq!(
+            store.pending_confirmations_json().unwrap().as_deref(),
+            Some(json.as_str())
+        );
+        assert_eq!(store.list_recent(1).unwrap()[0].user_decision, None);
+        assert_eq!(store.head().unwrap().unwrap().receipt_count, 0);
+    }
+
+    #[test]
+    fn 确认回执失败时请求与引擎状态都保持不变() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-valid")).unwrap();
+        let mut engine = engine_with(store);
+        let mut queue = ConfirmQueue::new(4);
+        let request_id = queue.enqueue_at(confirm("audit-missing"), 10);
+        let before = queue.snapshot();
+        engine
+            .audit()
+            .unwrap()
+            .save_pending_confirmations_json(&serde_json::to_string(&before).unwrap())
+            .unwrap();
+
+        engine.pause();
+        assert!(resolve_pending_with_engine(&mut engine, &mut queue, request_id, true).is_err());
+        assert!(engine.is_paused(), "失败的同意不能恢复引擎");
+        assert_eq!(queue.snapshot(), before);
+
+        engine.resume();
+        assert!(resolve_pending_with_engine(&mut engine, &mut queue, request_id, false).is_err());
+        assert!(!engine.is_paused(), "失败的拒绝不能暂停引擎");
+        assert_eq!(queue.snapshot(), before);
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .pending_confirmations_json()
+                .unwrap(),
+            Some(serde_json::to_string(&before).unwrap())
+        );
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .head()
+                .unwrap()
+                .unwrap()
+                .receipt_count,
+            0
+        );
+    }
+
+    #[test]
+    fn 超时回执失败时请求仍在队列和同库快照中() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-valid")).unwrap();
+        let mut engine = engine_with(store);
+        let mut queue = ConfirmQueue::new(4);
+        queue.enqueue_at(confirm("audit-missing"), 1);
+        let before = queue.snapshot();
+        let json = serde_json::to_string(&before).unwrap();
+        engine
+            .audit()
+            .unwrap()
+            .save_pending_confirmations_json(&json)
+            .unwrap();
+
+        assert!(
+            expire_pending_with_engine(&mut engine, &mut queue, DEFAULT_CONFIRM_TTL_MS + 2)
+                .is_err()
+        );
+        assert_eq!(queue.snapshot(), before);
+        assert!(!engine.is_paused());
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .pending_confirmations_json()
+                .unwrap(),
+            Some(json)
+        );
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .head()
+                .unwrap()
+                .unwrap()
+                .receipt_count,
+            0
+        );
+    }
+
+    #[test]
+    fn 会话切换给全部遗留项写timeout后才推进代际() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-a")).unwrap();
+        store.append(&audit_record("audit-b")).unwrap();
+        let engine = engine_with(store);
+        let mut queue = ConfirmQueue::new(4);
+        queue.enqueue_at(confirm("audit-a"), 1);
+        queue.enqueue_at(confirm("audit-b"), 2);
+        let generation = queue.generation();
+        engine
+            .audit()
+            .unwrap()
+            .save_pending_confirmations_json(&serde_json::to_string(&queue.snapshot()).unwrap())
+            .unwrap();
+
+        let removed = bump_pending_generation_with_engine(&engine, &mut queue).unwrap();
+        assert_eq!(removed.len(), 2);
+        assert!(queue.is_empty());
+        assert_eq!(queue.generation(), generation + 1);
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .pending_confirmations_json()
+                .unwrap(),
+            None
+        );
+        let records = engine.audit().unwrap().list_recent(10).unwrap();
+        assert!(records
+            .iter()
+            .all(|record| record.user_decision.as_deref() == Some("timeout")));
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .head()
+                .unwrap()
+                .unwrap()
+                .receipt_count,
+            2
+        );
+    }
+
+    #[test]
+    fn 容量挤出先写timeout并把新项存入同库快照() {
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-a")).unwrap();
+        store.append(&audit_record("audit-b")).unwrap();
+        let engine = engine_with(store);
+        let mut queue = ConfirmQueue::new(1);
+
+        let (a, none) =
+            enqueue_pending_with_engine(&mut queue, &engine, confirm("audit-a"), 1).unwrap();
+        assert!(none.is_none());
+        let (b, evicted) =
+            enqueue_pending_with_engine(&mut queue, &engine, confirm("audit-b"), 2).unwrap();
+        assert_eq!(b, a + 1);
+        assert_eq!(evicted.unwrap().audit_id.as_deref(), Some("audit-a"));
+        assert_eq!(queue.len(), 1);
+        assert_eq!(queue.front().unwrap().request_id, b);
+        let records = engine.audit().unwrap().list_recent(10).unwrap();
+        assert_eq!(
+            records
+                .iter()
+                .find(|record| record.id == "audit-a")
+                .unwrap()
+                .user_decision
+                .as_deref(),
+            Some("timeout")
+        );
+        assert_eq!(
+            records
+                .iter()
+                .find(|record| record.id == "audit-b")
+                .unwrap()
+                .user_decision,
+            None
+        );
+        let persisted: Vec<PersistedPending> = serde_json::from_str(
+            &engine
+                .audit()
+                .unwrap()
+                .pending_confirmations_json()
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(persisted, queue.snapshot());
+        assert_eq!(
+            engine
+                .audit()
+                .unwrap()
+                .head()
+                .unwrap()
+                .unwrap()
+                .receipt_count,
+            1
+        );
+    }
+
+    #[test]
+    fn 遗留明文sidecar即使指向当前记录也不会被执行或删除() {
+        let legacy = std::env::temp_dir().join(format!(
+            "agentguard-legacy-pending-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        let bytes = serde_json::to_vec(&[pending("audit-7")]).unwrap();
+        std::fs::write(&legacy, &bytes).unwrap();
+        let store = AuditStore::open_in_memory().unwrap();
+        store.append(&audit_record("audit-7")).unwrap();
+
+        warn_legacy_pending_sidecar_at(&legacy);
+
+        assert_eq!(restore_orphaned_from_store(&store), 0);
+        assert_eq!(std::fs::read(&legacy).unwrap(), bytes);
+        assert_eq!(store.list_recent(1).unwrap()[0].user_decision, None);
+        assert_eq!(store.head().unwrap().unwrap().receipt_count, 0);
+        std::fs::remove_file(legacy).unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -1806,6 +2665,187 @@ mod observation_tests {
 }
 
 #[cfg(test)]
+mod observed_effect_tests {
+    use super::*;
+    use guard_schema::Severity;
+    use std::collections::HashMap;
+
+    fn block_record() -> AuditRecord {
+        let event = GuardEvent {
+            event_id: "observed-1".into(),
+            timestamp_ms: 42,
+            platform: "windows".into(),
+            event_type: EventType::UiTreeDelta,
+            source_app: "Chrome".into(),
+            agent_context_id: Some("session-1".into()),
+            metadata: HashMap::from([("ui_text".into(), "Pay $299".into())]),
+        };
+        let decision = Decision {
+            action: DecisionAction::Block,
+            severity: Severity::Critical,
+            rule_id: "PAY-001".into(),
+            human_message: "检测到高风险支付界面".into(),
+            require_confirm: true,
+        };
+        AuditRecord::from_event_decision(&event, &decision)
+    }
+
+    #[test]
+    fn realtime_and_confirm_dtos_keep_internal_action_but_disclose_observed_effect() {
+        let decision = Decision {
+            action: DecisionAction::Block,
+            severity: Severity::Critical,
+            rule_id: "PAY-001".into(),
+            human_message: "检测到高风险支付界面".into(),
+            require_confirm: true,
+        };
+        let decision_json = serde_json::to_value(to_dto(&decision)).unwrap();
+        assert_eq!(decision_json["action"], "Block");
+        assert_eq!(decision_json["effect"], OBSERVED_ONLY_EFFECT);
+        assert!(!decision_json["external_action_blocked"].as_bool().unwrap());
+
+        let confirm_json = serde_json::to_value(ConfirmDto {
+            request_id: 7,
+            rule_id: "PAY-001".into(),
+            severity: "Critical".into(),
+            human_message: "检测到高风险支付界面".into(),
+            source_app: "Chrome".into(),
+            ui_excerpt: None,
+            effect: OBSERVED_ONLY_EFFECT,
+            external_action_blocked: EXTERNAL_ACTION_BLOCKED,
+        })
+        .unwrap();
+        assert_eq!(confirm_json["effect"], OBSERVED_ONLY_EFFECT);
+        assert!(!confirm_json["external_action_blocked"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn audit_list_rows_disclose_that_external_action_was_not_blocked() {
+        let row = serde_json::to_value(ObservedAuditRecordDto::from(block_record())).unwrap();
+        assert_eq!(row["action"], "Block", "签名审计的内部动作不能被改写");
+        assert_eq!(row["effect"], OBSERVED_ONLY_EFFECT);
+        assert!(!row["external_action_blocked"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn exported_report_uses_risk_verdicts_and_never_claims_external_blocking() {
+        let report = ObservedSessionReport::from(SessionReport::from_records(&[block_record()]));
+        let json = serde_json::to_value(&report).unwrap();
+        assert_eq!(json["risk_verdict_count"], 1);
+        assert_eq!(json["effect"], OBSERVED_ONLY_EFFECT);
+        assert!(!json["external_action_blocked"].as_bool().unwrap());
+        assert!(
+            json.get("block_count").is_none(),
+            "Windows 对外报告不能把内部 Block 统计成拦截次数"
+        );
+        assert!(
+            json.get("privacy_note").is_none(),
+            "公共报告里的旧‘拦截/告警’说明不能泄漏到 Windows 导出"
+        );
+
+        let markdown = report.to_markdown();
+        assert!(markdown.contains("`effect=observed_only`"));
+        assert!(markdown.contains("`external_action_blocked=false`"));
+        assert!(markdown.contains("风险判决（内部动作枚举）"));
+        assert!(!markdown.contains("| Block |"));
+        assert!(markdown.contains("未阻止外部应用中已经发生的动作"));
+
+        let completion = report.completion_message(
+            std::path::Path::new("session.json"),
+            std::path::Path::new("session.md"),
+        );
+        assert!(completion.contains("risk_verdicts=1"));
+        assert!(completion.contains("effect=observed_only"));
+        assert!(completion.contains("external_action_blocked=false"));
+        assert!(!completion.contains("blocks="));
+    }
+}
+
+#[cfg(test)]
+mod windows_required_capability_tests {
+    use super::*;
+    use guard_core::observe_state::{ProtectionState, Reason};
+    use win_adapter::Capability;
+
+    fn all_available() -> AdapterCapabilities {
+        AdapterCapabilities {
+            simulation: true,
+            uia_native: Capability::yes("UI Automation ready"),
+            frame_capture: Capability::yes("GDI ready"),
+            graphics_capture: Capability::no("GDI is the documented release path"),
+            ocr: Capability::yes("OCR engine ready (English)"),
+        }
+    }
+
+    fn release_state(caps: &AdapterCapabilities) -> observe_state::Derived {
+        let gap = required_windows_capability_gap(caps);
+        observe_state::derive(
+            &StateInputs {
+                session_active: true,
+                paused: false,
+                pending_confirm: false,
+                observers_available: caps.uia_native.available as u32
+                    + caps.frame_capture.available as u32,
+                observers_running: 1,
+                required_observation_permission: gap.permission,
+                required_capability_unavailable: gap.capability,
+                observer_error: None,
+                audit_enabled: true,
+                audit_error: None,
+                observer_started_ms: Some(1_000),
+                last_heartbeat_ms: Some(9_500),
+                now_ms: 10_000,
+            },
+            &Thresholds::default(),
+        )
+    }
+
+    #[test]
+    fn w10_missing_uia_or_ocr_stays_degraded_despite_a_healthy_frame_heartbeat() {
+        for forced in ["uia", "frame", "ocr"] {
+            let caps = all_available().with_forced_unavailable(forced);
+            let state = release_state(&caps);
+            assert_eq!(state.state, ProtectionState::Degraded, "forced={forced}");
+            assert!(
+                state
+                    .reasons
+                    .contains(&Reason::RequiredCapabilityUnavailable),
+                "forced={forced} reasons={:?}",
+                state.reasons
+            );
+        }
+    }
+
+    #[test]
+    fn access_denial_is_permission_required_but_missing_language_engine_is_capability_gap() {
+        let mut denied = all_available();
+        denied.uia_native = Capability::no("CUIAutomation failed: E_ACCESSDENIED 0x80070005");
+        let denied_state = release_state(&denied);
+        assert_eq!(denied_state.state, ProtectionState::PermissionRequired);
+        assert_eq!(
+            denied_state.reasons,
+            vec![Reason::RequiredObservationPermission]
+        );
+
+        let mut no_ocr = all_available();
+        no_ocr.ocr = Capability::no("no OCR recognizer available; install a language pack");
+        let no_ocr_state = release_state(&no_ocr);
+        assert_eq!(no_ocr_state.state, ProtectionState::Degraded);
+        assert_eq!(
+            no_ocr_state.reasons,
+            vec![Reason::RequiredCapabilityUnavailable]
+        );
+    }
+
+    #[test]
+    fn all_windows_release_capabilities_available_can_be_active() {
+        let state = release_state(&all_available());
+        assert_eq!(state.state, ProtectionState::Active);
+        assert!(state.reasons.is_empty());
+    }
+}
+
+#[cfg(test)]
 mod packaging_tests {
     /// Every icon the bundle configuration names has to exist.
     ///
@@ -1837,6 +2877,53 @@ mod packaging_tests {
                 path.display()
             );
         }
+
+        let release = std::fs::read_to_string(root.join("../scripts/build-release.sh"))
+            .expect("Windows must have one reproducible secure Release entry");
+        assert!(
+            release.contains("--no-default-features --features audit-sqlcipher --locked"),
+            "the canonical Release command must explicitly select locked SQLCipher"
+        );
+        assert!(
+            release.contains("scripts/bootstrap-rust.sh"),
+            "the Release command must use the repository-pinned cargo/rustc wrapper"
+        );
+    }
+
+    #[test]
+    fn release_audit_has_no_unsigned_fallback_and_preflights_signer_first() {
+        let src = std::fs::read_to_string(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs"),
+        )
+        .unwrap();
+        assert!(
+            !src.contains(concat!("open_audit_store_", "unsigned")),
+            "an unsigned reopen path reintroduced the encrypted-but-unsigned state"
+        );
+        assert!(
+            !src.contains(concat!("records will be ", "unsigned")),
+            "signer failure must stop startup, not downgrade"
+        );
+        let signer = src
+            .find("WindowsDpapiDeviceKey::load_or_create(audit_signing_key_path())")
+            .expect("the Windows signer seed is provisioned through current-user DPAPI");
+        let database = src
+            .find("AuditStore::open_protected")
+            .expect("Release uses the protected audit constructor");
+        assert!(
+            signer < database,
+            "the database was opened before signer provisioning could fail"
+        );
+        assert!(
+            src.contains("DPAPI-protected Windows audit encryption key"),
+            "Windows encryption key provisioning must remain DPAPI-backed"
+        );
+        assert!(
+            src.contains(
+                "#[cfg(not(target_os = \"windows\"))]\n    let signer = guard_audit::FileDeviceKey::load_or_create(audit_signing_key_path())"
+            ),
+            "the plaintext file signer may exist only in the non-Windows test portability branch"
+        );
     }
 
     /// The observation path must be reachable from the shell.

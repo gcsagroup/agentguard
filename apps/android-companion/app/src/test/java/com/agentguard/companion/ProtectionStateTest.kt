@@ -42,6 +42,21 @@ class ProtectionStateTest {
         assertTrue(d.reasons.isEmpty())
     }
 
+    @Test
+    fun `active observer without notification permission is degraded`() {
+        val d = ProtectionState.derive(
+            sessionActive = true,
+            accessibilityBound = true,
+            relayEnabled = false,
+            relayLastOkMs = 0,
+            relayLastErrorMs = 0,
+            nowMs = now,
+            notificationsGranted = false,
+        )
+        assertEquals(ProtectionState.Guard.DEGRADED, d.guard)
+        assertTrue(d.reasons.contains(ProtectionState.Reason.NOTIFICATIONS_DENIED))
+    }
+
     /** 中继开了但从没成功过:是 CONNECTING,不是 CONNECTED;守护 DEGRADED。 */
     @Test
     fun `relay enabled but never succeeded is connecting`() {

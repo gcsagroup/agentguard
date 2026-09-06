@@ -18,7 +18,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 default = ["audit-sqlite"]
 ## Dev / default: plain SQLite audit.
 audit-sqlite = ["guard-audit/sqlite-bundled"]
-## Release-secure: SQLCipher audit (build with --no-default-features --features audit-sqlcipher).
+## Required for every Release: SQLCipher audit. lib.rs rejects Release without this explicit feature.
+## Canonical command: --no-default-features --features audit-sqlcipher --locked
 audit-sqlcipher = ["guard-audit/sqlcipher"]
 
 [build-dependencies]

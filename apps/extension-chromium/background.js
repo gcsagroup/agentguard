@@ -6,6 +6,11 @@ import "./guard-strings.js";
 
 const NATIVE_HOST = "com.agentguard.native";
 const MAX_BUFFER = 50;
+// 首个 GA 不把尚未完成相互认证的 Native Messaging 边界交付给用户。是否可用只由
+// 打包 manifest 决定，不能由 storage 中旧版本遗留的 true 或页面消息重新打开。
+const NATIVE_AVAILABLE = (chrome.runtime.getManifest().permissions || []).includes(
+  "nativeMessaging"
+);
 
 /* 通知语言:跟 popup 同一个设置。 */
 let bgLocale = self.AgentGuardStrings
@@ -54,9 +59,18 @@ const PENDING_BEFORE_LOAD_MAX = 20;
 let enginePaused = false;
 
 chrome.storage.local.get(["nativeEnabled", "recent", "enginePaused"], (data) => {
-  if (typeof data.nativeEnabled === "boolean") nativeEnabled = data.nativeEnabled;
+  if (NATIVE_AVAILABLE) {
+    nativeEnabled = typeof data.nativeEnabled === "boolean" ? data.nativeEnabled : false;
+    if (typeof data.enginePaused === "boolean") enginePaused = data.enginePaused;
+  } else {
+    nativeEnabled = false;
+    // 首个 GA 已撤销 Native 能力。升级时旧版的 pause 只能来自已删除的 host，
+    // 继续恢复会制造一个没有恢复入口的永久“‖”状态。
+    enginePaused = false;
+    chrome.storage.local.set({ nativeEnabled: false, enginePaused: false });
+    setBadge("", null);
+  }
   if (Array.isArray(data.recent)) recent = data.recent;
-  if (typeof data.enginePaused === "boolean") enginePaused = data.enginePaused;
   settingsLoaded = true;
   const queued = pendingBeforeLoad;
   pendingBeforeLoad = [];
@@ -151,6 +165,27 @@ function notifyUser(item) {
 }
 
 /**
+ * DOM 阻断的可信状态面。页面内提示可被站点改样式或移除，所以它不能作为安全 UI；
+ * 这个浏览器通知只说明“已阻断”，没有可交互的放行按钮，并复用固定 id 避免点击风暴堆通知。
+ */
+function notifyDomBlocked(kind) {
+  try {
+    const S = self.AgentGuardStrings;
+    const ui = S ? S.ui(bgLocale) : null;
+    const info = S ? S.kindText(kind, bgLocale) : null;
+    chrome.notifications.create("agentguard-dom-blocked", {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon128.png"),
+      title: ui ? ui.notifyBlocked : "AgentGuard",
+      message: info ? info.detail : (ui ? ui.criticalAction : "Blocked action"),
+      priority: 2,
+    });
+  } catch (e) {
+    console.debug("AgentGuard DOM-block notification failed", e);
+  }
+}
+
+/**
  * Act on the host's verdict. Before this, background.js console.debug'd the
  * response and discarded it, so the "Critical Confirm" the store listing
  * advertised never fired. Now: raise a notification per Critical/Block/
@@ -158,6 +193,7 @@ function notifyUser(item) {
  * the popup.
  */
 function handleVerdict(response) {
+  if (!NATIVE_AVAILABLE) return;
   if (!response || typeof response !== "object") return;
   const items = Array.isArray(response.notify) ? response.notify : [];
   for (const item of items) notifyUser(item);
@@ -176,15 +212,6 @@ function handleVerdict(response) {
   // 宿主可以随判决附一组要在网络层拦的主机(恶意域 / 越出 scope.hosts 的目的地),每条带 kind。
   if (Array.isArray(response.block_hosts) && response.block_hosts.length) {
     updateBlocklist(response.block_hosts);
-  }
-  // E9:当前会话的主机允许表快照。存进 storage,内容脚本据此推给页面做本地越界判定。
-  // 字段缺失 = 没声明 → 存 null(内容脚本会据此关掉本地越界拦截)。
-  try {
-    chrome.storage.local.set({
-      scope_hosts: Array.isArray(response.scope_hosts) ? response.scope_hosts : null,
-    });
-  } catch (e) {
-    console.debug("AgentGuard scope_hosts persist failed", e);
   }
   if (items.length || response.paused) {
     pushRecent({
@@ -206,6 +233,14 @@ function handleVerdict(response) {
 // provenance(E12):host → {kind, rule_id},给 popup 溯源"为什么被拦"。
 let blocklist = { persistent: [], session: [], provenance: {} };
 chrome.storage.local.get(["blocklist"], (data) => {
+  if (!NATIVE_AVAILABLE) {
+    // 旧版 Native host 生成的动态主机规则不属于首个 GA。升级必须同时清状态和
+    // 浏览器里的动态 DNR，不能留下用户无法解释/解除的幽灵拦截。
+    blocklist = { persistent: [], session: [], provenance: {} };
+    chrome.storage.local.set({ blocklist });
+    clearDynamicRules();
+    return;
+  }
   if (data.blocklist && Array.isArray(data.blocklist.persistent)) {
     blocklist = {
       persistent: data.blocklist.persistent,
@@ -222,6 +257,7 @@ chrome.storage.local.get(["blocklist"], (data) => {
 
 // 收到宿主的一批 block_hosts:按 kind 分流,合并进累积状态,持久化,再装 active 集。
 function updateBlocklist(blockHosts) {
+  if (!NATIVE_AVAILABLE) return;
   const Gate = self.AgentGuardGate;
   if (!Gate) return;
   const malicious = [];
@@ -246,6 +282,10 @@ function updateBlocklist(blockHosts) {
 
 // 把当前 active 主机集(持久 ∪ 未过期会话)装进 DNR。重算 active 时顺带过期会话项。
 async function installActive() {
+  if (!NATIVE_AVAILABLE) {
+    await clearDynamicRules();
+    return;
+  }
   const Gate = self.AgentGuardGate;
   if (!Gate || !chrome.declarativeNetRequest) return;
   // 用一次空合并把过期项剪掉,拿到当前 active 与清理后的 session。
@@ -261,9 +301,22 @@ async function installActive() {
     const addRules = Gate.buildBlockRules(merged.active);
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
   } catch (e) {
-    // fail-open 在这里是**有意**的且已声明:DNR 是对内容脚本同步门的**加**一层,不是唯一防线。
-    // 装不上就记一条,不假装拦住了——一个连不上 DNR 的扩展不该让用户整个浏览器都上不了网。
+    // 这里只安装宿主判决产生的动态主机名单。失败时如实降级,不会影响独立打包、默认启用的
+    // payment_shape_block 静态规则；也不能把动态规则失败说成仍已拦住该主机。
     console.debug("AgentGuard DNR install failed", e);
+  }
+}
+
+async function clearDynamicRules() {
+  if (!chrome.declarativeNetRequest) return;
+  try {
+    const existing = await chrome.declarativeNetRequest.getDynamicRules();
+    const removeRuleIds = existing.map((rule) => rule.id);
+    if (removeRuleIds.length) {
+      await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [] });
+    }
+  } catch (e) {
+    console.debug("AgentGuard legacy DNR cleanup failed", e);
   }
 }
 
@@ -311,6 +364,7 @@ function dropPort(why) {
 }
 
 function ensurePort() {
+  if (!NATIVE_AVAILABLE) return null;
   if (link.port) return link.port;
   if (Date.now() < link.nextRetryAt) return null;
   const Gate = self.AgentGuardGate;
@@ -366,6 +420,7 @@ function disconnectPort() {
 }
 
 function sendNative(message) {
+  if (!NATIVE_AVAILABLE) return;
   if (!settingsLoaded) {
     // fail-closed:还不知道用户开没开,先不发。
     if (pendingBeforeLoad.length < PENDING_BEFORE_LOAD_MAX) pendingBeforeLoad.push(message);
@@ -384,6 +439,7 @@ function sendNative(message) {
 
 function linkState() {
   return {
+    available: NATIVE_AVAILABLE,
     enabled: nativeEnabled,
     connected: !!link.port,
     lastOk: link.lastOk,
@@ -427,6 +483,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     prevented_kind: msg.kind,
   });
   setBadge("!", "#b00020");
+  notifyDomBlocked(msg.kind);
   sendNative({
     type: "browser_events",
     source: "extension-chromium",
@@ -448,14 +505,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     // 打开 popup 就是"看过了":清掉徽章(E18)。此前 "!"/计数一旦点亮就永远挂着,
     // 用户没有任何办法消掉它。暂停徽章「‖」例外——暂停还在,提醒就还该在。
     if (!enginePaused) setBadge("", null);
-    sendResponse({ recent, nativeEnabled, link: linkState() });
+    sendResponse({ recent, nativeAvailable: NATIVE_AVAILABLE, nativeEnabled, link: linkState() });
     return true;
   }
   if (msg?.type === "set_native") {
-    nativeEnabled = !!msg.enabled;
+    nativeEnabled = NATIVE_AVAILABLE && !!msg.enabled;
     chrome.storage.local.set({ nativeEnabled });
     if (!nativeEnabled) disconnectPort();
-    sendResponse({ ok: true, link: linkState() });
+    sendResponse({
+      ok: NATIVE_AVAILABLE,
+      error: NATIVE_AVAILABLE ? "" : "native_messaging_disabled_in_release",
+      link: linkState(),
+    });
     return true;
   }
   // E10:popup 管理面读当前拦截名单。先剪掉过期会话项(installActive 里那次空合并),再回。

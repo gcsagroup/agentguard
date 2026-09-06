@@ -188,12 +188,12 @@ object PayloadSerializer {
     @Volatile
     private var faces: AppFace.FaceCache? = null
 
-    /** Called from the accessibility service / foreground service on startup. */
+    /** Called when the accessibility observer starts. */
     fun useAttestor(cache: AppAttestor.SignerCache?) {
         signers = cache
     }
 
-    /** Called from the accessibility service / foreground service on startup. */
+    /** Called when the accessibility observer starts. */
     fun useFaceCache(cache: AppFace.FaceCache?) {
         faces = cache
     }

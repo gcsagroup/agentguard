@@ -17,8 +17,8 @@
         </div>
         <h1 data-i18n="obHeadline">You're protected</h1>
         <p class="lede" data-i18n="obLede">
-          AgentGuard watches what AI agents do in your browser, and stops risky steps before they
-          happen — then asks you.
+          AgentGuard watches what AI agents do in your browser and blocks supported risky steps
+          before they happen.
         </p>
       </header>
 
@@ -31,10 +31,9 @@
           </p>
         </div>
         <div class="card">
-          <h2 data-i18n="obP2Title">Asks before money or personal info moves</h2>
+          <h2 data-i18n="obP2Title">Blocks supported money and personal-info actions</h2>
           <p data-i18n="obP2Body">
-            A payment click, a form fishing for your phone number — the action is paused first,
-            and nothing happens unless you allow it.
+            A recognized payment click or privacy-trap form is stopped. A web page cannot release it.
           </p>
         </div>
         <div class="card">
@@ -50,8 +49,7 @@
         <h2 data-i18n="obDemoTitle">See it once, so it never surprises you</h2>
         <p data-i18n="obDemoBody">
           Click the fake payment button below. This is a demo — no payment exists, nothing is
-          sent anywhere. The dialog you'll see is rendered by the exact same code that protects
-          real pages.
+          sent anywhere. The notice has no allow control; closing it does not release the action.
         </p>
         <button id="demo-pay" class="danger" data-i18n="obDemoBtn">Confirm Payment (demo)</button>
         <p id="demo-outcome" class="outcome" aria-live="polite"></p>
@@ -64,8 +62,7 @@
           details stay one tap away under "Why?".
         </p>
         <p data-i18n="obMoreDesktop">
-          Optional: connect the AgentGuard desktop app (popup → Settings) and every blocking
-          decision is also signed into a tamper-evident local audit log.
+          Native Messaging is disabled in the first GA package while its trust boundary is hardened.
         </p>
         <p class="privacy" data-i18n="obPrivacy">
           Findings stay on your device by default. Nothing is uploaded.

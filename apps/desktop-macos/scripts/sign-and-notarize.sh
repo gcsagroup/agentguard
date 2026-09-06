@@ -7,16 +7,9 @@
 # under "Next steps". Printed instructions are not a build step: nothing checked that the
 # resulting bundle was signed, and the repository's own release doc listed signing as done.
 #
-# There is a second, less obvious reason, and it is the one that decides whether the app
-# works at all on a developer's own machine. macOS keys TCC grants — Accessibility and Screen
-# Recording, the two permissions this app cannot observe anything without — to the code
-# signature. An unsigned bundle is identified by its binary, so every rebuild is a *new*
-# application as far as TCC is concerned: the grants silently do not apply, `AXIsProcessTrusted`
-# returns false, and the app reports that it has no permissions while System Settings shows the
-# toggle switched on. That looks exactly like a bug in the permission probe.
-#
-# Ad-hoc signing with a stable identifier fixes it, and needs no Apple account. So this script
-# always signs; a Developer ID is an upgrade, not a prerequisite.
+# TCC grants are bound to the app's code-signing identity and designated requirement. Ad-hoc
+# signatures are useful only for local smoke tests: rebuilding them can still invalidate grants,
+# and they are never evidence for distribution, Gatekeeper, or notarization.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -40,13 +33,24 @@ fi
 
 IDENTITY="${APPLE_SIGNING_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]]; then
-  # Ad-hoc. Deliberate and stated, not a silent fallback: an ad-hoc signature keeps TCC grants
-  # stable across local rebuilds, and cannot be notarized or distributed.
+  if [[ "${AGENTGUARD_ALLOW_ADHOC:-0}" != "1" ]]; then
+    echo "error: APPLE_SIGNING_IDENTITY is required for a distributable release." >&2
+    echo "       For an explicitly local, non-distributable smoke build only, set AGENTGUARD_ALLOW_ADHOC=1." >&2
+    exit 3
+  fi
   IDENTITY="-"
-  echo "==> APPLE_SIGNING_IDENTITY is unset: signing ad-hoc (-)."
-  echo "    Local TCC grants will survive rebuilds. This build is NOT distributable:"
-  echo "    Gatekeeper will refuse it on another machine, and notarization is skipped."
+  echo "==> Explicit local smoke mode: signing ad-hoc (-)."
+  echo "    This build is not distributable, notarizable, or evidence of stable TCC identity."
 else
+  case "$IDENTITY" in
+    Developer\ ID\ Application:*) ;;
+    *)
+      echo "error: APPLE_SIGNING_IDENTITY must be a Developer ID Application identity" >&2
+      exit 3
+      ;;
+  esac
+  : "${AGENTGUARD_EXPECTED_TEAM_ID:?set AGENTGUARD_EXPECTED_TEAM_ID to the release Team ID}"
+  : "${NOTARYTOOL_PROFILE:?set NOTARYTOOL_PROFILE to an xcrun notarytool store-credentials profile}"
   echo "==> Signing with: $IDENTITY"
 fi
 
@@ -79,26 +83,28 @@ else
 fi
 
 echo "==> Confirming the entitlements that actually got embedded"
-codesign --display --entitlements :- "$APP"
+codesign --display --entitlements - "$APP"
 
 if [[ "$IDENTITY" == "-" ]]; then
   echo ""
-  echo "==> Done (ad-hoc). TCC grants for Accessibility and Screen Recording will now persist"
-  echo "    across rebuilds of this app on this machine."
+  echo "==> Done (ad-hoc local smoke only). Re-check Accessibility and Screen Recording after every rebuild."
   exit 0
 fi
 
-: "${APPLE_ID:?set APPLE_ID to notarize}"
-: "${TEAM_ID:?set TEAM_ID to notarize}"
-: "${APPLE_APP_SPECIFIC_PASSWORD:?set APPLE_APP_SPECIFIC_PASSWORD to notarize}"
+ACTUAL_TEAM_ID="$(codesign -dvv "$APP" 2>&1 | sed -n 's/^TeamIdentifier=//p' | head -n 1)"
+if [[ -z "$ACTUAL_TEAM_ID" || "$ACTUAL_TEAM_ID" != "$AGENTGUARD_EXPECTED_TEAM_ID" ]]; then
+  echo "error: signed TeamIdentifier '$ACTUAL_TEAM_ID' does not match expected '$AGENTGUARD_EXPECTED_TEAM_ID'" >&2
+  exit 4
+fi
+echo "==> Verified TeamIdentifier: $ACTUAL_TEAM_ID"
 
 ZIP="$(dirname "$APP")/$(basename "$APP" .app)-notarize.zip"
+trap 'rm -f "$ZIP"' EXIT
 echo "==> Submitting for notarization"
 /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
-xcrun notarytool submit "$ZIP" \
-  --apple-id "$APPLE_ID" --team-id "$TEAM_ID" \
-  --password "$APPLE_APP_SPECIFIC_PASSWORD" --wait
+xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARYTOOL_PROFILE" --wait
 rm -f "$ZIP"
+trap - EXIT
 
 echo "==> Stapling"
 xcrun stapler staple "$APP"

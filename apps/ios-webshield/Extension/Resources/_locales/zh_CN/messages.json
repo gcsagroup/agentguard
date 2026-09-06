@@ -1,0 +1,23 @@
+{
+  "extension_name": {"message": "AgentGuard 网页防护"},
+  "extension_description": {"message": "Safari 本地点击与表单提交风险门控。"},
+  "action_title": {"message": "AgentGuard 网页防护"},
+  "popup_title": {"message": "Safari 受限防护"},
+  "popup_loading": {"message": "正在检查本地状态…"},
+  "popup_enabled": {"message": "本地点击与提交门控已启用。"},
+  "popup_disabled": {"message": "请打开 AgentGuard App，确认隐私同意并启用防护。"},
+  "popup_unavailable": {"message": "暂时无法连接本机 App。"},
+  "popup_boundary": {"message": "仅保护 DOM 操作；不监控其他 App，不拦截直接 fetch/XHR，也不远程上传。"},
+  "popup_refresh": {"message": "刷新状态"},
+  "modal_title_payment": {"message": "确认付款操作"},
+  "modal_body_payment": {"message": "这次点击或提交可能会下单或确认付款。只有在符合你的意图时才继续。"},
+  "modal_title_prompt_injection": {"message": "可能存在提示注入"},
+  "modal_body_prompt_injection": {"message": "页面包含可能重定向智能体的指令式文字。继续前请先核对。"},
+  "modal_title_privacy_trap": {"message": "检测到敏感表单"},
+  "modal_body_privacy_trap": {"message": "表单可能包含密码、令牌、API 密钥或支付卡字段。提交前请核对。"},
+  "modal_cancel": {"message": "取消"},
+  "modal_allow_once": {"message": "仅允许一次"},
+  "modal_title_unavailable": {"message": "无法确认防护状态"},
+  "modal_body_unavailable": {"message": "AgentGuard 无法确认本机防护状态，因此已停止这项可能有风险的操作。请打开 App 或扩展后重试。"},
+  "modal_close": {"message": "关闭"}
+}

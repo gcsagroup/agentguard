@@ -1,0 +1,23 @@
+{
+  "extension_name": {"message": "AgentGuard 網頁防護"},
+  "extension_description": {"message": "Safari 本機點擊與表單提交風險閘門。"},
+  "action_title": {"message": "AgentGuard 網頁防護"},
+  "popup_title": {"message": "Safari 受限防護"},
+  "popup_loading": {"message": "正在檢查本機狀態…"},
+  "popup_enabled": {"message": "本機點擊與提交閘門已啟用。"},
+  "popup_disabled": {"message": "請開啟 AgentGuard App，確認隱私同意並啟用防護。"},
+  "popup_unavailable": {"message": "暫時無法連接本機 App。"},
+  "popup_boundary": {"message": "僅保護 DOM 操作；不監控其他 App、不攔截直接 fetch/XHR，也不遠端上傳。"},
+  "popup_refresh": {"message": "重新整理狀態"},
+  "modal_title_payment": {"message": "確認付款操作"},
+  "modal_body_payment": {"message": "這次點擊或提交可能會下單或確認付款。只有符合你的意圖時才繼續。"},
+  "modal_title_prompt_injection": {"message": "可能存在提示注入"},
+  "modal_body_prompt_injection": {"message": "頁面包含可能重新導向智慧代理的指令式文字。繼續前請先核對。"},
+  "modal_title_privacy_trap": {"message": "偵測到敏感表單"},
+  "modal_body_privacy_trap": {"message": "表單可能包含密碼、權杖、API 金鑰或支付卡欄位。提交前請核對。"},
+  "modal_cancel": {"message": "取消"},
+  "modal_allow_once": {"message": "僅允許一次"},
+  "modal_title_unavailable": {"message": "無法確認防護狀態"},
+  "modal_body_unavailable": {"message": "AgentGuard 無法確認本機防護狀態，因此已停止這項可能有風險的操作。請開啟 App 或擴充功能後重試。"},
+  "modal_close": {"message": "關閉"}
+}

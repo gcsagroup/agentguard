@@ -11,6 +11,39 @@ const observeBox = () => document.getElementById("observe-status");
 
 const { listen } = window.__TAURI__.event;
 
+let lastStatus = null;
+let recoveryRequestRunning = false;
+
+function legacyAuditAvailable(st) {
+  return !st.audit_ready && (st.audit_legacy_available || /AUDIT_LEGACY_PLAINTEXT|legacy plaintext audit database/i.test(st.audit_error || ""));
+}
+
+function auditSummary(st) {
+  const error = st.audit_error || "";
+  if (st.audit_recovery_running || recoveryRequestRunning) return t("recovery.working");
+  if (st.audit_bootstrap_state === "pending") return t("recovery.initializing");
+  if (/AUDIT_SOURCE_BUSY/.test(error)) return t("recovery.busy");
+  if (/AUDIT_LEGACY_CHANGED/.test(error)) return t("recovery.changed");
+  if (/AUDIT_KEY_OR_DATABASE_INVALID|file is not a database/i.test(error)) return t("recovery.invalidKey");
+  if (/keychain/i.test(error)) return t("recovery.keychain");
+  if (legacyAuditAvailable(st)) return t("recovery.legacy");
+  return t("recovery.failed");
+}
+
+function renderAuditRecovery(st) {
+  const panel = document.getElementById("audit-recovery-panel");
+  if (!panel) return;
+  panel.hidden = !!st.audit_ready;
+  document.getElementById("audit-recovery-message").textContent = auditSummary(st);
+  document.getElementById("audit-recovery-details").textContent = `${st.audit_data_path || ""}\n${st.audit_error || ""}`;
+  const working = !!(st.audit_operation_running || recoveryRequestRunning);
+  const migrate = document.getElementById("btn-audit-migrate");
+  migrate.hidden = !legacyAuditAvailable(st);
+  migrate.disabled = working;
+  document.getElementById("btn-audit-retry").disabled = working;
+}
+
+
 function actionClass(action) {
   const a = (action || "").toLowerCase();
   if (a.includes("block")) return "block";
@@ -127,6 +160,14 @@ async function maybeShowConfirm() {
   }
   shownRequestId = pending.request_id;
   document.getElementById("confirm-msg").textContent = pending.human_message;
+  // Windows 这一层是在 UIA/GDI 已呈现状态之后才观察到风险。只有后端明确给出
+  // observed_only 合同时才显示这段产品说明，避免把内部 Block 判决误说成外部动作已拦截。
+  const effect = document.getElementById("confirm-effect");
+  const observedOnly = pending.effect === "observed_only" && pending.external_action_blocked === false;
+  effect.hidden = !observedOnly;
+  effect.textContent = observedOnly ? t("confirmObservedOnly") : "";
+  effect.dataset.effect = pending.effect || "";
+  effect.dataset.externalActionBlocked = String(pending.external_action_blocked);
   document.getElementById("confirm-meta").textContent =
     `${pending.rule_id} · ${pending.severity} · ${pending.source_app}` +
     (pending.ui_excerpt ? ` · ${pending.ui_excerpt}` : "");
@@ -150,6 +191,11 @@ function renderStateReasons(st, span) {
   const box = document.getElementById("state-why");
   if (!box) return;
   box.replaceChildren();
+  if (!st.audit_ready) {
+    box.hidden = false;
+    box.appendChild(span("state-why-item", auditSummary(st)));
+    return;
+  }
   const reasons = st.state_reasons || [];
   box.hidden = reasons.length === 0;
   for (const code of reasons) {
@@ -170,6 +216,7 @@ function renderStateReasons(st, span) {
  *  措辞来自词表,插进去的只有操作系统给的原因串。认不出的 mode 就不说话——
  *  宁可少一行,也不把 mode 名怼给用户。 */
 function modeSentence(st) {
+  if (!st.audit_ready) return auditSummary(st);
   const yes = t("capAvailable");
   const no = t("capUnavailable");
   const tree = st.uia_native ? yes : no;
@@ -201,7 +248,9 @@ function renderWatching(st) {
   if (!el) return;
   const anyCap = !!(st.uia_native || st.frame_capture || st.ocr);
   const suffix = ` ${t("watchingRules", { rules: st.rules_loaded, intel: st.intel_version })}`;
-  if (!st.session_active) {
+  if (!st.audit_ready) {
+    el.textContent = auditSummary(st);
+  } else if (!st.session_active) {
     el.textContent = t("watchingNone") + suffix;
   } else {
     el.textContent = t(anyCap ? "watchingOn" : "watchingNoCaps") + suffix;
@@ -229,6 +278,18 @@ function policyLine(p) {
 
 async function refreshStatus() {
   const st = await invoke("get_status");
+  lastStatus = st;
+  const identity = document.getElementById("build-identity");
+  if (identity && st.build_version) {
+    const builtAt = new Date(Number(st.build_time) * 1000).toLocaleString();
+    identity.textContent = t(st.build_profile ? "build.acceptance" : "build.production", {
+      version: st.build_version, revision: st.build_revision, time: builtAt, profile: st.build_profile || "", path: st.audit_data_path || "",
+    });
+  }
+  renderAuditRecovery(st);
+  const start = document.getElementById("btn-start");
+  start.disabled = !st.audit_ready || !!st.audit_operation_running;
+  start.title = st.audit_ready ? "" : auditSummary(st);
   const state = st.protection_state || "stopped";
   pill().textContent = t(`state.${state}`);
   pill().className = `pill ${PILL_CLASS[state] || "idle"}`;
@@ -313,7 +374,9 @@ function auditRow(r) {
 
   const head = document.createElement("div");
   const strong = document.createElement("strong");
-  // E18:第一眼是人话动作词(已拦截/提醒/放行/记录),不是引擎枚举;
+  // E18:第一眼是人话效果词(检测到风险/提醒/无需干预/记录),不是引擎枚举。
+  // Windows 桌面端看到的是已呈现在 UIA/GDI 里的状态,策略动作 `Block`
+  // 只代表风险判决,不能显示成已经阻止了外部应用的动作。
   // rule_id 挪到下面的 meta 行(和 popup 的"技术标识收进详情"同一原则)。
   strong.textContent = t(`action.${actionClass(r.action)}`);
   head.appendChild(strong);
@@ -347,12 +410,42 @@ async function refreshAudit() {
 function pushDecisions(list) {
   for (const d of list || []) {
     const li = document.createElement("li");
-    li.textContent = `${d.action} [${d.rule_id}] ${d.human_message}`;
+    li.textContent = `${t(`action.${actionClass(d.action)}`)} [${d.rule_id}] ${d.human_message}`;
     decisions().prepend(li);
   }
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+  const recoveryDialog = document.getElementById("audit-recovery-dialog");
+  document.getElementById("btn-audit-migrate").onclick = () => {
+    if (!recoveryRequestRunning && lastStatus && legacyAuditAvailable(lastStatus)) recoveryDialog.showModal();
+  };
+  document.getElementById("audit-migrate-cancel").onclick = () => recoveryDialog.close();
+  document.getElementById("audit-migrate-confirm").onclick = async () => {
+    if (recoveryRequestRunning) return;
+    recoveryDialog.close();
+    recoveryRequestRunning = true;
+    renderAuditRecovery(lastStatus || {});
+    try {
+      const result = await invoke("recover_legacy_audit", { approved: true });
+      announce(t("recovery.success", { count: result.history_records }));
+    } catch (error) {
+      document.getElementById("audit-recovery-details").textContent = String(error);
+      announce(t("recovery.failed"));
+    } finally {
+      recoveryRequestRunning = false;
+      await refreshStatus();
+    }
+  };
+  document.getElementById("btn-audit-retry").onclick = async () => {
+    try { await invoke("retry_audit_initialization"); }
+    catch (error) { document.getElementById("audit-recovery-details").textContent = String(error); }
+    await refreshStatus();
+  };
+  setInterval(() => {
+    if (lastStatus && !lastStatus.audit_ready) refreshStatus().catch(() => {});
+  }, 1500);
+
   initializeI18n();
 
   // The observation loop pushes from the backend; nothing here polls it.
@@ -364,6 +457,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       pushDecisions([{ action: "LogOnly", rule_id: "ADAPTER", human_message: w }]);
     }
     await refreshAudit();
+    // start_guard_session() returns while the native observer is still starting. The
+    // first successful native poll is therefore also the deterministic signal to
+    // re-read protection_state; otherwise the main screen can remain stuck on
+    // "Starting" until the user presses Refresh. Keep these reads sequential so a
+    // status refresh (which also reconciles the pending-confirm modal) never races
+    // the audit refresh, and let either rejection propagate to the event caller.
+    await refreshStatus();
   });
   await listen("native-poll-error", async (e) => {
     pushDecisions([{ action: "Alert", rule_id: "ADAPTER-ERROR", human_message: e.payload?.error || "poll failed" }]);
@@ -439,6 +539,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   try {
     const sec = await invoke("security_status");
+    document.getElementById("btn-sync-policy").hidden = sec.release_build !== false;
     if (!sec.auto_approve_allowed) {
       const row = document.getElementById("auto-approve-row");
       if (row) row.style.display = "none";

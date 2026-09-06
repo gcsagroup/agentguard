@@ -2,7 +2,7 @@
  *
  * 交互演示用的是**真渲染器**(guard-modal.js)和**真词典**(guard-strings.js)——
  * 用户在这里看到的弹层,和真被拦时看到的是同一段代码画的,不会学到过时的界面。
- * 演示不发任何请求、不产生任何判决记录;点「允许这一次」只在页面上写一行结果。
+ * 演示不发任何请求、不产生任何判决记录；提示只有关闭，没有页面内放行。
  *
  * i18n 走 popup 同款方案:读 localeOverride,fetch 对应 _locales 包,填 data-i18n。
  */
@@ -38,15 +38,9 @@ function wireDemo() {
       outcome.textContent = "demo unavailable";
       return;
     }
-    Modal.askAllowOnce(
-      { kind: "payment_cta", reason: "" },
-      () => {
-        outcome.textContent = t("obDemoAllowed");
-      },
-      () => {
-        outcome.textContent = t("obDemoCancelled");
-      }
-    );
+    Modal.showBlocked({ kind: "payment_cta", reason: "" }, () => {
+      outcome.textContent = t("obDemoCancelled");
+    });
   });
 }
 

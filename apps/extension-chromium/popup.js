@@ -193,13 +193,17 @@ function renderRecent() {
       list.appendChild(li);
       return;
     }
+    const nativeSettings = document.getElementById("native-settings");
+    const nativeAvailable = resp.nativeAvailable === true;
+    if (nativeSettings) nativeSettings.hidden = !nativeAvailable;
     native.checked = !!resp.nativeEnabled;
-    native.onchange = () => {
+    native.disabled = !nativeAvailable;
+    native.onchange = nativeAvailable ? () => {
       chrome.runtime.sendMessage({ type: "set_native", enabled: native.checked }, (r) => {
         renderLink((r && r.link) || { enabled: native.checked });
       });
-    };
-    renderLink(resp.link);
+    } : null;
+    if (nativeAvailable) renderLink(resp.link);
     // 状态卡:今天发现了几件事、拦下了几次 —— 用户打开 popup 最想知道的一行。
     const now = Date.now();
     const dayStart = new Date().setHours(0, 0, 0, 0);

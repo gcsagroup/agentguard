@@ -12,7 +12,6 @@
   },
   "permissions": [
     "storage",
-    "nativeMessaging",
     "activeTab",
     "notifications",
     "declarativeNetRequest"
@@ -22,19 +21,21 @@
     "scripts": ["background.js"],
     "type": "module"
   },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "payment_shape_block",
+        "enabled": true,
+        "path": "rules/payment-shape-block.json"
+      }
+    ]
+  },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": ["guard-gate.js", "guard-strings.js", "guard-modal.js", "content.js"],
-      "run_at": "document_idle",
-      "all_frames": false
-    },
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["guard-gate.js", "guard-page.js"],
       "run_at": "document_start",
-      "world": "MAIN",
-      "all_frames": false
+      "all_frames": true
     }
   ],
   "action": {

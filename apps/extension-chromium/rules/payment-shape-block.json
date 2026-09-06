@@ -1,0 +1,222 @@
+[
+  {
+    "id": 100001,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:p|%70)(?:a|%61)(?:y|%79)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100002,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:p|%70)(?:a|%61)(?:y|%79)(?:m|%6d)(?:e|%65)(?:n|%6e)(?:t|%74)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100003,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:c|%63)(?:h|%68)(?:e|%65)(?:c|%63)(?:k|%6b)(?:o|%6f)(?:u|%75)(?:t|%74)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100004,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:c|%63)(?:h|%68)(?:a|%61)(?:r|%72)(?:g|%67)(?:e|%65)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100005,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:t|%74)(?:r|%72)(?:a|%61)(?:n|%6e)(?:s|%73)(?:f|%66)(?:e|%65)(?:r|%72)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100006,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:r|%72)(?:e|%65)(?:m|%6d)(?:i|%69)(?:t|%74)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100007,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?(?:p|%70)(?:u|%75)(?:r|%72)(?:c|%63)(?:h|%68)(?:a|%61)(?:s|%73)(?:e|%65)(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100008,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?order[-_]?confirm(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100009,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?confirm[-_]?order(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100010,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=pay(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100011,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=payment(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100012,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=checkout(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100013,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=charge(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100014,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=transfer(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100015,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=remit(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100016,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=purchase(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100017,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=order[-_]?confirm(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100018,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^?#]*\\?(?:[^#&]*&)*(?:op|action|operation)=confirm[-_]?order(?:&|#|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100019,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?%6f%72%64%65%72(?:-|_|%2d|%5f)?%63%6f%6e%66%69%72%6d(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  },
+  {
+    "id": 100020,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "regexFilter": "^https?://[^/?#]+(?:/|%2f)(?:[^?#]*(?:/|%2f))?%63%6f%6e%66%69%72%6d(?:-|_|%2d|%5f)?%6f%72%64%65%72(?:[/?.#-]|%2f|%3f|%23|%2e|%2d|$)",
+      "isUrlFilterCaseSensitive": false,
+      "excludedRequestMethods": ["get", "head"],
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest", "ping"]
+    }
+  }
+]

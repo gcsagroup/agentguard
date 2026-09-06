@@ -12,8 +12,10 @@
       {
         "label": "main",
         "title": "AgentGuard macOS",
-        "width": 760,
-        "height": 720
+        "width": 1180,
+        "height": 820,
+        "minWidth": 680,
+        "minHeight": 540
       }
     ],
     "security": {
@@ -23,6 +25,14 @@
   "bundle": {
     "active": true,
     "targets": ["app"],
+    "resources": {
+      "../setup-assets/": "agentguard/setup/",
+      "../../../crates/guard-schema/rules/p0_rules.yaml": "agentguard/rules/p0_rules.yaml",
+      "../../../policies/pro-trial.yaml": "agentguard/policies/pro-trial.yaml",
+      "../../../policies/task-plans.yaml": "agentguard/policies/task-plans.yaml",
+      "../../../intel/bundle.json": "agentguard/intel/bundle.json",
+      "../../../intel/keys/public.hex": "agentguard/intel/public.hex"
+    },
     "macOS": {
       "minimumSystemVersion": "12.3",
       "entitlements": "./entitlements.plist",

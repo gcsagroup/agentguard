@@ -1,0 +1,153 @@
+name: AgentGuardWebShield
+
+options:
+  minimumXcodeGenVersion: 2.46.0
+  createIntermediateGroups: true
+  groupSortPosition: top
+  deploymentTarget:
+    iOS: "17.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settings:
+  base:
+    PRODUCT_NAME: $(TARGET_NAME)
+    SWIFT_VERSION: 5.0
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+    IPHONEOS_DEPLOYMENT_TARGET: 17.0
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+
+targets:
+  WebShieldCore:
+    type: framework.static
+    platform: iOS
+    sources:
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentguard.webshield.core
+        PRODUCT_MODULE_NAME: WebShieldCore
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - sdk: Security.framework
+
+  AgentGuardWebShieldExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extension/Sources
+      - path: Extension/Resources/manifest.json
+        buildPhase: resources
+      - path: Extension/Resources/background.js
+        buildPhase: resources
+      - path: Extension/Resources/gate.js
+        buildPhase: resources
+      - path: Extension/Resources/content.js
+        buildPhase: resources
+      - path: Extension/Resources/popup.html
+        buildPhase: resources
+      - path: Extension/Resources/popup.css
+        buildPhase: resources
+      - path: Extension/Resources/popup.js
+        buildPhase: resources
+      - path: Extension/Resources/_locales
+        type: folder
+        buildPhase: resources
+      - path: Extension/Resources/images
+        type: folder
+        buildPhase: resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentguard.webshield.extension
+        PRODUCT_MODULE_NAME: AgentGuardWebShieldExtension
+        INFOPLIST_FILE: Extension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extension/AgentGuardWebShieldExtension.entitlements
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    dependencies:
+      - target: WebShieldCore
+        embed: false
+      - sdk: SafariServices.framework
+
+  AgentGuardWebShield:
+    type: application
+    platform: iOS
+    sources:
+      - path: App/Sources
+      - path: App/Resources
+        buildPhase: resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentguard.webshield
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/AgentGuardWebShield.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - target: WebShieldCore
+        embed: false
+      - target: AgentGuardWebShieldExtension
+        embed: true
+
+  WebShieldCoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/WebShieldCoreTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentguard.webshield.core-tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: WebShieldCore
+
+  AgentGuardWebShieldUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/AgentGuardWebShieldUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agentguard.webshield.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: AgentGuardWebShield
+    dependencies:
+      - target: AgentGuardWebShield
+
+schemes:
+  AgentGuardWebShield:
+    build:
+      targets:
+        WebShieldCore: all
+        AgentGuardWebShieldExtension: all
+        AgentGuardWebShield: all
+        WebShieldCoreTests: [test]
+        AgentGuardWebShieldUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - name: WebShieldCoreTests
+          parallelizable: false
+        - name: AgentGuardWebShieldUITests
+          parallelizable: false
+    archive:
+      config: Release

@@ -16,12 +16,11 @@
  * # 覆盖什么、**不**覆盖什么(如实)
  *
  * 覆盖:页面**自己的** DOM 提交 / 点击(付款 CTA、隐私陷阱下的 PII 表单提交)——这些会触发
- * `submit`/`click` 事件,能被同步拦下。网络层的导航/请求由 [`buildBlockRules`] 交给
- * declarativeNetRequest 在请求发出前拦(见 `background.js`)。
+ * `submit`/`click` 事件,能被同步拦下。付款形状网络请求由打包在 manifest 中的静态 DNR 规则
+ * 硬拦；宿主判定的恶意/越界主机由 [`buildBlockRules`] 生成动态 DNR 规则。
  *
- * **不**覆盖:一段直接 `fetch()` / `XMLHttpRequest` 到付款 API 的脚本(不产生 DOM 事件,除非命中
- * DNR 的主机规则)、跨源 iframe 里的动作、以及**任何原生 app 的动作**(浏览器扩展够不到)。这道
- * 门挡的是"在这个页面上把这一步走完",不是"这台机器上任何联网"。
+ * DOM 门**不**覆盖脚本网络调用、跨框架 DOM 动作或任何原生 app 动作。网络静态规则只按明确的
+ * URL 路径、方法与资源类型硬拦,没有“一次允许”例外；两者是独立、可分别陈述的能力。
  */
 (function (root) {
   "use strict";
@@ -78,36 +77,6 @@
       // requestDomains 匹配该域及其子域;限定主框架导航 + 子资源,覆盖"点开就走"和"页面替你发请求"。
       condition: { requestDomains: [host], resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest"] },
     }));
-  }
-
-  // 付款/转账形状的请求路径。命中的出站请求在发出前要过确认——这补上"内容脚本 DOM 门拦不了
-  // 一段直接 fetch() 的脚本"那条残余(E2.1)。判据刻意只看 URL(不看 body):body 因站而异、误判
-  // 高,而误拦会让人关掉门;URL 路径里的 pay/checkout/charge/transfer 是跨站相当稳的信号。
-  const PAYMENT_PATH_RE =
-    /\/(pay|payment|checkout|charge|transfer|remit|purchase|order[_-]?confirm|confirm[_-]?order)(\/|\b|$)/i;
-
-  /**
-   * 一个出站请求要不要在发出前拦下确认。
-   * @param {string} url - 请求 URL(绝对或相对)
-   * @param {string} [method] - HTTP 方法
-   * @returns {{gate: boolean, reason: string}}
-   */
-  function classifyRequest(url, method) {
-    const u = String(url || "");
-    // 只读方法(GET/HEAD)不拦:付款/转账是状态变更,GET 不该有副作用,拦它只会误伤。
-    const m = String(method || "GET").toUpperCase();
-    if (m === "GET" || m === "HEAD") return { gate: false, reason: "" };
-    let path = u;
-    try {
-      // 相对 URL 也能解析(base 随便给一个);解析失败就退回按整串匹配。
-      path = new URL(u, "http://x").pathname;
-    } catch (_e) {
-      /* 用原串 */
-    }
-    if (PAYMENT_PATH_RE.test(path) || PAYMENT_PATH_RE.test(u)) {
-      return { gate: true, reason: "这个请求看起来在发起一次付款/转账" };
-    }
-    return { gate: false, reason: "" };
   }
 
   // DNR 名单的累积语义(E8)。两类主机的寿命不同,所以不能每批判决整体替换(那会让一条恶意域
@@ -184,51 +153,6 @@
       session: merged.session,
       active: merged.active,
       provenance,
-    };
-  }
-
-  // 一个观察到的主机是否落在允许表条目 `entry` 之内:精确相等,或它的子域(E9)。
-  //
-  // 这是 Rust 端 `guard_schema::host_in_scope` 的 JS 镜像,**安全攸关**:点边界是关键——裸
-  // `endsWith("stripe.com")` 会把 `stripe.com.evil.example` 也当成 stripe.com 的子域放行,那是
-  // 经典的后缀伪造,会把允许表变成"允许一切"。两端语义必须一致,否则 JS 会放行一个 Rust 会拦的
-  // 目的地(或反之)——`hostInScope_对齐Rust拒绝后缀伪造` 那条 node 测试把这几个伪造用例钉死。
-  function hostInScope(observed, entry) {
-    const norm = (s) => {
-      let x = String(s || "").trim().toLowerCase();
-      while (x.endsWith(".")) x = x.slice(0, -1);
-      // 去掉 user:pass@ 和 :port(IPv6 字面量保留方括号)。
-      if (x.includes("@")) x = x.split("@").pop();
-      const i = x.lastIndexOf(":");
-      if (i >= 0 && !x.endsWith("]") && !x.slice(i + 1).includes("]")) x = x.slice(0, i);
-      return x;
-    };
-    const o = norm(observed);
-    const e = norm(entry);
-    if (!o || !e) return false;
-    return o === e || o.endsWith(`.${e}`);
-  }
-
-  /**
-   * 一个出站目的地主机在**任务允许表**里吗——不在则该本地拦(E9)。
-   *
-   * @param {string} host 目的地主机
-   * @param {string[]|null|undefined} allowlist 允许表:`null`/`undefined` = 没声明(不拦);
-   *        `[]` = 明确"不许出网"(全拦);否则精确/子域匹配。
-   * @returns {{gate: boolean, reason: string}}
-   */
-  function scopeGateHost(host, allowlist) {
-    // 没声明允许表 = 不做本地越界拦截(和引擎 check_scope_host 的"没声明不拦"一致)。
-    if (!Array.isArray(allowlist)) return { gate: false, reason: "" };
-    const h = String(host || "").trim();
-    if (!h) return { gate: false, reason: "" };
-    if (allowlist.some((a) => hostInScope(h, a))) return { gate: false, reason: "" };
-    return {
-      gate: true,
-      reason:
-        allowlist.length === 0
-          ? "这个任务被声明为不许出网,而这是一个出站请求"
-          : `目的地 ${h} 不在这个任务声明的允许网站里`,
     };
   }
 
@@ -359,11 +283,8 @@
     SCAN_DEBOUNCE_MS,
     MIN_SCAN_INTERVAL_MS,
     buildBlockRules,
-    classifyRequest,
     mergeBlocklist,
     pruneBlocklist,
-    hostInScope,
-    scopeGateHost,
     minimizeUrl,
     clampTitle,
     backoffMs,

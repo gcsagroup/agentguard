@@ -1,0 +1,23 @@
+{
+  "extension_name": {"message": "AgentGuard WebShield"},
+  "extension_description": {"message": "Local Safari click and form-submit risk gate."},
+  "action_title": {"message": "AgentGuard WebShield"},
+  "popup_title": {"message": "Safari limited protection"},
+  "popup_loading": {"message": "Checking local status…"},
+  "popup_enabled": {"message": "Local click and submit gate is enabled."},
+  "popup_disabled": {"message": "Open the AgentGuard app to review consent and enable protection."},
+  "popup_unavailable": {"message": "The local app connection is unavailable."},
+  "popup_boundary": {"message": "DOM actions only. No other-app monitoring, direct fetch/XHR interception, or remote upload."},
+  "popup_refresh": {"message": "Refresh status"},
+  "modal_title_payment": {"message": "Confirm a payment action"},
+  "modal_body_payment": {"message": "This click or submission appears to place an order or confirm payment. Continue only if you intended it."},
+  "modal_title_prompt_injection": {"message": "Possible prompt injection"},
+  "modal_body_prompt_injection": {"message": "The page contains instruction-like text that may try to redirect an agent. Review before continuing."},
+  "modal_title_privacy_trap": {"message": "Sensitive form detected"},
+  "modal_body_privacy_trap": {"message": "This form appears to contain a password, token, API key, or payment-card field. Review before submitting."},
+  "modal_cancel": {"message": "Cancel"},
+  "modal_allow_once": {"message": "Allow once"},
+  "modal_title_unavailable": {"message": "Protection status unavailable"},
+  "modal_body_unavailable": {"message": "This potentially risky action was stopped because AgentGuard could not confirm the local protection status. Open the app or extension and try again."},
+  "modal_close": {"message": "Close"}
+}

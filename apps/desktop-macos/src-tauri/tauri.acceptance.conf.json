@@ -1,0 +1,7 @@
+{
+  "productName": "AgentGuard Test",
+  "identifier": "com.agentguard.desktop.macos.acceptance",
+  "app": {
+    "windows": [{ "label": "main", "title": "AgentGuard Test", "width": 1180, "height": 820, "minWidth": 680, "minHeight": 540 }]
+  }
+}

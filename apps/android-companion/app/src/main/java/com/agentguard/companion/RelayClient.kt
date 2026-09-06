@@ -20,11 +20,15 @@ object RelayClient {
     private const val KEY_LAST_OK = "relay_last_ok_ms"
     const val DEFAULT_URL = "http://127.0.0.1:8788/v1/events"
 
+    fun isAvailable(): Boolean = BuildConfig.EXPERIMENTAL_RELAY_ENABLED
+
     fun isEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(KEY_ENABLED, false)
+        isAvailable() && prefs(context).getBoolean(KEY_ENABLED, false)
 
     fun setEnabled(context: Context, enabled: Boolean) {
-        prefs(context).edit { putBoolean(KEY_ENABLED, enabled) }
+        // A stale debug preference must not reactivate the unauthenticated response path when
+        // the same app data is upgraded to a release build.
+        prefs(context).edit { putBoolean(KEY_ENABLED, isAvailable() && enabled) }
     }
 
     fun url(context: Context): String =

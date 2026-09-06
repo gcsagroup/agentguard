@@ -2,8 +2,8 @@
  * guard-gate.js 纯决策逻辑的单元测试(node,无浏览器)。
  *
  * 跑:`node apps/extension-chromium/scripts/gate.test.mjs`(见 `make check-extension-gate`)。
- * 这是浏览器**执行前阻断**逻辑在本环境唯一能实测的一半;DOM 接线(content.js)只做语法检查,
- * 真 Chrome 端到端未验证——和 jail 的 syscall 路径同一种诚实。
+ * 这里验证 isolated DOM 门与动态主机 DNR 的纯逻辑；付款形状静态 DNR 由 manifest 结构测试和
+ * 真 Chromium E2E 验证，不在页面 JavaScript 中复制一份可漂移的分类器。
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -73,30 +73,6 @@ test("空主机列表得到空规则(不无中生有拦东西)", () => {
   assert.deepEqual(Gate.buildBlockRules([]), []);
 });
 
-test("付款形状的 POST 请求要在发出前拦", () => {
-  assert.equal(Gate.classifyRequest("https://shop.example/api/checkout", "POST").gate, true);
-  assert.equal(Gate.classifyRequest("/v1/payment/charge", "POST").gate, true);
-  assert.equal(Gate.classifyRequest("https://bank.example/transfer", "PUT").gate, true);
-});
-
-test("只读方法不拦(GET/HEAD 不该有副作用)", () => {
-  // 反面用例:付款路径 + GET 也不拦——拦它是误伤,而误伤会让人关掉门。
-  assert.equal(Gate.classifyRequest("https://shop.example/checkout", "GET").gate, false);
-  assert.equal(Gate.classifyRequest("https://shop.example/payment", "HEAD").gate, false);
-});
-
-test("普通 POST 不拦(避免把门变成噪音)", () => {
-  assert.equal(Gate.classifyRequest("https://api.example/search", "POST").gate, false);
-  assert.equal(Gate.classifyRequest("https://api.example/login", "POST").gate, false);
-  // 'paypal.com' 作为主机名不该因为含 'pay' 命中——判据看的是**路径**,不是整串里的子串。
-  assert.equal(Gate.classifyRequest("https://paypal.com/home", "POST").gate, false);
-});
-
-test("拦截时带一个给用户看的理由", () => {
-  const d = Gate.classifyRequest("https://x.example/api/pay", "POST");
-  assert.ok(d.gate && d.reason.length > 0);
-});
-
 test("恶意域累积保留:下一批 benign 判决不会把它清掉", () => {
   // E5 原来的 bug:整体替换 → 一批空判决就把上一批的恶意域撤了。累积语义修掉它。
   const s1 = Gate.mergeBlocklist({}, ["evil.example"], [], 1000);
@@ -155,42 +131,10 @@ test("持久名单有上限,超了丢最旧的(尊重 DNR 配额)", () => {
   assert.deepEqual(state.persistent, ["m2.example", "m3.example", "m4.example"], "保留最近的");
 });
 
-test("host_in_scope向量表_rust与js同源", () => {
-  // E11:和 Rust 的 host_scope_向量表是rust与js的单一真相源 跑**同一个** JSON。任一端漂移就红。
-  const vpath = path.join(here, "..", "..", "..", "eval", "host-scope-vectors.json");
-  const doc = JSON.parse(fs.readFileSync(vpath, "utf8"));
-  const vectors = doc.vectors;
-  assert.ok(Array.isArray(vectors) && vectors.length >= 10, "向量表太少,证明不了什么");
-  for (const v of vectors) {
-    assert.equal(
-      Gate.hostInScope(v.observed, v.entry),
-      v.in_scope,
-      `向量 {observed:${JSON.stringify(v.observed)}, entry:${JSON.stringify(v.entry)}} 期望 ${v.in_scope}(${v.note || ""})`
-    );
-  }
-});
-
-test("scopeGateHost:没声明允许表不拦,声明了拦越界,空表全拦", () => {
-  // 没声明(null/undefined)→ 不拦(和引擎"没声明不拦"一致)。
-  assert.equal(Gate.scopeGateHost("anything.example", null).gate, false);
-  assert.equal(Gate.scopeGateHost("anything.example", undefined).gate, false);
-  // 声明了:在表内不拦,表外拦。
-  assert.equal(Gate.scopeGateHost("checkout.stripe.com", ["stripe.com"]).gate, false);
-  const d = Gate.scopeGateHost("collector.evil.example", ["stripe.com"]);
-  assert.equal(d.gate, true);
-  assert.ok(d.reason.length > 0);
-  // 空表 = 明确不许出网 → 全拦。
-  assert.equal(Gate.scopeGateHost("stripe.com", []).gate, true);
-});
-
-test("表单允许一次用 requestSubmit 保留校验与原 submitter 语义", () => {
+test("首个 GA 的 DOM 门只阻断且没有页面内放行或动作重放", () => {
   const source = fs.readFileSync(path.join(here, "..", "content.js"), "utf8");
-  assert.match(source, /form\.requestSubmit\(e\.submitter \|\| undefined\)/);
-  assert.doesNotMatch(
-    source,
-    /^[ \t]*form\.submit\(\);/m,
-    "不能绕过约束校验和 submitter 覆盖属性"
-  );
+  assert.match(source, /e\.preventDefault\(\)/);
+  assert.doesNotMatch(source, /requestSubmit|gateApproved|replayApproved|onAllow/);
 });
 
 // ---- P1-1:URL 最小化 ------------------------------------------------------------

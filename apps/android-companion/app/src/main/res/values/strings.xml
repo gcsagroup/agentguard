@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="accessibility_service_description">Observes UI nodes during an active AgentGuard session and serializes findings to JSON for the Rust android-adapter.</string>
+    <string name="accessibility_service_description">Checks on-screen actions for risk only during an active guard session. It can read interface text, including sensitive entries, and stores redacted findings locally.</string>
     <string name="notification_channel_name">AgentGuard Session</string>
     <string name="notification_title">AgentGuard session active</string>
-    <string name="notification_text">Monitoring accessibility events</string>
+    <string name="notification_text">Checking on-screen actions for risk</string>
     <string name="app_title">AgentGuard Companion</string>
-    <string name="session_active">Session: %1$s</string>
-    <string name="session_inactive">No active session</string>
-    <string name="events_path">Events: %1$s</string>
     <string name="start_session">Start guard session</string>
     <string name="stop_session">Stop guard session</string>
     <string name="refresh_risk">Refresh last risk</string>
@@ -19,8 +16,8 @@
     <!-- The two double dashes are literal CLI flags (bind / allow-lan), not typography: an em dash would break copy-paste. -->
     <string name="relay_help" tools:ignore="TypographyDashes">USB: adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi: api-serve --bind 0.0.0.0:8788 --allow-lan</string>
     <string name="last_risk_none">Last risk: none</string>
-    <string name="last_risk">Last risk: %1$s — %2$s</string>
-    <string name="last_risk_raw">Last risk: %1$s</string>
+    <string name="last_risk">Last risk: %1$s</string>
+    <string name="last_risk_unavailable">Last risk details are unavailable</string>
     <string name="language_system">Language: System</string>
     <string name="language_en">Language: English</string>
     <string name="language_zh_hans">语言：简体中文</string>
@@ -29,14 +26,28 @@
     <string name="risk_optional_pii">Optional PII filled: %1$s</string>
     <string name="risk_payment">Payment confirmation detected</string>
     <string name="risk_transfer">Money transfer detected</string>
+    <string name="risk_permanent_delete">Permanent deletion detected</string>
+    <string name="risk_broad_send">Broad message send detected</string>
+    <string name="risk_install">Software installation detected</string>
     <string name="risk_trap_widget">Privacy trap widget detected</string>
     <string name="risk_overlay">Overlay or injection marker detected</string>
+    <string name="risk_prompt_injection">Prompt injection detected</string>
+    <string name="risk_observation_incomplete">Window observation exceeded the safe limit; protection was stopped</string>
     <string name="risk_engine_confirm">The guard engine requires confirmation for this action</string>
-    <string name="task_profile_label">Task (blank = unscoped)</string>
+    <string name="task_profile_label">Task to protect (optional)</string>
+    <string name="task_profile_help">Describe the task briefly, for example “Pay a bill”. Leave blank for general protection.</string>
     <string name="guard_stopped">Not protecting — no session</string>
-    <string name="guard_permission_required">Session started, but the accessibility service is not connected — nothing is being observed. Open accessibility settings.</string>
+    <string name="guard_permission_required">Protection stopped because the accessibility service is not connected. Open Accessibility settings, then start a new session.</string>
     <string name="guard_degraded">Protection incomplete: %1$s</string>
     <string name="guard_active">Protecting</string>
+    <string name="reason_no_session">no active session</string>
+    <string name="reason_accessibility_not_bound">Accessibility service not connected</string>
+    <string name="reason_relay_error">desktop relay error</string>
+    <string name="reason_relay_never_connected">desktop relay not connected yet</string>
+    <string name="reason_relay_stale">desktop relay status is stale</string>
+    <string name="reason_notifications_denied">notification permission denied</string>
+    <string name="show_developer_settings">Show developer settings</string>
+    <string name="hide_developer_settings">Hide developer settings</string>
     <string name="relay_state_disabled">Desktop relay off — verdicts stay on this phone</string>
     <string name="relay_state_connecting">Desktop relay on, never reached the engine yet</string>
     <string name="relay_state_connected">Desktop relay connected (last success %1$s)</string>
@@ -44,18 +55,22 @@
     <string name="token_saved">Bearer token saved (kept encrypted, not shown)</string>
     <string name="save">Save</string>
     <string name="token_missing">No bearer token saved</string>
-    <string name="clear_events">Delete local event log (%1$s)</string>
+    <string name="clear_events">Delete all local event records (%1$s)</string>
+    <string name="local_events_note">Event records stay on this phone. Deleting them does not change protection settings.</string>
+    <string name="clear_events_title">Delete all local event records?</string>
+    <string name="clear_events_message">This permanently removes the saved risk history from this phone.</string>
+    <string name="clear_events_confirm">Delete</string>
+    <string name="cancel">Cancel</string>
     <plurals name="events_cleared">
         <item quantity="one">Deleted %1$d file</item>
         <item quantity="other">Deleted %1$d files</item>
     </plurals>
-    <string name="notif_permission_rationale">Notifications are how a required confirmation reaches you. Without them a blocked action is only written to the log.</string>
+    <string name="notif_permission_rationale">Notifications are how risk results reach you promptly. Without permission, detections are recorded locally but cannot alert you in time; Android observation does not reverse an action.</string>
     <string name="risk_deeplink">Suspicious deeplink detected</string>
     <string name="risk_broadcast_input_sink">Another app (%1$s) is listening on the agent’s text-input broadcast — everything typed is readable</string>
     <string name="risk_foreign_a11y">Another accessibility service (%1$s) is enabled and can read typed text, including passwords</string>
-    <string name="env_clean">Environment: no visible app is listening on the input broadcast, and no other accessibility service is enabled</string>
-    <string name="env_risk">Environment risk: %1$s</string>
-    <string name="env_unknown">Environment survey unavailable (%1$s)</string>
+    <string name="env_risk">Device privacy risk detected. Another app may be able to read text or local logs; review Accessibility settings and installed apps before continuing.</string>
+    <string name="env_unknown">The device privacy check could not be completed, so the environment cannot be confirmed as clear.</string>
     <string name="show_adapter_key">Show adapter public key</string>
     <string name="adapter_key_help">Put this in policies/adapter-registry.yaml under adapter_id: android-companion, with key_algorithm: ecdsa-p256. Without it the desktop treats this companion\'s surveys as unsigned: they can raise risk but cannot clear it.</string>
 </resources>

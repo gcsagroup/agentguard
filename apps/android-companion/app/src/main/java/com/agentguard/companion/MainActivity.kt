@@ -1,8 +1,8 @@
 package com.agentguard.companion
 
 import android.Manifest
-import android.content.Intent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -18,11 +18,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -30,11 +35,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 
+internal fun agentGuardColorScheme(dark: Boolean) =
+    if (dark) darkColorScheme() else lightColorScheme()
+
 class MainActivity : ComponentActivity() {
+
+    private val sessionActiveUi = mutableStateOf(false)
+    private val lastRiskUi = mutableStateOf<String?>(null)
+    private val relayErrorUi = mutableStateOf<String?>(null)
+    private val notificationsGrantedUi = mutableStateOf(true)
+    private val sessionListener: (Boolean, String) -> Unit = { active, _ ->
+        runOnUiThread {
+            sessionActiveUi.value = active
+        }
+    }
 
     /**
      * Runtime request for `POST_NOTIFICATIONS`.
@@ -46,20 +65,17 @@ class MainActivity : ComponentActivity() {
      */
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            notificationsGranted = granted
+            notificationsGrantedUi.value = granted
         }
-
-    /** Whether confirmations can actually reach the user. Surfaced in the UI, not assumed. */
-    private var notificationsGranted: Boolean = true
 
     private fun ensureNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            notificationsGranted = true
+            notificationsGrantedUi.value = true
             return
         }
         val granted = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
-        notificationsGranted = granted
+        notificationsGrantedUi.value = granted
         if (!granted) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -76,19 +92,21 @@ class MainActivity : ComponentActivity() {
         // confirmation reachable, and finding out it is missing at the moment a payment needs
         // approving is finding out too late.
         ensureNotificationPermission()
+        SessionState.restore(this)
+        sessionActiveUi.value = SessionState.active
+        refreshPersistedState()
         setContent {
-            MaterialTheme {
+            // MaterialTheme() defaults to a light palette even when the system is dark. With
+            // edge-to-edge enabled that produced white status-bar icons on a white Surface and
+            // made the app claim dark-mode support without actually rendering one. Keep the
+            // platform's contrast decision and the Compose surface on the same configuration.
+            MaterialTheme(
+                colorScheme = agentGuardColorScheme(isSystemInDarkTheme()),
+            ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    // P1-6:进程重建后先读回落盘的会话状态,再决定界面显示什么。
-                    remember { SessionState.restore(this@MainActivity) }
-                    var sessionActive by remember { mutableStateOf(SessionState.active) }
-                    var sessionId by remember { mutableStateOf(SessionState.sessionId) }
-                    var lastRisk by remember {
-                        mutableStateOf(EnvelopeSink.lastRiskJson(this@MainActivity))
-                    }
-                    var envelopePath by remember {
-                        mutableStateOf(EnvelopeSink.lastEnvelopePath(this@MainActivity))
-                    }
+                    // 显式读取 .value，让 Compose 把外部生命周期状态登记为快照依赖。
+                    val sessionActive = sessionActiveUi.value
+                    var lastRisk by lastRiskUi
                     var envSummary by remember {
                         mutableStateOf(surveyEnvironment(this@MainActivity))
                     }
@@ -96,9 +114,9 @@ class MainActivity : ComponentActivity() {
                     // Blank is an unscoped session — the pre-existing behaviour — so the
                     // field adds the ability to scope without changing the default.
                     var taskProfile by remember { mutableStateOf("") }
-                    var relayError by remember {
-                        mutableStateOf(EnvelopeSink.lastRelayError(this@MainActivity))
-                    }
+                    var relayError by relayErrorUi
+                    var showDeveloperSettings by remember { mutableStateOf(false) }
+                    val notificationsGranted = notificationsGrantedUi.value
 
                     Column(
                         modifier = Modifier
@@ -144,6 +162,7 @@ class MainActivity : ComponentActivity() {
                             relayLastOkMs = RelayClient.lastOkMs(this@MainActivity),
                             relayLastErrorMs = EnvelopeSink.lastRelayErrorMs(this@MainActivity),
                             nowMs = System.currentTimeMillis(),
+                            notificationsGranted = notificationsGranted,
                         )
                         Text(
                             when (derived.guard) {
@@ -152,33 +171,21 @@ class MainActivity : ComponentActivity() {
                                     stringResource(R.string.guard_permission_required)
                                 ProtectionState.Guard.DEGRADED -> stringResource(
                                     R.string.guard_degraded,
-                                    derived.reasons.joinToString(", ") { it.name.lowercase() },
+                                    derived.reasons.joinToString(", ") { localizedReason(it) },
                                 )
                                 ProtectionState.Guard.ACTIVE -> stringResource(R.string.guard_active)
                             },
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
-                            if (sessionActive) {
-                                stringResource(R.string.session_active, sessionId)
-                            } else {
-                                stringResource(R.string.session_inactive)
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-
-                        Text(
                             formatRisk(lastRisk),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        envelopePath?.let {
-                            Text(stringResource(R.string.events_path, it), style = MaterialTheme.typography.labelSmall)
-                        }
-
                         OutlinedTextField(
                             value = taskProfile,
                             onValueChange = { taskProfile = it },
                             label = { Text(stringResource(R.string.task_profile_label)) },
+                            supportingText = { Text(stringResource(R.string.task_profile_help)) },
                         )
 
                         // Whether a confirmation can actually reach the user, and whether the
@@ -191,37 +198,27 @@ class MainActivity : ComponentActivity() {
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        Text(
-                            when (derived.relay) {
-                                ProtectionState.Relay.DISABLED -> stringResource(R.string.relay_state_disabled)
-                                ProtectionState.Relay.CONNECTING -> stringResource(R.string.relay_state_connecting)
-                                ProtectionState.Relay.CONNECTED -> stringResource(
-                                    R.string.relay_state_connected,
-                                    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
-                                        .format(java.util.Date(RelayClient.lastOkMs(this@MainActivity))),
-                                )
-                                ProtectionState.Relay.DEGRADED -> stringResource(
-                                    R.string.relay_state_degraded,
-                                    relayError?.substringAfter('|') ?: "",
-                                )
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-
                         // Environment risk ((A)I Sees A5/A6): what else on this
                         // device can read the agent's input. Surveyed here rather
                         // than only at install time because another accessibility
                         // service or receiver can appear at any moment.
-                        Text(
-                            envSummary,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        envSummary?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall)
+                        }
 
                         Button(
                             onClick = {
-                                sessionId = SessionState.start(this@MainActivity)
-                                GuardForegroundService.start(this@MainActivity)
-                                sessionActive = true
+                                val started = SessionState.start(
+                                    this@MainActivity,
+                                    observerBound = GuardAccessibilityService.isBound(),
+                                )
+                                if (started == null) {
+                                    // Start 在无权限时是授权引导，不会制造会话或前台“监控中”通知。
+                                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                    return@Button
+                                }
+                                GuardSessionNotification.show(this@MainActivity)
+                                sessionActiveUi.value = SessionState.active
                                 // Naming the task selects the plan and the resource ceiling
                                 // (Aura §4.4). Emitted through the accessibility service
                                 // because that is what holds the Context the envelope needs.
@@ -231,7 +228,6 @@ class MainActivity : ComponentActivity() {
                                 )
                                 envSummary = surveyEnvironment(this@MainActivity)
                                 lastRisk = EnvelopeSink.lastRiskJson(this@MainActivity)
-                                envelopePath = EnvelopeSink.lastEnvelopePath(this@MainActivity)
                             },
                             enabled = !sessionActive,
                         ) {
@@ -242,8 +238,8 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 GuardAccessibilityService.emitSessionEndIfBound()
                                 SessionState.stop(this@MainActivity)
-                                GuardForegroundService.stop(this@MainActivity)
-                                sessionActive = false
+                                GuardSessionNotification.hide(this@MainActivity)
+                                sessionActiveUi.value = SessionState.active
                             },
                             enabled = sessionActive,
                         ) {
@@ -253,7 +249,6 @@ class MainActivity : ComponentActivity() {
                         Button(
                             onClick = {
                                 lastRisk = EnvelopeSink.lastRiskJson(this@MainActivity)
-                                envelopePath = EnvelopeSink.lastEnvelopePath(this@MainActivity)
                                 envSummary = surveyEnvironment(this@MainActivity)
                                 relayError = EnvelopeSink.lastRelayError(this@MainActivity)
                             },
@@ -266,15 +261,40 @@ class MainActivity : ComponentActivity() {
                             mutableLongStateOf(EnvelopeSink.totalBytes(this@MainActivity))
                         }
                         var clearedNote by remember { mutableStateOf<String?>(null) }
+                        var showClearConfirmation by remember { mutableStateOf(false) }
                         Button(
-                            onClick = {
-                                val n = EnvelopeSink.clearAll(this@MainActivity)
-                                eventBytes = EnvelopeSink.totalBytes(this@MainActivity)
-                                envelopePath = null
-                                clearedNote = resources.getQuantityString(R.plurals.events_cleared, n, n)
-                            },
+                            onClick = { showClearConfirmation = true },
+                            modifier = Modifier.testTag("events.clear"),
                         ) {
                             Text(stringResource(R.string.clear_events, "${eventBytes / 1024} KB"))
+                        }
+                        Text(
+                            stringResource(R.string.local_events_note),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (showClearConfirmation) {
+                            AlertDialog(
+                                onDismissRequest = { showClearConfirmation = false },
+                                title = { Text(stringResource(R.string.clear_events_title)) },
+                                text = { Text(stringResource(R.string.clear_events_message)) },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            val n = EnvelopeSink.clearAll(this@MainActivity)
+                                            eventBytes = EnvelopeSink.totalBytes(this@MainActivity)
+                                            clearedNote = resources.getQuantityString(R.plurals.events_cleared, n, n)
+                                            showClearConfirmation = false
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.clear_events_confirm))
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showClearConfirmation = false }) {
+                                        Text(stringResource(R.string.cancel))
+                                    }
+                                },
+                            )
                         }
                         clearedNote?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
 
@@ -286,83 +306,118 @@ class MainActivity : ComponentActivity() {
                             Text(stringResource(R.string.open_accessibility))
                         }
 
-                        var relayOn by remember {
-                            mutableStateOf(RelayClient.isEnabled(this@MainActivity))
-                        }
-                        var relayUrl by remember {
-                            mutableStateOf(RelayClient.url(this@MainActivity))
-                        }
-                        var relayToken by remember { mutableStateOf("") }
-                        Button(
-                            onClick = {
-                                relayOn = !relayOn
-                                RelayClient.setEnabled(this@MainActivity, relayOn)
-                                if (relayOn) {
-                                    RelayClient.setEndpoint(this@MainActivity, relayUrl, "")
-                                }
-                            },
-                        ) {
-                            Text(stringResource(if (relayOn) R.string.relay_on else R.string.relay_off))
-                        }
-                        if (relayOn) {
-                            OutlinedTextField(
-                                value = relayUrl,
-                                onValueChange = {
-                                    relayUrl = it
-                                    RelayClient.setEndpoint(this@MainActivity, it, "")
-                                },
-                                label = { Text(stringResource(R.string.desktop_api_url)) },
-                                singleLine = true,
-                            )
-                            // P1-6:令牌不回显。输入框永远空着,保存后只说"已保存(加密)";
-                            // 存进 Keystore 封装(TokenVault),不再是明文 prefs。
-                            var tokenSaved by remember {
-                                mutableStateOf(RelayClient.hasToken(this@MainActivity))
-                            }
-                            OutlinedTextField(
-                                value = relayToken,
-                                onValueChange = { relayToken = it },
-                                label = { Text(stringResource(R.string.bearer_token)) },
-                                singleLine = true,
-                                visualTransformation =
-                                    androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                            )
+                        if (RelayClient.isAvailable()) {
                             Button(
-                                onClick = {
-                                    RelayClient.setEndpoint(this@MainActivity, relayUrl, relayToken)
-                                    relayToken = ""
-                                    tokenSaved = RelayClient.hasToken(this@MainActivity)
-                                },
-                                enabled = relayToken.isNotBlank(),
+                                onClick = { showDeveloperSettings = !showDeveloperSettings },
+                                modifier = Modifier.testTag("developer.toggle"),
                             ) {
-                                Text(stringResource(R.string.save))
+                                Text(
+                                    stringResource(
+                                        if (showDeveloperSettings) {
+                                            R.string.hide_developer_settings
+                                        } else {
+                                            R.string.show_developer_settings
+                                        },
+                                    ),
+                                )
                             }
+                        }
+
+                        if (RelayClient.isAvailable() && showDeveloperSettings) {
                             Text(
-                                stringResource(if (tokenSaved) R.string.token_saved else R.string.token_missing),
+                                when (derived.relay) {
+                                    ProtectionState.Relay.DISABLED -> stringResource(R.string.relay_state_disabled)
+                                    ProtectionState.Relay.CONNECTING -> stringResource(R.string.relay_state_connecting)
+                                    ProtectionState.Relay.CONNECTED -> stringResource(
+                                        R.string.relay_state_connected,
+                                        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT)
+                                            .format(java.util.Date(RelayClient.lastOkMs(this@MainActivity))),
+                                    )
+                                    ProtectionState.Relay.DEGRADED -> stringResource(
+                                        R.string.relay_state_degraded,
+                                        relayError?.substringAfter('|') ?: "",
+                                    )
+                                },
                                 style = MaterialTheme.typography.labelSmall,
                             )
-                            Text(stringResource(R.string.relay_help), style = MaterialTheme.typography.labelSmall)
-
-                            // 适配器公钥。没有这个,那把在 Keystore 里的密钥就没有
-                            // 任何办法进到桌面的注册表里 —— 一个建好了却无法登记的
-                            // 密钥,等于这个机制没接上。
-                            var adapterKey by remember { mutableStateOf<String?>(null) }
-                            Button(onClick = { adapterKey = AdapterSigner.ensureKeyAndPublicHex() }) {
-                                Text(stringResource(R.string.show_adapter_key))
+                            var relayOn by remember {
+                                mutableStateOf(RelayClient.isEnabled(this@MainActivity))
                             }
-                            adapterKey?.let { k ->
+                            var relayUrl by remember {
+                                mutableStateOf(RelayClient.url(this@MainActivity))
+                            }
+                            var relayToken by remember { mutableStateOf("") }
+                            Button(
+                                onClick = {
+                                    relayOn = !relayOn
+                                    RelayClient.setEnabled(this@MainActivity, relayOn)
+                                    if (relayOn) {
+                                        RelayClient.setEndpoint(this@MainActivity, relayUrl, "")
+                                    }
+                                },
+                            ) {
+                                Text(stringResource(if (relayOn) R.string.relay_on else R.string.relay_off))
+                            }
+                            if (relayOn) {
+                                OutlinedTextField(
+                                    value = relayUrl,
+                                    onValueChange = {
+                                        relayUrl = it
+                                        RelayClient.setEndpoint(this@MainActivity, it, "")
+                                    },
+                                    label = { Text(stringResource(R.string.desktop_api_url)) },
+                                    singleLine = true,
+                                )
+                                // P1-6:令牌不回显。输入框永远空着,保存后只说"已保存(加密)";
+                                // 存进 Keystore 封装(TokenVault),不再是明文 prefs。
+                                var tokenSaved by remember {
+                                    mutableStateOf(RelayClient.hasToken(this@MainActivity))
+                                }
+                                OutlinedTextField(
+                                    value = relayToken,
+                                    onValueChange = { relayToken = it },
+                                    label = { Text(stringResource(R.string.bearer_token)) },
+                                    singleLine = true,
+                                    visualTransformation =
+                                        androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                )
+                                Button(
+                                    onClick = {
+                                        RelayClient.setEndpoint(this@MainActivity, relayUrl, relayToken)
+                                        relayToken = ""
+                                        tokenSaved = RelayClient.hasToken(this@MainActivity)
+                                    },
+                                    enabled = relayToken.isNotBlank(),
+                                ) {
+                                    Text(stringResource(R.string.save))
+                                }
                                 Text(
-                                    stringResource(R.string.adapter_key_help),
+                                    stringResource(if (tokenSaved) R.string.token_saved else R.string.token_missing),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
-                                // 可选中,好让人复制出去。整串 130 个十六进制字符
-                                // 手抄是不现实的。
-                                OutlinedTextField(
-                                    value = k,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text("public_key") },
-                                )
+                                Text(stringResource(R.string.relay_help), style = MaterialTheme.typography.labelSmall)
+
+                                // 适配器公钥。没有这个,那把在 Keystore 里的密钥就没有
+                                // 任何办法进到桌面的注册表里 —— 一个建好了却无法登记的
+                                // 密钥,等于这个机制没接上。
+                                var adapterKey by remember { mutableStateOf<String?>(null) }
+                                Button(onClick = { adapterKey = AdapterSigner.ensureKeyAndPublicHex() }) {
+                                    Text(stringResource(R.string.show_adapter_key))
+                                }
+                                adapterKey?.let { k ->
+                                    Text(
+                                        stringResource(R.string.adapter_key_help),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                    // 可选中,好让人复制出去。整串 130 个十六进制字符
+                                    // 手抄是不现实的。
+                                    OutlinedTextField(
+                                        value = k,
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("public_key") },
+                                    )
+                                }
                             }
                         }
                     }
@@ -371,32 +426,73 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        SessionState.addListener(sessionListener)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        sessionActiveUi.value = SessionState.active
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationsGrantedUi.value =
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        }
+        refreshPersistedState()
+    }
+
+    override fun onStop() {
+        SessionState.removeListener(sessionListener)
+        super.onStop()
+    }
+
+    /** 风险可能在本 Activity 退到后台后由无障碍服务写入；恢复前台时必须立即反映。 */
+    private fun refreshPersistedState() {
+        lastRiskUi.value = EnvelopeSink.lastRiskJson(this)
+        relayErrorUi.value = EnvelopeSink.lastRelayError(this)
+    }
+
+    internal fun localizedReason(reason: ProtectionState.Reason): String = getString(
+        when (reason) {
+            ProtectionState.Reason.NO_SESSION -> R.string.reason_no_session
+            ProtectionState.Reason.ACCESSIBILITY_NOT_BOUND -> R.string.reason_accessibility_not_bound
+            ProtectionState.Reason.RELAY_ERROR -> R.string.reason_relay_error
+            ProtectionState.Reason.RELAY_NEVER_CONNECTED -> R.string.reason_relay_never_connected
+            ProtectionState.Reason.RELAY_STALE -> R.string.reason_relay_stale
+            ProtectionState.Reason.NOTIFICATIONS_DENIED -> R.string.reason_notifications_denied
+        },
+    )
+
     /**
      * Run the (A)I Sees A5/A6 environment survey and return a one-line summary.
      *
      * On API 30+ the receiver half is limited to packages declared visible in the
-     * manifest `<queries>` block, so a clean result means "nothing visible is
-     * listening", not "nothing is listening" — the summary says so rather than
-     * implying a guarantee.
+     * manifest `<queries>` block. A clean result therefore stays off the consumer
+     * surface instead of being presented as a guarantee. Risks and incomplete scans
+     * are shown without package names, internal counters, or exception text.
      */
-    private fun surveyEnvironment(context: Context): String = try {
+    private fun surveyEnvironment(context: Context): String? = try {
         val survey = EnvironmentScanner.scan(context)
-        if (survey.isClean) {
-            getString(R.string.env_clean)
-        } else {
-            getString(R.string.env_risk, survey.summary())
+        val hasVisibleRisk = survey.broadcastInputReceivers.isNotEmpty() ||
+            survey.foreignA11yServices.isNotEmpty() || survey.logIsReadable
+        when {
+            hasVisibleRisk -> getString(R.string.env_risk)
+            !survey.isComplete -> getString(R.string.env_unknown)
+            else -> null
         }
-    } catch (e: Exception) {
-        getString(R.string.env_unknown, e.message ?: "error")
+    } catch (_: Exception) {
+        getString(R.string.env_unknown)
     }
 
     private fun formatRisk(raw: String?): String {
         if (raw.isNullOrBlank()) return getString(R.string.last_risk_none)
         return try {
             val o = JSONObject(raw)
-            getString(R.string.last_risk, o.optString("rule_id"), o.optString("message"))
+            val message = o.optString("message").takeIf { it.isNotBlank() }
+                ?: return getString(R.string.last_risk_unavailable)
+            getString(R.string.last_risk, message)
         } catch (_: Exception) {
-            getString(R.string.last_risk_raw, raw)
+            getString(R.string.last_risk_unavailable)
         }
     }
 }

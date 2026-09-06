@@ -35,7 +35,7 @@ import org.robolectric.annotation.Config
  *
  * Robolectric 用的是它自己的 android-all 实现,不是设备上的那个:
  *   * 系统**真的会不会把这些事件投给我们**取决于 accessibility_service_config 与 OEM 行为;
- *   * TalkBack 共存、前台服务限制、Android 15/16 的行为变化、通知是否真的弹出来 —— 都要设备;
+ *   * TalkBack 共存、通知与后台限制、Android 15/16 的行为变化、通知是否真的弹出来 —— 都要设备;
  *   * `rootInActiveWindow` 在这里恒为 null,所以 ui_text 那条分支只能测到"不崩且不乱造事件"。
  * 那一层是 docs/acceptance-runbook.md §5 与 scripts/acceptance/android-e2e.sh 的事(A1–A4 + T)。
  */
@@ -50,21 +50,22 @@ class GuardAccessibilityServiceRobolectricTest {
         // 每条测试从干净状态开始:事件日志与上一条风险都清掉,会话默认**关**。
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         EnvelopeSink.clearAll(ctx)
-        SessionState.active = false
+        SessionState.stop(ctx)
         service = Robolectric.setupService(GuardAccessibilityService::class.java)
     }
 
     @After
     fun tearDown() {
-        SessionState.active = false
-        EnvelopeSink.clearAll(ApplicationProvider.getApplicationContext())
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        SessionState.stop(ctx)
+        EnvelopeSink.clearAll(ctx)
     }
 
     /** 文本输入事件 → form_fill 信封落盘。这条以前只有真机能验。 */
     @Test
     fun `text change in a session becomes a form_fill envelope on disk`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        SessionState.start(ctx)
+        SessionState.start(ctx, observerBound = true)
         assertNull("前置:还没有信封", EnvelopeSink.lastEnvelopePath(ctx))
 
         service.onAccessibilityEvent(textChanged(pkg = "com.example.shop", label = "phone_number", typed = "13800000000"))
@@ -90,6 +91,7 @@ class GuardAccessibilityServiceRobolectricTest {
 
         service.onAccessibilityEvent(textChanged(pkg = "com.example.shop", label = "phone_number", typed = "13800000000"))
         service.onAccessibilityEvent(windowStateChanged(pkg = "com.example.shop"))
+        service.emitEnvironmentSurvey()
 
         assertNull("会话没开却写了信封", EnvelopeSink.lastEnvelopePath(ctx))
         assertNull("会话没开却记了风险", EnvelopeSink.lastRiskJson(ctx))
@@ -103,7 +105,7 @@ class GuardAccessibilityServiceRobolectricTest {
     @Test
     fun `a trap labelled field records a PRIV-002 risk with the label, not the value`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        SessionState.start(ctx)
+        SessionState.start(ctx, observerBound = true)
         val trapLabel = "营销订阅"
         // 前提:这个标签在分类器眼里真是陷阱 —— 否则下面断言的是别的东西。
         assertTrue("分类器不再把「$trapLabel」当陷阱,这条测试要跟着改", LocalRiskScanner.classifyEditLabel(trapLabel).isTrap)
@@ -120,7 +122,7 @@ class GuardAccessibilityServiceRobolectricTest {
     @Test
     fun `a window change with no readable tree produces no invented events`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        SessionState.start(ctx)
+        SessionState.start(ctx, observerBound = true)
 
         service.onAccessibilityEvent(windowStateChanged(pkg = "com.android.chrome"))
 
@@ -138,13 +140,87 @@ class GuardAccessibilityServiceRobolectricTest {
     @Test
     fun `an unsubscribed event type is ignored on purpose`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        SessionState.start(ctx)
+        SessionState.start(ctx, observerBound = true)
 
         val click = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_VIEW_CLICKED)
         click.packageName = "com.example.shop"
         service.onAccessibilityEvent(click)
 
         assertNull("点击事件不该产生信封", EnvelopeSink.lastEnvelopePath(ctx))
+    }
+
+    @Test
+    fun `self accessibility events never reach the envelope sink`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        SessionState.start(ctx, observerBound = true)
+
+        service.onAccessibilityEvent(
+            textChanged(pkg = ctx.packageName, label = "task_profile", typed = "self-canary-812z9"),
+        )
+
+        assertNull("自身 UI 事件不该进入 JSONL", EnvelopeSink.lastEnvelopePath(ctx))
+    }
+
+    @Test
+    fun `password accessibility events are dropped before serialization`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        SessionState.start(ctx, observerBound = true)
+        val ev = textChanged(pkg = "com.example.shop", label = "password", typed = "secret-canary")
+        ev.isPassword = true
+
+        service.onAccessibilityEvent(ev)
+
+        assertNull("密码事件不该进入 JSONL", EnvelopeSink.lastEnvelopePath(ctx))
+    }
+
+    @Test
+    fun `default IME events are dropped before serialization`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        android.provider.Settings.Secure.putString(
+            ctx.contentResolver,
+            android.provider.Settings.Secure.DEFAULT_INPUT_METHOD,
+            "com.example.keyboard/.ImeService",
+        )
+        SessionState.start(ctx, observerBound = true)
+
+        service.onAccessibilityEvent(
+            textChanged(pkg = "com.example.keyboard", label = "candidate", typed = "ime-canary"),
+        )
+
+        assertNull("输入法事件不该进入 JSONL", EnvelopeSink.lastEnvelopePath(ctx))
+    }
+
+    @Test
+    fun `observer loss ends effective and requested protection`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        connect(service)
+        SessionState.start(ctx, observerBound = true)
+        assertTrue(SessionState.active)
+
+        service.onUnbind(null)
+
+        assertFalse(SessionState.active)
+        assertFalse(SessionState.requested)
+    }
+
+    @Test
+    fun `late unbind from a replaced observer cannot stop the current session`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val replaced = service
+        connect(replaced)
+        val current = Robolectric.setupService(GuardAccessibilityService::class.java)
+        connect(current)
+        SessionState.start(ctx, observerBound = true)
+
+        replaced.onUnbind(null)
+
+        assertTrue("旧实例的延迟解绑不应终止新实例正在观察的会话", SessionState.active)
+        assertTrue(SessionState.requested)
+        assertTrue("新实例仍应是可用观察器", GuardAccessibilityService.isBound())
+
+        current.onUnbind(null)
+        assertFalse("当前实例解绑仍必须失败关闭", SessionState.active)
+        assertFalse(SessionState.requested)
     }
 
     /**
@@ -158,7 +234,7 @@ class GuardAccessibilityServiceRobolectricTest {
     @Test
     fun `envelopes append as JSONL, the survey happens once per session, and clearAll removes them`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        SessionState.start(ctx)
+        SessionState.start(ctx, observerBound = true)
         repeat(3) { i ->
             service.onAccessibilityEvent(textChanged(pkg = "com.example.shop", label = "email", typed = "a@b.c$i"))
         }
@@ -183,6 +259,13 @@ class GuardAccessibilityServiceRobolectricTest {
     }
 
     // ---------------------------------------------------------------- 事件构造
+
+    private fun connect(target: GuardAccessibilityService) {
+        GuardAccessibilityService::class.java.getDeclaredMethod("onServiceConnected").run {
+            isAccessible = true
+            invoke(target)
+        }
+    }
 
     private fun textChanged(pkg: String, label: String, typed: String): AccessibilityEvent {
         val ev = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED)

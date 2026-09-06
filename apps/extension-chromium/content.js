@@ -126,7 +126,7 @@ function scanPaymentCta() {
   const clickables = document.querySelectorAll("button, a, [role='button'], input[type='submit']");
   for (const el of clickables) {
     const text = (el.innerText || el.value || "").trim();
-    if (/确认支付|Confirm Payment|Pay now|Complete purchase|立即支付/i.test(text)) {
+    if (/确认支付|Confirm Payment|Pay now|Complete purchase|立即支付|Authorize payment|Approve payment|Submit payment|Authorize charge|Approve charge/i.test(text)) {
       findings.push({ kind: "payment_cta", text: text.slice(0, 80) });
     }
   }
@@ -228,48 +228,54 @@ const mo = new MutationObserver((records) => {
   }
   if (roots.length > 0) scheduleScan(roots);
 });
-if (document.body) {
-  mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+if (document.documentElement) {
+  // manifest 在 document_start 注入，先观察根节点，后续加入的 body 也不会漏掉。
+  mo.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 }
 
 /* ---------------------------------------------------------------------------
  * 执行前阻断(E2)。
  *
  * scanX 是**事后**的:它上报已经填好的表单、已经在页面上的付款按钮。这一段不同——它在捕获阶段
- * 同步拦住 submit / 付款 CTA 的 click,在动作**真正发生之前** preventDefault 把它按住,弹一个
- * 本地确认;只有用户点"允许一次"才放行。判决用的是 guard-gate.js 的纯逻辑(可在 node 里单测)。
+ * 同步拦住 submit / 付款 CTA 的 click,在动作**真正发生之前** preventDefault 把它按住。
+ * 首个 GA 没有页面内放行：普通网页 DOM 不是可信授权界面。页面提示只解释阻断结果，
+ * 浏览器通知/扩展弹窗才是页面无法伪造的状态面。
  *
- * 覆盖的是页面自己的 DOM 动作;拦不了直接 fetch() 的脚本(除非命中 DNR 主机规则)和原生 app。
- * 见 guard-gate.js 头部的"覆盖什么、不覆盖什么"。
+ * 覆盖的是页面自己的 DOM 动作。付款形状的网络请求由浏览器拥有的静态 DNR 规则直接硬拦；
+ * 这里不接收页面世界的请求、判决或 scope 消息，也不给 DOM 或网络硬拦提供“一次允许”。
+ * 原生 app 不在浏览器扩展的能力范围内。见 guard-gate.js 头部的边界说明。
  * ------------------------------------------------------------------------- */
 
-const PAYMENT_CTA_RE = /确认支付|Confirm Payment|Pay now|Complete purchase|立即支付/i;
-// 已被用户批准放行一次的元素/表单。放行后我们程序化重放动作,重放会再次进这个监听器,
-// 用这个 WeakSet 认出"这是刚批准的那次"并直接放过,避免死循环。
-const gateApproved = new WeakSet();
-
-function replayApprovedClick(el) {
-  // submit 按钮的默认动作会在这次 click 末尾同步触发 form 的 submit 事件。用户批准的
-  // 是这一条完整动作链，所以元素和所属表单都要各放行一次；否则 click 重放通过后，
-  // submit 门会再次弹窗。finally 会清掉没有实际提交时留下的表单令牌，避免以后误放行。
-  const form = el.form || (el.closest ? el.closest("form") : null);
-  gateApproved.add(el);
-  if (form) gateApproved.add(form);
-  try {
-    el.click();
-  } finally {
-    if (form) gateApproved.delete(form);
-  }
-}
-
+const PAYMENT_CTA_RE = /确认支付|Confirm Payment|Pay now|Complete purchase|立即支付|Authorize payment|Approve payment|Submit payment|Authorize charge|Approve charge/i;
+const ACTIONABLE_SELECTOR = "button, a, [role='button'], input[type='submit']";
 function ctaText(el) {
-  return PAYMENT_CTA_RE.test((el && (el.innerText || el.value)) || "");
+  return PAYMENT_CTA_RE.test((el && (el.innerText || el.value || el.textContent)) || "");
 }
 
 function nearestActionable(el) {
   return el && el.closest
-    ? el.closest("button, a, [role='button'], input[type='submit']")
+    ? el.closest(ACTIONABLE_SELECTOR)
     : null;
+}
+
+/**
+ * `click` is composed, but outside a shadow tree its target is retargeted to the
+ * host. Walk the browser-provided composed path so an actionable element in an
+ * open shadow root cannot hide behind an empty host. Closed shadow internals are
+ * intentionally not claimed: browsers omit them from the path exposed here.
+ */
+function actionableFromEvent(event) {
+  let path = [];
+  try {
+    path = typeof event.composedPath === "function" ? event.composedPath() : [];
+  } catch (_) {
+    path = [];
+  }
+  for (const node of path) {
+    const actionable = nearestActionable(node);
+    if (actionable) return actionable;
+  }
+  return nearestActionable(event.target) || event.target;
 }
 
 function formHasTrapPII(form) {
@@ -297,21 +303,18 @@ function reportPrevented(reason, kind) {
   }
 }
 
-/* 确认弹层由共享渲染器 guard-modal.js 提供(内容脚本与 onboarding 演示共用同一段
- * 渲染代码,词典改了两边同步)。语言、无障碍(alertdialog/焦点圈/焦点还原)、深色
- * 适配都在那边。这里只负责"什么时候弹、允许/取消各干什么"。 */
-function askAllowOnce(spec, onAllow, onCancel) {
+/* 页面提示由共享渲染器 guard-modal.js 提供。它没有授权按钮，也没有危险动作回调；
+ * 页面篡改或移除提示最多影响说明展示，不能释放已阻断的动作。 */
+function showBlocked(spec) {
   const Modal = self.AgentGuardModal;
   if (!Modal) {
-    // 渲染器没加载(不该发生)。宁可直接放行也不能"以为在拦其实页面卡死"。
-    console.debug("AgentGuard modal renderer missing; allowing action");
-    onAllow();
+    console.debug("AgentGuard block notice renderer missing; action remains blocked");
     return;
   }
-  Modal.askAllowOnce(spec, onAllow, onCancel);
+  Modal.showBlocked(spec);
 }
 
-function gateEvent(e, findings, replay) {
+function gateEvent(e, findings) {
   const Gate = self.AgentGuardGate;
   if (!Gate) return; // 纯逻辑没加载(不该发生);不静默改变页面行为。
   const d = Gate.gateForFindings(findings);
@@ -319,82 +322,31 @@ function gateEvent(e, findings, replay) {
   e.preventDefault();
   e.stopImmediatePropagation();
   reportPrevented(d.reason, d.kind);
-  askAllowOnce({ kind: d.kind, reason: d.reason }, replay);
+  showBlocked({ kind: d.kind, reason: d.reason });
 }
 
-document.addEventListener(
+// document_start + window capture：先于页面脚本安装，并覆盖所有 manifest 指定 frame。
+// 这只保证明确声明的、会产生 click/submit 事件且标签可识别的 DOM 支持面。
+window.addEventListener(
   "click",
   (e) => {
-    const el = nearestActionable(e.target) || e.target;
+    const el = actionableFromEvent(e);
     if (!el) return;
-    if (gateApproved.has(el)) {
-      gateApproved.delete(el);
-      return; // 这是刚批准后重放的那次点击,放过。
-    }
     const findings = ctaText(el) ? [{ kind: "payment_cta" }] : [];
-    gateEvent(e, findings, () => replayApprovedClick(el));
+    gateEvent(e, findings);
   },
   true
 );
 
-document.addEventListener(
+window.addEventListener(
   "submit",
   (e) => {
     const form = e.target;
-    if (!form || gateApproved.has(form)) {
-      if (form) gateApproved.delete(form);
-      return;
-    }
+    if (!form) return;
     const findings = [];
     if (formHasTrapPII(form)) findings.push({ kind: "privacy_trap" });
     if (e.submitter && ctaText(e.submitter)) findings.push({ kind: "payment_cta" });
-    gateEvent(e, findings, () => {
-      gateApproved.add(form);
-      // requestSubmit 保留原按钮的 formaction/formmethod/name/value,也保留约束校验；下一次
-      // submit 事件由 gateApproved 放过。直接 form.submit() 会绕过这些浏览器语义。
-      form.requestSubmit(e.submitter || undefined);
-    });
+    gateEvent(e, findings);
   },
   true
 );
-
-/* 页面上下文(guard-page.js,MAIN world)拦到一个付款形状的直发 fetch/XHR,通过 window.postMessage
- * 来要一个"允许/拒绝"。内容脚本在隔离世界,能弹确认 UI、能连扩展,所以由它作答并留痕。 */
-const AG_REQ = "__agentguard_req_gate__";
-const AG_DECISION = "__agentguard_req_decision__";
-const AG_SCOPE = "__agentguard_scope__";
-
-// E9:把任务主机允许表(background 从宿主判决里拿到、存进 storage)推给页面世界的 guard-page.js。
-// 允许表是**策略**、不是浏览历史——推给页面本地判越界,不回传任何 URL。
-function pushScopeToPage(allowlist) {
-  window.postMessage(
-    { type: AG_SCOPE, allowlist: Array.isArray(allowlist) ? allowlist : null },
-    "*"
-  );
-}
-try {
-  chrome.storage.local.get(["scope_hosts"], (data) => {
-    pushScopeToPage(data && data.scope_hosts);
-  });
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.scope_hosts) {
-      pushScopeToPage(changes.scope_hosts.newValue);
-    }
-  });
-} catch (e) {
-  console.debug("AgentGuard scope relay unavailable", e);
-}
-window.addEventListener("message", (ev) => {
-  if (ev.source !== window) return;
-  const d = ev.data;
-  if (!d || d.type !== AG_REQ || typeof d.id !== "number") return;
-  const reason = d.reason || "这个请求看起来在发起一次付款/转账";
-  reportPrevented(reason, "outbound_request");
-  // guard-page 的关卡带来了结构化的门种类(payment_request / out_of_scope_host / no_egress)
-  // 和目的地主机 —— 确认层据此查人话词典;老消息没有 kind 时退回 reason 原文。
-  askAllowOnce(
-    { kind: d.kind || "payment_request", reason, host: d.host || "" },
-    () => window.postMessage({ type: AG_DECISION, id: d.id, allow: true }, "*"),
-    () => window.postMessage({ type: AG_DECISION, id: d.id, allow: false }, "*")
-  );
-});

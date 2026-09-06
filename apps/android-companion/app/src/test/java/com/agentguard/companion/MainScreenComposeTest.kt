@@ -3,18 +3,24 @@ package com.agentguard.companion
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
+import androidx.compose.ui.graphics.luminance
 import androidx.test.core.app.ApplicationProvider
+import androidx.lifecycle.Lifecycle
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONObject
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -38,8 +44,8 @@ import org.robolectric.annotation.Config
  * # 它不证明什么(如实)
  *
  * Robolectric 不是设备:真机的字体缩放、TalkBack 朗读、深色主题、Android 15/16 的边到边
- * 与前台服务限制、以及"点了按钮系统真的给不给权限"都要设备 —— 那是 android-e2e.sh 的 A1–A4 与
- * 新加的 T 项。这里也不点「开始守护」:真按下去会拉起前台服务并请求权限,
+ * 与通知限制、以及"点了按钮系统真的给不给权限"都要设备 —— 那是 android-e2e.sh 的 A1–A4 与
+ * 新加的 T 项。这里也不点「开始守护」:真按下去依赖系统绑定的无障碍服务与通知状态,
  * 那条路径在 JVM 上只能测到一半,测一半比不测更容易让人误以为它被覆盖了。
  */
 @RunWith(RobolectricTestRunner::class)
@@ -51,7 +57,7 @@ class MainScreenComposeTest {
 
     @Before
     fun setUp() {
-        SessionState.active = false
+        SessionState.stop(ApplicationProvider.getApplicationContext())
     }
 
     /** 界面组合得出来,而且屏幕上的字是人话不是资源 key 名。 */
@@ -78,7 +84,19 @@ class MainScreenComposeTest {
     fun `with no session the screen says it is not protecting`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.onNodeWithText(ctx.getString(R.string.guard_stopped)).assertIsDisplayed()
-        compose.onNodeWithText(ctx.getString(R.string.session_inactive)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `dark mode selects a genuinely dark surface instead of the light default`() {
+        val light = agentGuardColorScheme(dark = false)
+        val dark = agentGuardColorScheme(dark = true)
+
+        assertTrue("浅色背景不应是暗色", light.background.luminance() > 0.5f)
+        assertTrue("深色背景仍然过亮", dark.background.luminance() < 0.2f)
+        assertTrue(
+            "深色前景与背景对比不足",
+            dark.onBackground.luminance() - dark.background.luminance() > 0.5f,
+        )
     }
 
     /**
@@ -102,7 +120,7 @@ class MainScreenComposeTest {
      * 「刷新风险」是只读操作:点它不会凭空造出一条风险。
      *
      * 选这个按钮来点,是因为它在 JVM 上是完整路径(读 SharedPreferences 再渲染);
-     * 开始/停止守护会拉前台服务与权限请求,那些在这里测不完整。
+     * 开始/停止守护会触发无障碍服务状态通知与权限请求,那些在这里测不完整。
      */
     @Test
     fun `pressing refresh does not invent a risk`() {
@@ -111,6 +129,91 @@ class MainScreenComposeTest {
         compose.onNodeWithText(ctx.getString(R.string.refresh_risk)).performScrollTo().performClick()
         compose.waitForIdle()
         compose.onNodeWithText(ctx.getString(R.string.last_risk_none)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `returning from background refreshes a risk written by the observer`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        val hit = LocalRiskScanner.Hit(
+            "OBS-TREE-LIMIT",
+            "high",
+            ctx.getString(R.string.risk_observation_incomplete),
+        )
+        EnvelopeSink.recordRisk(ctx, hit, hit.ruleId)
+        EnvelopeSink.append(ctx, JSONObject().put("type", "ui-privacy-regression"))
+
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitForIdle()
+
+        compose.onNodeWithText(
+            ctx.getString(R.string.last_risk, hit.message),
+        ).assertIsDisplayed()
+
+        val dump = compose.onRoot().printToString(maxDepth = 100)
+        for (leak in listOf(
+            hit.ruleId,
+            ctx.filesDir.absolutePath,
+            ".jsonl",
+            "adb reverse",
+            "Bearer token",
+            "public_key",
+            "Survey incomplete",
+        )) {
+            assertFalse("普通用户界面泄漏了内部信息「$leak」:\n$dump", dump.contains(leak))
+        }
+    }
+
+    @Test
+    fun `developer relay controls are collapsed by default`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val dump = compose.onRoot().printToString(maxDepth = 100)
+        compose.onNodeWithText(ctx.getString(R.string.task_profile_label)).performScrollTo().assertIsDisplayed()
+
+        for (hidden in listOf(
+            ctx.getString(R.string.desktop_api_url),
+            ctx.getString(R.string.bearer_token),
+            ctx.getString(R.string.show_adapter_key),
+        )) {
+            assertFalse("开发者内容默认可见「$hidden」:\n$dump", dump.contains(hidden))
+        }
+        if (RelayClient.isAvailable()) {
+            compose.onNodeWithTag("developer.toggle").performScrollTo().assertIsDisplayed()
+        } else {
+            assertEquals(
+                0,
+                compose.onAllNodesWithText(ctx.getString(R.string.show_developer_settings))
+                    .fetchSemanticsNodes().size,
+            )
+        }
+    }
+
+    @Test
+    fun `deleting local records requires an explicit confirmation`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.onNodeWithTag("events.clear").performScrollTo().performClick()
+        compose.onNodeWithText(ctx.getString(R.string.clear_events_title)).assertIsDisplayed()
+        compose.onNodeWithText(ctx.getString(R.string.clear_events_message)).assertIsDisplayed()
+
+        compose.onNodeWithText(ctx.getString(R.string.cancel)).performClick()
+        compose.waitForIdle()
+        assertEquals(
+            0,
+            compose.onAllNodesWithText(ctx.getString(R.string.clear_events_title))
+                .fetchSemanticsNodes().size,
+        )
+    }
+
+    @Test
+    fun `degraded reasons are localized user text rather than enum identifiers`() {
+        compose.activityRule.scenario.onActivity { activity ->
+            for (reason in ProtectionState.Reason.entries) {
+                val label = activity.localizedReason(reason)
+                assertTrue("$reason 没有可读文案", label.isNotBlank())
+                assertFalse("$reason 泄漏为内部枚举:$label", label.contains('_'))
+                assertFalse("$reason 泄漏为内部枚举:$label", label == reason.name.lowercase())
+            }
+        }
     }
 
     /** 语言切换是三语产品的核心承诺:切到英文后,屏幕上不再有中文字形。 */
@@ -126,5 +229,49 @@ class MainScreenComposeTest {
         val cjk = Regex("[\\u4e00-\\u9fff]")
         val hits = cjk.findAll(dump).map { it.value }.distinct().toList()
         assertTrue("英文界面上仍有中文字形 $hits:\n$dump", hits.isEmpty())
+    }
+
+    @Test
+    fun `new consumer safety copy exists in all three languages`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val ids = listOf(
+            R.string.accessibility_service_description,
+            R.string.notification_text,
+            R.string.last_risk_unavailable,
+            R.string.task_profile_label,
+            R.string.task_profile_help,
+            R.string.local_events_note,
+            R.string.clear_events_title,
+            R.string.clear_events_message,
+            R.string.clear_events_confirm,
+            R.string.cancel,
+            R.string.env_risk,
+            R.string.env_unknown,
+            R.string.show_developer_settings,
+            R.string.hide_developer_settings,
+        )
+        val cjk = Regex("[\\u4e00-\\u9fff]")
+
+        try {
+            for (mode in listOf(
+                LocaleController.ENGLISH,
+                LocaleController.SIMPLIFIED_CHINESE,
+                LocaleController.TRADITIONAL_CHINESE,
+            )) {
+                LocaleController.setMode(ctx, mode)
+                for (id in ids) {
+                    val text = LocaleController.text(ctx, id)
+                    assertTrue("$mode 的词条 $id 为空", text.isNotBlank())
+                    assertFalse("$mode 的词条 $id 留有格式占位符:$text", text.contains("%"))
+                    if (mode == LocaleController.ENGLISH) {
+                        assertFalse("英文词条 $id 含中文:$text", cjk.containsMatchIn(text))
+                    } else {
+                        assertTrue("$mode 的词条 $id 回退成英文:$text", cjk.containsMatchIn(text))
+                    }
+                }
+            }
+        } finally {
+            LocaleController.setMode(ctx, LocaleController.SYSTEM)
+        }
     }
 }

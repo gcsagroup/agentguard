@@ -1,4 +1,4 @@
-/* AgentGuard 确认弹层(共享渲染器)。
+/* AgentGuard 只阻断提示层(共享渲染器)。
  *
  * 从 content.js 抽出来,因为它有两个消费者:内容脚本的真实执行前门,和 onboarding.html
  * 的交互演示。演示如果自己抄一份 DOM,词典改了它不改,用户学到的就是过时的界面——
@@ -6,7 +6,7 @@
  *
  * 无障碍(E17b):
  *   - role="alertdialog" + aria-modal + 反射的 ariaLabel/ariaDescription;
- *   - 打开时焦点落在「先不要」,Tab/Shift+Tab 在弹层内循环(焦点圈),Esc = 先不要;
+ *   - 打开时焦点落在「关闭」,Tab/Shift+Tab 在弹层内循环(焦点圈),Esc = 关闭;
  *   - 关闭后焦点还原到打开前的元素(键盘用户不迷路)。
  * 深色:跟随 prefers-color-scheme,两套色板都写死在这里(页面 CSS 不可信,
  * 弹层必须自带全部样式)。
@@ -81,12 +81,12 @@
   let seq = 0;
 
   /**
-   * 弹出一次"执行前确认"。
+   * 显示一次"已阻断"提示。它位于普通页面 DOM，只负责解释，绝不承担授权。
+   * 页面即使篡改、隐藏或点击它，也没有任何可重放的危险动作。
    * @param {{kind?: string, reason?: string, host?: string}} spec
-   * @param {Function} onAllow 用户点「允许这一次」
-   * @param {Function} [onCancel] 用户点「先不要」/ Esc
+   * @param {Function} [onClose] 用户点「关闭」/ Esc
    */
-  function askAllowOnce(spec, onAllow, onCancel) {
+  function showBlocked(spec, onClose) {
     const S = root.AgentGuardStrings || null;
     const ui = S ? S.ui(gateLocale) : null;
     const gate =
@@ -143,7 +143,7 @@
     const p = document.createElement("div");
     p.style.marginBottom = "10px";
     p.textContent = (gate && gate.body) || reasonText;
-    // 两个按钮各自的后果,先说清楚再让人选。
+    // 只陈述阻断结果。网页 DOM 不能提供可信授权，所以这里没有“允许”入口。
     const consequences = document.createElement("div");
     Object.assign(consequences.style, {
       fontSize: "12.5px",
@@ -151,11 +151,9 @@
       marginBottom: "12px",
     });
     if (gate) {
-      const cancelLine = document.createElement("div");
-      cancelLine.textContent = gate.cancel;
-      const allowLine = document.createElement("div");
-      allowLine.textContent = gate.allow;
-      consequences.append(cancelLine, allowLine);
+      const blockedLine = document.createElement("div");
+      blockedLine.textContent = gate.blocked;
+      consequences.append(blockedLine);
     }
     // 「为什么拦住我?」——解释 + 技术标识收在这里。
     const why = document.createElement("details");
@@ -175,13 +173,12 @@
 
     const row = document.createElement("div");
     Object.assign(row.style, { display: "flex", gap: "8px", justifyContent: "flex-end" });
-    // 「先不要」是主按钮:实心、默认焦点、Esc。放行是危险动作,做成红字描边的次按钮。
-    const cancel = document.createElement("button");
-    cancel.textContent = ui ? ui.cancel : "Not now";
+    const closeButton = document.createElement("button");
+    closeButton.textContent = ui ? ui.close : "Close";
     // 稳定的机器钩子(dataset,不走 setAttribute):真浏览器 E2E(eval/e2e-extension)和
     // 验收者在 DevTools 里都靠它认按钮,而不是靠会随语言变的按钮文字。
-    cancel.dataset.agentguardAction = "cancel";
-    Object.assign(cancel.style, {
+    closeButton.dataset.agentguardAction = "close";
+    Object.assign(closeButton.style, {
       padding: "8px 16px",
       borderRadius: "8px",
       border: "0",
@@ -190,23 +187,12 @@
       cursor: "pointer",
       fontWeight: "600",
     });
-    const allow = document.createElement("button");
-    allow.textContent = ui ? ui.allow : "Allow once";
-    allow.dataset.agentguardAction = "allow";
-    Object.assign(allow.style, {
-      padding: "8px 16px",
-      borderRadius: "8px",
-      border: `1px solid ${C.dangerBorder}`,
-      background: C.dangerBg,
-      color: C.dangerInk,
-      cursor: "pointer",
-    });
     // 焦点圈:Tab/Shift+Tab 在弹层的可聚焦元素之间循环,不逃到底下的页面去。
-    const focusables = [whySummary, allow, cancel];
+    const focusables = [whySummary, closeButton];
     const onKey = (e) => {
       if (e.key === "Escape") {
         e.stopImmediatePropagation();
-        doCancel();
+        doClose();
         return;
       }
       if (e.key !== "Tab") return;
@@ -228,40 +214,32 @@
         console.debug("AgentGuard focus restore failed", e);
       }
     };
-    const doCancel = () => {
+    const doClose = () => {
       close();
-      if (typeof onCancel === "function") {
+      if (typeof onClose === "function") {
         try {
-          onCancel();
+          onClose();
         } catch (e) {
-          console.debug("AgentGuard cancel handler failed", e);
+          console.debug("AgentGuard close handler failed", e);
         }
       }
     };
     document.addEventListener("keydown", onKey, true);
-    cancel.addEventListener("click", doCancel);
-    allow.addEventListener("click", () => {
-      close();
-      try {
-        onAllow();
-      } catch (e) {
-        console.debug("AgentGuard allow-once replay failed", e);
-      }
-    });
-    row.append(allow, cancel);
+    closeButton.addEventListener("click", doClose);
+    row.append(closeButton);
     card.ariaLabel = h.textContent;
     card.ariaDescription = p.textContent;
     card.append(brand, h, p, consequences, why, row);
     host.append(card);
     (document.body || document.documentElement).append(host);
     try {
-      cancel.focus();
+      closeButton.focus();
     } catch (e) {
       console.debug("AgentGuard focus failed", e);
     }
   }
 
-  const Modal = { askAllowOnce };
+  const Modal = { showBlocked };
   if (typeof module !== "undefined" && module.exports) {
     module.exports = Modal;
   }
