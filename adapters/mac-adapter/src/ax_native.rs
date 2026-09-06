@@ -65,6 +65,7 @@ pub fn start_ax_observer(generation: u64) -> Result<(), String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = generation;
         Err("Accessibility bridge only available on macOS".into())
     }
 }
@@ -78,6 +79,7 @@ pub fn take_ax_notifications(generation: u64) -> u64 {
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = generation;
         0
     }
 }
@@ -89,6 +91,8 @@ pub fn stop_ax_observer(generation: u64) {
     {
         unsafe { ffi::agentguard_ax_observe_stop(generation) }
     }
+    #[cfg(not(target_os = "macos"))]
+    let _ = generation;
 }
 
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]

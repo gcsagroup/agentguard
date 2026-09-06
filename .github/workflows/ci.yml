@@ -114,8 +114,7 @@ jobs:
       - name: Leaderboard + billing webhook
         run: |
           cargo run -p guard-cli -- leaderboard
-          cargo run -p guard-cli -- billing-webhook --file eval/fixtures/billing_webhook_purchase.json --store /tmp/ag-ent.json
-          cargo run -p guard-cli -- entitlement-status --store /tmp/ag-ent.json
+          python3 scripts/check-billing-webhook.py target/debug/guard-cli
       - name: Sim capture + netmon + billing
         run: |
           cargo run -p guard-cli -- sim-capture --confirm deny
@@ -299,8 +298,15 @@ jobs:
             <key>CFBundleName</key><string>StandIn</string>
           </dict></plist>
           PLIST
-          unset APPLE_SIGNING_IDENTITY
-          bash apps/desktop-macos/scripts/sign-and-notarize.sh "$APP"
+          unset APPLE_SIGNING_IDENTITY AGENTGUARD_ALLOW_ADHOC
+          # 正式签名缺失仍必须拒绝；只有显式测试模式能签这个临时替身。
+          log="$RUNNER_TEMP/standin-signing.log"
+          if bash apps/desktop-macos/scripts/sign-and-notarize.sh "$APP" >"$log" 2>&1; then
+            echo '缺少签名身份的默认发布路径意外通过' >&2
+            exit 1
+          fi
+          grep -Fq 'APPLE_SIGNING_IDENTITY is required' "$log"
+          AGENTGUARD_ALLOW_ADHOC=1 bash apps/desktop-macos/scripts/sign-and-notarize.sh "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
           codesign --display --verbose=2 "$APP" 2>&1 | grep -q 'Identifier=com.agentguard.desktop.macos'
 

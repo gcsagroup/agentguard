@@ -1129,17 +1129,26 @@ fn 发布版本元数据一致() {
 /// 需要 python3(dashboard 与验收固件早已依赖它);没有就失败并说明,不静默跳过。
 #[test]
 fn 能力矩阵是从源码生成的_与仓库逐字一致() {
-    let out = std::process::Command::new("python3")
-        .arg(root().join("scripts/gen-capability-matrix.py"))
-        .arg("--check")
-        .output()
-        .expect("python3 不可用:能力矩阵脚本需要它(Makefile 的 dashboard 目标同样依赖 python3)");
-    assert!(
-        out.status.success(),
-        "能力矩阵与源码不一致,跑 `make capability-matrix` 重新生成:\n{}{}",
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    );
+    // 强制复现 Windows 的非 UTF-8 控制台，不能等到该平台 CI 才发现打印失败。
+    for encoding in ["utf-8", "cp1252"] {
+        let out = std::process::Command::new("python3")
+            .arg(root().join("scripts/gen-capability-matrix.py"))
+            .arg("--check")
+            .env("PYTHONIOENCODING", encoding)
+            .output()
+            .expect(
+                "python3 不可用:能力矩阵脚本需要它(Makefile 的 dashboard 目标同样依赖 python3)",
+            );
+        assert!(
+            out.status.success(),
+            "能力矩阵检查失败({encoding}),跑 `make capability-matrix` 核对:\n{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(String::from_utf8(out.stdout)
+            .expect("脚本输出必须是 UTF-8")
+            .contains("与源码一致"));
+    }
     // 生成物三语成组,且每份都自称生成物(手改的人先看到这句)。
     for rel in [
         "docs/capability-matrix.md",

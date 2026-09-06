@@ -449,6 +449,9 @@ def collect() -> dict:
 
 
 def main(argv: list[str]) -> int:
+    # Windows 的管道输出可能使用 cp1252；三语诊断也必须固定为 UTF-8。
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     check = "--check" in argv
     facts = collect()
     drift = []

@@ -9,6 +9,7 @@ use std::collections::VecDeque;
 use std::ffi::CStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
+#[cfg(target_os = "macos")]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug)]
@@ -21,12 +22,14 @@ static FRAME_QUEUE: OnceLock<Mutex<VecDeque<QueuedFrame>>> = OnceLock::new();
 static ACTIVE_GENERATION: AtomicU64 = AtomicU64::new(0);
 static NEXT_STANDALONE_GENERATION: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(any(target_os = "macos", test))]
 const CAPTURE_CLOCK_SKEW_LIMIT_MS: i64 = 3_000;
 
 fn queue() -> &'static Mutex<VecDeque<QueuedFrame>> {
     FRAME_QUEUE.get_or_init(|| Mutex::new(VecDeque::with_capacity(8)))
 }
 
+#[cfg(target_os = "macos")]
 fn unix_now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -40,6 +43,7 @@ fn unix_now_ms() -> i64 {
 /// so its clock must never replace the capture timestamp: doing that could pair
 /// an old, slow frame with a new AX tree. Implausible values become unknown (0)
 /// and are rejected by the pairing layer.
+#[cfg(any(target_os = "macos", test))]
 fn validated_capture_timestamp(source_ms: i64, processing_completed_ms: i64) -> i64 {
     if source_ms > 0
         && processing_completed_ms > 0
