@@ -161,6 +161,22 @@ jobs:
         shell: bash
         run: make toolchain-check
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: 核对 Windows SQLCipher 的 OpenSSL 依赖
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Git Bash 不保证继承 ProgramFiles；该路径由 GitHub Windows 镜像安装脚本固定。
+          openssl_root="$(cygpath -u 'C:/Program Files/OpenSSL')"
+          for required in include/openssl/crypto.h lib/VC/x64/MD/libcrypto.lib bin/libcrypto-3-x64.dll; do
+            if [ ! -f "$openssl_root/$required" ]; then
+              echo "Windows OpenSSL 缺少必需文件: $openssl_root/$required" >&2
+              exit 1
+            fi
+          done
+          openssl_native="$(cygpath -m "$openssl_root")"
+          printf 'OPENSSL_DIR=%s\nOPENSSL_INCLUDE_DIR=%s/include\nOPENSSL_LIB_DIR=%s/lib/VC/x64/MD\n' \
+            "$openssl_native" "$openssl_native" "$openssl_native" >> "$GITHUB_ENV"
+          printf '%s/bin\n' "$openssl_native" >> "$GITHUB_PATH"
       - name: Test the workspace on Windows
         run: cargo test --workspace
       - name: Build the native adapter with the real Win32 bindings
@@ -180,15 +196,6 @@ jobs:
         working-directory: apps/desktop-windows/src-tauri
         run: |
           set -euo pipefail
-          # 使用 runner 预装的 x64 MSVC OpenSSL；不回退到明文审计或其他 ABI。
-          openssl_root="$(cygpath -u "${ProgramFiles:?}/OpenSSL")"
-          test -f "$openssl_root/include/openssl/crypto.h"
-          test -f "$openssl_root/lib/VC/x64/MD/libcrypto.lib"
-          test -f "$openssl_root/bin/libcrypto-3-x64.dll"
-          export OPENSSL_DIR="$(cygpath -m "$openssl_root")"
-          export OPENSSL_INCLUDE_DIR="$OPENSSL_DIR/include"
-          export OPENSSL_LIB_DIR="$OPENSSL_DIR/lib/VC/x64/MD"
-          export PATH="$openssl_root/bin:$PATH"
           log="$(mktemp)"
           trap 'rm -f "$log"' EXIT
           # 调试断言不能把 Release 变回开发模式，曾实测绕过加密与内置资源门禁。
@@ -201,8 +208,11 @@ jobs:
           cat "$log"
           grep -Fq 'desktop-windows Release requires SQLCipher' "$log"
           cargo check --release --locked --no-default-features --features audit-sqlcipher
-          cargo test --release --locked --no-default-features --features audit-sqlcipher \
-            --lib release开启调试断言仍保持安全发布语义 -- --exact >"$log" 2>&1
+          if ! cargo test --release --locked --no-default-features --features audit-sqlcipher \
+            --lib release开启调试断言仍保持安全发布语义 -- --exact >"$log" 2>&1; then
+            cat "$log"
+            exit 1
+          fi
           cat "$log"
           grep -Fq '1 passed; 0 failed' "$log"
           cargo test --manifest-path ../../../Cargo.toml --locked -p guard-audit \
