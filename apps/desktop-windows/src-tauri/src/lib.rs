@@ -2919,7 +2919,8 @@ mod packaging_tests {
             "Windows encryption key provisioning must remain DPAPI-backed"
         );
         assert!(
-            src.contains(
+            // Windows 检出默认可能是 CRLF；只规范换行，不放宽平台保护条件。
+            src.replace("\r\n", "\n").contains(
                 "#[cfg(not(target_os = \"windows\"))]\n    let signer = guard_audit::FileDeviceKey::load_or_create(audit_signing_key_path())"
             ),
             "the plaintext file signer may exist only in the non-Windows test portability branch"
