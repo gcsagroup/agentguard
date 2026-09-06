@@ -13,7 +13,7 @@ These notes include subsequent source updates on the candidate branch. The versi
 
 ## Positioning
 
-This candidate is intended for research and evaluation, development or staging, and controlled internal pilots with informed operators. AgentGuard primarily provides out-of-band observation, risk decisions, and accountable audit records. The tool gateway is a bypassable cooperative control; browser page gates and DNR provide pre-execution control over limited vectors; and Linux `guard-jail` provides a narrow kernel boundary for processes it launches itself.
+This candidate is intended for research and evaluation, development or staging, and controlled internal pilots with informed operators. AgentGuard primarily provides out-of-band observation, risk decisions, and accountable audit records. The tool gateway is a bypassable cooperative control; browser block-only DOM gates and static DNR provide pre-execution blocking over limited vectors; and Linux `guard-jail` provides a narrow kernel boundary for processes it launches itself.
 
 ## Highlights
 
@@ -21,21 +21,22 @@ This candidate is intended for research and evaluation, development or staging, 
 - macOS observation through AXUIElement, ScreenCaptureKit, and Vision OCR. AX-tree changes now use AXObserver push signals, coalescing, and fallback polling; pixel capture remains sampled.
 - Windows UI Automation, GDI capture, and Windows.Media.Ocr implementation; real-device acceptance is still missing.
 - An Android AccessibilityService companion, environment survey, and Android Keystore P-256 adapter signatures.
-- A Chromium MV3 extension, Native Messaging host, consumerized trilingual UI, payment/trap/fetch-XHR page gates, and DNR blocking of malicious or out-of-scope hosts with management and rule provenance.
-- A Firefox port and packaging scaffold, an Edge compatibility path, and an explicit Safari design boundary. These browser paths do not yet have real-environment end-to-end acceptance.
+- The first-GA browser scope is one shared Chrome/Edge Chromium MV3 ZIP: consumerized trilingual UI, block-only payment/trap DOM gates, and static DNR for explicit payment-shaped URLs. There is no in-page allow or replay, and the GA manifest has no Native Messaging permission.
+- Firefox remains a source prototype only: it is not packaged, submitted, or used as a first-GA acceptance gate. Safari is a separate product path.
+- A buildable Swift-first iOS Safari WebShield limited SKU with a container app, Safari Web Extension, shared Core, and automated tests. It is not wired to the Rust engine and does not replace release signing, real-device Safari, or TestFlight acceptance.
 - A cooperative MCP tool gateway and Linux `guard-jail` filesystem constraints with an opt-in `scope.net` TCP-port ceiling.
 - Hash-chained audit records, optional per-record signatures and SQLCipher, Ed25519 threat intelligence, a local API, signed policy sync, and authenticated billing webhooks.
-- The bright D logo and cross-platform app icons; trilingual macOS, Windows, and Chromium interfaces with first-run onboarding, plain-language risks, an accessible confirmation layer, keyboard operation, and dark mode.
+- The bright D logo and cross-platform app icons; trilingual macOS, Windows, and Chromium interfaces with first-run onboarding, plain-language risks, accessible risk/block notices that reflect each path's actual enforcement boundary, keyboard operation, and dark mode.
 - Machine-checkable mappings from user-facing capability claims to proving tests (count in [capability-matrix.en.md](capability-matrix.en.md)), a generated status dashboard, reproducible offline evaluation, an attack-surface coverage matrix, preflight checks, and a release-evidence gate.
-- Firefox, Windows, and macOS acceptance checklists, an executable real-device runbook, browser fixtures, and a report template. They define how acceptance must be run; they do not mean acceptance has completed.
+- Chrome/Edge, Windows, macOS, and iOS acceptance checklists, a Firefox exclusion notice, an executable real-device runbook, browser fixtures, and a report template. They define how acceptance must be run; they do not mean formal candidate acceptance has completed.
 
 ## Security hardening
 
 - Release paths reject `sha256:` integrity digests when authenticity requires a threat-intelligence signature.
-- Native Messaging caller identity is fail-closed by default. Billing, policy sync, the local API, threat intelligence, adapter assertions, and Native Messaging follow one principle: unverified inbound data must not cross the trust boundary.
+- Caller identity in the repository Native Messaging prototype is fail-closed; the first-GA browser package does not request that permission. Billing, policy sync, the local API, threat intelligence, and adapter assertions follow one principle: unverified inbound data must not cross the trust boundary.
 - Sensitive filesystem targets cannot be approved through a confirmation prompt. Gateway filesystem operations reach independent engine decisions; verifiable audit records require the host to attach an audit store and signer.
 - Once declared, `scope.net` allows only listed TCP connect/bind ports. Empty lists deny all such operations, and an unenforceable backend refuses to launch rather than silently opening networking.
-- Browser malicious-host entries persist across service-worker restarts, out-of-scope entries expire with the session, and the popup shows their triggering rules. DNR installation still fails open and does not claim a block that was not installed.
+- The first-GA browser uses manifest static DNR rules for its explicitly supported payment requests. Upgrade clears legacy Native/dynamic-scope state; unavailable capability fails closed and the popup hides the unavailable entry.
 - Path normalization, symbolic-link handling, macOS volume aliases, root mount namespaces, audit-witness inclusion, and frontend injection/CSP issues were hardened.
 - Key files are created with restricted permissions, and unsafe permissions or symbolic-link paths are rejected.
 
@@ -57,21 +58,21 @@ make check
 make release-gate
 ~~~
 
-A production release must also satisfy the strict gate with code-signing, notarization, and real-device evidence. Passing the soft gate cannot replace that evidence.
+A production release must also satisfy the strict gate with all twelve code-signing, notarization, and real-device evidence kinds. Passing the soft gate cannot replace that evidence. No complete set is currently bound to one frozen candidate, so the decision remains **No-Go**.
 
 ## Explicitly incomplete
 
-- Properly signed macOS, Windows, and Android installers.
+- Properly signed macOS, Windows, Android, and iOS candidate artifacts.
 - macOS notarization and stapling.
-- The current macOS ad-hoc candidate has passed local startup, TCC probing, and an AXObserver push-flow check; fresh-install and upgrade acceptance after Developer ID signing/notarization remain open. Candidate real-device E2E is still missing on Windows and Android.
-- Real-browser end-to-end acceptance on Chrome, Edge, and Firefox. Firefox DNR quotas and the Native Messaging gecko-id path still require calibration.
-- Production publication to the App Store, Chrome Web Store, or Google Play.
+- An older ad-hoc macOS candidate passed local startup, TCC probing, and an AXObserver push-flow check, but the latest universal `.app` has not completed the full current rerun. Fresh-install, upgrade, and TCC acceptance after Developer ID signing/notarization also remain open. Current-candidate real-device E2E is still missing on Windows and Android.
+- Chrome and Edge have not separately completed B1–B5 clean-profile installation, upgrade, rollback, and store evidence for the same formal candidate ZIP. Source-level real-Chromium E2E cannot replace these two independent strict gates. Firefox is outside first-GA scope.
+- iOS has a buildable limited SKU and unsigned Simulator evidence, but no Apple Distribution candidate, I1–I6 real-device Safari Extension evidence, or TF1–TF3 TestFlight evidence. It is also not wired to the Rust engine.
+- Production publication to the App Store / TestFlight, Chrome Web Store, or Google Play.
 - Kernel-level jails on macOS and Windows.
 - A mandatory network-egress proxy.
-- A Safari extension project and Swift Native Messaging handler; Safari is currently design-only.
-- A complete iOS project wired to the engine.
+- iOS Rust-engine wiring and any cross-app/system observation beyond the limited SKU; the current Safari Extension covers only the documented web-DOM scope.
 
-Android high-risk notices occur after the event. Chromium page gates and DNR can control pre-execution behavior for the vectors they cover, but a malicious page can bypass the page gate, DNR installation fails open, and Native Messaging decisions remain asynchronous. macOS AX-tree changes have push signals, but pixel capture and fallback behavior retain sampling/polling boundaries. Apart from the narrow Linux `guard-jail` constraint on processes it launches, most controls depend on the agent or page passing through AgentGuard and must not be described as general or unbypassable protection.
+Android high-risk notices occur after the event. Chromium’s DOM gate covers declared frames, ordinary DOM, and open Shadow DOM; a page can remove the notice but cannot use that to authorize or replay an action. Closed Shadow DOM, browser-native actions, and unrecognized page shapes remain outside the claim. Static DNR covers only declared HTTP(S) methods, payment URL keywords, and resource types; it cannot infer business meaning from an encrypted body. macOS AX-tree changes have push signals, but pixel capture and fallback behavior retain sampling/polling boundaries. Apart from the narrow Linux `guard-jail` constraint on processes it launches, most controls depend on the agent or page passing through AgentGuard and must not be described as general or unbypassable protection.
 
 ## Related documentation
 

@@ -4,13 +4,15 @@
 
 > 結論：目前整合候選的自動化、套件一致性與 macOS 有限原生 smoke 均取得進展，但尚未在同一個不可變提交上完成瀏覽器、Windows、macOS 與 Android 的發佈級真機端到端驗收。生產發佈仍為 **No-Go**。
 
+> **2026-09-05 目前合約勘誤：**本文保留的是歷史證據，不可用於目前候選。Windows 風險確認屬於事後觀察（`effect=observed_only`、`external_action_blocked=false`）；Android 目前使用 AccessibilityService 與普通常駐工作階段通知，程序重啟後不會自動恢復觀察；macOS/Windows Release 遇到舊明文稽核庫或明文金鑰會保留原檔並失敗關閉，不再切換至旁路明文或 sibling 資料庫；下文 Firefox ZIP 也只是歷史產物，首個 GA 只封裝 Chrome/Edge 共用 Chromium 套件。下文舊術語與舊行為只描述當時提交。
+
 本報告依照 [真機驗收執行手冊](acceptance-runbook.zh-TW.md) 與 [報告範本](acceptance-report-template.zh-TW.md) 填寫。空白項目均已改為明確結果；無法從目前候選取得足夠證據的項目記為 `BLOCKED`，不猜測 PASS。
 
 ## 1. 原始碼與證據邊界
 
 本報告同時引用兩層證據，兩者不能混用：
 
-1. **2026-08-31 真機／跨平台基線**：精確提交 `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`，詳情見外層報告 `/Users/lazy/Projects/agent-guard/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`。它包含當時的 Windows 11、macOS、Android 模擬器、iOS 臨時 harness 與 Chromium 限定範圍實測。
+1. **2026-08-31 真機／跨平台基線**：精確提交 `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`，詳情見外層報告 `<local-acceptance>/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`。它包含當時的 Windows 11、macOS、Android 模擬器、iOS 臨時 harness 與 Chromium 限定範圍實測。
 2. **2026-09-01 目前整合候選**：以發佈基線 `a7956314fba8340e905353448a53bb1f24f7083c` 為第一父提交，合入功能基線 `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`，並包含本報告記錄的修復、D 品牌與三語文件。最終不可變身分以「包含本報告的 `main` 提交」為準。
 
 因此，`bd7bb2f` 的真機結果只能作為歷史基線，**不能自動繼承為目前整合候選的 PASS**。本輪主控台及 Computer Use 結果沒有歸檔至獨立證據目錄；下文以命令、計數及操作觀察記錄，屬於整合驗證紀錄，不是可獨立複核的發佈證據。
@@ -51,14 +53,14 @@
 
 目前 macOS App 可執行檔 SHA-256 為 `30425194afe8d4679b74d95e8b1fd2459e3d0f04e050cbe62b037de8fb5cbb11`；App 內 D 圖示 SHA-256 為 `9a7732ab9cc79ff50341b5d205f1b03755698315d07f75b9713847780a598a10`。這些值綁定目前本機 ad-hoc 產物，不等於 Developer ID、公證或最終提交產物身分。
 
-目前啟動路徑會保留既有明文稽核資料庫，改用相鄰的 SQLCipher 資料庫，避免以加密金鑰開啟舊明文資料庫所造成的啟動崩潰，且不覆寫 legacy 檔案。
+當時的啟動路徑會保留既有明文稽核資料庫，改用另一個 SQLCipher 資料庫，避免以加密金鑰開啟舊明文資料庫所造成的啟動崩潰，且不覆寫 legacy 檔案。該行為現已退役；目前 Release 會保留舊檔並失敗關閉，等待核准的清除或遷移決策。
 
 擴充功能套件初次複核曾發現陳舊內容：Firefox 套件仍使用 `service_worker`，`background.js`／`content.js` 也與工作樹不同。2026-09-01 16:39（Asia/Shanghai）重新打包後已再次複核：
 
 | 套件 | SHA-256 | 複核結果 |
 |---|---|---|
-| `/Users/lazy/Projects/agent-guard/_push/agentguard-extension.zip` | `443e141834de89587fc0daf7a5470e2edee8a15b6e18c9d3db2368396dea2f51` | 27 個檔案，`unzip -t` 通過；套件 `background.js`／`content.js` 與工作樹雜湊一致 |
-| `/Users/lazy/Projects/agent-guard/_push/agentguard-extension-firefox.zip` | `f9309f118ad0c22d0d86b2e4c657141f93a505fcdbdfc032756d215c1c934bb6` | 27 個檔案，`unzip -t` 通過；manifest 版本 `1.0.0.1`，並設為 `background.scripts = ["background.js"]`、`background.type = "module"`；套件 JS 與工作樹雜湊一致 |
+| `<local-acceptance>/_push/agentguard-extension.zip` | `443e141834de89587fc0daf7a5470e2edee8a15b6e18c9d3db2368396dea2f51` | 27 個檔案，`unzip -t` 通過；套件 `background.js`／`content.js` 與工作樹雜湊一致 |
+| `<local-acceptance>/_push/agentguard-extension-firefox.zip` | `f9309f118ad0c22d0d86b2e4c657141f93a505fcdbdfc032756d215c1c934bb6` | 27 個檔案，`unzip -t` 通過；manifest 版本 `1.0.0.1`，並設為 `background.scripts = ["background.js"]`、`background.type = "module"`；套件 JS 與工作樹雜湊一致 |
 
 這次重打包只關閉了「陳舊套件」問題；因尚未安裝至真 Chrome／Firefox，不能用來關閉任何 F1–F8 真機門禁。
 
@@ -85,7 +87,7 @@ Firefox `background.scripts` 修復與重打包內容已通過 8/8 manifest 自�
 
 | 案例 | 目前候選結果 | 證據 | 備註 |
 |---|---|---|---|
-| W1 阻斷模態 | `BLOCKED (current-candidate-not-run-on-Windows)` | 8/31 外層報告只涵蓋 `bd7bb2f` | 目前候選未顯示 Windows 主視窗 |
+| W1 事後風險確認 | `BLOCKED (current-candidate-not-run-on-Windows)` | 8/31 外層報告只涵蓋 `bd7bb2f` | 目前候選未顯示 Windows 主視窗，也沒有外部動作阻擋證據 |
 | W2 UIA 取樹 | `BLOCKED (no-current-UIA-evidence)` | 同上 | no-run 編譯不會產生 UiTreeDelta |
 | W3 GDI 擷取影格 + 隱寫 | `BLOCKED (no-current-GDI-evidence)` | 同上 | 無目前影格／規則證據 |
 | W4 Windows.Media.Ocr 讀屏 | `BLOCKED (no-current-OCR-evidence)` | 同上 | 無語言套件／capability／辨識輸出 |
@@ -122,7 +124,7 @@ Firefox `background.scripts` 修復與重打包內容已通過 8/8 manifest 自�
 
 | 平台 | 8 月 31 日基線 | 目前整合候選 | 結論 |
 |---|---|---|---|
-| Android | `bd7bb2f` 在 Android 16 模擬器完成 Debug／Release JVM 31/31、Debug APK 安裝及前台服務啟停；Accessibility 未啟用，不是防護 E2E | 本輪未在實體機或模擬器重跑目前候選 | `BLOCKED (current-Android-E2E-and-release-signing-missing)` |
+| Android | `bd7bb2f` 在 Android 16 模擬器完成 Debug／Release JVM 31/31、Debug APK 安裝及當時已退役的背景常駐實作啟停；Accessibility 未啟用，不是防護 E2E | 本輪未在實體機或模擬器重跑目前候選 | `BLOCKED (current-Android-E2E-and-release-signing-missing)` |
 | iOS | `bd7bb2f` 只有臨時 SwiftUI harness 1/1；儲存庫沒有完整 Xcode 產品工程 | 本輪未形成目前候選的 iOS 產品或 archive | **No-Go**；臨時 harness 不等於產品 |
 
 ## 8. 提交前已修復，但仍需真機複測的項目
@@ -144,7 +146,7 @@ Firefox `background.scripts` 修復與重打包內容已通過 8/8 manifest 自�
 
 | 面向 | PASS | PASS (sim) | FAIL | BLOCKED | N/A |
 |---|---:|---:|---:|---:|---:|
-| 瀏覽器（Chrome + Firefox + Edge，F1–F8） | 0 | 0 | 0 | 24 | 0 |
+| 歷史瀏覽器清單（Chrome + Firefox + Edge，F1–F8；非目前 GA 範圍） | 0 | 0 | 0 | 24 | 0 |
 | Windows（W1–W7） | 0 | 0 | 0 | 7 | 0 |
 | macOS（清單 16 項） | 0 | 0 | 0 | 16 | 0 |
 | Android 目前候選平台門禁 | 0 | 0 | 0 | 1 | 0 |
@@ -183,12 +185,12 @@ Firefox `background.scripts` 修復與重打包內容已通過 8/8 manifest 自�
 
 ## 11. 證據索引
 
-- 8 月 31 日跨平台基線報告：`/Users/lazy/Projects/agent-guard/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`
+- 8 月 31 日跨平台基線報告：`<local-acceptance>/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`
 - 本次執行依據：[真機驗收執行手冊](acceptance-runbook.zh-TW.md)
 - 填寫結構依據：[真機驗收報告範本](acceptance-report-template.zh-TW.md)
 - 儲存庫狀態快照：[狀態儀表板](status-dashboard.html)（最終提交後須重新產生）
 - 目前 macOS ad-hoc App：`apps/desktop-macos/src-tauri/target/release/bundle/macos/AgentGuard.app`
-- 目前 Chromium ZIP：`/Users/lazy/Projects/agent-guard/_push/agentguard-extension.zip`
-- 目前 Firefox ZIP：`/Users/lazy/Projects/agent-guard/_push/agentguard-extension-firefox.zip`
+- 目前 Chromium ZIP：`<local-acceptance>/_push/agentguard-extension.zip`
+- 目前 Firefox ZIP：`<local-acceptance>/_push/agentguard-extension-firefox.zip`
 
 > 本報告記錄提交前驗收狀態，不單獨構成發佈證明；簽章、公證／商店審核、發佈套件身分、嚴格門禁與平台覆蓋仍須另行核驗。

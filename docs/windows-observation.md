@@ -121,8 +121,9 @@ indistinguishable from a real measurement.
   `89dadf960a558d35dc3c6c557eadbc19d3a162d0` ran interactively over RDP on Windows 11 build
   26200, remained idle for more than 30 seconds, completed two observation sessions of more than
   30 seconds each, reported UIA/GDI/OCR as available, and produced a real `OVL-010` block. This
-  does not cover install/upgrade/uninstall, permission-failure paths, Native Messaging, signing,
-  or the full W1–W7 suite, so it is not production-release evidence.
+  does not cover install/upgrade/uninstall, permission-failure paths, signing, or the required
+  `first-ga-v1` W1–W6/W8–W11 suite, so it is not production-release evidence. W7 Native Messaging
+  remains a non-GA/legacy optional record and is not part of that release gate.
   **Read that `OVL-010` block honestly:** it fired within 30 s of pressing Start, while the
   foreground window was AgentGuard's own dashboard. The dashboard's UIA tree contains the demo
   threat buttons ("Payment confirmation", "Intel injection", …) inside a collapsed developer

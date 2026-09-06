@@ -2,9 +2,9 @@
 
 [简体中文](README.md) · [繁體中文](README.zh-TW.md) · English
 
-The Android companion uses Kotlin, Jetpack Compose, and an `AccessibilityService` to observe UI events during a guard session. It runs local heuristics, writes JSONL event envelopes, and can optionally relay those envelopes to the desktop AgentGuard engine.
+The Android companion uses Kotlin, Jetpack Compose, and an `AccessibilityService` to observe UI events during a guard session. It runs local heuristics and writes minimized JSONL event envelopes.
 
-> Current status: the source, JVM unit tests, and Debug APK build path are available. There is no physical-device end-to-end acceptance record, release-signing evidence, or Google Play release. Notifications arrive after an event; they cannot pause, undo, or prevent an action already performed by a third-party app.
+> Current status: the source, JVM unit tests, Debug APK, and API 36 emulator permission lifecycle have been verified. There is no physical-device end-to-end acceptance record, release-signing evidence, or Google Play release. Notifications arrive after an event; they cannot pause, undo, or prevent an action already performed by a third-party app. Relay v1 responses are unauthenticated, so Release builds force the desktop relay off; it remains available only in Debug builds for protocol development.
 
 ## What it does
 
@@ -12,7 +12,7 @@ The Android companion uses Kotlin, Jetpack Compose, and an `AccessibilityService
 - Detects payment/transfer text, privacy traps, unnecessary personal data, prompt-injection markers, and suspicious deep-link **strings** appearing in on-screen text (`intent://` and the like). It does not observe deep links themselves — an Accessibility service does not see intents.
 - Surveys visible text-input broadcast receivers and other enabled accessibility services.
 - Appends each session's envelopes to the private `files/events/session-<id>.jsonl` path.
-- Optionally relays envelopes to a user-configured desktop local API and displays high-risk verdict notifications.
+- Debug builds can relay envelopes to a user-configured desktop API for protocol testing; Release builds force this path off until response authentication is complete.
 - Signs the exact HTTP body with a non-exportable ECDSA P-256 key held by Android Keystore.
 
 ## Build and test
@@ -40,8 +40,8 @@ On the device:
 
 1. Grant notification permission on Android 13 and newer.
 2. Open system Accessibility settings and enable AgentGuard Companion.
-3. Return to the app and tap **Start guard session**. The foreground service displays an ongoing notification.
-4. For desktop-engine verdicts, start the local API, copy the Bearer token printed by the CLI, then enter the endpoint and token in the app and enable relay.
+3. Return to the app and tap **Start guard session**. The AccessibilityService displays an ordinary ongoing status notification.
+4. Only for Debug protocol testing, start the local API and enable relay. Release builds do not expose or enable that control.
 
 Example USB debugging path:
 
@@ -53,7 +53,7 @@ cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788
 adb reverse tcp:8788 tcp:8788
 ```
 
-The default relay endpoint is `http://127.0.0.1:8788/v1/events`. Wi-Fi/LAN mode requires an explicit `--allow-lan` flag, a non-loopback bind, and a strong Bearer token. Never expose the local API to a network without authentication.
+The Debug relay endpoint defaults to `http://127.0.0.1:8788/v1/events`. This HTTP path is for local development only and must not be used as a release configuration. Never expose the local API to a network without authentication.
 
 Use Android Studio's Device File Explorer or `run-as` to read JSONL from the app-private directory. Each line is one envelope; save one line as a JSON file for offline replay:
 
@@ -95,10 +95,10 @@ Without the registered public key, the desktop treats companion surveys as unsig
 
 ## Incomplete and release boundaries
 
-- No Rust engine or FFI runs on the phone; core verdicts depend on the optional desktop relay.
+- No Rust engine or FFI runs on the phone; the current Release product provides local heuristics only, and desktop relay is outside the release scope.
 - Android high-risk prompts are after-the-event notifications, not pre-action confirmation dialogs.
-- There is no instrumented test, physical-device permission-lifecycle test, or real-agent end-to-end record.
+- There is no physical-device permission-lifecycle test or real-agent end-to-end record; API 36 emulator evidence does not replace a device run.
 - There is no release-keystore signing evidence and no Google Play submission.
-- `compileSdk / targetSdk = 36` now meets Google Play's target-API requirement, but the Android 15/16 behaviour changes (edge-to-edge, foreground services, accessibility limits) are handled at the source level only (`enableEdgeToEdge` + `safeDrawingPadding`) and **have not been regression-tested on an API 35+ device** — item T of `scripts/acceptance/android-e2e.sh` can only be BLOCKED on a device below API 35; see the [Google Play draft](PLAY_STORE.en.md).
+- `compileSdk / targetSdk = 36` meets Google Play's target-API requirement. Android 16 emulator evidence covers edge-to-edge, notification permission and status, Accessibility start/stop, runtime revocation, and fail-closed process death; **API 35+ physical-device and OEM regression testing remains open**. See the [Google Play draft](PLAY_STORE.en.md).
 
 The cross-language signature format is fixed by `eval/fixtures/adapter_signature_vectors.json`; see [adapter assertion signing](../../docs/适配器断言签名.md) for the design.

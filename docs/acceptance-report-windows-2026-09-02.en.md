@@ -2,7 +2,9 @@
 
 # AgentGuard Windows Real-Device Supplemental Acceptance Report (2026-09-02)
 
-> Conclusion: final candidate `89dadf960a558d35dc3c6c557eadbc19d3a162d0` passed automation, the Release build, startup, idle operation, two observation rounds, and real blocking-modal smoke checks in a Windows 11 environment. No new application-crash event was recorded during the final test. However, the complete W1–W7 release scenarios, Authenticode signing, and install / upgrade / uninstall validation remain incomplete. Production release remains **No-Go**.
+> Conclusion: final candidate `89dadf960a558d35dc3c6c557eadbc19d3a162d0` passed automation, the Release build, startup, idle operation, two observation rounds, and post-observation risk-confirmation smoke checks in a Windows 11 environment. No new application-crash event was recorded during the final test. However, the legacy W1–W7 checklist was incomplete, and there is no current-candidate evidence for today's `first-ga-v1` W1–W6/W8–W11 profile. Authenticode signing and install / upgrade / uninstall validation also remain missing. Production release remains **No-Go**.
+
+> **2026-09-05 terminology correction:** this is a historical record for an old candidate. “Blocking modal” proves only that the desktop shell showed a risk confirmation after observing an event; it does not prove that an external action was prevented or reversed. Read every such reference under the current post-observation contract: `effect=observed_only`, `external_action_blocked=false`. This report is not strict-gate evidence for the current candidate.
 
 This is the Windows supplement to the [2026-09-01 overall acceptance report](acceptance-report-2026-09-01.en.md). It follows the [Windows real-device checklist](acceptance-windows.en.md), [real-device acceptance runbook](acceptance-runbook.en.md), and [report template](acceptance-report-template.en.md). It is not a strict artifact under `evidence/windows/`; a case without its own evidence file is not guessed as `PASS (native)`.
 
@@ -73,20 +75,20 @@ The hash identifies only the locally built artifact from this run. Because Authe
 |---|---|---|
 | Idle after startup | The main window remained stable for more than 30 seconds | Supports a W0 startup smoke check; does not establish W1–W7 |
 | Refresh capabilities twice | Both refreshes remained stable and displayed capability state | Proves that the positive display path runs; no capability-failure branch was exercised |
-| First `Start` round | Observation ran for more than 30 seconds; a real blocking modal appeared with `Accessibility-tree text not rendered on screen`, rule `OVL-010`; Deny was selected | Proves that the current product chain can display a real blocking modal; this was not W1's payment-CTA scenario |
+| First `Start` round | Observation ran for more than 30 seconds; a post-observation risk confirmation appeared with `Accessibility-tree text not rendered on screen`, rule `OVL-010`; Deny was selected | Proves that the historical product chain could show a risk confirmation after observation; it does not prove an external action was blocked and was not W1's payment-CTA scenario |
 | Lifecycle transition | `End` → `Resume` → `Start` entered the second round while the UI and process remained stable | Supports a two-round session-lifecycle smoke check |
-| Second `Start` round | Observation again ran for more than 30 seconds; the same type of `OVL-010` blocking modal appeared; Deny was selected | The second UIA / GDI / OCR / decision round did not reproduce the earlier crash |
+| Second `Start` round | Observation again ran for more than 30 seconds; the same type of `OVL-010` post-observation risk confirmation appeared; Deny was selected | The second UIA / GDI / OCR / decision round did not reproduce the earlier crash |
 | Close | The app was closed through its normal UI; the test window added zero Windows Event 1000 records | No application-crash event was observed |
 
 stderr contained only the warning that the Release build was made without SQLCipher. The batch helper's exit-code file was empty because `echo 0>` had ambiguous redirection parsing. This report therefore records only the normal UI close and zero new Event 1000 records; it **does not claim a process exit code of 0**.
 
-The supported scope is W0 startup, positive capability display, the UIA / GDI / OCR product chain, the blocking modal, and two session-lifecycle rounds. It does not replace the exact W1–W7 scenarios below.
+The supported scope is W0 startup, positive capability display, the UIA / GDI / OCR product chain, post-observation risk confirmation, and two session-lifecycle rounds. It does not replace the exact W1–W7 scenarios below or prove that an external action was blocked.
 
-## 5. Formal W1–W7 Checklist Results
+## 5. Historical W1–W7 Checklist Results (Not Today's first-ga-v1)
 
 | Case | Result | Observation available from this run | Missing release-grade evidence |
 |---|---|---|---|
-| W1 Blocking modal (payment CTA) | `BLOCKED (payment-CTA-not-executed)` | A real `OVL-010` modal appeared and was denied in both rounds | No `Confirm Payment` / `确认支付` case in an ordinary third-party app, and no proof of zero payment side effect after cancellation |
+| W1 Post-observation risk confirmation (payment CTA) | `BLOCKED (payment-CTA-not-executed)` | A real `OVL-010` modal appeared and was denied in both rounds | No `Confirm Payment` / `确认支付` case in an ordinary third-party app, and no evidence binding the observation to that CTA |
 | W2 UIA tree capture | `BLOCKED (form-FM-TR-case-not-executed)` | The observation chain and Accessibility-tree decision path ran stably | No archived `UiTreeDelta` from a real third-party form and no FM/TR verdict for optional PII |
 | W3 GDI frame capture + steganography | `BLOCKED (third-party-steganography-not-executed)` | Two observation rounds did not reproduce the frame-8 crash | No chroma / luma steganography sample in a third-party application, archived frame, or rule hit |
 | W4 Windows.Media.Ocr screen reading | `BLOCKED (third-party-pixel-OCR-not-executed)` | The final candidate's UIA / GDI / OCR chain ran continuously with zero new Event 1000 records in both rounds | No payment text rendered only in third-party-app pixels, and no archived language-pack state, recognition output, or resulting verdict |
@@ -100,21 +102,21 @@ The supported scope is W0 startup, positive capability display, the UIA / GDI / 
 
 Zero FAIL here means only that the final candidate recorded no failure for a W1–W7 case that was executed to a conclusive state. All seven cases remain `BLOCKED`; this must not be interpreted as Windows acceptance.
 
-## 6. Open Release Gates
+## 6. Gaps Recorded at the Time
 
 The following items were not executed or lack release-grade evidence:
 
-1. W1 pre-execution blocking of a payment CTA and zero side effect after denial;
+1. W1 post-observation confirmation for a payment CTA with audit semantics `effect=observed_only` and `external_action_blocked=false`; actual pre-execution blocking is accepted separately at the Chromium/Gateway boundary;
 2. W2 real third-party form, `UiTreeDelta`, and FM/TR evidence;
 3. W3 / W4 third-party-application pixel steganography and OCR scenarios;
 4. W5 Windows overlay-capture boundary;
 5. W6 capability-unavailable / failure-reason branches;
 6. W7 Native Messaging registration, origin handshake, verdict, and signed audit;
 7. An Authenticode-signed installer plus install, upgrade, rollback, and uninstall validation;
-8. Unique, non-empty, current-commit-bound evidence under `evidence/windows/` for every W1–W7 row, as required by the strict template.
+8. Per-case evidence for the legacy W1–W7 rows was not archived; these historical rows also do not satisfy the current strict W1–W6/W8–W11 profile.
 
 ## 7. Overall Conclusion
 
-`89dadf960a558d35dc3c6c557eadbc19d3a162d0` did not reproduce the earlier COM / OCR crashes on the same startup and observation path in this run, and both lifecycle smoke rounds remained stable. CI was also fully green for that candidate. This advances the Windows state from “the program cannot start” to “real-product smoke flow is operable.” However, W1–W7 still stand at 0/7 formal PASS results, the Release EXE is unsigned, and install / upgrade / uninstall acceptance is missing. **The production-release decision remains No-Go**.
+`89dadf960a558d35dc3c6c557eadbc19d3a162d0` did not reproduce the earlier COM / OCR crashes on the same startup and observation path in this run, and both lifecycle smoke rounds remained stable. CI was also fully green for that candidate. This advances the Windows state from “the program cannot start” to “real-product smoke flow is operable.” However, the historical W1–W7 checklist still stands at 0/7 formal PASS results, and today's required `first-ga-v1` cases have no current-candidate evidence. The Release EXE is unsigned, and install / upgrade / uninstall acceptance is missing. **The production-release decision remains No-Go**.
 
-The next acceptance run should build a signed installer from the same immutable commit, execute W1–W7 individually in ordinary third-party applications and real Chrome / Edge, archive one independent evidence item per case under `evidence/windows/`, and then run the strict gate.
+The next Windows acceptance run must build a signed installer from one immutable commit, execute today's `first-ga-v1` W1–W6/W8–W11 profile in ordinary third-party applications, archive one independent evidence item per case under `evidence/windows/`, and then run the strict gate. Chrome and Edge B1–B5 must be accepted separately under the browser checklist; the excluded W7 Native Messaging case cannot substitute for them.

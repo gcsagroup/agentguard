@@ -110,6 +110,31 @@ the file **and** read the key” — a real improvement against remote write acc
 backup tampering and casual edits, and **not** protection against a compromised
 host.
 
+Windows desktop Release uses `WindowsDpapiDeviceKey` instead of `FileDeviceKey`:
+`audit-signing.key` contains only an `agentguard-signing-dpapi-v1` hex envelope produced by
+current-user DPAPI. The decrypted 32-byte Ed25519 seed exists in process memory for the signer
+lifetime, but is never persisted in plaintext. An existing plaintext hex key, SQLCipher-key envelope, corrupt envelope, or reparse
+point is preserved byte-for-byte and blocks startup; there is no silent migration or overwrite.
+The signing and SQLCipher envelopes use different AgentGuard/product/purpose DPAPI optional entropy,
+so relabelling the clear-text prefix does not change the protected secret's accepted role. A fresh
+envelope is fully written and synced under a random staging name before a no-replace move publishes
+the final path; a stale staging fragment is never treated as a key.
+`AuditStore::open_protected` signs and verifies a domain-separated probe before opening the DB, so
+a signer failure cannot fall back to unsigned writes or leave a newly created DB.
+
+This is **not** hardware-backed signing: code running as the same Windows user can ask DPAPI to
+decrypt the seed. TPM/non-exportability and an external append-only witness remain separate release
+hardening work. CLI/local-API workflows that explicitly use `AGENTGUARD_AUDIT_SIGNING_KEY` retain
+the portable file-key contract; the DPAPI envelope described here is the Windows desktop Release
+provisioning path.
+
+The current path defence rejects reparse attributes on every existing component, including a
+pre-existing parent junction, but the check and later I/O are not yet bound to the same Windows
+handle. A same-user process racing path replacement is therefore a documented TOCTOU boundary (and
+can already call current-user DPAPI). Windows release evidence must run the parent-junction test,
+concurrent replacement stress, and interrupted-first-write recovery on the installer filesystem;
+cross-compilation proves only that those Windows paths compile.
+
 Getting further requires either a key the host cannot export (Secure Enclave,
 TPM, StrongBox) or an external append-only anchor (transparency log, witness
 service). The `AuditSigner` trait exists so such a backend drops in without
@@ -155,10 +180,11 @@ cargo run -p guard-cli -- audit-verify --audit-db old.db --pubkey … --allow-un
 cargo run -p guard-cli -- audit-report --audit-db /tmp/audit.db --pubkey …
 ```
 
-A key is **never created implicitly** by the write path: silently signing with a
+A key is **never created implicitly** by CLI/server write paths: silently signing with a
 fresh key would look like coverage while its public half exists nowhere, so
 `audit-keygen` stays an explicit step. (The desktop shells do generate one on
-first run, because there is no CLI moment to do it in — they print the key id.)
+first run, because there is no CLI moment to do it in. macOS stores it in Keychain; Windows stores
+the seed only in its current-user DPAPI envelope. They print the key id, not the seed.)
 
 `audit-verify` output, and what each line means:
 

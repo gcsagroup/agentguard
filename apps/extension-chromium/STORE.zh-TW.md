@@ -2,7 +2,7 @@
 
 [简体中文](STORE.md) · 繁體中文 · [English](STORE.en.md)
 
-> **草稿，尚未提交或通過 Chrome Web Store 審核。** 商店文案不能作為已發布、已審核或已完成真實瀏覽器驗收的證據。
+> **草稿，尚未提交或通過 Chrome Web Store 審核。** 商店文案不能作為已發布、已審核或已完成真實瀏覽器驗收的證據。首個 GA 僅面向 Chrome / Edge；Firefox 原始碼原型不封裝，也不作為驗收門。
 
 ## 名稱
 
@@ -10,45 +10,39 @@ AgentGuard Web Shield
 
 ## 摘要
 
-在 AI Agent 使用的網頁中，於付款、隱私陷阱提交與高風險網路請求發生前提醒並等待確認，同時發現隱藏提示詞注入；本機優先。
+在 AI Agent 使用的網頁中，於執行前阻擋符合條件的付款或隱私陷阱 DOM 動作，並硬擋已聲明付款路徑上的非唯讀網路請求；同時提示隱藏提示詞注入，本機優先。
 
 ## 說明
 
-AgentGuard Web Shield 為 AI Agent 代替使用者操作的頁面提供三層有限防護：
+AgentGuard Web Shield 為 Chrome / Edge 頁面提供三項邊界明確的有限防護：
 
-- **頁面內確認閘門**：付款/轉帳點擊、向隱私陷阱提交個資，以及付款形狀的 `fetch`/XHR 會先被暫停；只有使用者選擇「允許這一次」才重放。
-- **網路層名單阻斷**：瀏覽器 DNR 會在請求送出前攔截威脅情報判定的惡意主機，以及目前工作明確允許表以外的主機；名單、原因與解除入口均可見。
-- **頁面偵測**：發現隱藏/潛意識提示詞注入文字、非必要個資欄位、隱私陷阱和高風險按鈕文字。
+- **DOM 動作阻斷**：瀏覽器從 `document_start` 向允許擴充功能進入的各個 HTTP(S) frame 注入內容腳本；其中的付款／轉帳點擊和隱私陷阱個資提交會在執行前被同步阻擋。頁面內沒有「允許一次」、繼續或重播控制項。
+- **付款路徑網路硬擋**：預設靜態 DNR 在瀏覽器網路層阻擋符合聲明範圍的 HTTP(S) 非 GET/HEAD 請求，涵蓋瀏覽器歸類為 `xmlhttprequest`、`ping`、`main_frame` 或 `sub_frame` 的請求。
+- **頁面偵測**：發現隱藏或潛意識提示詞注入文字、非必要個資欄位、隱私陷阱和高風險按鈕文字，並把結果留在擴充功能本機最近列表。
 
-發現結果預設保存在擴充功能本機。使用者安裝並啟用選用的 `guard-nm-host` 後，符合條件的事件會交給本機引擎判決，並可進入已簽章、可察覺竄改的稽核鏈；桌面 App 不必同時執行。host 判決是**非同步路徑**：Critical 結果只能在事件發生後發出通知，不能撤銷已發生的操作；執行前控制來自頁面閘門與成功安裝的 DNR 規則。
+頁面內警告只是資訊層。網頁可以刪除、遮蔽、仿冒或影響它，因此它不是授權 UI，頁面裡的任何點擊都不能放行。若使用者理解風險後仍要繼續，只能先在瀏覽器自己的受信擴充功能管理介面（`chrome://extensions` 或 `edge://extensions`）停用或移除 AgentGuard，再自行重新發起操作；首個 GA 不提供暫時例外。
 
-**如實限制**：頁面閘門只涵蓋主框架中擴充功能能接觸到的 DOM 動作，以及頁面未提前保存原始參照的 `fetch`/XHR，可能被乾淨 iframe 或更早取得的 API 參照繞過。DNR 安裝失敗時 fail-open。目前機制不能監控瀏覽器以外的原生 App。
+靜態 DNR 僅在以下條件同時成立時硬擋：URL 為 HTTP(S)；方法不是 GET/HEAD；路徑元件以 `pay`、`payment`、`checkout`、`charge`、`transfer`、`remit`、`purchase`、`orderconfirm` / `order-confirm` / `order_confirm` 或 `confirmorder` / `confirm-order` / `confirm_order` 開頭並符合字元邊界，或查詢鍵 `op`、`action`、`operation` 的值明確等於這些標記；資源類型為上述四類。路徑規則亦明確涵蓋核心標記逐位元組百分號編碼與 `%2F` 分隔符。它不檢查請求 body，也不涵蓋 body-only 付款意圖、自訂別名、未明確列出的編碼／混淆形式、任意查詢鍵或值、WebSocket/WebTransport、GET/HEAD 或其他資源類型。
+
+**如實限制**：DOM 阻斷只涵蓋瀏覽器實際注入內容腳本，且會產生可觀察 click/submit 事件的 HTTP(S) frame；直接 `form.submit()`、未注入的頁面／協定與不產生被監聽事件的腳本路徑不在該保證內。網頁可影響資訊提示的可見性或真實性，但不能藉此產生放行狀態。靜態 DNR 與 DOM 阻斷都是 block-only，沒有網頁內批准、scope 例外或一次性放行。擴充功能不監控瀏覽器之外的原生 App。
 
 ## 隱私
 
-- 預設不向 AgentGuard 伺服器上傳瀏覽歷程。
-- Native Messaging 轉發**預設關閉**；使用者在彈出層設定裡開啟後才轉發。設定載入完成前到達的事件先排隊、不外送（fail-closed）。
-- 未安裝或關閉 Native Messaging host 時，發現保存在擴充功能本機緩衝區。
-- 啟用 host 後，符合條件的事件傳送到使用者本機的 `guard-nm-host`。外送與本機記錄的 URL 都經過**最小化**：去掉 userinfo、fragment 和全部 query，路徑裡形似權杖的段打成 `…`——規則讀的是頁面文字，不需要 URL 裡的權杖、OAuth code 或重設連結。
-- 彈出層顯示目前檢查的站台、轉發去向（本機 host 名）、是否已連接與上次成功時間。
-- host 的稽核資料庫預設是本機資料；稽核簽章與加密必須由使用者明確設定，不能假定預設存在。
-- 威脅情報更新使用 Ed25519 簽章且為選用功能；正式環境部署必須替換儲存庫測試金鑰。
-- 詳見 [隱私權政策](../../docs/privacy-policy.zh-TW.md)。
+- 預設不向 AgentGuard 伺服器上傳瀏覽歷程或發現結果。
+- 符合條件的結果保存在擴充功能本機最近列表。
+- 本機記錄的 URL 會被最小化：移除 userinfo、fragment 與全部 query，並把形似權杖的路徑段替換為 `…`。這是啟發式保護，短權杖或嵌在一般文字裡的秘密可能無法辨識。
+- GA manifest 不申請 `nativeMessaging`，擴充功能不連線本機 host。儲存庫中保留的 Native host 原始碼與範本不是首個 GA 能力，也不隨商店 ZIP 發布。
+- 詳見[隱私權政策](../../docs/privacy-policy.zh-TW.md)。
 
 ## 權限說明
 
-- `storage`：保存開關與最近發現的本機緩衝區。
-- `nativeMessaging`：選擇性連線使用者安裝的本機 `guard-nm-host`。
-- `declarativeNetRequest`：在請求送出前阻斷名單中的惡意或越界主機。
-- `notifications`：顯示引擎回傳的非同步高風險通知。
+- `storage`：儲存設定與最近發現的本機緩衝區。
+- `declarativeNetRequest`：預設啟用已聲明付款路徑的靜態網路硬阻斷。
+- `notifications`：在 DOM 動作已被阻擋後顯示瀏覽器擁有的資訊通知，不作為授權入口。
 - `activeTab`：支援與目前分頁相關的擴充功能互動。
-- `http://*/*`、`https://*/*`：在使用者造訪的網頁中執行內容腳本並檢查 DOM。
+- `http://*/*`、`https://*/*`：在使用者造訪的 HTTP(S) 頁面中執行內容腳本並檢查 DOM。
 
-## 本機 host 安全邊界
-
-host 除了依賴 Chrome manifest 的 `allowed_origins`，還會驗證 Chrome 經由 `argv[1]` 提供的 origin。沒有設定期望 origin 或值不相符時拒絕啟動；安裝腳本會把擴充功能 origin 寫到二進位檔旁的 `allowed-origin` 檔案。
-
-**這不是呼叫方身分認證。** `argv[1]` 是呼叫者可控的字串，`allowed-origin` 是磁碟上可讀的公開值：一個以目前使用者權限執行的本機行程可以讀到它、用同樣的參數直接執行 host 並餵入原生訊息幀，從而偽造或污染事件與稽核。stdio 宿主拿不到對端行程憑證，這條邊界在這個架構裡關不上；能擋住的是「不知道協定的行程」和「設定錯誤的瀏覽器」，不是「本機惡意行程」。擴充功能與 host 之間的長連線（`connectNative`）帶連線級隨機 nonce 與單調 seq，host 拒絕重放、亂序和 nonce 不符的幀；它同樣只約束幀，不認證行程。
+`nativeMessaging` 明確不在 GA manifest 權限中；首個 GA 不聲明 Native host 判決、動態主機名單或本機稽核鏈能力。
 
 ## 封裝
 
@@ -56,13 +50,14 @@ host 除了依賴 Chrome manifest 的 `allowed_origins`，還會驗證 Chrome �
 ./apps/extension-chromium/scripts/package-store.sh
 ```
 
-產生的 ZIP 不包含 Native Messaging host。擴充功能套件、host 安裝方式與本機稽核設定必須分別說明。
+此命令產生 Chrome / Edge 共用 ZIP。發布腳本拒絕 `--firefox`，ZIP 不包含 Firefox manifest 或 Native Messaging host。
 
 ## 目前發布狀態
 
-- 未提交 Chrome Web Store 審核。
-- 沒有商店安裝、升級或權限提示的真實瀏覽器驗收記錄。
-- Native Messaging 安裝腳本:macOS / Linux 用 `install-host.sh`,Windows 用 `install-host.ps1`(寫入登錄檔 `HKCU\Software\<瀏覽器>\NativeMessagingHosts`);兩者都尚未在商店真機流程中留證。
-- Chrome、Edge 與 Firefox 的真實商店安裝及端到端執行前阻斷仍需分別留證；Safari 僅有設計說明。
+- 未提交 Chrome Web Store 或 Microsoft Edge Add-ons 審核。
+- Chrome / Edge 尚需分別完成商店候選的安裝、升級、權限提示與執行前阻斷真實瀏覽器留證。
+- Firefox 僅保留原始碼原型，不封裝、不提交、不作為首個 GA 驗收門。
+- Native Messaging 在 GA manifest 中徹底停用；相關原型不構成發布能力。
+- Safari 是獨立產品線，不屬於此擴充功能首個 GA。
 
-技術說明請參閱 [Chromium Extension README](README.zh-TW.md)。
+技術說明見 [Chrome / Edge 擴充功能 README](README.zh-TW.md)。

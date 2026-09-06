@@ -12,11 +12,13 @@ npm ci
 npm run tauri dev
 ```
 
-The user must grant Accessibility and Screen Recording permissions. When either permission is missing, the client must show degraded coverage rather than presenting simulation or partial observation as full protection.
+Desktop observation requires user-granted Accessibility; Screen Recording is optional. Missing required permission or unavailable encrypted storage prevents starting. Simulation and partial observation are not full protection.
+
+See the [desktop guide](../../docs/desktop-guide.en.md) for the five-page workspace and four settings tabs. Active protection provides browser setup, MCP configuration and authenticated local gateway confirmations without changing client settings automatically. See the [remediation note](../../docs/remediation-publication-2026-09-06.en.md).
 
 ## Capability boundaries
 
-- Native AXUIElement and ScreenCaptureKit bridges are implemented. Observation is polling-based, not real-time interception.
+- AXUIElement tree changes use AXObserver push with a three-second fallback. ScreenCaptureKit pixels remain sampled every 1.5 seconds, so this is not gap-free real-time interception.
 - Only actions routed through the cooperative gateway can wait for confirmation before execution; direct execution bypasses that gateway.
 - A debug build, automated test, or successful launch is not proof of Developer ID signing, notarization, or real-device end-to-end acceptance.
 - The default configuration does not enable the updater. Replace the public-key and endpoint placeholders before enabling it.
@@ -24,8 +26,18 @@ The user must grant Accessibility and Screen Recording permissions. When either 
 ## Verification and release
 
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml
+../../scripts/bootstrap-rust.sh --install
+../../scripts/bootstrap-rust.sh -- cargo test --manifest-path src-tauri/Cargo.toml --locked
 node --check src/main.js
+AGENTGUARD_ALLOW_ADHOC=1 ./scripts/build-release.sh  # local smoke only
 ```
+
+A Release build must explicitly enable `audit-sqlcipher`; omitting the feature is a compile-time
+failure. The release script always uses `--no-default-features --features audit-sqlcipher --locked`
+and no longer offers a plaintext Release override.
+The production script defaults to a universal Apple Silicon + Intel `.app`, loads security resources from the
+bundle, and stores the audit passphrase and signing seed separately in Keychain. A distributable build requires
+a Developer ID, expected Team ID, and `notarytool` Keychain profile. Ad-hoc signing is local-smoke only and proves
+neither stable TCC identity nor Gatekeeper/notarization.
 
 See [`../../docs/macos-release.md`](../../docs/macos-release.md) and [`../../docs/RELEASE-1.0.0-rc.1.en.md`](../../docs/RELEASE-1.0.0-rc.1.en.md) for release steps and outstanding evidence.

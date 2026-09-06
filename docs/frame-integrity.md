@@ -30,8 +30,9 @@ measured mean-luma jump next to the old threshold.
 
 ## What is implemented now
 
-`mac-adapter::framehash` computes a **structural grid digest**: 16×9 blocks, 3×3
-samples per block, mean luma **and** mean Cb/Cr per block, each quantised to 4 bits.
+`mac-adapter::framehash` computes a **structural grid digest**: 16×9 blocks,
+every pixel in each block, mean luma/Cb/Cr plus an edge-density detail plane,
+each quantised to 4 bits.
 Comparison is block-by-block, and the verdict distinguishes three cases:
 
 | Delta | Meaning |
@@ -49,8 +50,9 @@ Three properties make it usable rather than merely sensitive:
   `guard-cli frame-digest --expect` 会在一张**诚实的**帧上打印
   `TAMPERED (localized): 27/144 blocks differ` 并 exit 1。
 
-  现在跨分辨率比较必须显式走 `changed_blocks_cross_scale`(只用亮度/Cb/Cr 三个**均值**
-  平面),而且这条性质只对平坦内容成立。`detail` 平面按定义不是尺度无关的 —— 同一条 1 像素
+  现在跨分辨率比较必须显式走 `DigestComparisonMode::CrossScale`（CLI 对应
+  `--comparison-mode cross-scale`，只用亮度/Cb/Cr 三个**均值**平面），而且输出固定标为
+  `DEGRADED`。`detail` 平面按定义不是尺度无关的 —— 同一条 1 像素
   笔画在 4 倍放大后是一段 4 像素渐变,相邻像素差降到四分之一、跨不过边缘阈值。
   **实时路径不受影响**:`FrameConsistency::check` 本来就有 `prev.width != stats.width`
   的守卫,所以这一条只打中那条文档化的事后核验流程。
@@ -92,21 +94,31 @@ The host side of that comparison:
 
 ```bash
 # Guard's recorded digest comes from the audit record's frame_digest metadata.
-D=$(guard-cli frame-digest --raw frame_clean.raw --width 320 --height 180)
+D=$(guard-cli frame-digest --raw frame_clean.raw --width 320 --height 180 | head -1)
 
 # Same screen → agrees.
-guard-cli frame-digest --raw frame_clean.raw --width 320 --height 180 --expect "$D"
+guard-cli frame-digest --raw frame_clean.raw --width 320 --height 180 \
+  --expect "$D" --comparison-mode same-scale
+# comparison capability: FULL (same-scale luma/cb/cr/detail)
 # match: the frame agrees with the recorded digest
 
 # A line of text injected in the TOCTOU window → localized mismatch, exit 1.
-guard-cli frame-digest --raw frame_tampered.raw --width 320 --height 180 --expect "$D"
+guard-cli frame-digest --raw frame_tampered.raw --width 320 --height 180 \
+  --expect "$D" --comparison-mode same-scale
 # TAMPERED (localized): 14/144 blocks differ [17, 18, 19, 20, 21, 22, ...]
 
 # A different screen entirely → said plainly, not called an edit.
-guard-cli frame-digest --raw frame_other.raw --width 320 --height 180 --expect "$D"
+guard-cli frame-digest --raw frame_other.raw --width 320 --height 180 \
+  --expect "$D" --comparison-mode same-scale
 # DIFFERENT SCREEN: 144/144 blocks differ — this looks like a different screen
 # entirely, not an edit of the same one
 ```
+
+摘要字符串没有原始宽高，CLI 不会猜两份帧是否同尺度：带 `--expect` 却不带
+`--comparison-mode` 会拒绝执行。若两份帧尺寸不同，必须显式使用 `cross-scale`；它只比较三个
+块均值平面，输出 `DEGRADED`，差异只叫 `CROSS-SCALE MISMATCH`，**不叫篡改**。同一内容的
+4 倍最近邻缩放由聚焦测试钉为 `Identical + DegradedCrossScaleMeanPlanes`；这不承诺任意插值、
+文字栅格化或重排后的帧仍然逐块一致。
 
 Input is raw packed 4-byte pixels: PNG/JPEG decoding is the caller's job, which
 keeps an image-codec dependency out of the binary.
@@ -131,51 +143,29 @@ keeps an image-codec dependency out of the binary.
 
 ## Native / Rust parity
 
-The digest is computed twice: `framehash::digest_rgba` in Rust and
-`ag_frame_digest` in `AgentGuardSCK.m`. They must agree byte for byte, since a
-digest produced by one is compared against one produced by the other — same BT.601
-coefficients, same 16×9×3×3 sampling, same 4-bit quantisation with `roundf`, same
-`luma|cb|cr` hex layout. The frame-stats struct ABI is bumped to **2**
-(`frame_digest` appended after `ocr_text`); `abi_layout_matches_c` pins the offsets
-(0/4/8/12/16/24/…/48/56, size 64).
+The digest is computed twice: `framehash::digest_rgba_stride` in Rust and
+`agentguard_sck_frame_digest_rgba` in `AgentGuardSCK.m`. Both implementations scan
+every pixel, respect `bytesPerRow`, calculate the same BT.601 mean planes and
+edge-density detail plane, quantise with the same 4-bit rule, and emit the same
+`luma|cb|cr|detail` layout.
 
----
+网格边界按 `i * dimension / cells .. (i + 1) * dimension / cells` 划分，而不是把
+`floor(dimension/cells)` 重复 16×9 次。因此不能整除网格的 321×181 帧也会把最后一行、最后
+一列恰好纳入一个块；Rust 聚焦测试和 ObjC/Rust packed + padded parity 测试共同钉住该边界。
 
-## 一条我修不了的:macOS 采集路径上的摘要不是这个实现算的
+This is enforced, rather than asserted only in prose. On macOS,
+`sck_native::tests::objective_c_digest_matches_rust_for_packed_and_padded_frames`
+passes the same solid, banded and thin-stripe buffers—including padded-row
+variants—through the compiled Objective-C function and the Rust function and
+requires byte-for-byte equality. A companion test requires the Objective-C
+subliminal band ratios to equal Rust's distribution result. The stable external
+vectors remain in `eval/fixtures/frame_digest_vectors.json`.
 
-`AgentGuardSCK.m` 里有一个手写的孪生实现 `ag_frame_digest`,macOS 上的 `frame_digest`
-字符串**由它**算出来、跨 FFI 传进 Rust。本文档要求两侧"必须逐字节一致",而仓库里
-**没有任何测试钉住这一点**(对比 icon dHash 有向量 fixture、OCR 常量有一条会去 grep `.m`
-的测试)。
-
-第六轮把 Rust 侧改了三处:块内全扫代替 9 点采样、新增 `detail` 平面、尊重行跨距。
-**ObjC 侧没有动** —— 改它需要 macOS 和 Xcode 来编译和验证,而那不在这个环境的能力范围内。
-所以现在的真实状态是:
-
-| 路径 | 摘要来自 | 相位盲区 | 细节平面 |
-|---|---|---|---|
-| macOS(ScreenCaptureKit) | `AgentGuardSCK.m`,9 点采样,3 平面 | **仍然存在** | 无 |
-| `guard-cli frame-digest`、模拟、测试 | Rust `digest_rgba`,全扫,4 平面 | 已修 | 有 |
-
-也就是说 1920×1080 与 3840×2160 上那个"本项目自己的 A4 样本完全静音"的问题,**在 macOS
-上依然存在**。
-
-### 在移植完成之前留下了什么
-
-1. **`FrameDigest::has_detail`** —— 三平面摘要能被认出来,不会被当成"detail 恰好全为 0"的
-   四平面摘要。两个都来自 ObjC 的摘要相互比较不会误报,而那正是危险的地方:一切看起来正常
-   而这一路没有信息。
-2. **`FrameConsistency` 的证据字符串**会写明"摘要来自没有细节平面的实现(macOS ObjC 孪生),
-   细笔画注入在这条路上检测不到"。运维读到的"未检出篡改"因此含义不同,必须让他们看得见。
-3. **`eval/fixtures/frame_digest_vectors.json`** —— Rust 侧对三个确定性合成帧的输出。
-   移植 ObjC 那一侧之后,同一份向量应当由一条编译 `.m` 的测试消费;在那之前它至少把 Rust
-   侧钉住,不会再无人注意地漂一次。
-
-### 移植时要注意的四点
-
-* 行方向**每一行**都要读(不是按步长跳),这是相位无关性的来源;
-* 垂直梯度要跨过块的**上**边界(用 `y0-1` 那一行做种子),否则块边界上的笔画只剩一次跳变、
-  掉到容差以下;
-* `detail` 是**跨过 `EDGE_THRESHOLD` 的边缘对个数**占比,再过 `sqrt(x * DETAIL_SCALE)`
-  —— 不是边缘能量的均值(那个统计量和编码噪声同量级,试过,144 块全报变化);
-* `detail` 的容差是 `DETAIL_CHANGE_LEVELS = 1`,比亮度那一档紧。
+The frame-stats struct ABI remains **2** (`frame_digest` follows `ocr_text`), and
+`abi_layout_matches_c` pins its offsets (0/4/8/12/16/24/…/48/56, size 64).
+`FrameDigest::from_hex` still accepts historical three-plane records; those are
+marked `has_detail = false`. Comparing an old three-plane digest with a new four-plane digest
+uses only the three planes both sides actually measured, so a same-frame comparison does not
+mistake the parser's zero-filled `detail` plane for tampering. `compare_with_mode` and the CLI
+surface that result as `DegradedLegacyThreePlane` / `DEGRADED`, never as a complete four-plane
+check.

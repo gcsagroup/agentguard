@@ -39,7 +39,7 @@ against a confused or manipulated agent, worthless against a malicious one, and 
 against an agent whose framework simply shells out. An enforced control is a *boundary*.
 
 This project has already made this exact mistake once: the old capability matrix recorded
-Android's "Critical Confirm ✅ (notif)" beside the desktop's blocking modal, when the phone's
+Android's "Critical Confirm ✅ (notif)" beside the desktop's post-observation risk modal, when the phone's
 version was a local heuristic notification with no connection to the engine's verdict and no
 point at which anything waited. Two very different guarantees, one tick.
 

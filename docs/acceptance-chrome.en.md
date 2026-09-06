@@ -1,74 +1,77 @@
 [简体中文](acceptance-chrome.md) | [繁體中文](acceptance-chrome.zh-TW.md) | [English](acceptance-chrome.en.md)
 
-# Chromium Extension Acceptance Checklist (Chrome / Edge)
+# Chromium Extension Acceptance Checklist (First GA: Chrome / Edge)
 
-This is the Chromium-side counterpart of the Firefox checklist ([acceptance-firefox.en.md](acceptance-firefox.en.md)).
-Case numbers mirror Firefox (F1–F8) one-to-one because both browsers load the same content scripts; what differs is
-**where the evidence comes from**:
+The first-GA browser product is one Chromium MV3 ZIP shared by Chrome and Edge. It is **block-only**: matching DOM actions and payment-shaped network requests are stopped, with no in-page “Allow once,” temporary exception, or action replay. The GA manifest does not request `nativeMessaging`, and the release ZIP does not carry a Native host. Firefox remains source-only prototype material and is outside this checklist, package, and first-GA gate.
 
-- **C1–C5 (≙ F1–F5) are produced by a real-browser E2E run**: `make e2e-extension` loads `apps/extension-chromium`
-  unpacked into a real Chromium (Playwright persistent context), drives the fixture pages in `eval/acceptance-fixtures/`
-  with machine assertions, writes `eval/e2e-extension/out/report.json`, and ends with
-  `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. No human in the loop. It is deliberately **not** part of release-gate (it
-  needs Playwright + Chromium, which the minimal container lacks); CI runs it as a separate job.
-- **C6–C8 (≙ F6–F8) remain manual real-device cases**: native-messaging host, DNR rules, quota. The E2E does not
-  install the host (`nativeEnabled` defaults to off and should stay off there); these only count on a real machine
-  with `guard-nm-host` installed.
+Acceptance has two layers:
 
-> A fully green checklist is necessary but not sufficient for release. It does not replace store signing,
-> release-artifact identity, evidence for other platforms, or the complete release gate. It is **not yet** a strict-gate
-> `EvidenceKind` — the extension evidence the strict gate accepts is Firefox F1–F8. Promoting Chrome requires adding a
-> kind to `guard-cli evidence-verify` and bumping `EXPECTED_EVIDENCE` accordingly.
+- `make e2e-extension` runs 39 machine assertions in a test Chromium and proves the blocking behavior of source and packaged content;
+- the candidate ZIP must still be installed and exercised separately in release Chrome and release Edge, including upgrade and permission evidence.
 
-## What the E2E proves, and what it does not
+Automation does not replace store signing, release browsers, candidate-ZIP identity, or other platform evidence. The strict gate requires separate structured acceptance evidence for Chrome and Edge; one Chromium test report cannot stand in for both release browsers.
 
-Proven (re-proven on every run):
+## Automated acceptance
 
-| # | Machine assertion | Firefox twin |
-|---|-------------------|--------------|
-| C1 | Hidden injection text → background `recent` contains `invisible_injection`; the stored URL is minimized and the title clamped (P1-1) | F1 |
-| C2 | Payment-CTA click is held **synchronously**: page handler did not run, `role=alertdialog` appears, default focus on “Not now”, visible text has no raw machine terms; “Not now” → still not run; click again → “Allow once” → handler runs exactly once; each held click leaves one `prevented/payment_cta` entry | F2 |
-| C3 | PII form submit under a trap label is held: URL unchanged; after “Allow once” the URL carries `?phone=…` (it really submitted) | F3 |
-| C4 | Page-issued `POST /pay/checkout`: the local server **never received a byte** before the dialog; deny → page gets `AbortError`, server still nothing; allow → server receives it and the page sees 501 | F4 |
-| C5 | `GET /pay/status` and `POST /api/search` are not gated and reach the server (no false positives) | F5 |
-| CM | Alert-storm regression (real-device report P2-3, fixture `mutation-storm.html`): the page mutates the DOM every 50 ms, re-renders the same hidden injection every second and carries a visible payment button → 5 s of storm adds exactly **one** recent entry (M1); the injection and the button are each reported **once** (M2); a second, distinct injection added later is still reported, once (M3); a burst of 30 distinct injections is fully counted but batched into ≤4 entries (M4, scans ≥1.5 s apart). Mutation checks: dedupe off → M1–M4 red; throttle off → M4 red; fingerprint back to the constant marker → M3/M4 red | — |
-| CP | Popup: forwarding off by default (checkbox unchecked, copy says so), today line has counts, recent list has a “Blocked:” entry, visible text has no raw machine terms | — |
+`make e2e-extension` installs the extension in a real Chromium persistent context, writes `eval/e2e-extension/out/report.json`, and prints one final marker: `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. Its 39 cases are grouped below.
 
-Not proven (honest boundary):
+| Group | Machine assertion |
+|---|---|
+| D0 / D0b / D0c | Default static ruleset enabled; every DNR regex accepted by the browser; representative `POST /pay/checkout` selects a block |
+| U1 | Upgrade to the no-Native GA clears legacy pause, host blocklist, dynamic DNR, and badge |
+| F1 / F1b | Hidden injection reaches Recent; URL is minimized and title clamped instead of storing raw sensitive URLs |
+| F2a–F2f / H0 / H1 / H5 | Normal, early-capture, and open-Shadow-DOM payment CTAs are stopped before page handlers; notice has only Close; page tampering cannot authorize or replay; every click is blocked and recorded again |
+| F3a–F3d | Privacy-trap forms and payment actions in an ordinary child frame are stopped before navigation/POST; closing the notice does not submit |
+| F4a–F4e / H2–H4 | fetch, XHR, sendBeacon, form, declared encodings, and operation queries are blocked by DNR before the server; legacy decision/scope messages and the removed 15-second timeout cannot release |
+| F5a–F5d | GET, ordinary POST, body-only payment semantics, pay-prefixed ordinary words, and nested query text are not falsely blocked |
+| M1–M4 | Mutation storms are deduplicated and throttled without losing a distinct later finding |
+| P1–P4 | GA has no Native permission and hides unavailable controls; counters, Recent, and visible trilingual copy are correct |
 
-- It runs Playwright’s bundled Chromium in the container (version in report.json), not the user’s release Chrome/Edge.
-- No Native Messaging host is installed; C6–C8 (F6–F8 twins) are not automated.
-- Firefox: Playwright cannot load extensions into Firefox; real Firefox E2E stays **BLOCKED** (see the Firefox checklist).
-- A page script that captured the original `fetch` before `document_start` bypasses the fetch gate — the boundary stated in the `guard-page.js` header; the E2E does not claim to cover it.
-- CM pins user-visible behaviour (no duplicates, no deafness, batching). Incremental scanning (only added subtrees) and skipping our own dialog are **cost** optimisations; CM stays green with them switched off — the E2E does not claim to pin them.
-
-## Prerequisites (real-device C6–C8)
-
-- [ ] Release Chrome or Edge; `chrome://extensions` → Developer mode → “Load unpacked” → `apps/extension-chromium`; note the extension ID
-- [ ] Install the native-messaging host: macOS/Linux `native-host/install-host.sh --browser chrome <id>`; Windows
-      `powershell -ExecutionPolicy Bypass -File native-host\install-host.ps1 -Browser chrome <id>` (`-Browser edge` for Edge)
-- [ ] popup → Settings → enable “Desktop forwarding”; the link line should read “connected”
-- [ ] Rule set is `crates/guard-schema/rules/p0_rules.yaml`; the intel bundle is loaded (the default baseline already contains `evil.example`)
-
-## Acceptance cases
-
-| # | Steps | Expected | Actual | Evidence |
-|---|-------|----------|--------|----------|
-| C1–C5, CM | `make e2e-extension` | Last line `AGENTGUARD_E2E_EXTENSION=PASS`, `all_pass: true` in `report.json` (24 cases); copy `out/report.json`, `out/f2-payment-dialog.png`, `out/m-mutation-storm.png`, `out/popup.png` into `evidence/chrome/` | | |
-| C6 | Navigate to `https://evil.example/` (a malicious domain in the built-in intel) | Engine verdict `INTEL-DOMAIN` Block → host returns `block_hosts` → DNR rule installed → later requests to that host are blocked at the network layer (Network panel shows blocked) | | |
-| C7 | Observe the native-messaging round trip of C6 | The host accepts the caller (`chrome-extension://<id>/` origin matches `allowed-origin`; `guard-nm-host` did not refuse to start), the verdict lands in the signed audit; the popup link line reads “connected · last success …” | | |
-| C8 | Number of DNR dynamic rules | Within Chromium’s dynamic-rule quota (installing rules does not error; the list is truncated to the quota when necessary) | | |
-
-## Quick commands
+Run:
 
 ```bash
-# Offline gate (must PASS first)
 make check-extension-gate
-
-# Real-browser E2E (C1–C5 + CM storm regression + popup)
 make e2e-extension
-# → eval/e2e-extension/out/report.json, f2-payment-dialog.png, m-mutation-storm.png, popup.png
-
-# Build the Chrome package
-apps/extension-chromium/scripts/package-store.sh
 ```
+
+Success requires exit code 0, a final `AGENTGUARD_E2E_EXTENSION=PASS` line, `all_pass: true` in `report.json`, and exactly the 39 expected PASS records. Preserve the Chromium version in the report; never relabel it as release Chrome or Edge evidence.
+
+## Manual candidate-ZIP acceptance in Chrome / Edge
+
+Run separately in both release browsers using the same store-candidate ZIP. Do not install a Native host or enable any desktop-forwarding prototype.
+
+| ID | Action | PASS criterion | Required evidence |
+|---|---|---|---|
+| B1 | Record ZIP SHA-256, manifest version, and release-browser version; unpack and load | Chrome and Edge use the same SHA-256; manifest lacks `nativeMessaging`; no unexpected permission prompt | Hash, versions, extension-details page |
+| B2 | Install in a clean profile and open onboarding and popup | Icons, trilingual copy, and permission disclosure render correctly; no Native control is visible; `payment_shape_block` is enabled | Onboarding, popup, ruleset state |
+| B3 | Repeat F2, H5, F3, F4a/F4c/F4d, and F5a/F5b/F5d against local fixtures | Payment/trap actions have no side effect; positive network cases make zero server requests; negatives arrive; notice has only Close and closing never executes | Page result, Network panel, server counts |
+| B4 | Upgrade in place from the previous public version to the same candidate ZIP | No new Native permission; legacy pause, dynamic host rules, and badge are cleared; representative blocking covered by the 39 cases still works | Before/after permissions, storage/rules, popup |
+| B5 | Disable, re-enable, uninstall, then exercise the documented rollback to the previous candidate | Browser state is predictable and no page-approval state remains; rollback is not recorded as a PASS for the current candidate | Operation log and final extension state |
+
+If either browser is missing, any row is indeterminate, or evidence is not bound to the candidate ZIP, record `BLOCKED`; do not collapse the result into “Chromium passed.”
+
+Make separate copies of the central report template under `evidence/chrome/` and `evidence/edge/`. B1–B5 must each be `PASS (native)` with distinct nonempty evidence files. B1 evidence records the shared candidate ZIP SHA-256. Then run:
+
+```bash
+guard-cli manual-acceptance chrome docs/acceptance-chrome.md evidence/chrome/report.md --repo-root .
+guard-cli manual-acceptance edge docs/acceptance-chrome.md evidence/edge/report.md --repo-root .
+```
+
+The Chrome report contains the exact line `AGENTGUARD_ACCEPTANCE_CHROME=PASS`; the Edge report contains `AGENTGUARD_ACCEPTANCE_EDGE=PASS`. Passing structural validation remains unsigned local self-attestation and does not replace store review or production-download smoke.
+
+## Explicit boundaries
+
+- The DOM guarantee covers only HTTP(S) frames where the extension is actually injected and can observe a recognizable `click` / `submit` event. Direct `form.submit()`, uninjected special frames, custom pointer/keyboard pre-handlers, and native-app actions are outside it.
+- Static DNR covers only the documented HTTP(S), non-GET/HEAD, payment keywords/encodings, query keys, and resource types. It does not inspect bodies or cover undeclared aliases, double encoding, WebSocket/WebTransport, or undeclared resource types.
+- The page notice is a page-influenceable information layer, not an authorization surface. Continuing requires disabling or removing protection in the extension manager and independently repeating the action.
+- Firefox and Safari prototypes, historical screenshots, and old acceptance reports are not first-GA Chrome / Edge evidence.
+
+## Packaging
+
+```bash
+apps/extension-chromium/scripts/package-store.sh
+unzip -t apps/extension-chromium/dist/agentguard-extension.zip
+shasum -a 256 apps/extension-chromium/dist/agentguard-extension.zip
+```
+
+`package-store.sh --firefox` must fail without producing a Firefox ZIP. That is a scope guard, not Firefox acceptance.

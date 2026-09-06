@@ -4,6 +4,29 @@ Generated against the 24-week plan. **Windows real-device UIA/Graphics Capture t
 
 Product version: **1.0.0-rc.1**
 
+## Production-readiness hardening
+- [x] WIN-01 phase 1: Windows `USERPROFILE` precedence plus one deny-only normalized space for
+      drive, verbatim-drive and administrative-UNC system roots (`ProgramData`, both Program Files roots,
+      Windows), with ordinary Documents/AppData/share controls
+- [x] WIN-01/WIN-02 first-GA mitigation: Windows omits all gateway side-effect tools from discovery and
+      rejects forged `run_shell`/file calls before policy evaluation or side effects. This removes the
+      string reopen/TOCTOU path by removing the capability; it is not handle-relative enforcement
+- [ ] A future Windows gateway re-enable still requires same-object handle execution plus native
+      junction/reparse/hard-link race validation. Direct execution remains outside the cooperative gateway
+- [x] M0 repository wiring: non-MSRV CI jobs use repository Rust `1.95.0` and fail early when
+      PATH/Cargo/rustc/sysroot drift
+- [ ] Confirm the first M0 GitHub Actions run on Linux, macOS and Windows; parsed workflow and local tests
+      do not prove runner PATH behavior
+- [ ] Re-run WIN-01 on the existing Windows acceptance host; cross-platform pure-function tests are not
+      native filesystem/reparse evidence
+- [x] P1-5 source gate: macOS/Windows Tauri Release without explicit `audit-sqlcipher` is a compile error;
+      canonical release scripts pin Rust, lock dependencies and have no plaintext Release override
+- [x] Windows Release audit source gate: Tauri, CLI, local API and native host require encryption plus a
+      live signer; generated encryption keys are current-user DPAPI envelopes; legacy plaintext DB/key
+      files are preserved and rejected pending an approved clear-or-migrate decision
+- [ ] Build and sign the new SQLCipher Windows candidate on the native acceptance host. Local SQLCipher
+      correct-key/wrong-key/plaintext-canary tests do not prove DPAPI, installer, or migration/recovery
+
 ## Phase 1 — Foundation
 - [x] Monorepo + crates
 - [x] guard-privacy + MyPhoneBench mapping
@@ -16,7 +39,10 @@ Product version: **1.0.0-rc.1**
 - [x] ScreenCaptureKit ObjC native bridge (`sck-probe` / `sck-start`, stats-only)
 - [x] Menu Bar SCK start/stop/poll + **1.5s auto-poll** + tray actions
 - [x] Overlay heuristics (`guard-overlay`)
-- [x] Chromium extension + Native Messaging + Store package script
+- [x] First-GA Chrome/Edge Chromium extension: block-only DOM gate, static payment-shape DNR, trilingual UI,
+      and store package gate; GA manifest omits Native Messaging
+- [ ] Firefox package/submission/acceptance and browser Native Messaging remain future work; retained source
+      prototypes do not count toward first-GA completion
 - [x] Threat Intel Ed25519 + CDN fetch
 - [x] ≥20 eval scenarios + scoreboard
 - [x] Network egress metadata (`guard-netmon` + CLI)
@@ -28,7 +54,7 @@ Product version: **1.0.0-rc.1**
 - [x] Pro entitlement + billing webhook apply
 - [x] Local HTTP billing webhook receiver (`billing-webhook-serve`)
 - [x] Play Store listing draft + release signingConfig
-- [x] Platform matrix + iOS limited SKU scaffold
+- [x] Platform matrix + buildable limited iOS Safari WebShield App/extension/Core project
 
 ## Phase 4 — Productize
 - [x] Aura-lite safe shell (`guard-shell`)
@@ -100,5 +126,6 @@ Product version: **1.0.0-rc.1**
 - Windows real UIA + Graphics Capture on hardware/RDP
 - Live payment provider endpoints (out of scope for free launch)
 - Live Chrome Web Store / Play Console publication (packaging ready)
+- Firefox browser release and Native Messaging productization (source prototypes only; excluded from first GA)
 - Apple Developer ID signing / notarization (scripted; needs credentials)
 - Android ↔ desktop confirm IPC

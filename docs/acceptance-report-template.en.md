@@ -3,7 +3,7 @@
 # Real-Device Acceptance Report (Template)
 
 > The executor fills out this report. Use one row per case: `PASS (native)` / `PASS (sim)` / `FAIL` /
-> `BLOCKED (reason)` + evidence path + notes. Follow the quick criteria in section 7 of
+> `BLOCKED (reason)` + evidence path + notes. Follow the quick criteria in section 8 of
 > `acceptance-runbook.en.md`. **If the result cannot be determined, enter `BLOCKED` with a reason; do not guess PASS.**
 > `PASS (sim)` proves only the simulated verdict path. It does not replace `PASS (native)`, real-device
 > observation evidence, or release evidence.
@@ -14,6 +14,7 @@
 > the repository. Paths use only `/`; every component must match portable ASCII `[A-Za-z0-9._-]+` and contain no
 > whitespace or shell glob/expansion character. Missing or duplicate cases, reused paths, missing referenced files,
 > `PASS (sim)`, FAIL, BLOCKED, and N/A are rejected.
+> These structured rules apply to the macOS, Android, iOS, iOS TestFlight, Windows, Chrome, and Edge kinds read by the strict gate. Chrome and Edge require separate reports; Firefox remains a first-GA exclusion only. Windows `first-ga-v1` requires only W1–W6/W8–W11; W7 is a legacy optional row excluded from the gate.
 
 ## Environment
 
@@ -28,38 +29,39 @@
 | Node version (`node --version`) |  |
 | All offline gates green (`make capability-claims check-extension-gate coverage`) | ☐ Yes ☐ No |
 
-## Browser Extension (Firefox / Chrome / Edge)
+## First-GA Browser Extension (Chrome / Edge)
 
-Browser + version: __________　Extension ID: __________　Native host installed: ☐ Yes ☐ No
+Browser + stable version: __________　Extension ID: __________　Candidate ZIP SHA-256: __________
+
+> Complete this section separately for Chrome and Edge with the same ZIP. Put the Chrome report under `evidence/chrome/` with `AGENTGUARD_ACCEPTANCE_CHROME=PASS`, and the Edge report under `evidence/edge/` with `AGENTGUARD_ACCEPTANCE_EDGE=PASS`. Firefox is a source prototype only; `acceptance-firefox.en.md` is an exclusion notice and cannot produce Firefox PASS. Do not install a Native Host.
 
 | Case | Result | Evidence (path) | Notes |
 |---|---|---|---|
-| F1 Hidden injection |  |  |  |
-| F2 Pre-execution payment CTA gate |  |  |  |
-| F3 Trap + PII submission gate |  |  |  |
-| F4 Payment-shaped fetch gate |  |  |  |
-| F5 Read-only methods are not gated |  |  |  |
-| F6 Malicious-domain hard block at the network layer |  |  |  |
-| F7 Native-messaging handshake |  |  |  |
-| F8 DNR quota |  |  |  |
+| B1 Same-ZIP identity/version and no `nativeMessaging` permission |  |  |  |
+| B2 Clean install: icon/i18n/popup correct, Native UI hidden, static rules enabled |  |  |  |
+| B3 Representative DOM/DNR positive and negative cases: block-only, Close only, no authorization or replay |  |  |  |
+| B4 Upgrade from prior public version: legacy pause/dynamic rules/badge cleared, no new permission |  |  |  |
+| B5 Disable, restart, uninstall, and rollback are predictable with no page-authorization residue |  |  |  |
 
 ## Windows Desktop Shell
 
 Windows version: __________　Shell mode: ☐ Simulation ☐ Native available ☐ Native wired but permission / capability unavailable
 
+`AGENTGUARD_WINDOWS_ACCEPTANCE_PROFILE=first-ga-v1`
+
 | Case | Result | Evidence (path) | Notes |
 |---|---|---|---|
-| W1 Blocking modal (verdict path) |  |  |  |
+| W1 Post-observation risk confirmation (`observed_only`; does not undo the external action) |  |  |  |
 | W2 UIA tree capture |  |  |  |
 | W3 GDI frame capture + steganography |  |  |  |
 | W4 Windows.Media.Ocr screen reading |  |  |  |
 | W5 overlay |  |  |  |
 | W6 Capability probe (with reason string) |  |  |  |
-| W7 Native messaging |  |  |  |
+| W7 Native messaging (non-GA / legacy optional; excluded from gate) | N/A (non-GA) |  |  |
 | W8 Acceptance trace check |  |  |  |
 | W9 No observation after end |  |  |  |
 | W10 Status light matches reality |  |  |  |
-| W11 “Start protecting” is enough on its own |  |  |  |
+| W11 “Start protecting” independently starts observation (not proof that external actions are blocked) |  |  |  |
 
 ## macOS Desktop Shell
 
@@ -99,6 +101,29 @@ Android device + version: __________　Candidate version: __________　Accessibi
 | A3 A real accessibility event reaches the engine and receives the expected verdict |  |  |  |
 | A4 The verdict returns to the device and produces the corresponding risk result |  |  |  |
 
+## iOS Safari WebShield (Real Device)
+
+iOS/iPadOS version: __________　Signed candidate version/build: __________　Safari Extension: ☐ Enabled ☐ Unavailable
+
+| Case | Result | Evidence (path) | Notes |
+|---|---|---|---|
+| I1 Real-iPhone install, extension enablement, and identity check |  |  |  |
+| I2 Real-iPad install, extension enablement, and layout |  |  |  |
+| I3 Benign pass and pre-execution block for supported risky actions |  |  |  |
+| I4 Force-quit, reboot, and N-1 upgrade state |  |  |  |
+| I5 Audit, rule synchronization, and data deletion |  |  |  |
+| I6 VoiceOver, Dynamic Type, and keyboard |  |  |  |
+
+## iOS TestFlight
+
+App Store Connect build: __________　TestFlight install device: __________
+
+| Case | Result | Evidence (path) | Notes |
+|---|---|---|---|
+| TF1 Processing completes and identity matches the signed candidate |  |  |  |
+| TF2 Fresh-install from TestFlight and enable the embedded extension |  |  |  |
+| TF3 Upgrade from the prior build and repeat core positive/negative cases |  |  |  |
+
 ## Summary
 
 | Surface | PASS | PASS (sim) | FAIL | BLOCKED | N/A |
@@ -107,6 +132,8 @@ Android device + version: __________　Candidate version: __________　Accessibi
 | Windows |  |  |  |  |  |
 | macOS |  |  |  |  |  |
 | Android |  |  |  |  |  |
+| iOS |  |  |  |  |  |
+| iOS TestFlight |  |  |  |  |  |
 
 **Overall conclusion (one sentence):**
 
@@ -121,6 +148,8 @@ Android device + version: __________　Candidate version: __________　Accessibi
 ```text
 AGENTGUARD_ACCEPTANCE_<PLATFORM>=<RESULT>
 ```
+
+> Chrome/Edge, iOS, and iOS TestFlight each require their exact marker and evidence directory. One platform or channel report cannot stand in for another.
 
 > This report records the results of this acceptance run and does not independently constitute release evidence.
 > Signing, notarization/store review, release-artifact identity, strict gates, and platform coverage must be verified separately.

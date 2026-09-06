@@ -1,92 +1,41 @@
 [简体中文](acceptance-firefox.md) | [繁體中文](acceptance-firefox.zh-TW.md) | [English](acceptance-firefox.en.md)
 
-# Firefox 扩展真机验收清单（Launch Readiness）
+# Firefox 排除说明（首个 GA）
 
-本文档用于在**真实 Firefox（≥128）**上对扩展做发布前人工验收。它对应 `docs/跨浏览器.md` 里
-Firefox 那几条"骨架已做、真机未验证"的项——**这些只有在真 Firefox 上跑一遍才算数**,离线自动化
-和 `node --check` 都验不到。
+> **这不是首个 GA 的验收清单，也不能生成 Firefox PASS。**
 
-> 本清单全绿只是发布的必要非充分条件；它不能替代商店签名、发布包身份、其余平台证据或完整发布门禁。
+首个 GA 只发布 Chrome / Edge 共用的 Chromium ZIP。Firefox 当前仅保留 `manifest.firefox.json` 和相关源码，作为未来研发起点：不打包、不临时加载做发布验收、不提交 Firefox 商店，也不进入 `scripts/release-gate.sh --strict`。
 
-> **前置的离线门禁**:先在仓库根跑 `make check-extension-gate`(guard-gate 逻辑 + 两份 manifest
-> 结构一致)。它全绿是必要非充分条件——它证明"Chrome 与 Firefox 装同一套内容脚本、判决逻辑正确",
-> 不证明"在真 Firefox 里真的拦得住"。
+## 当前必须成立的范围保护
 
-## 前置条件
+- `apps/extension-chromium/scripts/package-store.sh --firefox` 返回非零且不产生 Firefox ZIP；
+- Chrome / Edge ZIP 不包含 `manifest.firefox.json`、Native host 或 Firefox 专属元数据；
+- 首个 GA 的 README、商店文案、权限说明、验收报告和发布结论都不得声称 Firefox 支持；
+- 历史 F1–F8 报告、Firefox 截图、`AGENTGUARD_ACCEPTANCE_FIREFOX=PASS` 或 `acceptance_firefox` JSON 都不能授权首个 GA 发布。
 
-- [ ] Firefox 版本 ≥ 128(`world: "MAIN"` 内容脚本从 128 起支持——低于它 fetch 门不加载)
-- [ ] 用 `about:debugging` → 「此 Firefox」→「临时载入附加组件」加载 `manifest.firefox.json`
-      (或 `package-store.sh --firefox` 出的 zip)
-- [ ] 记下临时加载分配的 **gecko id**(应为 `agentguard@agentguard.dev`)
-- [ ] `install-host.sh --browser firefox agentguard@agentguard.dev` 装原生消息 host
-- [ ] 规则集为 `crates/guard-schema/rules/p0_rules.yaml`;情报 bundle 已加载(默认基线即含 `evil.example`)
-
-## 验收用例
-
-每条都在**真 Firefox** 上手动走一遍,留证据(截图 / about:debugging 控制台日志)。
-
-| # | 步骤 | 期望 | 实测 | 证据 |
-|---|------|------|------|------|
-| F1 | 打开含隐藏注入文本(`[AG_INVISIBLE_TEXT]` / "ignore previous instructions")的测试页 | 扩展上报 finding(popup 最近列表出现) | | |
-| F2 | 页面上放一个文案含"确认支付/Confirm Payment"的按钮,点它 | **执行前**弹出 AgentGuard 确认层("允许这一次/先不要");点「先不要」 → 动作不发生 | | |
-| F3 | 一个把非必要 PII(手机号)填进陷阱控件的表单,提交 | 提交被 `preventDefault` 拦住,弹确认;取消 → 不提交 | | |
-| F4 | 页面脚本 `fetch("/api/checkout",{method:"POST"})`(在页面控制台执行) | fetch 门弹确认;拒绝 → Promise reject、请求**未发出**(Network 面板无该请求) | | |
-| F5 | 同 F4 但用 `GET` | **不**拦(只读方法不该有副作用) | | |
-| F6 | 导航到 `https://evil.example/`(内置情报的恶意域) | 引擎判 `INTEL-DOMAIN` Block → 宿主回 `block_hosts` → DNR 规则装上 → 该主机后续请求在网络层被拦(Network 面板显示 blocked) | | |
-| F7 | 观察 F6 的原生消息往返 | 宿主接受调用方(gecko id 作为 origin 对上,`guard-nm-host` 未因 origin 拒启动),判决进签名审计 | | |
-| F8 | DNR 动态规则数量 | 未超 Firefox 的动态规则配额(装规则不报错;必要时按配额上限截断名单) | | |
-
-> 上表只用于逐项执行记录，不能原样作为 strict artifact。严格门禁报告必须使用[中央真机验收报告模板](acceptance-report-template.md)，
-> 并保持 `ID | 结果 | 证据` 为前三列，再把 F1–F8 的结果与证据逐项转录进去。
-
-## 这些用例分别验证 docs/跨浏览器.md 的哪条"未验证"
-
-- F2/F3 → DOM 门在 Firefox 成立
-- **F4/F5 → `world:"MAIN"` 的 fetch 门在 FF≥128 真的加载并拦截**(跨浏览器.md 明确标为待验)
-- F6 → E5 引擎→DNR 桥 + F8 DNR 配额(跨浏览器.md 标为"配额待校准")
-- F7 → **native host 收到的调用方标识是 gecko id 而非 chrome-extension:// origin**(跨浏览器.md 标为
-  "按 MDN 写、真机未验")——这条是 fail-closed 的 origin 校验,验不过宿主会拒启动,所以它必须真机走通
-
-## 快速命令
+可执行的当前检查只有负向范围检查：
 
 ```bash
-# 离线门禁(必须先 PASS)
 make check-extension-gate
-
-# 出 Firefox 包
 apps/extension-chromium/scripts/package-store.sh --firefox
-
-# 装 Firefox 原生消息 host(gecko id 见 manifest.firefox.json)
-apps/extension-chromium/native-host/install-host.sh --browser firefox agentguard@agentguard.dev
+# 预期：退出 64，且不产生 Firefox 包。
 ```
 
-## 签署
+第二条命令失败是预期的范围保护行为；它不产生任何 Firefox 产品 PASS。
 
-- 验收人:____________  版本 / commit:____________  日期:____________
-- 全部必需用例 PASS 后,把完成的报告保存为仓库相对普通文件(例如 `evidence/firefox/report.md`),用
-  下列命令实际校验、计算闭包摘要并填写 JSON。`output` 必须使用命令成功时打印的精确标记
-  `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`,JSON 还须绑定当前完整 commit 和
-  `agentguard-acceptance-closure-sha256-v1`。
-  F1–F8 在报告中必须各恰好一行,结果精确为 `PASS (native)`,证据列须指向 `evidence/firefox/` 下真实存在的
-  仓库相对非空普通文件；路径不得复用,不能引用报告自身或当前证据 JSON 源文件,也不能经过符号链接或越出仓库。
-  路径只用 `/`,每个组件须匹配 `[A-Za-z0-9._-]+`,不能含空白或 shell glob／展开字符。闭包绑定报告与每个唯一引用的路径、长度和内容,
-  但仍是未签名自证,不能证明截图或日志的真实来源。
-  ```bash
-  mkdir -p evidence/firefox
-  commit="$(git rev-parse HEAD)"
-  commit_time="$(git show -s --format=%ct HEAD)"
-  cargo build --release -p guard-cli
-  target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
-    evidence/firefox/report.md --repo-root .
-  # 成功时唯一输出：AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
-  cargo run -p guard-cli -- evidence-digest \
-    --repo-root . --path evidence/firefox/report.md
-  cargo run -p guard-cli -- evidence-template --kind acceptance_firefox \
-    --commit "$commit" > evidence/firefox/evidence.json
-  # 将精确 manual-acceptance 命令、marker 与 closure 摘要填入 JSON 后
-  cargo run -p guard-cli -- evidence-verify --kind acceptance_firefox \
-    --file evidence/firefox/evidence.json --commit "$commit" \
-    --commit-time "$commit_time" --repo-root .
-  ```
-- 再把 **JSON 文件**路径导出到 `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`。目录、未填写模板或仅含 `PASS`
-  关键词的文件都不能作为证据。详见[结构化发布证据](release-evidence.md)。
+## 遗留 CLI 能力
+
+`guard-cli manual-acceptance firefox`、`evidence-template --kind acceptance_firefox` 与对应校验代码暂时保留，是旧版/未来格式兼容能力。严格门禁不读取 `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX`，也不接受该 kind 作为首个 GA 证据。任何调用得到的成功标记都只说明遗留格式自身通过，不能改变产品范围。
+
+## Firefox 未来重新进入发布范围的前置条件
+
+只有在单独产品决策后，才可建立新的 Firefox 发布清单。至少需要：
+
+1. 重新审查 Firefox manifest、权限和商店隐私声明；
+2. 建立独立且可复现的 Firefox 打包脚本，禁止复用 Chromium ZIP 结论；
+3. 在真实 Firefox 上验证 DOM、Shadow DOM、frame、DNR 方法/编码/资源类型和误报边界；
+4. 单独完成全新安装、升级、卸载、回滚和商店候选身份绑定；
+5. 若未来考虑 Native Messaging，必须另做权限、身份、隐私与升级迁移设计，不能继承首个 GA 的旧原型；
+6. 新增明确的 Firefox evidence kind、严格门禁接线和三语发布文档后，才可改变支持矩阵。
+
+在这些条件全部完成前，Firefox 状态固定为：**源码原型 / 非首个 GA / 无发布 PASS**。

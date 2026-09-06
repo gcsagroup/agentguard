@@ -2,7 +2,7 @@
 
 Free / non-billing launch checklist for secure defaults.
 
-> 本页保留早期发布安全设计背景。当前发布证据的结构、八类 `kind`、生成与复核命令以
+> 本页保留早期发布安全设计背景。当前发布证据的结构、十二类严格门禁 `kind`、生成与复核命令以
 > [结构化发布证据](./release-evidence.md)（[繁體](./release-evidence.zh-TW.md) ·
 > [English](./release-evidence.en.md)）为准；任意文件路径或关键词不再构成有效证据。
 
@@ -10,30 +10,73 @@ Free / non-billing launch checklist for secure defaults.
 
 | Control | Debug (`tauri dev`) | Release |
 |---------|---------------------|---------|
-| Auto-approve Critical Confirm | Allowed (UI visible) | Hidden / rejected unless `AGENTGUARD_ALLOW_AUTO_APPROVE=1` |
-| Threat intel | Soft-load (`load_or_default`) | `load_release` + `intel/keys/public.hex` (fail-closed → empty) |
-| Audit DB | Plain SQLite by default | Prefer `--features audit-sqlcipher` + auto `audit.key` |
+| Auto-approve Critical Confirm | Allowed (UI visible) | Unavailable; environment variables cannot re-enable it |
+| Threat intel | Soft-load (`load_or_default`) | Signed bundle resource + `load_release`; missing/invalid data blocks startup |
+| Audit DB | Plain SQLite by default | **Required SQLCipher + signer**; both secrets live in macOS Keychain and startup fails closed |
 | Local API | Bearer required | Same; never bind non-loopback |
 
 ### Secure release build
 
 ```bash
 cd apps/desktop-macos
-# SQLCipher audit
-npx tauri build -- --no-default-features --features audit-sqlcipher
-# or via script notes in scripts/build-release.sh
+../../scripts/bootstrap-rust.sh --install
+AGENTGUARD_ALLOW_ADHOC=1 ./scripts/build-release.sh  # local smoke only
 ```
 
-Key file: `~/Library/Application Support/agentguard/audit.key` (created on first launch when sqlcipher linked).
+The script pins Rust from `rust-toolchain.toml` and always passes
+`--no-default-features --features audit-sqlcipher --locked`. There is no plaintext Release override;
+both desktop crates also reject a Release missing `audit-sqlcipher` at compile time.
+
+The production script defaults to a universal Apple Silicon + Intel bundle. It requires a Developer ID,
+an expected Team ID, and a `notarytool` Keychain profile; `AGENTGUARD_ALLOW_ADHOC=1` is an explicit
+non-distributable local-smoke exception. The SQLCipher passphrase and Ed25519 seed are separate generic-password
+items under service `com.agentguard.desktop.macos.audit`; neither is written beside the database.
+An existing plaintext database is preserved and blocks startup until the approved backup plus clear-or-migrate
+procedure is executed. Release rules, task plans, entitlement policy, intelligence bundle and public key are loaded
+only from `AgentGuard.app/Contents/Resources`, not from source-tree paths or environment overrides.
+
+## Desktop Windows
+
+Run from Windows Git Bash after installing Rust/Node:
+
+```bash
+cd apps/desktop-windows
+bash ../../scripts/bootstrap-rust.sh --install
+bash scripts/build-release.sh
+```
+
+This entry runs `npm ci` and the Tauri build under the repository-pinned Rust, with the same SQLCipher
+feature and lock-file requirements as macOS. At runtime, the generated SQLCipher passphrase and
+Ed25519 audit-signing seed are stored in separate current-user DPAPI envelopes
+(`agentguard-dpapi-v1` and `agentguard-signing-dpapi-v1`); neither is persisted as plaintext.
+Different product/purpose optional entropy cryptographically binds the two envelope roles, and a
+fully synced staging file is published with a no-replace move so an interrupted first write cannot
+leave a partial final key.
+Encryption and a preflight-verified audit signer are both startup requirements.
+CLI, local API and native-host writers use the same Windows Release fail-closed contract instead of
+falling back to plaintext.
+
+An old plaintext DB (`SQLite format 3`), `audit.key`, or `audit-signing.key` is not converted in place.
+Startup preserves it and names the DB/WAL/SHM/key backup set that must be handled by the approved clear-or-migrate
+procedure. Until that decision and a native interruption/rollback exercise exist, the resulting
+EXE/installer remains a candidate; it also still needs Authenticode and native `first-ga-v1`
+W1–W6/W8–W11 acceptance. W7 Native Messaging is a non-GA/legacy optional case and is not a release gate.
+Native evidence must additionally cover a pre-existing parent junction, concurrent path-component
+replacement, envelope-prefix relabelling, and interrupted first creation. Source checks reject
+reparse attributes component-by-component, but validation and I/O are not yet one handle-bound
+operation; the remaining same-user TOCTOU boundary is not a release-quality host-compromise claim.
+
+The first GA also omits Windows gateway side-effect tools. Forged calls are rejected before filesystem or
+process effects because the current name-based policy cannot bind approval and use to one handle. This is
+an explicit capability reduction, not a claim of host-wide or handle-level enforcement.
 
 ### Env overrides
 
 | Var | Purpose |
 |-----|---------|
-| `AGENTGUARD_AUDIT_KEY` | Explicit passphrase (skips file) |
-| `AGENTGUARD_INTEL` | Bundle path |
-| `AGENTGUARD_INTEL_PUBKEY` | Ed25519 public key hex path |
-| `AGENTGUARD_ALLOW_AUTO_APPROVE` | Dangerous; testing only |
+| `AGENTGUARD_AUDIT_KEY` | Explicit passphrase; if `audit.key` exists, its DPAPI value must match |
+| `AGENTGUARD_INTEL` | Development/CLI bundle path; ignored by the macOS Release app |
+| `AGENTGUARD_INTEL_PUBKEY` | Development/CLI Ed25519 public key path; ignored by the macOS Release app |
 
 ## CLI
 
@@ -82,7 +125,7 @@ cargo run -p guard-cli -- api-serve --token "$AGENTGUARD_API_TOKEN" \
 
 ```bash
 make release-gate          # 软模式:跑完能自动验的,列出验不了的
-make release-gate-strict   # 发布时用:八份结构化证据 + production preflight 零 FAIL
+make release-gate-strict   # 发布时用:十二份结构化证据 + production preflight 零 FAIL
 ```
 
 ### 软模式**从不**说"可以发布"
@@ -91,11 +134,11 @@ make release-gate-strict   # 发布时用:八份结构化证据 + production pre
 这句话的措辞是刻意的。一个把"没验"说成"通过"的门禁,比没有门禁更糟 ——
 后者只是缺一道防线,前者是给了一个假答案。
 
-### 需要凭据或真机的八项
+### 需要凭据或真机的十二项
 
 每一项都带三样东西:做不了的原因、**怎么才算验过**、验过之后把结构化 JSON 路径放进哪个
 环境变量。JSON 必须绑定当前完整提交、检查种类、实际成功执行的命令、退出码、合理时间窗、
-成功判据和仓库内候选产物身份：普通发布文件使用标准 SHA-256，macOS `.app` 使用整个 bundle 的
+成功判据和仓库内候选产物身份：普通发布文件使用标准 SHA-256，macOS/iOS `.app` 使用整个 bundle 的
 tree-v2，验收报告使用绑定报告与每个唯一逐项引用的 acceptance-closure-v1。模板原样、目录、符号链接、
 错类型产物、缺失文件和摘要不符都会被拒；详细 schema 与精确 fail-closed 命令见[结构化发布证据](./release-evidence.md)。
 
@@ -105,10 +148,14 @@ tree-v2，验收报告使用绑定报告与每个唯一逐项引用的 acceptanc
 | macOS 公证 + staple | 以 Team ID 与 `AgentGuard-Notary` keychain profile 提交后返回 Accepted，且 `stapler staple`、`stapler validate` 都成功 | `AGENTGUARD_EVIDENCE_MACOS_NOTARIZE` |
 | Windows 代码签名 | `signtool verify /pa /v` 成功，检查 `$?`/`$LASTEXITCODE` 后同文件 Authenticode 状态与证书有效 | `AGENTGUARD_EVIDENCE_WINDOWS_SIGN` |
 | Android release 签名 | `apksigner verify --print-certs` 对 `.apk` 打出发布证书而非 debug 证书 | `AGENTGUARD_EVIDENCE_ANDROID_SIGN` |
+| iOS 发布签名 | 最终设备 `.app` 的 codesign 严格验证成功，输出含 Apple Distribution authority 与外部预期 iOS Team ID | `AGENTGUARD_EVIDENCE_IOS_CODESIGN` |
 | macOS 真机验收 | [acceptance-macos.md](./acceptance-macos.md) 逐条走完 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS` |
 | Android 真机验收 | 伴生应用签名的信封被桌面验过(适配器公钥已进注册表) | `AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID` |
-| Firefox 真机验收 | [acceptance-firefox.md](./acceptance-firefox.md) 的 F1-F8 逐条走完 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX` |
-| Windows 真机验收 | [acceptance-windows.md](./acceptance-windows.md) 的 W1-W7 逐条走完 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS` |
+| iOS 真机 Safari Extension | [acceptance-ios.md](./acceptance-ios.md) 的 I1–I6 在真实 iPhone/iPad 逐条通过 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS` |
+| iOS TestFlight | 同一候选完成 TF1–TF3 上传、真机全新安装与升级 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS_TESTFLIGHT` |
+| Chrome 候选 ZIP | [acceptance-chrome.md](./acceptance-chrome.md) 的 B1–B5 在 Chrome stable 干净 profile 独立通过 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_CHROME` |
+| Edge 候选 ZIP | 同一 ZIP 的 B1–B5 在 Edge stable 干净 profile 独立通过 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_EDGE` |
+| Windows 真机验收 | [acceptance-windows.md](./acceptance-windows.md) 的 `first-ga-v1` W1–W6/W8–W11 逐条走完；W7 不计入 | `AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS` |
 
 这些 JSON 仍是未签名的本地自证：它们防止误绑定、误操作和部分机械伪造，但不能抵抗能控制工作区并
 伪造全部字段的攻击者；验收闭包也不能证明截图、日志或设备记录的真实来源。要覆盖该威胁，需要后续由可信执行器签发的证据签名。
@@ -137,4 +184,4 @@ tree-v2，验收报告使用绑定报告与每个唯一逐项引用的 acceptanc
 
 软模式的 preflight 基线机制盯着这条结论:它**消失**了也会拦(见
 [上线评估.md](./上线评估.md))。严格模式还会额外运行不带基线的 production preflight；
-只要这条 `FAIL` 仍存在，即使八份证据 JSON 都通过，发布门禁也必须失败。
+只要这条 `FAIL` 仍存在，即使十二份证据 JSON 都通过，发布门禁也必须失败。

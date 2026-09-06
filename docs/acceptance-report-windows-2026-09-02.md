@@ -2,7 +2,9 @@
 
 # AgentGuard Windows 真机补充验收报告（2026-09-02）
 
-> 结论：最终候选 `89dadf960a558d35dc3c6c557eadbc19d3a162d0` 已在真实 Windows 11 上通过自动化、Release 构建、启动、空闲、两轮观察与真实阻断模态 smoke；测试期间没有新增应用崩溃事件。但 W1–W7 的完整发布级场景、Authenticode 签名和安装／升级／卸载仍未完成，生产发布仍为 **No-Go**。
+> 结论：最终候选 `89dadf960a558d35dc3c6c557eadbc19d3a162d0` 已在真实 Windows 11 上通过自动化、Release 构建、启动、空闲、两轮观察与事后风险确认模态 smoke；测试期间没有新增应用崩溃事件。但当时的 W1–W7 旧版清单未完成，当前 `first-ga-v1` 的 W1–W6/W8–W11 也没有当前候选证据；Authenticode 签名和安装／升级／卸载仍缺失，生产发布仍为 **No-Go**。
+
+> **2026-09-05 术语勘误：**本文是旧候选的历史记录，旧版桌面模态术语只证明壳子在观察到事件后显示了风险确认，不能证明外部动作被拦截或撤销。所有相关段落应按当前合同理解为“事后风险确认”，即 `effect=observed_only`、`external_action_blocked=false`；它也不是当前候选的严格门禁证据。
 
 本报告是 [2026-09-01 总体验收报告](acceptance-report-2026-09-01.md) 的 Windows 补充记录，执行依据为 [Windows 真机验收清单](acceptance-windows.md)、[真机验收执行手册](acceptance-runbook.md) 与 [报告模板](acceptance-report-template.md)。它不是 `evidence/windows/` 下的 strict artifact；没有逐项证据文件的用例不会猜测为 `PASS (native)`。
 
@@ -73,20 +75,20 @@
 |---|---|---|
 | 启动后空闲 | 主窗口稳定存活超过 30 秒 | 支持 W0 启动 smoke，不等于 W1–W7 |
 | 刷新能力两次 | 两次刷新均保持稳定，能力状态可显示 | 证明正向显示路径可运行；能力失败分支未执行 |
-| 第一轮 `Start` | 观察超过 30 秒；出现真实阻断模态，内容为 `Accessibility-tree text not rendered on screen`，规则 `OVL-010`；选择拒绝 | 证明当前产品链能产生真实阻断模态；不是清单 W1 的付款 CTA 场景 |
+| 第一轮 `Start` | 观察超过 30 秒；出现事后风险确认模态，内容为 `Accessibility-tree text not rendered on screen`，规则 `OVL-010`；选择拒绝 | 证明当时产品链能在观察后产生风险确认；不证明外部动作被阻断，也不是清单 W1 的付款 CTA 场景 |
 | 生命周期切换 | `End` → `Resume` → `Start` 进入第二轮，界面与进程保持稳定 | 支持两轮会话生命周期 smoke |
-| 第二轮 `Start` | 再观察超过 30 秒；再次出现同类 `OVL-010` 阻断模态；选择拒绝 | 第二轮 UIA／GDI／OCR／判决链没有复现早期崩溃 |
+| 第二轮 `Start` | 再观察超过 30 秒；再次出现同类 `OVL-010` 事后风险确认模态；选择拒绝 | 第二轮 UIA／GDI／OCR／判决链没有复现早期崩溃 |
 | 关闭 | 最终通过正常界面关闭；测试窗口内新增 Windows Event 1000 数量为 0 | 没有观察到应用崩溃事件 |
 
 stderr 只有“Release 未启用 SQLCipher”的警告。批处理 helper 的退出码文件为空，原因是 `echo 0>` 的重定向解析歧义；因此本报告只记录“正常界面关闭”和“新增 Event 1000 为 0”，**不宣称进程退出码为 0**。
 
-本轮支持的范围为：W0 启动、正向能力显示、UIA／GDI／OCR 产品链、阻断模态，以及两轮会话生命周期。它没有替代下列 W1–W7 的精确场景。
+本轮支持的范围为：W0 启动、正向能力显示、UIA／GDI／OCR 产品链、事后风险确认模态，以及两轮会话生命周期。它没有替代下列 W1–W7 的精确场景，也没有证明外部动作被阻断。
 
-## 5. W1–W7 正式清单结果
+## 5. 历史 W1–W7 清单结果（不等于当前 first-ga-v1）
 
 | 用例 | 结果 | 本轮已有观察 | 仍缺的发布级证据 |
 |---|---|---|---|
-| W1 阻断模态（付款 CTA） | `BLOCKED (payment-CTA-not-executed)` | 两轮均出现真实 `OVL-010` 阻断模态并选择拒绝 | 未在普通第三方应用中执行“Confirm Payment／确认支付”，也未证明取消后付款副作用为零 |
+| W1 事后风险确认（付款 CTA） | `BLOCKED (payment-CTA-not-executed)` | 两轮均出现 `OVL-010` 事后风险确认并选择拒绝 | 未在普通第三方应用中执行“Confirm Payment／确认支付”，也未证明外部动作被阻断或取消后付款副作用为零 |
 | W2 UIA 取树 | `BLOCKED (form-FM-TR-case-not-executed)` | 观察链与基于 Accessibility tree 的判决路径运行稳定 | 未在真实第三方表单中归档 `UiTreeDelta` 及非必要 PII 的 FM/TR 判决 |
 | W3 GDI 抓帧 + 隐写 | `BLOCKED (third-party-steganography-not-executed)` | 两轮观察没有复现第 8 帧崩溃 | 未在第三方应用中执行 chroma／luma 隐写样本并归档帧与规则命中 |
 | W4 Windows.Media.Ocr 读屏 | `BLOCKED (third-party-pixel-OCR-not-executed)` | 最终候选的 UIA／GDI／OCR 链连续运行，两轮均无新增 Event 1000 | 未执行只存在于第三方应用像素中的付款文本，也未归档语言包、识别输出与对应判决 |
@@ -100,21 +102,21 @@ stderr 只有“Release 未启用 SQLCipher”的警告。批处理 helper 的�
 
 这里的 0 FAIL 只表示最终候选没有在已执行到可判定状态的 W1–W7 用例上记录失败；七项仍是 `BLOCKED`，不能解释为 Windows 验收通过。
 
-## 6. 未完成的发布门禁
+## 6. 当时记录的未完成项
 
 以下项目仍未执行或没有发布级证据：
 
-1. W1 付款 CTA 的执行前阻断与拒绝后零副作用；
+1. W1 付款 CTA 的事后风险确认、`effect=observed_only` 与 `external_action_blocked=false` 审计语义；真正执行前阻断由 Chromium/Gateway 独立验收；
 2. W2 的真实第三方表单、`UiTreeDelta` 与 FM/TR 证据；
 3. W3／W4 的第三方应用像素隐写与 OCR 场景；
 4. W5 的 Windows overlay 捕获边界；
 5. W6 的能力不可用／失败原因分支；
 6. W7 Native Messaging 注册、origin 握手、判决和签名审计；
 7. Authenticode 签名的安装包，以及安装、升级、回滚与卸载；
-8. 按 strict 模板为 W1–W7 逐项归档唯一、非空、绑定当前提交的 `evidence/windows/` 证据。
+8. 当时未按旧版 W1–W7 逐项归档证据；这些历史行也不能满足当前 strict 所需的 W1–W6/W8–W11 证据。
 
 ## 7. 总体结论
 
-`89dadf960a558d35dc3c6c557eadbc19d3a162d0` 在本轮相同启动与观察路径中没有复现早期的 COM／OCR 崩溃，两轮生命周期 smoke 保持稳定，CI 也针对该候选全绿。这使 Windows 状态从“程序无法启动”推进到“真实产品 smoke 可运行”。但由于 W1–W7 仍为 0/7 正式 PASS，Release EXE 未签名，安装／升级／卸载未验收，**生产发布结论仍为 No-Go**。
+`89dadf960a558d35dc3c6c557eadbc19d3a162d0` 在本轮相同启动与观察路径中没有复现早期的 COM／OCR 崩溃，两轮生命周期 smoke 保持稳定，CI 也针对该候选全绿。这使 Windows 状态从“程序无法启动”推进到“真实产品 smoke 可运行”。但历史 W1–W7 为 0/7 正式 PASS，且当前 `first-ga-v1` 必需项没有当前候选证据；Release EXE 未签名，安装／升级／卸载未验收，**生产发布结论仍为 No-Go**。
 
-下一次验收应使用同一不可变提交生成已签名安装包，在普通第三方应用与真实 Chrome／Edge 上逐项执行 W1–W7，并把每条独立证据归档到 `evidence/windows/` 后再运行 strict 门禁。
+下一次 Windows 验收应使用同一不可变提交生成已签名安装包，在普通第三方应用中逐项执行当前 `first-ga-v1` 的 W1–W6/W8–W11，并把每条独立证据归档到 `evidence/windows/` 后再运行 strict 门禁。Chrome 与 Edge 的 B1–B5 须另按浏览器清单分别验收；不得用已排除的 W7 Native Messaging 替代。

@@ -16,7 +16,7 @@ claim is pinned to a test that must exist and prose that must still appear in th
 
 | | **macOS** | **Windows** | **Android** | **Chromium** | **iOS** |
 |---|---|---|---|---|---|
-| **Observation source** | `AXUIElement` walker + ScreenCaptureKit (Obj-C bridges) | UI Automation tree walk + GDI `BitBlt` | AccessibilityService + `PackageManager` + window list | MV3 content script | none |
+| **Observation source** | `AXUIElement` walker + ScreenCaptureKit (Obj-C bridges) | UI Automation tree walk + GDI `BitBlt` | AccessibilityService + `PackageManager` + window list | MV3 content script | Safari Web Extension MV3 content script + native handler |
 | **Event kinds produced** | see [capability-matrix.md](./capability-matrix.md) — extracted from source, regenerated under `cargo test` (this row used to be hand-typed and drifted) | ″ | ″ | ″ | ″ |
 | **Pixel analysis** | ✅ subliminal bands, chroma+luma stego, frame digest, Vision OCR | ✅ same code (`guard-vision`), OCR via `Windows.Media.Ocr` | ❌ an accessibility service cannot read pixels | ❌ | ❌ |
 | **Session scope (Aura §4.4)** | ✅ | ✅ | ✅ | ❌ no session concept | ❌ |
@@ -24,22 +24,24 @@ claim is pinned to a test that must exist and prose that must still appear in th
 | **Display identity / lookalike (§3.6)** | ❌ | ❌ | ✅ label + icon dHash | ❌ | ❌ |
 | **Overlay detection** | ✅ pixels + AX regions | 🟡 window's own rendering only — see note 1 | 🟡 window list, draw-over-other-apps only — see note 2 | ✅ DOM opacity/geometry | ❌ |
 | **Environment survey (A5/A6)** | ❌ | ❌ | ✅ a11y services, broadcast sinks, log readers | ❌ | ❌ |
-| **Critical-node confirmation** | ✅ blocking modal in the shell | ✅ blocking modal in the shell | 🟡 notification **after** the event — see note 3 | 🟡 in-page 执行前拦截(付款/陷阱提交)+ host 事后通知 — see note 4 | ❌ |
+| **Critical-node confirmation** | 🟡 post-observation risk confirmation; does not reverse the external action — see note 3 | 🟡 post-observation risk confirmation; does not reverse the external action — see note 3 | 🟡 notification **after** the event — see note 3 | 🟡 block-only DOM pre-execution gate + static DNR; no page approval — see note 4 | 🟡 block-only for covered DOM events; native `disabled` is the only release state |
 | **Auto-poller** | 1.5 s frames; tree now **AXObserver push** + ≤3 s 兜底 — see note 5 | 2.5 s, tied to the session | event-driven | event-driven | — |
-| **Runtime capability probe** | ✅ TCC preflight | ✅ real probe with a reason string | ✅ a11y-enabled + notification permission | — | — |
-| **Compiled in CI** | ✅ `macos-shell` job | ✅ `windows` job | ✅ `android` job | 🟡 syntax only (`frontend` job) | ❌ nothing to compile |
+| **Runtime capability probe** | ✅ TCC preflight | ✅ real probe with a reason string | ✅ a11y-enabled + notification permission | — | 🟡 App Group/Keychain entitlement access fails closed; real-device state remains an acceptance item |
+| **Compiled in CI** | ✅ `macos-shell` job | ✅ `windows` job | ✅ `android` job | ✅ Node/static gate plus real Chromium E2E | ✅ XcodeGen/Xcode build plus Swift and extension contract tests |
 | **Tests** | see [capability-matrix.md](./capability-matrix.md) — static counts per crate / adapter / shell / extension / companion, regenerated under `cargo test` | ″ | ″ | ″ | ″ |
 
 **Legend:** ✅ works · 🟡 works with a stated limit · ❌ absent
 
-The **Chromium** column covers both Chrome and **Edge** (same MV3 extension). **Firefox** runs the same
-extension via a separate `manifest.firefox.json` (ported, real-device unverified); **Safari** is an
-Xcode-wrapped design item, not built. Per-browser breakdown and the capability-by-browser table are in
+The **Chromium** column covers both Chrome and **Edge** from one MV3 ZIP; those are the only browsers in
+the first GA. `manifest.firefox.json` is retained as an unshipped source prototype: Firefox is not packaged,
+submitted, or accepted for this GA. **Safari** is a separate Xcode-wrapped product path. Per-browser breakdown is in
 [跨浏览器.md](./跨浏览器.md).
 
 Real-device acceptance checklists (the last mile CI cannot cover) live per platform:
-[macOS](./acceptance-macos.md), [Windows](./acceptance-windows.md), [Firefox](./acceptance-firefox.md);
-each is a `release-gate.sh` "needs real hardware" evidence item.
+[macOS](./acceptance-macos.md), [Windows](./acceptance-windows.md), [iOS](./acceptance-ios.md), and
+[Chrome/Edge](./acceptance-chrome.md). The RC gate models Chrome and Edge as two independent structured kinds,
+and models iOS signing, real-device Safari, and TestFlight independently. The Firefox document is an explicit
+exclusion notice, not a PASS path.
 
 ### Note 1 — Windows overlay coverage is narrower than macOS
 
@@ -72,44 +74,33 @@ signing-certificate pin — not by window geometry.
 A window covering less than 55 % of the active window is not reported either, because a keyboard,
 an autofill dropdown and a toast all legitimately sit on top. That is a deliberate false-negative.
 
-### Note 3 — Android confirmation is post-hoc, not a gate
+### Note 3 — desktop and Android confirmations are post-hoc, not external-action gates
 
 The relay now **reads** the engine's answer (it was fire-and-forget, so a `Block` with
 `require_confirm` reached nothing), and a `require_confirm` verdict raises a high-importance
 notification naming the engine's rule. That is a real improvement over a local heuristic guess
 with no connection to the verdict.
 
-It is still not the desktop's gate. The companion observes an accessibility event that has
-**already happened**; there is no point at which it holds the action and waits. On the desktop the
-modal blocks before the action proceeds. Calling both "Critical Confirm ✅" is what the previous
-version of this table did.
+The companion observes an accessibility event that has **already happened**; there is no point at
+which it holds the action and waits. The macOS and Windows observers have the same boundary for an
+external application: their shell can pause AgentGuard's current session and future observation,
+but cannot undo or prove prevention of the already-observed external action. Their audit export must
+therefore say `effect=observed_only` and `external_action_blocked=false`. Only the covered Chromium
+DOM/DNR path in note 4 is a pre-execution block.
 
-### Note 4 — Chromium confirmation is an extension notification, not a gate (was: nothing)
+### Note 4 — Chromium is block-only in the first GA
 
-This cell used to read "via the desktop shell", which was false twice over: the extension talks to
-the standalone `guard-nm-host` binary, **not** the Tauri desktop shell (the two processes never
-communicate), and `background.js` received the host's verdict and only `console.debug`'d it — the
-`paused` / `require_confirm` / `decisions` were discarded, so the "Critical Confirm" the store
-listing advertised never fired.
+The isolated content script synchronously intercepts covered payment clicks and privacy-trap submits before the
+page handler runs. It observes open Shadow DOM and declared frames from `document_start`. The ordinary-page notice
+only explains that the action was blocked and exposes one Close control; it cannot approve or replay anything.
+A page that removes, hides, clicks, or imitates that notice therefore gains no authorization capability.
 
-Now `guard-nm-host` returns a structured `notify` list (Critical / Block / confirm-worthy decisions,
-each with rule id, action, severity, and a `log_safe`'d message), and `background.js` raises a
-`chrome.notifications` entry per item plus a paused badge. This is the same shape as Android
-(note 3): the host observes a DOM event that has **already happened** over async native messaging,
-so there is nothing to hold and wait on — it is observe-and-notify, not the desktop's blocking gate.
-A true interactive approve-then-proceed would need the content script to intercept the action
-*before* it happens, which is a different capability (interception, not observation).
-
-**E2 built that in-page half.** The host-notify path above is unchanged (it is still observe-and-notify
-over async native messaging), but the content script now also runs a **synchronous** capturing gate:
-a `submit` / payment-CTA `click` is `preventDefault()`'d *before* it fires, and only replayed after a
-local "允许一次" confirmation (`content.js`, decision logic in `guard-gate.js`). It covers the page's
-own DOM actions (payment CTAs, privacy-trap PII submits); it does **not** cover a script that calls
-`fetch()` directly (no DOM event — that is what the `declarativeNetRequest` block-host rules are for),
-cross-origin iframes, or any native-app action. So the cell is "🟡 in-page 执行前拦截 + host 事后通知":
-the block is real but its reach is the page, not the machine. See [浏览器执行前阻断.md](./浏览器执行前阻断.md);
-decision logic pinned by `guard-gate.js`'s node tests, host-notify still pinned by
-`critical判决产生notify供扩展弹通知`.
+A separate, default-enabled static `declarativeNetRequest` ruleset blocks non-GET/HEAD payment-shaped
+fetch/XHR/beacon/form traffic for the covered URL and resource-type shapes. DNR has no page approval or one-shot
+exception. It is a deliberately bounded heuristic rather than a universal payment firewall: renamed endpoints,
+encrypted body-only semantics, unsupported schemes or browser-native actions remain outside its claim. The GA
+manifests omit `nativeMessaging`; repository Native Host and Firefox files are prototypes outside this browser
+release contract. See [浏览器执行前阻断.md](./浏览器执行前阻断.md) and [acceptance-chrome.md](./acceptance-chrome.md).
 
 ### Note 5 — macOS tree observation is push-driven, with polling kept as a floor (E3)
 
@@ -130,10 +121,15 @@ on a real device**. This is "faster, with a bounded gap", not "zero gap".
 
 ## iOS
 
-A 40-line SwiftUI snippet and a README. No Xcode project, no engine link, not connected to
-anything. iOS cannot run an accessibility companion the way Android can; the intended shape is
-Safari/WebView shielding plus MDM policy distribution, and none of it is built. Do not claim
-parity.
+iOS now has a formal XcodeGen project with a container app, embedded Safari Web Extension,
+`WebShieldCore`, App Group/Keychain entitlements, privacy manifest, local atomic JSONL audit,
+Swift unit/UI tests, and extension-contract tests. The limited SKU observes only authorized
+HTTP(S) Safari frames and blocks covered DOM clicks/submissions; it does not observe other apps,
+system UI, pixels, closed shadow roots, or direct scripted network calls, and it is not wired to
+the Rust engine. Unsigned simulator/device builds and simulator launch evidence exist, but Apple
+Distribution signing, real-device Safari enablement/permissions, upgrade/uninstall, and TestFlight
+remain external RC blockers. See [ios-limited-sku.md](./ios-limited-sku.md) and
+[acceptance-ios.md](./acceptance-ios.md).
 
 ## What backs each column
 
@@ -143,6 +139,7 @@ parity.
 | `windows` | workspace tests, `cargo build -p win-adapter`, `clippy -D warnings`, shell tests | the UI Automation walk or GDI capture failing to compile — the only job that compiles them. Its first run found an adapter that was not `Send`, which is a build error **on Windows only** and which the Linux and macOS jobs cannot see. |
 | `macos-shell` | `cargo build -p mac-adapter`, shell tests, signing-script parse | the Objective-C bridges failing to build against the macOS SDK |
 | `android` | `:app:testDebugUnitTest`, `:app:assembleDebug`, APK artifact | the Kotlin failing to compile, a unit test failing, or the APK failing to package |
+| `ios` | XcodeGen consistency, unsigned simulator/device Release builds, Swift tests, extension Node contracts | the app/extension/core project, resources, privacy manifest, or limited Safari gate failing to build or test |
 | `frontend` | `make check-shells` | a syntax error in either shell's JS or in any `.sh` |
 
 Locally: `make check` for the engine, then `make check-windows`, `make check-android` and

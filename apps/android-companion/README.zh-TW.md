@@ -2,9 +2,9 @@
 
 [简体中文](README.md) · 繁體中文 · [English](README.en.md)
 
-Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityService` 觀察守護工作階段中的介面事件，執行本機啟發式檢查，將事件寫成 JSONL，並可選擇轉送給桌面端 AgentGuard 引擎。
+Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityService` 觀察守護工作階段中的介面事件，執行本機啟發式檢查，並將最小化事件寫成 JSONL。
 
-> 目前狀態：原始碼、JVM 單元測試與 Debug APK 建置路徑可用；尚無實機端到端驗收、正式發布簽章證據或 Google Play 發布記錄。通知是在事件發生後提醒，不能暫停、撤銷或阻止第三方應用程式已經執行的操作。
+> 目前狀態：原始碼、JVM 單元測試、Debug APK 與 API 36 模擬器權限生命週期已驗證；尚無實機端到端驗收、正式發布簽章證據或 Google Play 發布記錄。通知是在事件發生後提醒，不能暫停、撤銷或阻止第三方應用程式已經執行的操作。Relay v1 回應尚未驗證，因此 Release 建置會強制停用桌面中繼；該能力只保留於 Debug 建置供協定開發。
 
 ## 能做什麼
 
@@ -12,7 +12,7 @@ Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityServ
 - 偵測付款/轉帳文字、隱私陷阱、非必要個資、提示詞注入標記，以及介面文字裡出現的可疑深層連結**字樣**（`intent://` 一類）。它不觀察深層連結本身——輔助使用服務看不到 intent。
 - 調查可見的文字輸入廣播接收器及其他已啟用的輔助使用服務。
 - 將每個工作階段的信封附加到應用程式私有目錄 `files/events/session-<id>.jsonl`。
-- 透過使用者明確設定的 HTTP 中繼把信封送到桌面本機 API，並顯示引擎回傳的高風險通知。
+- Debug 建置可透過使用者明確設定的 HTTP 中繼聯調桌面本機 API；Release 建置在回應驗證完成前強制停用此能力。
 - 使用 Android Keystore 中不可匯出的 ECDSA P-256 金鑰，為實際送出的 HTTP body 簽章。
 
 ## 建置與測試
@@ -40,8 +40,8 @@ adb install -r apps/android-companion/app/build/outputs/apk/debug/app-debug.apk
 
 1. 在 Android 13 及以上版本授予通知權限。
 2. 開啟系統輔助使用設定，啟用 AgentGuard Companion。
-3. 返回應用程式並點選「開始守護工作階段」。前景服務會顯示持續通知。
-4. 如需桌面引擎判決，先啟動本機 API，複製終端輸出的 Bearer 權杖，再於應用程式填入位址與權杖並開啟轉送。
+3. 返回應用程式並點選「開始守護工作階段」。輔助使用服務會顯示普通常駐狀態通知。
+4. 僅在 Debug 協定聯調時，可啟動本機 API 並開啟轉送；Release 建置不會顯示或啟用此入口。
 
 USB 除錯路徑範例：
 
@@ -53,7 +53,7 @@ cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788
 adb reverse tcp:8788 tcp:8788
 ```
 
-預設中繼位址是 `http://127.0.0.1:8788/v1/events`。Wi-Fi/LAN 模式需要明確使用 `--allow-lan`、非回環繫結與強 Bearer 權杖；不要把本機 API 無驗證暴露到網路。
+Debug 建置的預設中繼位址是 `http://127.0.0.1:8788/v1/events`。此 HTTP 路徑僅供本機開發，不得作為發布設定；不要把本機 API 無驗證暴露到網路。
 
 可透過 Android Studio Device File Explorer 或 `run-as` 讀取應用程式私有目錄中的 JSONL。每一行都是一個信封；將單行另存成 JSON 檔案後可離線重播：
 
@@ -95,10 +95,10 @@ X-AgentGuard-Signature: <DER 簽章十六進位>
 
 ## 未完成與發布邊界
 
-- 手機上沒有執行 Rust 引擎或 FFI；核心判決依賴選用的桌面中繼。
+- 手機上沒有執行 Rust 引擎或 FFI；Release 版本目前只提供本機啟發式偵測，桌面中繼尚未納入發布範圍。
 - Android 的高風險提示是事後通知，不是執行前確認框。
-- 沒有 instrumented test、實機權限生命週期測試或真實 Agent 端到端記錄。
+- 沒有實機權限生命週期測試或真實 Agent 端到端記錄；API 36 模擬器證據不能取代實機。
 - 沒有正式發布 keystore 簽章證據，也未提交 Google Play 審核。
-- `compileSdk / targetSdk = 36` 已符合 Google Play 的目標 API 要求，但 Android 15/16 的行為變化（邊到邊、前景服務、無障礙限制）只在原始碼層處理（`enableEdgeToEdge` + `safeDrawingPadding`），**尚未在 API 35+ 真機上回歸**——`scripts/acceptance/android-e2e.sh` 的 T 項在 API < 35 的裝置上只會 BLOCKED；請參閱 [Google Play 草案](PLAY_STORE.zh-TW.md)。
+- `compileSdk / targetSdk = 36` 已符合 Google Play 的目標 API 要求；Android 16 模擬器已驗證邊到邊、通知權限與狀態、輔助使用啟停、執行中撤權及處理程序死亡 fail-closed，但 **API 35+ 實機/OEM 回歸仍未完成**；請參閱 [Google Play 草案](PLAY_STORE.zh-TW.md)。
 
 跨語言簽章格式由 `eval/fixtures/adapter_signature_vectors.json` 固定，設計細節請參閱 [介面卡斷言簽章](../../docs/适配器断言签名.md)。

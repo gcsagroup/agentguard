@@ -10,29 +10,26 @@
 |------|------|
 | macOS 构建机 | `tauri build` 默认产出 `.app`；DMG 在签名/公证后再打包 |
 | Xcode CLT | `xcode-select --install` |
-| Rust + Node | 与仓库 `make check` 相同 toolchain |
+| Rust + Node | 仓库钉住的 Rust 1.95.0（`../../scripts/bootstrap-rust.sh --install`）与锁定的 npm 依赖 |
 | Apple Developer | **Developer ID Application** 证书（直装，非 Mac App Store） |
-| 公证 | App Store Connect API Key 或 App-Specific Password + `notarytool` |
+| 公证 | 已用 `notarytool store-credentials` 保存到登录钥匙串的 profile；脚本不接受命令行密码 |
 
 ## 配置文件
 
 | 文件 | 用途 |
 |------|------|
 | `src-tauri/tauri.conf.json` | 默认开发/发布配置；`version` 与 workspace 对齐；`bundle.macOS.entitlements` → `./entitlements.plist` |
-| `src-tauri/entitlements.plist` | Hardened Runtime 权限（WebView JIT 等）；ScreenCaptureKit 走 TCC，无需额外 entitlement |
+| `src-tauri/entitlements.plist` | 当前为空：WebKit 独立进程与静态原生桥不需要关闭 Library Validation、开放 JIT 或无签名可执行内存；ScreenCaptureKit 走 TCC |
 | `src-tauri/tauri.release.conf.json` | **可选** JSON Merge Patch：启用 updater 产物与 `plugins.updater` 占位 endpoint |
 
 `tauri.conf.json` 为纯 JSON，**不能写注释**。Entitlements 路径与 updater 说明见本文档及 `scripts/build-release.sh`。
 
 ### Entitlements 说明
 
-直装版（非 App Sandbox）典型项：
-
-- `com.apple.security.cs.allow-jit` — Tauri/Wry WebView
-- `com.apple.security.cs.allow-unsigned-executable-memory`
-- `com.apple.security.cs.disable-library-validation`
-
-ScreenCaptureKit 依赖用户在 **系统设置 → 隐私与安全性 → 屏幕录制** 中授权；见 [`sck-bridge.md`](sck-bridge.md)。
+当前直装版不声明 Hardened Runtime 逃生项。Tauri/Wry 使用系统 WebKit 进程，AgentGuard 的 Objective-C
+桥静态链接，因此没有证据支持 `allow-jit`、`allow-unsigned-executable-memory` 或
+`disable-library-validation`；这三项已由打包测试固定为不得出现。ScreenCaptureKit 依赖用户在
+**系统设置 → 隐私与安全性 → 屏幕录制** 中授权；见 [`sck-bridge.md`](sck-bridge.md)。
 
 若将来上架 **Mac App Store** 并启用 App Sandbox，需重新评估 entitlements（如 `com.apple.security.network.client`）及 SCK 在沙盒下的限制。
 
@@ -41,13 +38,26 @@ ScreenCaptureKit 依赖用户在 **系统设置 → 隐私与安全性 → 屏�
 ```bash
 cd apps/desktop-macos
 chmod +x scripts/build-release.sh
-./scripts/build-release.sh
+../../scripts/bootstrap-rust.sh --install
+AGENTGUARD_ALLOW_ADHOC=1 ./scripts/build-release.sh  # 仅本机 smoke，不可分发
 ```
+
+发布脚本默认生成 `universal-apple-darwin`（Apple Silicon + Intel）并固定传入
+`--no-default-features --features audit-sqlcipher --locked`。明文 SQLite 只允许
+开发/调试；Release 未显式启用 `audit-sqlcipher` 会由 Rust `compile_error!` 直接拒绝，不存在明文
+override。
+
+发布包把规则、任务计划、授权策略、威胁情报 bundle 与验签公钥映射到
+`Contents/Resources/agentguard/`。Release 只从签名 bundle 读取这些文件并在缺失、解析失败或情报验签失败时
+拒绝启动；`AGENTGUARD_RULES` / `AGENTGUARD_INTEL*` 等路径覆盖仅在 Debug 生效。SQLCipher 口令与
+Ed25519 审计种子分别存入当前用户 Keychain，审计库通过 `open_protected` 一次性要求“加密 + 可用签名器”。
+遇到旧明文 DB/WAL/SHM 时保持字节不变并阻断，不会静默换到同级新库；上线前须对选定的备份、迁移或清空
+流程做中断与回滚演练。
 
 产物目录（成功时）：
 
 ```
-apps/desktop-macos/src-tauri/target/release/bundle/macos/AgentGuard.app
+apps/desktop-macos/src-tauri/target/universal-apple-darwin/release/bundle/macos/AgentGuard.app
 ```
 
 `bundle.targets` 默认为 `["app"]`（避免本机 `bundle_dmg.sh` 偶发失败阻断发布编译）。需要 DMG 时：对已签名并 staple 的 `.app` 用 `hdiutil` / `create-dmg` 另打，或临时把 `targets` 改为 `["app", "dmg"]` 再构建。
@@ -82,18 +92,19 @@ https://releases.example.com/agentguard/{{target}}/{{current_version}}
 
 ## 代码签名（Codesign）
 
-环境变量占位（勿写入 git）：
+正式构建环境变量（勿写入 git）：
 
 ```bash
-export APPLE_ID="you@example.com"
-export AGENTGUARD_EXPECTED_MACOS_TEAM_ID="XXXXXXXXXX"
-export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Org (${AGENTGUARD_EXPECTED_MACOS_TEAM_ID})"
+export AGENTGUARD_EXPECTED_TEAM_ID="XXXXXXXXXX"
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Org (${AGENTGUARD_EXPECTED_TEAM_ID})"
+export NOTARYTOOL_PROFILE="AgentGuard-Notary"
+./scripts/build-release.sh
 ```
 
 Tauri 在 `APPLE_SIGNING_IDENTITY` 或 `tauri.conf.json > bundle.macOS.signingIdentity` 存在时会尝试签名；也可在 bundler 产出后手动签名：
 
 ```bash
-APP="src-tauri/target/release/bundle/macos/AgentGuard.app"
+APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/AgentGuard.app"
 codesign --force --options runtime \
   --entitlements src-tauri/entitlements.plist \
   --sign "$APPLE_SIGNING_IDENTITY" \
@@ -108,14 +119,11 @@ codesign --verify --deep --strict --verbose=4 "$APP" && \
 不要把密码放进命令参数、仓库或日志：
 
 ```bash
-xcrun notarytool store-credentials AgentGuard-Notary \
-  --apple-id "$APPLE_ID" \
-  --team-id "$AGENTGUARD_EXPECTED_MACOS_TEAM_ID"
+xcrun notarytool store-credentials AgentGuard-Notary
 
-DMG="src-tauri/target/release/bundle/dmg/AgentGuard_1.0.0-rc.1_aarch64.dmg"
+DMG="src-tauri/target/universal-apple-darwin/release/bundle/dmg/AgentGuard_1.0.0-rc.1_universal.dmg"
 xcrun notarytool submit "$DMG" \
   --wait \
-  --team-id "$AGENTGUARD_EXPECTED_MACOS_TEAM_ID" \
   --keychain-profile AgentGuard-Notary && \
   xcrun stapler staple "$DMG" && \
   xcrun stapler validate "$DMG"
@@ -158,7 +166,8 @@ tauri::Builder::default().plugin(tauri_plugin_updater::Builder::new().build())
 - [ ] `tauri.conf.json` 版本号与 release notes 一致
 - [ ] `entitlements.plist` 与实际上架渠道（直装 / MAS）匹配
 - [ ] Developer ID 签名 + Hardened Runtime
-- [ ] `notarytool submit --team-id … --keychain-profile AgentGuard-Notary` 成功 + `stapler staple` + `stapler validate`
+- [ ] `codesign -dvv` 的 `TeamIdentifier` 与 `AGENTGUARD_EXPECTED_TEAM_ID` 一致
+- [ ] `notarytool submit --keychain-profile AgentGuard-Notary` 成功 + `stapler staple` + `stapler validate`
 - [ ] DMG 在干净 macOS VM 上双击安装、首次启动无恶意软件拦截
 - [ ] TCC 文案与 [`store-listing-macos.md`](store-listing-macos.md) 隐私说明一致
 - [ ] ScreenCaptureKit / 辅助功能权限引导可理解（Menu Bar onboarding）

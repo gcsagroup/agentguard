@@ -4,13 +4,15 @@
 
 > 结论：当前整合候选的自动化、打包与 macOS 有限原生 smoke 取得进展，但没有在同一不可变提交上完成浏览器、Windows、macOS 与 Android 的发布级真机端到端验收。生产发布仍为 **No-Go**。
 
+> **2026-09-05 当前合同勘误：**本文保留的是历史证据，不可用于当前候选。Windows 风险确认属于事后观察（`effect=observed_only`、`external_action_blocked=false`）；Android 当前使用 AccessibilityService 与普通常驻会话通知，进程重启后不会自动恢复观察；macOS/Windows Release 遇到旧明文审计库或明文密钥会保留原文件并失败关闭，不再切换到旁路明文或 sibling 数据库；下文 Firefox ZIP 也只是历史产物，首个 GA 只打 Chrome/Edge 共用 Chromium 包。下文旧术语和旧行为只描述当时提交。
+
 本报告按 [真机验收执行手册](acceptance-runbook.md) 与 [报告模板](acceptance-report-template.md) 填写。空白项均已改为明确结果；无法从当前候选取得证据的项目记为 `BLOCKED`，不猜测 PASS。
 
 ## 1. 源码与证据边界
 
 本报告同时引用两层证据，二者不能混用：
 
-1. **2026-08-31 真机/跨平台基线**：精确提交 `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`，详情在外层报告 `/Users/lazy/Projects/agent-guard/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`。它包含当时的 Windows 11、macOS、Android 模拟器、iOS 临时 harness 与 Chromium 限定范围实测。
+1. **2026-08-31 真机/跨平台基线**：精确提交 `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`，详情在外层报告 `<local-acceptance>/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`。它包含当时的 Windows 11、macOS、Android 模拟器、iOS 临时 harness 与 Chromium 限定范围实测。
 2. **2026-09-01 当前整合候选**：以发布基线 `a7956314fba8340e905353448a53bb1f24f7083c` 为第一父提交，合入功能基线 `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`，并包含本报告记录的修复、D 品牌与三语文档。最终不可变身份以“包含本报告的 `main` 提交”为准。
 
 因此，`bd7bb2f` 上的真机结果只能作为历史基线，**不能自动继承为当前整合候选的 PASS**。本轮控制台结果没有归档到独立证据目录；下文以命令和实测计数记录，属于整合验证记录，不是可独立复核的发布或真机证据。
@@ -44,7 +46,7 @@
 | macOS Tauri | `rustup run stable cargo test --manifest-path apps/desktop-macos/src-tauri/Cargo.toml` | 7/7 | 包装、产品接线与旧明文审计库迁移测试；不是权限/第三方 App E2E |
 | Windows Tauri | `rustup run stable cargo test --manifest-path apps/desktop-windows/src-tauri/Cargo.toml --no-run` | 编译完成 | 当前 macOS 宿主上的 no-run 编译；未启动 Windows EXE |
 | macOS release build | `apps/desktop-macos/scripts/build-release.sh` | 构建成功；`codesign --verify --deep --strict` 通过 | 仅 ad-hoc：`TeamIdentifier=not set`；`spctl` 拒绝，未公证，不可分发 |
-| macOS 本机启动 smoke | Computer Use 启动当前 release App、开启/关闭 AX 实时观测并结束会话 | AX/Capture `true`；`AXObserver push on`；摄取 1 个 decision | 旧明文审计库被保留并改用相邻 SQLCipher 库，启动不再崩溃；无独立截图/日志，未跑完整清单 |
+| macOS 本机启动 smoke | Computer Use 启动当时的 release App、开启/关闭 AX 实时观测并结束会话 | AX/Capture `true`；`AXObserver push on`；摄取 1 个 decision | 当时保留旧明文审计库并改用另一 SQLCipher 库，启动不再崩溃；该行为现已退役，当前 Release 会失败关闭；无独立截图/日志，未跑完整清单 |
 | Chromium / Firefox 包 | `package-store.sh`、`--firefox`、`unzip -t` 与包内哈希复核 | 两份 ZIP 可完整解压并含 D 图标；脚本已改为全新 ZIP 后原子替换 | 16:39 重打包后 `background.js`/`content.js` 与当前源码一致；Firefox manifest 为 `background.scripts` 模块入口 |
 | Browser UI 辅助流程 | Browser 工具检查本地引导、确认层与 popup 流程 | 人工流程可操作 | 无截图/控制台归档，且不是 MV3 扩展上下文；只作辅助检查 |
 | 覆盖矩阵 | 当前生成的 `eval/coverage-matrix.md` | 30 个面：13 covered、16 partial、1 uncovered；107 个攻击场景与 35 个 benign 对照 | 仓库生成覆盖证据，不替代真机验收 |
@@ -76,7 +78,7 @@ Firefox `background.scripts` 修复已通过 8/8 manifest 自动检查；重打�
 
 | 用例 | 当前候选结果 | 证据 | 备注 |
 |---|---|---|---|
-| W1 阻断模态 | `BLOCKED (current-candidate-not-run-on-Windows)` | 8/31 外层报告仅覆盖 `bd7bb2f` | 当前候选未显示 Windows 主窗口 |
+| W1 事后风险确认 | `BLOCKED (current-candidate-not-run-on-Windows)` | 8/31 外层报告仅覆盖 `bd7bb2f` | 当前候选未显示 Windows 主窗口，也没有外部动作阻断证据 |
 | W2 UIA 取树 | `BLOCKED (no-current-UIA-evidence)` | 同上 | no-run 编译不产生 UiTreeDelta |
 | W3 GDI 抓帧 + 隐写 | `BLOCKED (no-current-GDI-evidence)` | 同上 | 无当前帧/规则证据 |
 | W4 Windows.Media.Ocr 读屏 | `BLOCKED (no-current-OCR-evidence)` | 同上 | 无语言包/capability/识别输出 |
@@ -115,7 +117,7 @@ Firefox `background.scripts` 修复已通过 8/8 manifest 自动检查；重打�
 
 | 平台 | 8 月 31 日基线 | 当前整合候选 | 结论 |
 |---|---|---|---|
-| Android | `bd7bb2f` 在 Android 16 模拟器完成 Debug/Release JVM 31/31、Debug APK 安装和前台服务启停；Accessibility 未启用，不是保护 E2E | 本轮未在实体机或模拟器重跑当前候选 | `BLOCKED (current-Android-E2E-and-release-signing-missing)` |
+| Android | `bd7bb2f` 在 Android 16 模拟器完成 Debug/Release JVM 31/31、Debug APK 安装和当时已退役的后台常驻实现启停；Accessibility 未启用，不是保护 E2E | 本轮未在实体机或模拟器重跑当前候选 | `BLOCKED (current-Android-E2E-and-release-signing-missing)` |
 | iOS | `bd7bb2f` 只有临时 SwiftUI harness 1/1；仓库无完整 Xcode 产品工程 | 本轮未形成当前候选 iOS 产品或 archive | **No-Go**；临时 harness 不等于产品 |
 
 ## 8. 提交前发现并修复、但仍需真机复测的项目
@@ -137,7 +139,7 @@ Firefox `background.scripts` 修复已通过 8/8 manifest 自动检查；重打�
 
 | 面 | PASS | PASS (sim) | FAIL | BLOCKED | N/A |
 |---|---:|---:|---:|---:|---:|
-| 浏览器（Chrome + Firefox + Edge，F1–F8） | 0 | 0 | 0 | 24 | 0 |
+| 历史浏览器清单（Chrome + Firefox + Edge，F1–F8；非当前 GA 范围） | 0 | 0 | 0 | 24 | 0 |
 | Windows（W1–W7） | 0 | 0 | 0 | 7 | 0 |
 | macOS（清单 16 项） | 0 | 0 | 0 | 16 | 0 |
 | Android 当前候选平台门禁 | 0 | 0 | 0 | 1 | 0 |
@@ -176,11 +178,11 @@ Firefox `background.scripts` 修复已通过 8/8 manifest 自动检查；重打�
 
 ## 11. 证据索引
 
-- 8 月 31 日跨平台基线报告：`/Users/lazy/Projects/agent-guard/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`
+- 8 月 31 日跨平台基线报告：`<local-acceptance>/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`
 - 本次执行依据：[真机验收执行手册](acceptance-runbook.md)
 - 填写结构依据：[真机验收报告模板](acceptance-report-template.md)
 - 仓库状态快照：[状态仪表盘](status-dashboard.html)（最终提交后须重生成）
 - 当前 macOS ad-hoc App：`apps/desktop-macos/src-tauri/target/release/bundle/macos/AgentGuard.app`
-- 当前重打包 ZIP：`/Users/lazy/Projects/agent-guard/_push/agentguard-extension.zip`、`/Users/lazy/Projects/agent-guard/_push/agentguard-extension-firefox.zip`
+- 当前重打包 ZIP：`<local-acceptance>/_push/agentguard-extension.zip`、`<local-acceptance>/_push/agentguard-extension-firefox.zip`
 
 > 本报告记录提交前验收状态，不单独构成发布证明；签名、公证/商店审核、发布包身份、严格门禁与平台覆盖必须另行核验。

@@ -1,102 +1,78 @@
-# AgentGuard Chromium Extension
+# AgentGuard Chrome / Edge Extension
 
 [简体中文](README.md) · [繁體中文](README.zh-TW.md) · English
 
-This Manifest V3 extension checks pages for hidden or prompt-injection text, unnecessary personal-data fields, privacy traps, and payment or transfer actions. It synchronously holds matching clicks, submissions, and payment-shaped `fetch`/XHR calls in the page until the user decides. DNR rules can also stop judged-malicious or out-of-scope hosts before a request leaves the browser. Findings stay in an extension-local buffer by default; an optional Native Messaging host adds engine evaluation and audit records.
+This is the browser-extension implementation for the first GA. On Chrome and Edge pages it detects hidden prompt injection, unnecessary personal-data fields, privacy traps, and payment or transfer actions. Matching high-risk DOM clicks and submissions are stopped before execution; matching non-GET/HEAD requests to payment-shaped paths are hard-blocked at the network layer by a default-enabled static DNR ruleset.
 
-> Capability boundary: the in-page gate covers only main-frame DOM actions the extension can reach and `fetch`/XHR references that the page did not capture first. It is not an unbypassable browser sandbox. Native Messaging verdicts remain asynchronous and only notify or affect later state; pre-action control comes from the page gate and successfully installed DNR rules.
+> The first GA supports Chrome and Edge only. Firefox remains a source prototype: it is not packaged and is not an acceptance gate for the first GA. Safari is a separate Xcode/Swift product line. The GA manifest has no `nativeMessaging` permission, and the release package neither connects to nor includes a Native Messaging host.
 
 ## Load unpacked
 
+Chrome:
+
 1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
+2. Enable Developer mode.
 3. Choose **Load unpacked** and select `apps/extension-chromium`.
-4. Record the extension ID assigned by Chrome; the Native Messaging installer needs it.
 
-Edge uses the same directory and package through `edge://extensions`. On Firefox 128+, open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `manifest.firefox.json`. The Firefox port still requires real-browser acceptance.
+Edge loads the same directory and package from `edge://extensions`. The extension includes `en`, `zh_CN`, and `zh_TW` UI resources and also supports a language override in the popup.
 
-The extension ships `en`, `zh_CN`, and `zh_TW` UI resources and allows a popup-level language override.
+`manifest.firefox.json` is retained only as a future development starting point. For the first GA, do not load it temporarily, package it, submit it to a store, or include it in an acceptance conclusion.
 
 ## Package
 
-From the repository root:
+Run from the repository root:
 
 ```bash
 ./apps/extension-chromium/scripts/package-store.sh
-./apps/extension-chromium/scripts/package-store.sh --firefox
 ```
 
-The default command writes the Chrome/Edge package `agentguard-extension.zip`; `--firefox` writes `agentguard-extension-firefox.zip`. Neither package contains the Native Messaging host. Store review, privacy disclosure, and per-browser acceptance remain separate release gates.
+This produces `apps/extension-chromium/dist/agentguard-extension.zip` for both Chrome and Edge. The release script rejects `--firefox`. The ZIP contains no Native Messaging host, and the GA manifest does not request `nativeMessaging`.
 
-## Optional standalone Native Messaging host
+## Pre-execution blocking
 
-`guard-nm-host` is a standalone local process. It loads rules, evaluates events, and writes its own audit database; the AgentGuard desktop app does not need to be running. The host and desktop may use the same audit location when `AGENTGUARD_AUDIT_DB` is explicitly configured. Audit signing and encryption require `AGENTGUARD_AUDIT_SIGNING_KEY` and `AGENTGUARD_AUDIT_KEY`; neither should be assumed enabled by default.
+### Page DOM actions
 
-Development install on macOS or Linux:
+From `document_start`, the browser injects the isolated content script into every HTTP(S) frame it allows the extension to enter. Payment or transfer CTAs and privacy-trap personal-data submissions in those frames are synchronously blocked during capture. The extension **does not offer an in-page “Allow once,” Continue, or replay control**.
+
+Any in-page notice is informational only. A page can delete, cover, imitate, or otherwise influence it, so it is not trusted authorization UI and no click inside the page can change the block decision. If a user understands the risk and still wants to continue, they must first use the browser's trusted extension-management surface (`chrome://extensions` in Chrome or `edge://extensions` in Edge) to disable or remove AgentGuard, then independently repeat the original action. The first GA has no temporary exception.
+
+DOM protection covers only HTTP(S) frames where the browser actually injects the content script and an observable click/submit event occurs. Direct `form.submit()`, uninjected pages or schemes, and script paths that emit no observed event are outside that guarantee. A page can compromise the visibility or authenticity of the information notice, but cannot use that to create release state.
+
+### Static DNR network hard block
+
+The static `payment_shape_block` ruleset blocks only when **all** of these conditions hold:
+
+- the URL is HTTP(S);
+- the method is not GET or HEAD;
+- either a URL path component starts with an explicitly listed payment marker at the documented character boundary, or the query key `op`, `action`, or `operation` explicitly equals one of those markers: `pay`, `payment`, `checkout`, `charge`, `transfer`, `remit`, `purchase`, `orderconfirm` / `order-confirm` / `order_confirm`, or `confirmorder` / `confirm-order` / `confirm_order`; the path rules also explicitly cover percent-encoded bytes for the core markers and `%2F` separators;
+- the browser classifies the request as `xmlhttprequest`, `ping`, `main_frame`, or `sub_frame`.
+
+This covers declared fetch/XHR, sendBeacon, and top/subframe form-navigation cases. It does not inspect request bodies, and it does not cover body-only payment intent, site-specific aliases, encoded or obfuscated forms not explicitly listed, arbitrary query keys or values, WebSocket/WebTransport, GET/HEAD, or unlisted resource types. The ruleset is block-only: there is no in-page approval, scope exception, or one-shot network release.
+
+See [Browser pre-execution blocking](../../docs/浏览器执行前阻断.en.md) for the complete boundary.
+
+## Local data and permissions
+
+- Findings stay in the extension-local recent list and are not uploaded to AgentGuard servers by default.
+- Before a URL enters the recent list, userinfo, the fragment, and the entire query are removed, and token-shaped path segments become `…`. This is heuristic and cannot identify every secret.
+- The same finding is reported only once per page, so continuous mutation does not create an alert storm. Changed content is a new finding, while scans remain throttled and the fingerprint set remains bounded.
+- `storage` keeps settings and recent findings; `declarativeNetRequest` enables the static network rules; `notifications` provides browser-owned information after a DOM action has been blocked; `activeTab` supports active-tab interaction; HTTP(S) host permissions run the content script on pages the user visits.
+- The GA manifest has no `nativeMessaging`. Native-host source and templates retained in the repository are not a first-GA capability and must not be used as store-copy or acceptance evidence.
+
+## Verification
 
 ```bash
-./apps/extension-chromium/native-host/install-host.sh <EXTENSION_ID>
-# Edge
-./apps/extension-chromium/native-host/install-host.sh --browser edge <EXTENSION_ID>
-# Firefox
-./apps/extension-chromium/native-host/install-host.sh --browser firefox agentguard@agentguard.dev
+make check-extension-gate
+make e2e-extension
 ```
 
-The installer:
+`check-extension-gate` checks blocking logic, manifests, trilingual strings, and the Chrome/Edge packaging boundary. `e2e-extension` loads the extension into a Chromium test environment and verifies that DOM actions do not execute, legacy decision/scope messages cannot release them, static DNR blocks before requests reach the server, and GET plus ordinary POST are not false-blocked. Passing offline automation does not replace real-browser install, upgrade, permission-prompt, and behavior evidence for the Chrome and Edge store candidates.
 
-- builds `guard-nm-host`;
-- writes Chrome's Native Messaging manifest; and
-- writes `chrome-extension://<EXTENSION_ID>/` to an `allowed-origin` file beside the host binary.
+## Current release boundary
 
-The helper currently supports macOS and Linux only and writes the caller format required by the selected browser. Windows requires manual Native Messaging manifest installation; this repository has no Windows installer.
+- First GA: Chrome / Edge, one shared Chromium ZIP, with separate store and real-browser acceptance.
+- Firefox: source prototype retained; not packaged, not submitted, and not an acceptance gate for the first GA.
+- Native Messaging: completely disabled in the GA manifest; the host is not shipped in the ZIP and retained prototype code is not a GA capability.
+- Safari: separate product line, outside this extension's first GA.
 
-### Caller identity fails closed
-
-The Chrome manifest's `allowed_origins` constrains Chrome, but not another local process that directly executes the host. The host therefore reads the actual origin Chrome supplies in `argv[1]` and compares it byte-for-byte with:
-
-1. `AGENTGUARD_ALLOWED_ORIGIN`; or
-2. the `allowed-origin` file beside the binary.
-
-If neither expected value exists, Chrome supplies no origin, or the values differ, the host refuses to start with exit code 2. This prevents an arbitrary local process from injecting a forged `source_app` into the audit path.
-
-## Pre-action gates, network rules, and asynchronous verdicts
-
-The in-page gate evaluates payment CTAs, privacy-trap forms, and payment-shaped `fetch`/XHR calls in the capture path. It holds the action first and replays it only after **Allow once**. DNR rules derived from engine verdicts and the session allowlist block matching requests before they leave, with visible reasons and an unblock control in the popup.
-
-Findings can also be sent asynchronously to the host. High/Critical, Block, or `require_confirm` verdicts produce notifications, update the badge, and enter the recent-results buffer. A "paused" response only means the engine refuses later events. This host path cannot undo an action that already occurred and must not be presented as the page gate's approve-then-proceed control.
-
-When the host is missing, unregistered, or disabled, findings remain in the extension-local buffer but receive no engine verdict. The popup's native-relay toggle disables Native Messaging.
-
-## Offline payload check
-
-From the repository root:
-
-```bash
-cargo run -p guard-cli -- ingest-browser \
-  --payload eval/fixtures/browser_extension_payload.json
-```
-
-## Real-browser E2E
-
-```bash
-make e2e-extension        # needs playwright + Chromium (preinstalled in the container / CI)
-```
-
-Loads this directory unpacked into a real Chromium and runs 24 machine assertions against `eval/acceptance-fixtures/`
-(hidden injection reported; payment click held before execution and replayed exactly once after "Allow once"; trap form
-submit held; page-issued fetch held **before a single byte leaves**; read-only methods not gated; a continuously mutating
-page reports the same alert once while a later injection is still reported; popup forwarding off by
-default and free of raw terms). Results land in `eval/e2e-extension/out/report.json`; the last line is
-`AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. It installs no Native Messaging host and is not the real-device acceptance itself —
-mapping and boundaries in `docs/acceptance-chrome.en.md`.
-
-## Privacy and limits
-
-- Browsing history is not uploaded to AgentGuard servers by default.
-- When Native Messaging is enabled, matching page findings go to the local host; local configuration determines its audit path and protections.
-- The extension has `http://*/*` and `https://*/*` host permissions so its content script can run on pages the user visits.
-- The page gate is a best-effort client control. A previously captured original `fetch`, a clean iframe, cross-frame actions, or native-app behavior can bypass it.
-- DNR fails open when rules cannot be installed. Chrome, Edge, and Firefox still require separate real-browser acceptance; Safari remains a design item.
-- The same finding on the same page is reported once; a page that never stops changing does not flood the recent list. A one-character change is a new finding, and an injection that arrives later is still reported. Scans are at least 1.5 s apart and a burst of findings is batched. The fingerprint set is capped (500) and cleared when full — a finding may then be reported a second time, the price of bounded memory.
-
-See the [privacy policy](../../docs/privacy-policy.en.md) and [store-listing draft](STORE.en.md).
+See the [privacy policy](../../docs/privacy-policy.en.md), [store listing draft](STORE.en.md), and [cross-browser scope](../../docs/跨浏览器.en.md).

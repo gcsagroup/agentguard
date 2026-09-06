@@ -2,7 +2,7 @@
 
 # macOS 观测实时化（E3）
 
-> 状态:**已落地(树信号 push + 合并器);像素仍采样;本机 ad-hoc 路径已验证**。把 macOS 的 UI 树观测从
+> 状态:**已落地(树信号 push + 合并器 + 代际取消/排空);像素仍采样;2026-09-01 旧 ad-hoc 候选有本机接线 smoke，最新 universal `.app` 尚未复验**。把 macOS 的 UI 树观测从
 > 固定轮询改成"变了就抓",压小"边界"里那条"不是实时监控,轮询间隙内的动作可能看不到"。
 
 ## 问题:轮询间隙
@@ -16,7 +16,7 @@ macOS 的 UI 树原来每 2.5s 抓一次 AXUIElement 快照。一个在两次轮
 
 1. **AXObserver 推送**(`native/AgentGuardAX.m`,FFI 在 `ax_native.rs`)。注册前台应用的树变化通知
    (值变、焦点变、窗口建/毁、标题变)。变化**发生时**推一个信号过来,而不是等下一个轮询点。
-   回调只做一件事:把一个原子计数 +1。尽量薄。
+   回调只做一件事:在短临界区内核对注册代际并把该代计数 +1。尽量薄。
 
 2. **纯合并器**(`ax_push.rs`,`PushCoalescer`)。不能每来一个通知就抓一次——一次输入会连发几十个
    `kAXValueChangedNotification`,逐个抓会把 CPU 打满(而"卡"和"看不到"一样会让人关掉守卫)。所以
@@ -35,14 +35,17 @@ macOS 的 UI 树原来每 2.5s 抓一次 AXUIElement 快照。一个在两次轮
 ## 驱动怎么用
 
 ```rust
-adapter.start_ax_push()?;              // 会话开始:注册 observer(失败则退回纯兜底轮询)
+let generation = lifecycle.begin_if_drained()?;
+adapter.start_ax_push(generation)?;    // 会话开始:注册并绑定不可复用的代际
 loop {
     let now = now_ms();
-    let captured = adapter.maybe_capture_ax(now)?;  // 喂通知给合并器,该抓就抓
+    let captured = adapter.maybe_capture_ax(generation, now)?;
     // captured==true 时可顺带抓一帧像素做配对
     sleep(tick);
 }
-adapter.stop_ax_push();                // 会话结束
+lifecycle.cancel(generation);          // UI/async 路径只取消，不同步等待
+lifecycle.wait(generation, timeout);   // blocking worker 中有界排空
+adapter.stop_ax_push(generation);      // 旧代 stop 不能停掉继任 observer
 ```
 
 `maybe_capture_ax` 把"取通知计数 → 喂合并器 → 判该不该抓 → 抓 → 标记"合成一步,驱动只管定时调它。
@@ -54,11 +57,13 @@ adapter.stop_ax_push();                // 会话结束
 (比如一张贴上来的图),它的间隙没变。要把像素也做成事件驱动是另一件事(ScreenCaptureKit 的
 内容变化回调),没做。
 
-**二、本机接线已验证,发布级时序仍未验证。** 合并器有 6 条单元测试覆盖去抖、延迟上限、兜底、
+**二、本机接线已验证,发布级时序仍未验证。** 合并器有 6 条单元测试；生命周期另有 5 条
+测试覆盖 1000 次 start/end/start、启动失败、panic、stop timeout 和排队旧 callback。这些证明纯控制边界，
+不能代替 TCC 授权后的真实 AX/SCK callback 风暴与系统队列排空测试。原合并器测试覆盖去抖、延迟上限、兜底、
 抓完清账与冷启动；桌面壳另有测试钉住启动、驱动、停止以及主 RunLoop 接线。2026-09-01 在本机
 ad-hoc 候选上实际启动应用(TCC 的 AX 与 Capture 均为 true),开启 AX 实时观测后界面显示
 `AXObserver push on`；改变界面树后出现 `live AX ingested · 1 decision(s)`,随后关闭观测并结束会话。
-这证明当前本机的 Objective-C 回调和产品驱动确实连通，但**不是** 150ms/800ms 的真机延迟分布基准，
-也不替代 Developer ID 签名/公证后的全新安装、升级、前台应用切换及长时间稳定性验收。
+这只证明当时候选在该 Mac 上的 Objective-C 回调和产品驱动连通；它不是当前 universal 候选证据，也**不是** 150ms/800ms 的真机延迟分布基准，
+更不替代 Developer ID 签名/公证后的全新安装、升级、前台应用切换及长时间稳定性验收。
 
 一句话:这是**更快、且间隙有上界**,不是**零间隙**。

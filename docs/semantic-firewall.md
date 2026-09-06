@@ -150,17 +150,17 @@ number into a signed log has moved the leak, not stopped it.** Test:
 `a_finding_never_carries_the_value_it_found`.
 
 That argument applies to the guard's own audit path, and the first cut missed it there:
-`AuditRecord::event_json` stores the whole event verbatim, so the same `Engine::process`
+`AuditRecord::event_json` stored the whole event verbatim, so the same `Engine::process`
 call that reported `••••4242` wrote the PAN into a hashed, signed, exportable row. The
 redaction was real and the leak was one field away.
 
-So `persist_audit` now masks the observed-text fields where a **checksum-verified** entity
-was found, using `entity::mask_sensitive_runs` — a deliberately blunter pass that masks
-every ≥13-digit run, IBAN-shaped token and credential-prefixed token without asking
-whether a checksum passes. Over-masking an audit row costs forensic detail; under-masking
-it costs the user their card number. Context survives (`Saved payment method: Visa
-••••4242`), and a field whose only evidence was a keyword is stored untouched — an audit
-log should not be degraded on a guess. Tests:
+The durable boundary now emits `persistable_event_v1` rather than serializing
+`GuardEvent`. Raw UI/OCR/clipboard text is absent whether or not an entity scanner happened
+to verify a shape; URLs keep only scheme and normalized host; paths and free-form values do
+not persist. If any event value was dropped or reduced, `human_message` becomes a fixed
+rule/action/severity summary so case-folding, whitespace normalization or prefix-only rule
+messages cannot create a prose bypass. The earlier entity masking remains defence in depth,
+not the persistence contract. Tests:
 `the_audit_row_does_not_keep_the_card_number`,
 `sensitive_runs_are_masked_for_the_audit_log`.
 

@@ -2,7 +2,7 @@
 
 简体中文 · [繁體中文](STORE.zh-TW.md) · [English](STORE.en.md)
 
-> **草案，尚未提交或通过 Chrome Web Store 审核。** 商店文案不能作为已发布、已审核或已完成真实浏览器验收的证据。
+> **草案，尚未提交或通过 Chrome Web Store 审核。** 商店文案不能作为已发布、已审核或已完成真实浏览器验收的证据。首个 GA 仅面向 Chrome / Edge；Firefox 源码原型不打包，也不作为验收门。
 
 ## 名称
 
@@ -10,45 +10,39 @@ AgentGuard Web Shield
 
 ## 摘要
 
-在 AI Agent 使用的网页中，于付款、隐私陷阱提交和高风险网络请求发生前提醒并等待确认，同时发现隐藏提示词注入；本地优先。
+在 AI Agent 使用的网页中，于执行前阻断匹配的付款或隐私陷阱 DOM 动作，并硬拦已声明付款路径上的非只读网络请求；同时提示隐藏提示词注入，本地优先。
 
 ## 说明
 
-AgentGuard Web Shield 为 AI Agent 代用户操作的页面提供三层有限防护：
+AgentGuard Web Shield 为 Chrome / Edge 页面提供三项边界明确的有限防护：
 
-- **页面内确认门**：付款/转账点击、向隐私陷阱提交个人信息，以及付款形状的 `fetch`/XHR 会先被暂停；用户选择“允许这一次”后才重放。
-- **网络层名单阻断**：浏览器 DNR 会在请求发出前拦截已由威胁情报判定的恶意主机，以及当前任务明确允许表之外的主机；名单、原因与解除入口均可见。
-- **页面检测**：发现隐藏/潜意识提示词注入文本、非必要个人信息字段、隐私陷阱和高风险按钮文字。
+- **DOM 动作阻断**：浏览器从 `document_start` 向允许扩展进入的各个 HTTP(S) frame 注入内容脚本；其中的付款／转账点击和隐私陷阱个人信息提交会在执行前被同步阻断。页面内没有“允许一次”、继续或重放控件。
+- **付款路径网络硬拦**：默认静态 DNR 在浏览器网络层阻断符合声明范围的 HTTP(S) 非 GET/HEAD 请求，覆盖浏览器归类为 `xmlhttprequest`、`ping`、`main_frame` 或 `sub_frame` 的请求。
+- **页面检测**：发现隐藏或潜意识提示词注入文本、非必要个人信息字段、隐私陷阱和高风险按钮文字，并把结果留在扩展本地最近列表。
 
-发现结果默认保存在扩展本地。用户安装并启用可选的 `guard-nm-host` 后，匹配事件会交给本地引擎判决并进入可签名的防篡改审计链；桌面 App 不必同时运行。host 判决是**异步路径**：Critical 结果只能在事件发生后发出通知，不能撤销已发生的操作；执行前控制来自页面门和成功安装的 DNR 规则。
+页面内警告只是信息层。网页可以删除、遮挡、仿冒或影响它，因此它不是授权 UI，页面里的任何点击都不能放行。用户若理解风险后仍要继续，只能先在浏览器自己的受信扩展管理界面（`chrome://extensions` 或 `edge://extensions`）停用或移除 AgentGuard，再自行重新发起操作；首个 GA 不提供临时例外。
 
-**如实限制**：页面门只能覆盖主框架中扩展能接触到的 DOM 动作及未被页面提前保存原始引用的 `fetch`/XHR，可能被干净 iframe 或更早抓取的 API 引用绕过。DNR 安装失败时 fail-open。当前机制不能监控浏览器之外的原生 App。
+静态 DNR 仅在以下条件同时成立时硬阻断：URL 为 HTTP(S)；方法不是 GET/HEAD；路径组件以 `pay`、`payment`、`checkout`、`charge`、`transfer`、`remit`、`purchase`、`orderconfirm` / `order-confirm` / `order_confirm` 或 `confirmorder` / `confirm-order` / `confirm_order` 开头并满足字符边界，或查询键 `op`、`action`、`operation` 的值明确等于这些标记；资源类型为上述四类。路径规则还明确覆盖核心标记逐字节百分号编码与 `%2F` 分隔符。它不检查请求 body，也不覆盖 body-only 付款意图、自定义别名、未明确列出的编码/混淆形式、任意查询键或值、WebSocket/WebTransport、GET/HEAD 或其他资源类型。
+
+**如实限制**：DOM 阻断只覆盖浏览器实际注入内容脚本、且会产生可观察 click/submit 事件的 HTTP(S) frame；直接 `form.submit()`、未注入的页面/协议及不产生被监听事件的脚本路径不在该保证内。网页可影响信息提示的可见性或真实性，但不能借此生成放行状态。静态 DNR 与 DOM 阻断都是 block-only，没有网页内批准、scope 例外或一次性放行。扩展不监控浏览器之外的原生 App。
 
 ## 隐私
 
-- 默认不向 AgentGuard 服务器上传浏览历史。
-- Native Messaging 转发**默认关闭**；用户在弹出层设置里打开后才转发。设置加载完成前到达的事件先排队、不外发（fail-closed）。
-- 未安装或关闭 Native Messaging host 时，发现保存在扩展本地缓冲区。
-- 启用 host 后，匹配事件发送到用户本机的 `guard-nm-host`。外发与本地记录的 URL 都经过**最小化**：去掉 userinfo、fragment 和全部 query，路径里形似令牌的段打成 `…`——规则读的是页面文字，不需要 URL 里的令牌、OAuth code 或重置链接。
-- 弹出层显示当前检查的站点、转发去向（本机 host 名）、是否已连接与上次成功时间。
-- host 的审计库默认是本地数据；审计签名和加密必须由用户显式配置，不能假定默认存在。
-- 威胁情报更新使用 Ed25519 签名且为可选功能；生产部署必须替换仓库夹具密钥。
-- 详见 [隐私政策](../../docs/privacy-policy.md)。
+- 默认不向 AgentGuard 服务器上传浏览历史或发现结果。
+- 匹配结果保存在扩展本地最近列表。
+- 本地记录的 URL 会被最小化：去掉 userinfo、fragment 和全部 query，并把形似令牌的路径段替换为 `…`。这是启发式保护，短令牌或嵌在普通文字里的秘密可能无法识别。
+- GA manifest 不申请 `nativeMessaging`，扩展不连接本机 host。仓库中保留的 Native host 源码与模板不是首个 GA 能力，也不随商店 ZIP 发布。
+- 详见[隐私政策](../../docs/privacy-policy.md)。
 
 ## 权限说明
 
-- `storage`：保存开关和最近发现的本地缓冲区。
-- `nativeMessaging`：可选地连接用户安装的本机 `guard-nm-host`。
-- `declarativeNetRequest`：在请求发出前阻断名单中的恶意或越界主机。
-- `notifications`：显示引擎返回的异步高风险通知。
+- `storage`：保存设置和最近发现的本地缓冲区。
+- `declarativeNetRequest`：默认启用已声明付款路径的静态网络硬阻断。
+- `notifications`：在 DOM 动作已被阻断后显示浏览器拥有的信息通知，不作为授权入口。
 - `activeTab`：支持与当前标签页相关的扩展交互。
-- `http://*/*`、`https://*/*`：在用户访问的网页中运行内容脚本并检查 DOM。
+- `http://*/*`、`https://*/*`：在用户访问的 HTTP(S) 页面中运行内容脚本并检查 DOM。
 
-## 本机 host 安全边界
-
-host 除了依赖 Chrome manifest 的 `allowed_origins`，还会校验 Chrome 通过 `argv[1]` 提供的 origin。没有配置期望 origin 或值不匹配时拒绝启动；安装脚本会把扩展 origin 写到二进制旁的 `allowed-origin` 文件。
-
-**这不是调用方身份认证。** `argv[1]` 是调用者可控的字符串，`allowed-origin` 是磁盘上可读的公开值：一个以当前用户权限运行的本地进程可以读到它、用同样的参数直接执行 host 并喂入原生消息帧，从而伪造或污染事件与审计。stdio 宿主拿不到对端进程凭据，这条边界在这个架构里关不上；能挡住的是"不知道协议的进程"和"配置错误的浏览器"，不是"本机恶意进程"。扩展与 host 之间的长连接（`connectNative`）带连接级随机 nonce 与单调 seq，host 拒绝重放、乱序和 nonce 不符的帧；它同样只约束帧，不认证进程。
+`nativeMessaging` 明确不在 GA manifest 权限中；首个 GA 不声明 Native host 判决、动态主机名单或本机审计链能力。
 
 ## 打包
 
@@ -56,13 +50,14 @@ host 除了依赖 Chrome manifest 的 `allowed_origins`，还会校验 Chrome �
 ./apps/extension-chromium/scripts/package-store.sh
 ```
 
-生成的 ZIP 不包含 Native Messaging host。扩展包、host 安装方式和本地审计配置必须分别说明。
+该命令生成 Chrome / Edge 共用 ZIP。发布脚本拒绝 `--firefox`，ZIP 不包含 Firefox manifest 或 Native Messaging host。
 
 ## 当前发布状态
 
-- 未提交 Chrome Web Store 审核。
-- 没有商店安装、升级或权限提示的真实浏览器验收记录。
-- Native Messaging 安装脚本:macOS / Linux 用 `install-host.sh`,Windows 用 `install-host.ps1`(写注册表 `HKCU\Software\<浏览器>\NativeMessagingHosts`);两者都未在商店真机流程中留证。
-- Chrome、Edge 和 Firefox 的真实商店安装及端到端执行前阻断仍需分别留证；Safari 仅有设计说明。
+- 未提交 Chrome Web Store 或 Microsoft Edge Add-ons 审核。
+- Chrome / Edge 尚需分别完成商店候选的安装、升级、权限提示和执行前阻断真实浏览器留证。
+- Firefox 仅保留源码原型，不打包、不提交、不作为首个 GA 验收门。
+- Native Messaging 在 GA manifest 中彻底禁用；相关原型不构成发布能力。
+- Safari 是独立产品线，不属于此扩展首个 GA。
 
-技术说明见 [Chromium Extension README](README.md)。
+技术说明见 [Chrome / Edge 扩展 README](README.md)。

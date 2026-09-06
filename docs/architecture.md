@@ -7,7 +7,7 @@ not protect the filesystem): [scope-and-non-goals.md](./scope-and-non-goals.md).
 
 ```mermaid
 flowchart LR
-    Adapter[Win / Mac / Browser Adapter] --> Event[GuardEvent]
+    Adapter[Win / Mac / Android adapters] --> Event[GuardEvent]
     MacAX[mac-adapter AX snapshot] --> Overlay[guard-overlay]
     Overlay --> Event
     Event --> Engine[guard-core Engine]
@@ -18,6 +18,10 @@ flowchart LR
     Engine --> Decision[Allow Alert Block]
     Shell[guard-shell SafeShell] --> Confirm[Ask / Deny gate]
     FFI[guard-ffi C ABI] --> Engine
+    Page[Chrome / Edge page] --> Content[isolated content script]
+    Content --> Notice[block-only notice]
+    Request[HTTP(S) request] --> DNR[static DNR]
+    DNR --> NetBlock[network block]
 ```
 
 ## Crates
@@ -34,8 +38,18 @@ flowchart LR
 | `guard-ffi` | C ABI (`ag_engine_*`) for Swift / macOS hosts — **实验件,仓库内无消费者**(未接线,见 crate 头) |
 | `guard-shell` | Aura-lite safe shell: allowlist / deny / confirm |
 | `guard-cli` | Developer CLI |
-| `guard-nm-host` | Chrome Native Messaging host |
+| `guard-nm-host` | Legacy/future Native Messaging prototype; not reachable from the first-GA browser manifest |
 | `win-adapter` / `mac-adapter` / `browser-adapter` | Observation → GuardEvent |
+
+## First-GA browser boundary
+
+Chrome and Edge install the same Chromium MV3 ZIP. Its isolated content script runs from
+`document_start` in declared frames and blocks covered payment/privacy-trap DOM actions; the ordinary-page
+notice only explains the block and has one Close control. It never grants or replays an action. A manifest
+static DNR ruleset independently blocks the declared HTTP(S) non-read-only payment URL shapes and resource
+types. The GA manifest has no `nativeMessaging` permission, so neither the repository `guard-nm-host` nor the
+engine sits on this browser request path. Firefox is a retained source prototype, not a packaged/submitted GA
+target; Safari is a separate product path.
 
 ## Threat intel (Phase 2)
 

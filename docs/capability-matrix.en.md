@@ -11,10 +11,10 @@ The engine's `EventType` (guard-schema) has 20 kinds: `screen_frame`, `ui_tree_d
 | Platform | Emits | Extracted from | Notes |
 |---|---|---|---|
 | Android companion | `env_survey`, `form_fill`, `network_meta`, `overlay_marker`, `permission_request`, `session_end`, `session_start`, `ui_text` | `fun`s in `PayloadSerializer.kt` that main code calls | Defined but **never called**, hence never emitted: `deeplink`. `deeplink` is deliberate — an AccessibilityService does not see intents; observing them means registering as a link handler, a far larger intrusion than one event kind (see docs/android-completeness.md). `intent://`-shaped **strings** in on-screen text are reported by the local text scanner; that is not a deeplink event. |
-| Chromium / Firefox extension | `form_fill`, `ui_text` | `type:` pushed to the host in `background.js`; finding `kind:` in `content.js` | Content-script finding kinds: `invisible_injection`, `optional_pii`, `payment_cta`, `payment_request`, `privacy_trap`, `prompt_injection`. The envelope carries only `form_fill`, `ui_text` — payment/injection findings fold into `ui_text`, form findings into `form_fill`; both manifests install the same content scripts (pinned by a structural test), so Firefox and Chromium share one row. |
+| Chrome / Edge extension | — | GA-manifest permission gate; host `type:` in `background.js`; finding `kind:` in `content.js` | Content-script finding kinds: `invisible_injection`, `optional_pii`, `payment_cta`, `privacy_trap`, `prompt_injection`. The GA manifest has no `nativeMessaging`, so guard-schema envelopes actually sent to a host are —; event mappings retained in background.js are unreachable prototype code. The first GA ships only the shared Chromium package for Chrome / Edge. Firefox remains a source prototype; it is neither packaged nor an acceptance gate for the first GA. |
 | macOS desktop shell | `form_fill`, `ui_tree_delta` | `event_type: EventType::*` constructed in `adapters/mac-adapter/src` and the `guard_vision::uitree` builders it calls (the sim.rs simulation adapters and test modules excluded; the shell's demo-button events do not count) | Tree snapshots, form fills lifted from the tree, pixel frames; session events are issued by the shell through the engine API and are not counted here. macOS ScreenCaptureKit frames enter the engine via `ingest_capture_frame` as `ui_tree_delta` carrying frame metadata, which is why that row has no `screen_frame` — an implementation fact, not an omission. |
 | Windows desktop shell | `form_fill`, `screen_frame`, `ui_tree_delta` | `event_type: EventType::*` constructed in `adapters/win-adapter/src` and the `guard_vision::uitree` builders it calls (the sim.rs simulation adapters and test modules excluded; the shell's demo-button events do not count) | Tree snapshots, form fills lifted from the tree, pixel frames; session events are issued by the shell through the engine API and are not counted here. macOS ScreenCaptureKit frames enter the engine via `ingest_capture_frame` as `ui_tree_delta` carrying frame metadata, which is why that row has no `screen_frame` — an implementation fact, not an omission. |
-| iOS | (none) | whether `apps/ios-webshield` has a `.xcodeproj` / `.xcworkspace` / `Package.swift` | No buildable project, no engine wiring — today there is one SwiftUI source fragment. iOS is **not** a supported platform; docs/ios-limited-sku.md describes a target, not the present. |
+| iOS | (no guard-schema event) | a buildable project, or `project.yml` with App / Safari extension / Core / test targets | A formal XcodeGen definition, Safari Web Extension, and local audit wiring exist. This is an isolated-world DOM click/submit limited SKU, not a Rust-engine integration; signing, real-device Safari, and TestFlight acceptance remain external gates. |
 
 ## Test counts (static)
 
@@ -22,13 +22,13 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 
 | Where | Count | Form |
 |---|---:|---|
-| crates/guard-audit | 68 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-audit | 102 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-billing | 18 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-cli | 81 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-core | 251 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-cli | 93 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-core | 256 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-eval | 43 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-ffi | 1 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-gateway | 32 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-gateway | 37 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-intel | 15 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-localapi | 17 | Rust `#[test]` / `#[tokio::test]` |
@@ -36,26 +36,27 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | crates/guard-nm-host | 27 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-overlay | 10 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-privacy | 105 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-schema | 150 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-schema | 154 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-shell | 41 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-sync | 6 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-trust | 6 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-vision | 96 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-vision | 100 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/android-adapter | 14 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
-| adapters/mac-adapter | 10 | Rust `#[test]` / `#[tokio::test]` |
-| adapters/win-adapter | 7 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 11 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-windows/src-tauri | 9 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust total** | **1073** | |
-| apps/extension-chromium/scripts/*.test.mjs | 50 | node `test(` |
-| eval/e2e-extension/run.mjs | 24 | real-browser E2E checks `record(` |
-| apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test`(纯函数) |
-| apps/android-companion/app/src/test(Robolectric) | 11 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
+| adapters/mac-adapter | 30 | Rust `#[test]` / `#[tokio::test]` |
+| adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 43 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
+| **Rust total** | **1210** | |
+| apps/extension-chromium/scripts/*.test.mjs | 45 | node `test(` |
+| apps/ios-webshield/Tests/ExtensionTests | 18 | Safari extension node `test(` |
+| eval/e2e-extension/run.mjs | 39 | real-browser E2E checks `record(` |
+| apps/android-companion/app/src/test | 60 | Kotlin JVM `@Test`(纯函数) |
+| apps/android-companion/app/src/test(Robolectric) | 26 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test` (needs a device) |
-| apps/ios-webshield | 0 | Swift `func test*(` |
+| apps/ios-webshield | 22 | Swift `func test*(` |
 | eval/scenarios | 134 | offline evaluation scenarios (YAML) |
-| eval/capability-claims.yaml | 39 | user-facing capability claims (each pinned to a proving test) |
+| eval/capability-claims.yaml | 36 | user-facing capability claims (each pinned to a proving test) |
 
 ## Version strings
 
@@ -69,8 +70,8 @@ Only strings written in the source. Whether a tag or a signed artifact exists is
 | .nvmrc | `22` |
 | apps/desktop-macos (tauri.conf.json) | `1.0.0-rc.1` |
 | apps/desktop-windows (tauri.conf.json) | `1.0.0-rc.1` |
-| apps/extension-chromium/manifest.json | `1.0.0.1` |
-| apps/extension-chromium/manifest.firefox.json | `1.0.0.1` |
+| apps/extension-chromium/manifest.json (Chrome / Edge GA) | `1.0.0.1` |
+| apps/extension-chromium/manifest.firefox.json (source prototype; not GA) | `1.0.0.1` |
 | Android versionName | `1.0.0-rc.1` |
 | Android versionCode | `1000001` |
 | Android minSdk | `26` |

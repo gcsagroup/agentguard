@@ -1,70 +1,77 @@
 [简体中文](acceptance-chrome.md) | [繁體中文](acceptance-chrome.zh-TW.md) | [English](acceptance-chrome.en.md)
 
-# Chromium 扩展验收清单（Chrome / Edge）
+# Chromium 扩展验收清单（首个 GA：Chrome / Edge）
 
-本文档对应 Firefox 清单（[acceptance-firefox.md](acceptance-firefox.md)）的 Chromium 侧。用例编号与 Firefox
-**同名同义**（F1–F8），因为两边装的是同一套内容脚本；不同的是**证据来源**：
+首个 GA 的浏览器产品只有一份 Chrome / Edge 共用的 Chromium MV3 ZIP。它是 **block-only**：匹配的 DOM 动作和付款形状网络请求被阻断，网页内没有“允许一次”、临时例外或动作重放。GA manifest 不申请 `nativeMessaging`，发布 ZIP 不携带 Native host。Firefox 仅保留源码原型，不进入本清单、发布包或首个 GA 门禁。
 
-- **C1–C5（对应 F1–F5）由真浏览器 E2E 自动产出**：`make e2e-extension` 把 `apps/extension-chromium` 原样
-  作为未打包扩展装进真 Chromium（Playwright 持久化上下文），对 `eval/acceptance-fixtures/` 的固件页跑机器判据，
-  结论落 `eval/e2e-extension/out/report.json`，最后一行 `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`。它不需要人，
-  也**不进 release-gate**（需要 Playwright + Chromium，最小容器里没有）；CI 单独跑。
-- **C6–C8（对应 F6–F8）仍是真机人工用例**：原生消息 host、DNR 规则、配额——E2E 不装宿主
-  （`nativeEnabled` 默认关闭，也应当关闭），这几条只有在装了 `guard-nm-host` 的真机上才算数。
+本清单分两层：
 
-> 本清单全绿只是发布的必要非充分条件；它不能替代商店签名、发布包身份、其余平台证据或完整发布门禁。
-> 它**目前不是**严格门禁的一种 `EvidenceKind`——严格门禁认的扩展证据是 Firefox 的 F1–F8。要把 Chrome 提为
-> 门禁证据，需要先在 `guard-cli evidence-verify` 里加 kind，并把 `EXPECTED_EVIDENCE` 对应加一。
+- `make e2e-extension` 在测试 Chromium 中跑 39 条机器判据，证明源码与打包内容的阻断行为；
+- Chrome 和 Edge 正式版的候选 ZIP 仍须分别完成安装、升级、权限与代表性行为留证。
 
-## E2E 到底证明了什么、没证明什么
+自动化通过不能替代商店签名、正式浏览器、候选 ZIP 身份或其他平台发布证据。严格门禁要求 Chrome 与 Edge 各自提交结构化验收证据；一份 Chromium 测试报告不能代替两个正式浏览器的独立结果。
 
-证明了（每次运行都重新证明）：
+## 自动化验收
 
-| # | 判据（机器断言） | 对应 Firefox |
-|---|------------------|--------------|
-| C1 | 隐藏注入文本 → background `recent` 出现 `invisible_injection`；落盘 URL 已最小化、标题已截断（P1-1） | F1 |
-| C2 | 付款 CTA 点击被**同步**拦住：页面处理器未运行、`role=alertdialog` 出现、默认焦点在「先不要」、可见文本无裸术语；「先不要」→ 仍未运行；再点 →「允许这一次」→ 处理器恰好运行一次；两次拦截各留一条 `prevented/payment_cta` | F2 |
-| C3 | 陷阱语境下的 PII 表单提交被拦：URL 不变；允许一次后 URL 带上 `?phone=…`（真的提交了） | F3 |
-| C4 | 页面直发 `POST /pay/checkout`：**本地服务器一个字节都没收到**就弹了确认；拒绝 → 页面拿到 `AbortError`、服务器仍未收到；允许 → 服务器收到、页面拿到 501 | F4 |
-| C5 | `GET /pay/status`、`POST /api/search` 不弹、直达服务器（不误拦） | F5 |
-| CM | 告警风暴回归（真机报告 P2-3，固件 `mutation-storm.html`）：页面每 50 ms 改 DOM、每秒重渲染同一段隐藏注入、页面上有个付款按钮 → 5 秒只多**一条**「最近」（M1）；注入与按钮各只报**一次**（M2）；后到的另一段注入仍会报、且只报一次（M3）；30 段突发全部计数但打包进 ≤4 条（M4，两轮扫描 ≥1.5 s）。变异检查：去掉去重 → M1–M4 红，去掉节流 → M4 红，指纹退回常量 marker → M3/M4 红 | — |
-| CP | popup：默认不转发（开关未勾、文案说明）、今日计数行有数、最近列表有「已拦截：」条目、可见文本无裸术语 | — |
+`make e2e-extension` 把扩展装入真 Chromium 持久化上下文，输出 `eval/e2e-extension/out/report.json` 和唯一结论标记 `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`。当前 39 条用例按能力分组如下：
 
-没证明（如实边界）：
+| 组 | 机器判据 |
+|---|---|
+| D0 / D0b / D0c | 默认静态规则集启用；每条 DNR 正则被浏览器接受；代表性 `POST /pay/checkout` 命中 block |
+| U1 | 升级到无 Native 的 GA 后清理旧暂停、旧 host blocklist、动态 DNR 与徽章 |
+| F1 / F1b | 隐藏注入进入最近列表；URL 最小化、标题截断，不落盘原始敏感 URL |
+| F2a–F2f / H0 / H1 / H5 | 普通、早期捕获和开放 Shadow DOM 付款 CTA 均在页面处理器前阻断；提示只有关闭键；页面篡改不能授权或重放；每次点击仍重新阻断并留痕 |
+| F3a–F3d | 隐私陷阱表单与普通子 frame 付款动作在导航/POST 前阻断；关闭提示后仍不提交 |
+| F4a–F4e / H2–H4 | fetch、XHR、sendBeacon、form、明确编码与操作查询由 DNR 在服务器前阻断；旧 decision/scope 消息和旧 15 秒超时不能放行 |
+| F5a–F5d | GET、普通 POST、body-only 付款语义、付款前缀普通词和嵌套查询文字不误拦 |
+| M1–M4 | DOM 变异风暴去重、节流、不同新 finding 不漏报 |
+| P1–P4 | GA 无 Native 权限且隐藏不可用控件；计数、最近列表和三语可见文案正确 |
 
-- 跑的是容器里 Playwright 自带的 Chromium（版本见 report.json），不是用户机器上的 Chrome/Edge 正式版。
-- 不装 Native Messaging 宿主；F6/F7/F8 的等价用例（C6–C8）没有自动化。
-- Firefox：Playwright 不能向 Firefox 装扩展，Firefox 真 E2E 仍 **BLOCKED**，见 Firefox 清单。
-- 一段在 `document_start` 之前就抓走原始 `fetch` 引用的页面脚本能绕过 fetch 门——这是 `guard-page.js` 头注里写明的边界，E2E 不声称覆盖它。
-- CM 钉的是用户可见的行为（不重复、不失聪、打包）。增量扫描（只扫新增子树）与跳过自家弹层是**成本**优化，把它们关掉 CM 仍绿——E2E 不声称钉住它们。
-
-## 前置条件（真机 C6–C8）
-
-- [ ] Chrome 或 Edge 正式版；`chrome://extensions` → 开发者模式 → 「加载已解压」选 `apps/extension-chromium`，记下扩展 ID
-- [ ] 装原生消息 host：macOS/Linux `native-host/install-host.sh --browser chrome <id>`；Windows
-      `powershell -ExecutionPolicy Bypass -File native-host\install-host.ps1 -Browser chrome <id>`（Edge 用 `-Browser edge`）
-- [ ] popup → 设置 → 打开「桌面转发」；link 行应显示「已连接」
-- [ ] 规则集为 `crates/guard-schema/rules/p0_rules.yaml`；情报 bundle 已加载（默认基线即含 `evil.example`）
-
-## 验收用例
-
-| # | 步骤 | 期望 | 实测 | 证据 |
-|---|------|------|------|------|
-| C1–C5, CM | `make e2e-extension` | 最后一行 `AGENTGUARD_E2E_EXTENSION=PASS`，`report.json` 里 `all_pass: true`（24 条）；把 `out/report.json`、`out/f2-payment-dialog.png`、`out/m-mutation-storm.png`、`out/popup.png` 复制到 `evidence/chrome/` | | |
-| C6 | 导航到 `https://evil.example/`（内置情报的恶意域） | 引擎判 `INTEL-DOMAIN` Block → 宿主回 `block_hosts` → DNR 规则装上 → 该主机后续请求在网络层被拦（Network 面板显示 blocked） | | |
-| C7 | 观察 C6 的原生消息往返 | 宿主接受调用方（`chrome-extension://<id>/` origin 对上 `allowed-origin`，`guard-nm-host` 未因 origin 拒启动），判决进签名审计；popup link 行显示「已连接 · 上次成功 …」 | | |
-| C8 | DNR 动态规则数量 | 未超 Chromium 的动态规则配额（装规则不报错；必要时按配额上限截断名单） | | |
-
-## 快速命令
+运行：
 
 ```bash
-# 离线门禁（必须先 PASS）
 make check-extension-gate
-
-# 真浏览器 E2E（C1–C5 + CM 风暴回归 + popup）
 make e2e-extension
-# → eval/e2e-extension/out/report.json, f2-payment-dialog.png, m-mutation-storm.png, popup.png
-
-# 出 Chrome 包
-apps/extension-chromium/scripts/package-store.sh
 ```
+
+成功必须同时满足：进程退出 0、最后一行是 `AGENTGUARD_E2E_EXTENSION=PASS`、`report.json` 的 `all_pass` 为 `true`，且报告恰好记录当前清单期望的 39 条 PASS。报告中的 Chromium 版本必须保留；不能把它改称 Chrome 或 Edge 正式版证据。
+
+## Chrome / Edge 候选 ZIP 人工验收
+
+两种正式浏览器分别执行，且必须使用同一份待提交 ZIP。不要安装 Native host，不要打开任何“桌面转发”原型。
+
+| ID | 操作 | PASS 判据 | 必留证据 |
+|---|---|---|---|
+| B1 | 记录 ZIP SHA-256、manifest 版本、浏览器正式版版本；解压并加载 | Chrome 与 Edge 加载的是同一 SHA-256；manifest 权限不含 `nativeMessaging`；无意外权限提示 | 哈希、版本与扩展详情页 |
+| B2 | 全新 profile 安装并打开引导页、popup | 图标、三语文案、权限说明正常；Native 控件不可见；静态 `payment_shape_block` 已启用 | 引导页、popup、规则集状态 |
+| B3 | 在本地夹具重做 F2、H5、F3、F4a/F4c/F4d、F5a/F5b/F5d | 付款/陷阱动作没有副作用；网络正例服务器零请求；负例到达；提示只有关闭键，关闭后仍不执行 | 页面结果、Network 和服务器计数 |
+| B4 | 从上一公开版本原位升级到同一候选 ZIP | 不新增 Native 权限；旧暂停、旧动态 host 规则与旧徽章不残留；39 条自动化覆盖的代表性阻断仍成立 | 升级前后权限、storage/规则、popup |
+| B5 | 禁用、重新启用、卸载；按发布回滚方案恢复上一候选 | 浏览器状态可预测，无残留页面授权状态；回滚不会被记录成当前候选 PASS | 操作记录与最终扩展状态 |
+
+任一浏览器缺失、任一项无法判定或证据未绑定候选 ZIP 时，记录 `BLOCKED`，不得合并成“Chromium 已通过”。
+
+分别从中央模板复制一份报告，Chrome 放在 `evidence/chrome/`，Edge 放在 `evidence/edge/`。B1–B5 必须逐项为 `PASS (native)` 且引用不同的非空证据文件；B1 证据必须记录两端共用的候选 ZIP SHA-256。完成后运行：
+
+```bash
+guard-cli manual-acceptance chrome docs/acceptance-chrome.md evidence/chrome/report.md --repo-root .
+guard-cli manual-acceptance edge docs/acceptance-chrome.md evidence/edge/report.md --repo-root .
+```
+
+Chrome 报告须包含整行 `AGENTGUARD_ACCEPTANCE_CHROME=PASS`，Edge 报告须包含整行 `AGENTGUARD_ACCEPTANCE_EDGE=PASS`。结构校验通过仍是未签名本地自证，不替代商店审核与生产下载 smoke。
+
+## 明确边界
+
+- DOM 保证只覆盖扩展实际注入、能产生被监听 `click` / `submit` 事件且标签可识别的 HTTP(S) frame；直接 `form.submit()`、未注入的特殊 frame、pointer/keyboard 自定义前置逻辑和浏览器外原生动作不在保证内。
+- 静态 DNR 只覆盖文档声明的 HTTP(S)、非 GET/HEAD、付款关键词/编码、查询键和资源类型；不检查 body，不覆盖未列别名、双重编码、WebSocket/WebTransport 或未列资源类型。
+- 页面提示是网页可影响的信息层，不是授权面。用户若坚持继续，只能在扩展管理页停用或移除保护后自行重新操作。
+- Firefox 与 Safari 的任何原型、历史截图或旧验收报告都不能作为 Chrome / Edge 首个 GA 证据。
+
+## 打包
+
+```bash
+apps/extension-chromium/scripts/package-store.sh
+unzip -t apps/extension-chromium/dist/agentguard-extension.zip
+shasum -a 256 apps/extension-chromium/dist/agentguard-extension.zip
+```
+
+`package-store.sh --firefox` 必须失败且不产生 Firefox ZIP；这是范围保护，不是 Firefox 验收。

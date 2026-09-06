@@ -2,21 +2,18 @@
 
 # Real-Device Acceptance Runbook (for Automation Agents / computer-use)
 
-This runbook turns the three acceptance checklists (`acceptance-firefox.md` / `acceptance-macos.md` /
-`acceptance-windows.md`) from human-readable checklists into executable procedures and adds the Android
+This runbook turns the Chrome / Edge, macOS, Windows, and iOS acceptance checklists from human-readable checklists into executable procedures and adds the Android
 companion's signed-envelope real-device path. It gives the **preparation, exact action, observable criterion,
 and evidence to capture** for every case, followed by **how to record results and produce structured evidence**.
 The executor can be Codex, computer-use, or another agent capable of driving real browsers, desktops, and devices.
 
-> The three `acceptance-*.md` files define browser, macOS, and Windows expectations. For Android, use section 5
-> of this runbook together with the companion README.
+> Browser expectations come from `acceptance-chrome.en.md`; `acceptance-firefox.en.md` is only a first-GA exclusion notice. Use the platform-specific lists for macOS and Windows, section 5 plus the companion README for Android, and section 6 plus `acceptance-ios.en.md` for iOS.
 
 ---
 
 ## 0. Scope and Honest Preconditions (Read First)
 
-- **The browser-extension path (Firefox / Chrome / Edge) is fully executable and assessable**, and this
-  repository provides test fixtures (`eval/acceptance-fixtures/`), so F1–F8 are turnkey.
+- **First-GA browser scope is only the Chromium package shared by Chrome and Edge.** The repository provides fixtures and 39 Chromium E2E assertions; release Chrome and Edge still require separate manual evidence bound to the candidate ZIP. Firefox is source-only prototype material and cannot receive a release PASS.
 - **The desktop shells have native observation paths wired in:** macOS uses AXUIElement, ScreenCaptureKit,
   and Vision OCR; Windows uses UI Automation, GDI `BitBlt`, and `Windows.Media.Ocr`. However, “the code is
   wired” does not mean “it works on this real device.” Assess each case from runtime capability, operating-
@@ -41,18 +38,20 @@ The executor can be Codex, computer-use, or another agent capable of driving rea
 Run the following at the repository root, `/root/ag` (or the path to your clone):
 
 ```bash
-# Toolchain: Rust (a version recent enough for the edition) and Node ≥ 18
-cargo --version && node --version
+# Toolchain: repository-pinned Rust 1.95.0 and Node >= 18. The wrapper prevents a Homebrew rustc child.
+make bootstrap-rust
+./scripts/bootstrap-rust.sh -- cargo -Vv
+./scripts/bootstrap-rust.sh -- rustc -vV
+node --version
 
-# 1) Build the native-messaging host (the browser extension connects to it)
-cargo build -p guard-nm-host           # Output: target/debug/guard-nm-host
-
-# 2) Package the extension (default for Chrome/Edge; --firefox for Firefox)
+# 1) Package the first-GA browser extension (shared by Chrome / Edge; no Native Messaging)
 apps/extension-chromium/scripts/package-store.sh                 # dist/agentguard-extension.zip
-apps/extension-chromium/scripts/package-store.sh --firefox       # dist/agentguard-extension-firefox.zip
 
-# 3) Offline gates (must all be green first; necessary but not sufficient for real-device acceptance)
-make capability-claims && make check-extension-gate && make coverage
+# 2) Offline gates (must all be green first; necessary but not sufficient for real-device acceptance)
+./scripts/bootstrap-rust.sh -- make capability-claims check-extension-gate coverage
+
+# 3) Scope guard: must exit 64 and create no Firefox package
+apps/extension-chromium/scripts/package-store.sh --firefox
 ```
 
 Start the test-fixture server (fetch cases require same-origin path resolution and cannot use file://):
@@ -66,68 +65,32 @@ Prepare an evidence work directory inside the repository. Keep it as local mater
 commit, redact sensitive data, and do not accidentally commit raw screenshots, account data, or device identifiers:
 
 ```bash
-mkdir -p evidence/{firefox,windows,macos,android}
+mkdir -p evidence/{chrome,edge,windows,macos,android,ios,ios-testflight}
 ```
 
 ---
 
-## 2. Platform A: Browser Extension (Firefox / Chrome / Edge)
+## 2. Platform A: Browser Extension (First GA: Chrome / Edge)
 
-### A.1 Installation
+### A.1 Automation
 
-**Firefox (≥128)**
-1. Install the native-messaging host: `apps/extension-chromium/native-host/install-host.sh --browser firefox agentguard@agentguard.dev`
-2. Open `about:debugging#/runtime/this-firefox` → “Load Temporary Add-on” → choose
-   `apps/extension-chromium/manifest.firefox.json` (or extract `dist/agentguard-extension-firefox.zip`
-   and choose its `manifest.json`).
-3. Record the assigned extension ID (expected: `agentguard@agentguard.dev`).
+Run `make e2e-extension` first. It executes 39 machine assertions in a test Chromium, covering block-only DOM behavior, open Shadow DOM, static-DNR positive and negative cases, legacy page messages, upgrade cleanup, mutation storms, and the popup. Preserve `eval/e2e-extension/out/report.json` and its actual Chromium version.
 
-**Chrome / Edge**
-1. Open `chrome://extensions` (or `edge://extensions`) → enable “Developer mode” → “Load unpacked” → choose
-   `apps/extension-chromium/` (or the extracted dist directory). Copy the generated extension ID.
-2. Install the host with `install-host.sh <extension-id>` (for Edge, use `--browser edge <extension-id>`).
+### A.2 Release Chrome / Edge
 
-After installation, **restart the browser once** so content scripts (including guard-page.js with
-`world:"MAIN"`) are injected into new tabs.
+1. Compute the store-candidate ZIP SHA-256; Chrome and Edge must use the same file.
+2. Load its unpacked content in clean Chrome and Edge profiles. Do not install a Native host; the GA manifest has no such permission.
+3. Restart the browser, confirm isolated scripts load in new tabs, `payment_shape_block` is enabled, and no Native control appears in the popup.
+4. Execute B1–B5 in [the Chromium checklist](acceptance-chrome.en.md), covering clean install, representative blocks and negative controls, in-place upgrade, disable/uninstall, and rollback. Store Chrome evidence in `evidence/chrome/` and Edge evidence in `evidence/edge/`; do not reuse evidence between them.
+5. Decide Chrome and Edge separately. An indeterminate row is `BLOCKED`; test-Chromium PASS cannot replace it.
 
-### A.2 Execute F1–F8
+### A.3 Firefox
 
-For each case, **open DevTools first** (Console + Network panels), perform the action, and capture the
-evidence specified by the criterion.
-
-| Case | Page / Action | Observable PASS Criterion | Evidence |
-|---|---|---|---|
-| **F1** Hidden injection | Open `http://localhost:8000/injection.html`; click the extension icon and inspect “Recent” in the popup | The popup's recent list contains `invisible_injection`/`prompt_injection`; if the host is installed, host stderr / audit contains the corresponding event | Popup screenshot |
-| **F2** Pre-execution payment CTA gate | Open `payment-cta.html` and click “Confirm Payment” | AgentGuard opens a confirmation layer **before** the action (with a human-readable title such as “This step makes a payment”); choose **“Not now”** → the page does **not** show “Payment confirmed”; repeat and choose **“Allow once”** → only then does it appear | Two screenshots (canceled / allowed states) |
-| **F3** Trap + PII submission gate | Open `trap-pii.html` and click “Submit” | A confirmation layer appears; **“Not now”** → the URL is unchanged and has no `?phone=`; **“Allow once”** → the URL contains `?phone=13800000000` | Two screenshots with the URL bar visible |
-| **F4** Payment-shaped fetch gate | Open `fetch-gate.html` and click “POST /pay/checkout” | A confirmation layer appears; **“Not now”** → the Network panel has **no** `/pay/checkout` request and the log says it was denied/not sent; **“Allow once”** → the request appears (404/501 is acceptable) | Network-panel screenshot in the canceled state |
-| **F5** Do not gate read-only methods | On the same page, click “GET /pay/status” and “POST /api/search” | No confirmation layer appears; the requests are sent directly and appear in Network | Network-panel screenshot |
-| **F6** Hard-block a malicious domain at the network layer | The engine must classify `evil.example` as malicious (the bundled baseline includes it). With the host path, construct a browser event whose url is `https://evil.example/x` (or visit `http://evil.example/` directly in the address bar), then access the host again in a **new request** | declarativeNetRequest blocks the host at the network layer (Network shows blocked / net::ERR_BLOCKED_BY_CLIENT); the popup block list contains `evil.example · Malicious domain`, with `INTEL-DOMAIN` provenance | Popup-list screenshot + Network screenshot |
-| **F7** Native-messaging handshake | Ensure the host is installed and trigger any finding (F1–F3) | The host accepts the caller (it does not refuse startup because of origin validation, and stderr has no "refuse origin"); the verdict enters the signed audit database (the database pointed to by `AGENTGUARD_AUDIT_DB` has a new row) | Host stderr screenshot / audit row |
-| **F8** DNR quota | After triggering several F6-style blocks, run `chrome.declarativeNetRequest.getDynamicRules().then(r=>console.log(r.length))` in the DevTools console | The rule count is ≤ the browser's dynamic-rule quota and rule installation produces no error | Console-output screenshot |
-
-> **F6 note:** the browser extension currently reports `ui_text` events. The malicious-domain verdict
-> (`INTEL-DOMAIN`) applies to **any event with a url**, so the host path can trigger it. If your environment
-> does not return a malicious-domain verdict from the host, record `BLOCKED (no host verdict)`. Out-of-scope
-> enforcement (`SCOPE-HOST`/E9 local allow-list gate) requires the session to declare `scope.hosts`. The browser
-> path does not do so by default; record `N/A` unless you explicitly configured a task session with `scope.hosts`.
+Firefox is outside the first GA. Do not load `manifest.firefox.json`, install a Firefox Native host, or create a Firefox PASS. `package-store.sh --firefox` must exit 64 and create no package; see the [Firefox exclusion notice](acceptance-firefox.en.md).
 
 ---
 
-### A.3 Chrome / Edge: run the real-browser E2E first, then do C6–C8
-
-The Chromium twins of F1–F5 have machine criteria: `make e2e-extension` loads the extension unpacked into a real
-Chromium and asserts 24 things against the same fixture pages (payment click held before the handler runs, replayed
-exactly once after "Allow once", page-issued fetch held before a byte reaches the server, read-only methods not gated,
-a continuously mutating page neither floods the recent list nor goes deaf, popup without raw terms, …). It ends with
-`AGENTGUARD_E2E_EXTENSION=PASS` and writes `eval/e2e-extension/out/report.json` plus three screenshots; copy those four
-files into `evidence/chrome/`. The Chrome twins of F6–F8 (C6–C8: native
-messaging / DNR) are still done by hand on real Chrome/Edge per [acceptance-chrome.en.md](acceptance-chrome.en.md) — the
-E2E installs no host. Firefox has no equivalent automation (Playwright cannot load Firefox extensions); F1–F8 stay manual.
-
----
-
-## 3. Platform B: Windows Desktop Shell (W1–W11)
+## 3. Platform B: Windows Desktop Shell (first-ga-v1)
 
 ### B.1 Build and Run
 
@@ -137,19 +100,21 @@ npm install
 npm run tauri dev        # Start the tray shell (dev)
 ```
 
-For the native-messaging host (when testing the W7 browser path), write `com.agentguard.native.json` to
-`HKCU\Software\Google\Chrome\NativeMessagingHosts\com.agentguard.native`; set `path` to
-`target\debug\guard-nm-host.exe` and put the extension origin in `allowed_origins`.
+The first-GA browser package does not install Native Messaging. Windows `first-ga-v1` requires W1–W6/W8–W11; W7 is a non-GA/legacy prototype row excluded from the gate and must not be made to pass by adding permission back to the GA package.
 
 ### B.2 Execute Each Case
 
-Use W1–W11 in `acceptance-windows.md` as the criteria. **For every case, record the runtime capability and
+Use the required `first-ga-v1` cases in `acceptance-windows.en.md` as the criteria, and include the exact report line
+`AGENTGUARD_WINDOWS_ACCEPTANCE_PROFILE=first-ga-v1`. **For every case, record the runtime capability and
 permission state first, then distinguish simulation from native observation** using capability indicators
 in the tray/logs and actual event/frame/OCR output:
 
-- **Verdict-path case (W1 blocking modal):** use shell simulation injection to trigger `CRIT-001` (payment
-  text). PASS criterion: a **blocking modal** appears and choosing “Not now, pause task” does not allow the
-  action. Record `PASS (sim)`, or `PASS (native)` when the native path produced the event.
+- **Verdict-path case (W1 post-observation risk confirmation):** use shell simulation injection to trigger
+  `CRIT-001` (payment text). PASS criterion: a **post-observation risk confirmation** appears and clearly
+  states that the external action was already observed and cannot be reversed. Choosing “Not now, pause task”
+  pauses this session and future observation only. Audit evidence must record `effect=observed_only` and
+  `external_action_blocked=false`; it must not claim that the original action was prevented. Record
+  `PASS (sim)`, or `PASS (native)` when the native path produced the event.
 - **Native-observation cases (W2 UIA tree / W3 GDI frame + steganography / W4 Windows.Media.Ocr screen
   reading / W5 overlay):** native UIA / GDI / OCR is wired into the shell, but it must be assessed from
   capability and actual output on the target Windows device. If capability is unavailable or a permission /
@@ -168,8 +133,7 @@ in the tray/logs and actual event/frame/OCR output:
     report **with a reason** (which is itself W6's PASS criterion).
 - **W6 capability probe:** open the shell's capability panel/log and confirm the availability status plus a
   reason string for UIA / capture / OCR.
-- **W7 native messaging:** same as F7, except the host is registered through the Windows registry
-  (`native-host\install-host.ps1 <extension-id>` writes registry key + manifest + allowed-origin in one go).
+- **W7 native messaging:** retain only as a non-GA/legacy optional record, preferably `N/A (non-GA)`. The structured gate neither requires nor counts it and does not bind its evidence.
 - **W8–W10 trace check / no observation after end / state consistency:** launch the shell for the whole session with
   `AGENTGUARD_ACCEPTANCE_TRACE=evidence\windows\trace.jsonl` (the shell appends session_start/end,
   confirm_enqueued/shown/resolved/expired, every observation tick and every state change as JSONL); afterwards run
@@ -193,8 +157,7 @@ Accessibility / Screen Recording permissions on the target device, then assess n
 from the capability report, real AX events, captured frames, and OCR output. If permission is not granted
 or capability is unavailable, record `BLOCKED (specific reason)`. If only **simulated threat injection**
 validates the verdict path, record `PASS (sim)`; it cannot replace `PASS (native)`. See the acceptance-case
-table in `acceptance-macos.md`. Install the host with `install-host.sh --browser chrome <id>` (see the script
-for the macOS path).
+table in `acceptance-macos.md`. The first-GA Chromium package does not install a Native host.
 
 Cases 15–17 are judged from the **acceptance trace**: launch the shell for the whole session with
 `AGENTGUARD_ACCEPTANCE_TRACE=evidence/macos/trace.jsonl` (`AGENTGUARD_ACCEPTANCE_TRACE=… npm run tauri dev`); after
@@ -224,12 +187,13 @@ replay does not replace this real-device E2E. Record `BLOCKED (specific reason)`
 paragraph above into machine criteria — it installs the APK, grants the notification permission, enables the
 accessibility service, sets up `adb reverse`, starts the desktop API with a one-off token, writes the P-256 public key you
 paste from the app into `evidence/android/adapter-registry.yaml`, opens the payment fixture page in the phone browser and
-then checks: A1 (install / permissions / foreground notification id 1001), A2 (desktop `/v1/status`
+then checks: A1 (install / permissions / ordinary ongoing session notification id 1001), A2 (desktop `/v1/status`
 `adapter_ingress.verified` increases and `rejected` does not — `/v1/events` now writes each body's signature outcome into
 the response, the status snapshot and stderr; previously A2 had no readable desktop-side evidence at all), A3 (a
 `platform=android` `CRIT-*` verdict appears in the audit), A4 (the device's `last_risk_json` carries the same rule_id and the
-engine notification id 1005 is present), L (after `am crash` the process returns, `session_active` stays true, the
-foreground notification is restored, accessibility stays enabled — report P0-3), S (no plaintext `relay_token` in prefs,
+engine notification id 1005 is present), L (after `am crash` and an explicit app relaunch, the process returns,
+`session_requested` is false, the old session notification is not restored, accessibility stays enabled, and the user
+must explicitly start a new session — report P0-3), S (no plaintext `relay_token` in prefs,
 `relay_token_enc` present; `files/events` ≤ 50 MiB — report P1-6), T (targetSdk 36 behaviour regression — report P2-2:
 the installed APK's targetSdk is read from the device's `dumpsys package`; PASS only on a device running API 35+ with A1–A4
 and L all passing; a device below API 35 can only be BLOCKED — a pass on Android 14 must not impersonate one on 15/16).
@@ -242,14 +206,23 @@ Keystore; adb cannot reach them by design). The script's verdicts still have to 
 
 ---
 
-## 6. Record Results → Produce Structured Evidence
+## 6. Platform E: iOS Safari WebShield
+
+Create a Release archive from the same frozen commit and sign the app plus its embedded Safari Web Extension with Apple Distribution. Produce separate `ios_codesign` evidence for that signed artifact. Then follow [iOS real-device and TestFlight acceptance](acceptance-ios.en.md): complete I1–I6 on physical iPhone/iPad devices and upload that same archive to TestFlight for TF1–TF3. An unsigned device build, Simulator, Xcode Analyze, or Swift/Node tests are development evidence only and cannot replace any strict gate.
+
+Keep the I1–I6 report and per-case files only under `evidence/ios/`, and TF1–TF3 only under `evidence/ios-testflight/`; do not reuse either report's case evidence for the other. If signing, App Group/Keychain entitlements, physical-device Safari enablement, website permission, upgrade, or TestFlight identity cannot be verified, record `BLOCKED (specific reason)` and do not produce a PASS marker.
+
+---
+
+## 7. Record Results → Produce Structured Evidence
 
 For each case:
 
 1. **Complete a separate report:** copy `docs/acceptance-report-template.en.md` to the corresponding
    `evidence/<platform>/report.md`. Record `PASS (native)` / `PASS (sim)` / `FAIL` / `BLOCKED (reason)` and a
-   repository-relative evidence path for every case. As a strict-gate artifact, Firefox F1–F8, Windows W1–W11,
-   Android A1–A4, and macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–18 must each appear exactly once. Column two must be
+   repository-relative evidence path for every case. As a strict-gate artifact, Windows `first-ga-v1` W1–W6/W8–W11,
+   Android A1–A4, macOS 1, 2, 3, 4, 5, 5b, 5c, and 6–18, iOS I1–I6, TestFlight TF1–TF3, and B1–B5 separately for
+   Chrome and Edge must each appear exactly once. Column two must be
    exactly `PASS (native)`, and column three must identify an existing repository-relative nonempty regular file under the
    matching `evidence/<platform>/` directory. Every case must use a unique evidence path. It cannot reference the report
    itself or the current evidence JSON source file, contain a symbolic-link path, or resolve outside the repository.
@@ -269,12 +242,12 @@ For each case:
    acceptance evidence must remain `null`; do not pass `--expected-signer` during verification. At verification time,
    `timestamp` must be between 30 days in the past and 10 minutes in the future and must not predate the HEAD
    commit time, with a 10-minute clock-skew allowance. `command` must be the successfully executed single segment
-   `guard-cli manual-acceptance <platform> <checklist> <artifact.path> --repo-root .` (after the build below, the actual command is
-   `target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md evidence/firefox/report.md --repo-root .`). Both the report body
+   `guard-cli manual-acceptance <platform> <checklist> <artifact.path> --repo-root .`. Both the report body
    and the JSON `output` must contain an entire line equal to the exact
-   `AGENTGUARD_ACCEPTANCE_FIREFOX=PASS`, `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`,
-   `AGENTGUARD_ACCEPTANCE_MACOS=PASS`, or `AGENTGUARD_ACCEPTANCE_ANDROID=PASS` marker, and only after every
-   required native case passes. Acceptance artifacts are limited to regular `.md` files under the corresponding
+   marker for the matching kind: `AGENTGUARD_ACCEPTANCE_WINDOWS=PASS`, `AGENTGUARD_ACCEPTANCE_MACOS=PASS`,
+   `AGENTGUARD_ACCEPTANCE_ANDROID=PASS`, `AGENTGUARD_ACCEPTANCE_IOS=PASS`,
+   `AGENTGUARD_ACCEPTANCE_IOS_TESTFLIGHT=PASS`, `AGENTGUARD_ACCEPTANCE_CHROME=PASS`, or
+   `AGENTGUARD_ACCEPTANCE_EDGE=PASS`, and only after every required native case for that kind passes. Acceptance artifacts are limited to regular `.md` files under the corresponding
    `evidence/<platform>/` directory. `artifact.sha256` uses `agentguard-acceptance-closure-sha256-v1` and binds the
    report bytes plus every unique per-case reference's relative path, length, and content in path order. It remains
    unsigned self-attestation and cannot prove that a screenshot or log came from the claimed device.
@@ -283,42 +256,39 @@ For each case:
    commit_time="$(git show -s --format=%ct HEAD)"
 
    cargo build --release -p guard-cli
-   target/release/guard-cli manual-acceptance firefox docs/acceptance-firefox.md \
-     evidence/firefox/report.md --repo-root .
-   # Sole success output: AGENTGUARD_ACCEPTANCE_FIREFOX=PASS
+   target/release/guard-cli manual-acceptance macos docs/acceptance-macos.md \
+     evidence/macos/report.md --repo-root .
+   # Sole success output: AGENTGUARD_ACCEPTANCE_MACOS=PASS
 
    cargo run -p guard-cli -- evidence-digest \
-     --repo-root . --path evidence/firefox/report.md
+     --repo-root . --path evidence/macos/report.md
 
    cargo run -p guard-cli -- evidence-template \
-     --kind acceptance_firefox --commit "$commit" > evidence/firefox/evidence.json
+     --kind acceptance_macos --commit "$commit" > evidence/macos/evidence.json
 
    # Put the exact manual-acceptance command, marker, and closure digest above into JSON, then verify
    cargo run -p guard-cli -- evidence-verify \
-     --kind acceptance_firefox --file evidence/firefox/evidence.json \
+     --kind acceptance_macos --file evidence/macos/evidence.json \
      --commit "$commit" --commit-time "$commit_time" --repo-root .
    ```
 
 4. **Pass the JSON to the strict gate.** The environment variable points to the JSON file, not a directory:
    ```bash
-   export AGENTGUARD_EVIDENCE_ACCEPTANCE_FIREFOX=evidence/firefox/evidence.json
+   export AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS=evidence/macos/evidence.json
    bash scripts/release-gate.sh --strict
    ```
 
-   Repeat for Windows, macOS, and Android with the corresponding kind, directory, and environment variable. See
-   [Structured Release Evidence](release-evidence.en.md) for every field and all eight variables. A directory,
+   Repeat for every other platform with its corresponding kind, directory, and environment variable; Chrome and Edge, and iOS and TestFlight, remain independent. The legacy Firefox kind is not read by the strict gate. See
+   [Structured Release Evidence](release-evidence.en.md) for every field and all twelve variables. A directory,
    untouched template, old-commit report, or arbitrary keyword-bearing file is rejected.
    After the strict gate passes, archive the local evidence read-only in a controlled location. Do not push raw
    evidence containing sensitive information to GitHub by default.
 
 ---
 
-## 7. Quick Result Criteria (What Counts as PASS)
+## 8. Quick Result Criteria (What Counts as PASS)
 
-- **Pre-execution gates (F2/F3/F4):** the action is intercepted **before it occurs**, a confirmation layer
-  appears, and “Not now” actually prevents the action (no navigation / no request / no handler side effect).
-  A notification while the action proceeds normally is **FAIL**; that is post-action notification, not a
-  pre-execution gate.
+- **Browser DOM block (B3):** the action is stopped **before it occurs**. The information notice has only Close, and closing it still causes no navigation, request, or handler side effect. Any in-page release or replay is **FAIL**.
 - **Network-layer hard block (F6):** the Network panel shows the target-host request as blocked, not 200.
 - **Observation cases (F1 / W2, and so on):** the corresponding finding / event appears and the normal
   control content does **not** produce a false positive.

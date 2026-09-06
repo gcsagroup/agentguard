@@ -2,7 +2,7 @@
 
 # macOS 觀測即時化（E3）
 
-> 狀態：**已落地（樹訊號 push + 合併器）；像素仍採樣；本機 ad-hoc 路徑已驗證**。把 macOS 的 UI 樹觀測從
+> 狀態：**已落地（樹訊號 push + 合併器 + 代際取消/排空）；像素仍採樣；2026-09-01 舊 ad-hoc 候選有本機接線 smoke，最新 universal `.app` 尚未複驗**。把 macOS 的 UI 樹觀測從
 > 固定輪詢改成「變了就抓」，縮小「邊界」裡那條「不是即時監控，輪詢間隙內的動作可能看不到」。
 
 ## 問題：輪詢間隙
@@ -16,7 +16,7 @@ macOS 的 UI 樹原來每 2.5s 抓一次 AXUIElement 快照。一個在兩次輪
 
 1. **AXObserver 推送**（`native/AgentGuardAX.m`，FFI 在 `ax_native.rs`）。註冊前景應用程式的樹變化通知
    （值變、焦點變、視窗建立/銷毀、標題變）。變化**發生時**推一個訊號過來，而不是等下一個輪詢點。
-   回呼只做一件事：把一個原子計數 +1。盡量薄。
+   回呼只做一件事：在短臨界區內核對註冊代際並把該代計數 +1。盡量薄。
 
 2. **純合併器**（`ax_push.rs`、`PushCoalescer`）。不能每來一個通知就抓一次——一次輸入會連發幾十個
    `kAXValueChangedNotification`，逐個抓會把 CPU 打滿（而「卡」和「看不到」一樣會讓人關掉守衛）。所以
@@ -35,14 +35,17 @@ macOS 的 UI 樹原來每 2.5s 抓一次 AXUIElement 快照。一個在兩次輪
 ## 驅動怎麼用
 
 ```rust
-adapter.start_ax_push()?;              // 工作階段開始：註冊 observer（失敗則退回純備援輪詢）
+let generation = lifecycle.begin_if_drained()?;
+adapter.start_ax_push(generation)?;    // 綁定不可重用的觀測代際
 loop {
     let now = now_ms();
-    let captured = adapter.maybe_capture_ax(now)?;  // 餵通知給合併器，該抓就抓
+    let captured = adapter.maybe_capture_ax(generation, now)?;
     // captured==true 時可順帶抓一幀像素做配對
     sleep(tick);
 }
-adapter.stop_ax_push();                // 工作階段結束
+lifecycle.cancel(generation);          // async/UI 路徑只取消，不同步等待
+lifecycle.wait(generation, timeout);   // blocking worker 中有界排空
+adapter.stop_ax_push(generation);      // 舊代 stop 不能停掉繼任 observer
 ```
 
 `maybe_capture_ax` 把「取通知計數 → 餵合併器 → 判該不該抓 → 抓 → 標記」合成一步，驅動只管定時呼叫它。
@@ -54,11 +57,12 @@ adapter.stop_ax_push();                // 工作階段結束
 （比如一張貼上來的圖），它的間隙沒變。要把像素也做成事件驅動是另一件事（ScreenCaptureKit 的
 內容變化回呼），沒做。
 
-**二、本機接線已驗證，發佈等級時序仍未驗證。** 合併器有 6 條單元測試覆蓋去抖、延遲上限、備援、
-抓完清帳與冷啟動；桌面殼另有測試釘住啟動、驅動、停止及主 RunLoop 接線。2026-09-01 在本機
+**二、本機接線已驗證，發佈等級時序仍未驗證。** 合併器有 6 條單元測試；生命週期另有 5 條
+測試覆蓋 1000 次 start/end/start、啟動失敗、panic、stop timeout 與排隊舊 callback。這些只證明控制邊界，
+不取代 TCC 授權後的真實 AX/SCK callback 風暴與系統佇列排空測試。桌面殼另有測試釘住啟動、驅動、停止及主 RunLoop 接線。2026-09-01 在本機
 ad-hoc 候選上實際啟動應用程式（TCC 的 AX 與 Capture 均為 true），開啟 AX 即時觀測後介面顯示
 `AXObserver push on`；改變介面樹後出現 `live AX ingested · 1 decision(s)`，隨後關閉觀測並結束工作階段。
-這證明目前本機的 Objective-C 回呼和產品驅動確實連通，但**不是** 150ms/800ms 的真機延遲分布基準，
-也不取代 Developer ID 簽署/公證後的全新安裝、升級、最上層應用程式切換及長時間穩定性驗收。
+這只證明當時候選在該 Mac 上的 Objective-C 回呼與產品驅動連通；它不是目前 universal 候選證據，也**不是** 150ms/800ms 的真機延遲分布基準，
+更不取代 Developer ID 簽署/公證後的全新安裝、升級、最上層應用程式切換及長時間穩定性驗收。
 
 一句話：這是**更快、且間隙有上界**，不是**零間隙**。

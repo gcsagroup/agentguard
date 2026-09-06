@@ -4,13 +4,15 @@
 
 > Conclusion: automation, packaging, and a limited macOS native smoke test advanced the current integration candidate, but release-grade browser, Windows, macOS, and Android end-to-end acceptance has not been completed against one immutable commit. Production release remains **No-Go**.
 
+> **2026-09-05 current-contract correction:** this document preserves historical evidence and cannot be used for the current candidate. Windows risk confirmation is post-observation (`effect=observed_only`, `external_action_blocked=false`); Android now uses AccessibilityService plus an ordinary ongoing session notification and does not automatically restore observation after process restart; macOS/Windows Release preserves legacy plaintext audit databases or key files and fails closed instead of selecting a plaintext or sibling fallback. The Firefox ZIP below is also historical; the first GA packages only the Chromium ZIP shared by Chrome and Edge. Older terminology and behavior below describe only the cited historical commit.
+
 This report follows the [real-device acceptance runbook](acceptance-runbook.en.md) and the [report template](acceptance-report-template.en.md). Every unexecuted or insufficiently evidenced case is recorded as `BLOCKED`; no result is guessed as PASS.
 
 ## 1. Source and Evidence Boundary
 
 This report distinguishes two evidence layers that must not be combined:
 
-1. **2026-08-31 real-device / cross-platform baseline:** exact commit `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`, documented in `/Users/lazy/Projects/agent-guard/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`. It contains the Windows 11, macOS, Android-emulator, temporary iOS-harness, and limited Chromium results collected for that commit.
+1. **2026-08-31 real-device / cross-platform baseline:** exact commit `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`, documented in `<local-acceptance>/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`. It contains the Windows 11, macOS, Android-emulator, temporary iOS-harness, and limited Chromium results collected for that commit.
 2. **2026-09-01 current integration candidate:** first-parent release baseline `a7956314fba8340e905353448a53bb1f24f7083c`, merged feature baseline `bd7bb2f96c21518f601ecdc49603b074bf4d97a4`, plus the fixes, D branding, and trilingual documentation recorded here. Its immutable identity is the `main` commit that contains this report.
 
 The `bd7bb2f` real-device results are therefore historical baseline evidence only. They **do not transfer as PASS results** to the current integration candidate. The current run's console output was not archived in a standalone evidence bundle; its command results are integration-verification records, not independently reproducible release evidence.
@@ -54,8 +56,8 @@ After the packaging script was fixed to replace outputs atomically, the delivery
 
 | Artifact | SHA-256 | Recheck |
 |---|---|---|
-| `/Users/lazy/Projects/agent-guard/_push/agentguard-extension.zip` | `443e141834de89587fc0daf7a5470e2edee8a15b6e18c9d3db2368396dea2f51` | 27 files including the D icon assets; `unzip -t` passed; archived `background.js` and `content.js` match the current source |
-| `/Users/lazy/Projects/agent-guard/_push/agentguard-extension-firefox.zip` | `f9309f118ad0c22d0d86b2e4c657141f93a505fcdbdfc032756d215c1c934bb6` | 27 files including the D icon assets; `unzip -t` passed; files match current source; manifest version `1.0.0.1` sets `background.scripts = ["background.js"]` and `background.type = "module"` |
+| `<local-acceptance>/_push/agentguard-extension.zip` | `443e141834de89587fc0daf7a5470e2edee8a15b6e18c9d3db2368396dea2f51` | 27 files including the D icon assets; `unzip -t` passed; archived `background.js` and `content.js` match the current source |
+| `<local-acceptance>/_push/agentguard-extension-firefox.zip` | `f9309f118ad0c22d0d86b2e4c657141f93a505fcdbdfc032756d215c1c934bb6` | 27 files including the D icon assets; `unzip -t` passed; files match current source; manifest version `1.0.0.1` sets `background.scripts = ["background.js"]` and `background.type = "module"` |
 
 This proves delivery-package consistency only. Neither archive was installed and exercised for F1–F8 in this run.
 
@@ -64,7 +66,7 @@ This proves delivery-package consistency only. Neither archive was installed and
 - Current local executable SHA-256: `30425194afe8d4679b74d95e8b1fd2459e3d0f04e050cbe62b037de8fb5cbb11`.
 - App D-icon SHA-256: `9a7732ab9cc79ff50341b5d205f1b03755698315d07f75b9713847780a598a10`.
 - Signing state: `Signature=adhoc`, `TeamIdentifier=not set`; strict `codesign` verification passed, while Gatekeeper `spctl` assessment rejected the app.
-- The launch path retained an existing plaintext audit database and selected a sibling SQLCipher database, avoiding the previous encrypted-open startup crash without overwriting the legacy file.
+- At that historical commit, the launch path retained an existing plaintext audit database and selected a separate SQLCipher database, avoiding the previous encrypted-open startup crash without overwriting the legacy file. This behavior has been retired; current Release preserves the legacy files and fails closed pending an approved clear-or-migrate decision.
 - On the physical Mac, the current ad-hoc app was launched through Computer Use. The UI reported Accessibility `true` and Capture `true`; AX push was enabled and reported `live AX ingested · 1 decision`. Observation was then disabled and the guard session ended.
 
 That last sequence is a **limited native startup/capability/ingestion smoke test**. It has no standalone console/screenshot archive, does not identify which checklist scenario produced the decision, and does not establish timing, SCK/OCR output, pre-side-effect blocking, or audit closure. It is therefore recorded as supplemental evidence, not as a checklist PASS or release evidence.
@@ -152,7 +154,7 @@ release, the channel must be authenticated without exposing the full list, or th
 
 | Surface | PASS | PASS (sim) | FAIL | BLOCKED | N/A |
 |---|---:|---:|---:|---:|---:|
-| Browser (Chrome + Firefox + Edge, F1–F8) | 0 | 0 | 0 | 24 | 0 |
+| Historical browser checklist (Chrome + Firefox + Edge, F1–F8; not the current GA scope) | 0 | 0 | 0 | 24 | 0 |
 | Windows (W1–W7) | 0 | 0 | 0 | 7 | 0 |
 | macOS (16 checklist rows) | 0 | 0 | 0 | 16 | 0 |
 | Android current-candidate platform gate | 0 | 0 | 0 | 1 | 0 |
@@ -191,12 +193,12 @@ Only evidence bound to the same final commit and corresponding release artifacts
 
 ## 11. Evidence Index
 
-- 2026-08-31 cross-platform baseline report: `/Users/lazy/Projects/agent-guard/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`
+- 2026-08-31 cross-platform baseline report: `<local-acceptance>/AGENTGUARD-REAL-TEST-REPORT-2026-08-31.md`
 - Run instructions: [real-device acceptance runbook](acceptance-runbook.en.md)
 - Report structure: [real-device acceptance report template](acceptance-report-template.en.md)
 - Repository status snapshot: [status dashboard](status-dashboard.html) (regenerate after the final commit)
 - Current macOS ad-hoc app: `apps/desktop-macos/src-tauri/target/release/bundle/macos/AgentGuard.app`
-- Rebuilt Chrome delivery ZIP: `/Users/lazy/Projects/agent-guard/_push/agentguard-extension.zip`
-- Rebuilt Firefox delivery ZIP: `/Users/lazy/Projects/agent-guard/_push/agentguard-extension-firefox.zip`
+- Rebuilt Chrome delivery ZIP: `<local-acceptance>/_push/agentguard-extension.zip`
+- Rebuilt Firefox delivery ZIP: `<local-acceptance>/_push/agentguard-extension-firefox.zip`
 
 > This report records a pre-commit acceptance state. It does not independently constitute release evidence; signing, notarization/store review, artifact identity, strict-gate evidence, and platform coverage must be verified separately.

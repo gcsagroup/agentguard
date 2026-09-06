@@ -11,10 +11,10 @@
 | 端 | 發出 | 擷取自 | 說明 |
 |---|---|---|---|
 | Android 伴生應用 | `env_survey`, `form_fill`, `network_meta`, `overlay_marker`, `permission_request`, `session_end`, `session_start`, `ui_text` | `PayloadSerializer.kt` 裡被主程式碼呼叫的 `fun` | 定義了但**沒有任何呼叫方**、因此從未發出:`deeplink`。`deeplink` 是刻意的——AccessibilityService 看不到 intent,要看就得註冊成連結處理器,那是比一類事件大得多的侵入(見 docs/android-completeness.md)。介面文字裡出現的 `intent://` 一類**字樣**由本機掃描器按文字規則回報,不是 deeplink 事件。 |
-| Chromium / Firefox 擴充功能 | `form_fill`, `ui_text` | `background.js` 推給宿主的 `type:`;`content.js` 的 finding `kind:` | 內容腳本 finding 種類:`invisible_injection`, `optional_pii`, `payment_cta`, `payment_request`, `privacy_trap`, `prompt_injection`。信封只有 `form_fill`, `ui_text`——付款/注入類 finding 折成 `ui_text`,表單類折成 `form_fill`;兩份 manifest 裝同一套內容腳本(結構測試釘住),所以 Firefox 與 Chromium 一列。 |
+| Chrome / Edge 擴充功能 | — | GA manifest 的權限門;`background.js` 的宿主 `type:`;`content.js` 的 finding `kind:` | 內容腳本 finding 種類:`invisible_injection`, `optional_pii`, `payment_cta`, `privacy_trap`, `prompt_injection`。GA manifest 沒有 `nativeMessaging`,所以實際傳給宿主的 guard-schema 信封為 —;background.js 中保留的事件對應只是不可達原型。首個 GA 僅交付共用同一 Chromium 套件的 Chrome / Edge。Firefox 只保留原始碼原型,不封裝且不作為首個 GA 驗收門。 |
 | macOS 桌面殼 | `form_fill`, `ui_tree_delta` | `adapters/mac-adapter/src` 與其呼叫的 `guard_vision::uitree` 建構器裡的 `event_type: EventType::*`(不含 sim.rs 模擬適配器與測試模組;殼子的示範按鈕事件不算) | 樹快照、從樹裡摘出的表單填寫、像素幀;工作階段事件由殼子經引擎 API 發起,不在此計。macOS 的 ScreenCaptureKit 幀經 `ingest_capture_frame` 以帶幀中繼資料的 `ui_tree_delta` 進引擎,所以那一列沒有 `screen_frame`——這是實作事實,不是漏。 |
 | Windows 桌面殼 | `form_fill`, `screen_frame`, `ui_tree_delta` | `adapters/win-adapter/src` 與其呼叫的 `guard_vision::uitree` 建構器裡的 `event_type: EventType::*`(不含 sim.rs 模擬適配器與測試模組;殼子的示範按鈕事件不算) | 樹快照、從樹裡摘出的表單填寫、像素幀;工作階段事件由殼子經引擎 API 發起,不在此計。macOS 的 ScreenCaptureKit 幀經 `ingest_capture_frame` 以帶幀中繼資料的 `ui_tree_delta` 進引擎,所以那一列沒有 `screen_frame`——這是實作事實,不是漏。 |
-| iOS | (無) | `apps/ios-webshield` 有無 `.xcodeproj` / `.xcworkspace` / `Package.swift` | 沒有可建置的工程,沒有接入引擎——今天只有一個 SwiftUI 原始碼片段。iOS **不是**已支援平台;docs/ios-limited-sku.md 寫的是目標,不是現狀。 |
+| iOS | (無 guard-schema 事件) | 可建置工程,或含 App / Safari 延伸功能 / Core / 測試 targets 的 `project.yml` | 已有正式 XcodeGen 工程定義、Safari Web Extension 與本機稽核接線;它是 isolated-world DOM 點擊/提交受限 SKU,未接 Rust 引擎,簽署、真機 Safari 與 TestFlight 仍需外部驗收。 |
 
 ## 測試數(靜態計數)
 
@@ -22,13 +22,13 @@
 
 | 位置 | 條數 | 形態 |
 |---|---:|---|
-| crates/guard-audit | 68 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-audit | 102 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-billing | 18 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-cli | 81 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-core | 251 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-cli | 93 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-core | 256 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-eval | 43 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-ffi | 1 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-gateway | 32 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-gateway | 37 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-intel | 15 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-localapi | 17 | Rust `#[test]` / `#[tokio::test]` |
@@ -36,26 +36,27 @@
 | crates/guard-nm-host | 27 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-overlay | 10 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-privacy | 105 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-schema | 150 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-schema | 154 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-shell | 41 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-sync | 6 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-trust | 6 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-vision | 96 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-vision | 100 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/android-adapter | 14 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
-| adapters/mac-adapter | 10 | Rust `#[test]` / `#[tokio::test]` |
-| adapters/win-adapter | 7 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 11 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-windows/src-tauri | 9 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合計** | **1073** | |
-| apps/extension-chromium/scripts/*.test.mjs | 50 | node `test(` |
-| eval/e2e-extension/run.mjs | 24 | 真瀏覽器 E2E 判據 `record(` |
-| apps/android-companion/app/src/test | 48 | Kotlin JVM `@Test`(纯函数) |
-| apps/android-companion/app/src/test(Robolectric) | 11 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
+| adapters/mac-adapter | 30 | Rust `#[test]` / `#[tokio::test]` |
+| adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 43 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
+| **Rust 合計** | **1210** | |
+| apps/extension-chromium/scripts/*.test.mjs | 45 | node `test(` |
+| apps/ios-webshield/Tests/ExtensionTests | 18 | Safari 延伸功能 node `test(` |
+| eval/e2e-extension/run.mjs | 39 | 真瀏覽器 E2E 判據 `record(` |
+| apps/android-companion/app/src/test | 60 | Kotlin JVM `@Test`(纯函数) |
+| apps/android-companion/app/src/test(Robolectric) | 26 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需裝置) |
-| apps/ios-webshield | 0 | Swift `func test*(` |
+| apps/ios-webshield | 22 | Swift `func test*(` |
 | eval/scenarios | 134 | 離線評測場景(YAML) |
-| eval/capability-claims.yaml | 39 | 使用者能力聲明(每條掛證明測試) |
+| eval/capability-claims.yaml | 36 | 使用者能力聲明(每條掛證明測試) |
 
 ## 版本字串
 
@@ -69,8 +70,8 @@
 | .nvmrc | `22` |
 | apps/desktop-macos (tauri.conf.json) | `1.0.0-rc.1` |
 | apps/desktop-windows (tauri.conf.json) | `1.0.0-rc.1` |
-| apps/extension-chromium/manifest.json | `1.0.0.1` |
-| apps/extension-chromium/manifest.firefox.json | `1.0.0.1` |
+| apps/extension-chromium/manifest.json (Chrome / Edge GA) | `1.0.0.1` |
+| apps/extension-chromium/manifest.firefox.json (source prototype; not GA) | `1.0.0.1` |
 | Android versionName | `1.0.0-rc.1` |
 | Android versionCode | `1000001` |
 | Android minSdk | `26` |

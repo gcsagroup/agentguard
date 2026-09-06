@@ -21,6 +21,8 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 
 ## Core trilingual entry points
 
+- [2026-09-06 remediation source submission notes (Simplified Chinese)](remediation-publication-2026-09-06.md) · [繁體](remediation-publication-2026-09-06.zh-TW.md) · [English](remediation-publication-2026-09-06.en.md) — Scope, entry points, validation and No-Go boundaries for this integration.
+
 - [Project README (Simplified Chinese)](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 release notes (Simplified Chinese)](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 real-device acceptance report (Simplified Chinese)](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — Historical snapshot separating `bd7bb2f` from the integration candidate that was uncommitted at the time. It does not prove real-device acceptance for this commit; the release decision remains No-Go.
@@ -32,16 +34,20 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 
 - [Inbound trust (Simplified Chinese)](入站信任.md) · [繁體](入站信任.zh-TW.md) · [English](入站信任.en.md) — Shared trust principles, vocabulary, and an inventory test for six inbound surfaces.
 - [Capability claim-to-test mapping (Simplified Chinese)](主张与测试映射.md) · [繁體](主张与测试映射.zh-TW.md) · [English](主张与测试映射.en.md) — Initial capability claims, proof tests, and a generated status dashboard; not a substitute for real-device evidence.
-- [Browser pre-execution gates (Simplified Chinese)](浏览器执行前阻断.md) · [繁體](浏览器执行前阻断.zh-TW.md) · [English](浏览器执行前阻断.en.md) — Page gates, DNR, blocklist management and provenance, plus asynchronous Native Host and fail-open boundaries.
-- [Cross-browser support (Simplified Chinese)](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — The Firefox port, Edge compatibility, and Safari design boundary.
+- [Browser pre-execution blocking (Simplified Chinese)](浏览器执行前阻断.md) · [繁體](浏览器执行前阻断.zh-TW.md) · [English](浏览器执行前阻断.en.md) — Chrome/Edge block-only DOM gates, the precise static-DNR support surface, and no in-page authorization or replay.
+- [Cross-browser support (Simplified Chinese)](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — First GA is Chrome/Edge only; Firefox is a source prototype and Safari is separate.
 - [Consumerized interface (Simplified Chinese)](消费者化界面.md) · [繁體](消费者化界面.zh-TW.md) · [English](消费者化界面.en.md) — Plain-language trilingual UI, first-run onboarding, accessibility, keyboard use, and dark mode.
 - [macOS real-time observation (Simplified Chinese)](macos实时观测.md) · [繁體](macos实时观测.zh-TW.md) · [English](macos实时观测.en.md) — AXObserver push and coalescing, with pixel-sampling, fallback-polling, and real-device-unverified boundaries.
-- [Structured release evidence (Simplified Chinese)](release-evidence.md) · [繁體](release-evidence.zh-TW.md) · [English](release-evidence.en.md) — Commit and artifact binding for eight evidence kinds, template and verification commands, and the unsigned-attestation boundary.
+- [Structured release evidence](release-evidence.en.md) — Twelve RC technical kinds for `--strict`; passing is not GA approval.
+- [GA release-closure gate](ga-release-gate.en.md) · [简体](ga-release-gate.md) · [繁體](ga-release-gate.zh-TW.md) — Nineteen `--ga` evidence kinds and fail-closed boundaries.
+- [GA evidence template](ga-evidence-template.en.md) · [14-day Beta](ga-beta-runbook.en.md) · [5→25→100 rollout](rollout-runbook.en.md)
+- [Incident response](incident-response.en.md) · [Launch support](support-runbook.en.md)
 - [Real-device acceptance runbook (Simplified Chinese)](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — Executable steps and evidence rules, not completed acceptance.
 - [Real-device acceptance report template (Simplified Chinese)](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — Per-platform PASS, FAIL, and BLOCKED recording.
-- [Chromium extension acceptance checklist (Simplified Chinese)](acceptance-chrome.md) · [繁體](acceptance-chrome.zh-TW.md) · [English](acceptance-chrome.en.md) — Chrome/Edge: C1–C5 are produced by the `make e2e-extension` real-browser E2E, C6–C8 (native messaging / DNR) stay manual on a real device; not yet a strict-gate kind.
-- [Firefox acceptance checklist (Simplified Chinese)](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+, DNR quota, and gecko-id Native Messaging real-device checks.
-- [Windows acceptance checklist (Simplified Chinese)](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA, GDI, OCR, capability-probe, and Native Messaging real-device checks.
+- [Chromium extension acceptance checklist (Simplified Chinese)](acceptance-chrome.md) · [繁體](acceptance-chrome.zh-TW.md) · [English](acceptance-chrome.en.md) — 39 real-Chromium E2E cases plus B1–B5 manual release evidence for the formal Chrome/Edge candidate ZIP; Chrome and Edge are independent strict-gate kinds.
+- [iOS real-device and TestFlight acceptance (Simplified Chinese)](acceptance-ios.md) · [繁體](acceptance-ios.zh-TW.md) · [English](acceptance-ios.en.md) — I1–I6 real-device Safari Extension and TF1–TF3 TestFlight are independent strict-gate kinds.
+- [Firefox first-GA exclusion notice (Simplified Chinese)](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Source prototype only: not packaged, submitted, or eligible for first-GA PASS.
+- [Windows acceptance checklist (Simplified Chinese)](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — `first-ga-v1` requires real-device W1–W6/W8–W11 for UIA, GDI, OCR, capability probes, and related flows; W7 Native Messaging is only a non-GA/legacy optional record.
 - [macOS acceptance checklist (Simplified Chinese)](acceptance-macos.md) · [繁體](acceptance-macos.zh-TW.md) · [English](acceptance-macos.en.md) — Strict PASS/BLOCKED boundaries for SCK, AX, TCC, and native cases.
 
 ## Release, platform, and operations
@@ -64,8 +70,8 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 - [architecture.md](architecture.md) — Original language: mixed Chinese and English; status: technical reference.
 - [android-completeness.md](android-completeness.md) — Original language: primarily English; status: Android capability and gap reference.
 - [android-env-survey.md](android-env-survey.md) — Original language: English; status: Android environment-survey reference.
-- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with partial real-device evidence for startup, continuous observation, and the blocking modal; full W1–W11 end-to-end acceptance remains open.
-- [ios-limited-sku.md](ios-limited-sku.md) — Original language: primarily English; status: limited scaffold description, not a complete product.
+- [windows-observation.md](windows-observation.md) — Original language: English; status: Windows implementation reference with historical partial real-device evidence for startup, continuous observation, and a post-observation risk confirmation. It does not prove the external action was blocked; `first-ga-v1` W1–W6/W8–W11 end-to-end acceptance remains open.
+- [ios-limited-sku.md](ios-limited-sku.md) — Trilingual limited Safari WebShield candidate; project and Simulator evidence exist, while signing, real-device Safari, and TestFlight remain release gates.
 - [local-api.md](local-api.md) — Original language: mixed Chinese and English; status: local API reference.
 - [billing.md](billing.md) — Original language: mixed Chinese and English; status: billing and entitlement reference.
 - [sck-bridge.md](sck-bridge.md) — Original language: primarily English; status: ScreenCaptureKit integration reference.

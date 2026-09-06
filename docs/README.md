@@ -21,6 +21,8 @@
 
 ## 核心三语入口
 
+- [2026-09-06 整改源码提交说明（简体）](remediation-publication-2026-09-06.md) · [繁體](remediation-publication-2026-09-06.zh-TW.md) · [English](remediation-publication-2026-09-06.en.md) — 本轮范围、使用入口、验证与 No-Go 边界。
+
 - [项目 README（简体）](../README.md) · [繁體](../README.zh-TW.md) · [English](../README.en.md)
 - [1.0.0-rc.1 发布说明（简体）](RELEASE-1.0.0-rc.1.md) · [繁體](RELEASE-1.0.0-rc.1.zh-TW.md) · [English](RELEASE-1.0.0-rc.1.en.md)
 - [2026-09-01 真机验收报告（简体）](acceptance-report-2026-09-01.md) · [繁體](acceptance-report-2026-09-01.zh-TW.md) · [English](acceptance-report-2026-09-01.en.md) — 历史快照，区分 `bd7bb2f` 与当时未提交的整合候选；不代表本次提交已完成真机验收，发布结论仍为 No-Go。
@@ -32,16 +34,21 @@
 
 - [入站信任（简体）](入站信任.md) · [繁體](入站信任.zh-TW.md) · [English](入站信任.en.md) — 六类入站面的统一信任原则、共用词汇与清册测试。
 - [主张与测试映射（简体）](主张与测试映射.md) · [繁體](主张与测试映射.zh-TW.md) · [English](主张与测试映射.en.md) — 首批能力声明、证明测试与生成状态仪表盘；不替代真机证据。
-- [浏览器执行前阻断（简体）](浏览器执行前阻断.md) · [繁體](浏览器执行前阻断.zh-TW.md) · [English](浏览器执行前阻断.en.md) — 页面门、DNR、名单管理与溯源，以及异步 Native Host 和 fail-open 边界。
-- [跨浏览器（简体）](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — Firefox 移植、Edge 兼容与 Safari 设计边界。
+- [浏览器执行前阻断（简体）](浏览器执行前阻断.md) · [繁體](浏览器执行前阻断.zh-TW.md) · [English](浏览器执行前阻断.en.md) — Chrome/Edge 的 block-only DOM 门、静态 DNR 精确支持面，以及无页面内授权/重放边界。
+- [跨浏览器（简体）](跨浏览器.md) · [繁體](跨浏览器.zh-TW.md) · [English](跨浏览器.en.md) — 首个 GA 仅 Chrome/Edge；Firefox 为源码原型，Safari 为独立路径。
 - [消费者化界面（简体）](消费者化界面.md) · [繁體](消费者化界面.zh-TW.md) · [English](消费者化界面.en.md) — 三语人话界面、首次引导、无障碍、键盘与深色模式。
 - [macOS 实时观测（简体）](macos实时观测.md) · [繁體](macos实时观测.zh-TW.md) · [English](macos实时观测.en.md) — AXObserver 推送与合并；像素采样、兜底轮询和真机未验边界。
-- [结构化发布证据（简体）](release-evidence.md) · [繁體](release-evidence.zh-TW.md) · [English](release-evidence.en.md) — 八类证据的提交与产物绑定、模板和校验命令，以及未签名自证边界。
+- [结构化发布证据（简体）](release-evidence.md) · [繁體](release-evidence.zh-TW.md) · [English](release-evidence.en.md) — `--strict` 的 12 类 RC 技术证据；通过不等于 GA。
+- [GA 发布闭环门禁（简体）](ga-release-gate.md) · [繁體](ga-release-gate.zh-TW.md) · [English](ga-release-gate.en.md) — `--ga` 的 19 类证据、机器语义和 No-Go 边界。
+- [GA 证据模板](ga-evidence-template.md) · [繁體](ga-evidence-template.zh-TW.md) · [English](ga-evidence-template.en.md) — 故意 BLOCKED，不能原样变成 PASS。
+- [14 天 Beta](ga-beta-runbook.md) · [繁體](ga-beta-runbook.zh-TW.md) · [English](ga-beta-runbook.en.md) · [5→25→100 扩量](rollout-runbook.md) · [繁體](rollout-runbook.zh-TW.md) · [English](rollout-runbook.en.md)
+- [事故响应](incident-response.md) · [繁體](incident-response.zh-TW.md) · [English](incident-response.en.md) · [上线支持](support-runbook.md) · [繁體](support-runbook.zh-TW.md) · [English](support-runbook.en.md)
 - [真机验收执行手册（简体）](acceptance-runbook.md) · [繁體](acceptance-runbook.zh-TW.md) · [English](acceptance-runbook.en.md) — 可执行步骤与证据规范，不是已完成验收。
 - [真机验收报告模板（简体）](acceptance-report-template.md) · [繁體](acceptance-report-template.zh-TW.md) · [English](acceptance-report-template.en.md) — 按平台记录 PASS、FAIL 与 BLOCKED。
-- [Chromium 扩展验收清单（简体）](acceptance-chrome.md) · [繁體](acceptance-chrome.zh-TW.md) · [English](acceptance-chrome.en.md) — Chrome/Edge：C1–C5 由 `make e2e-extension` 真浏览器 E2E 机器产出，C6–C8（原生消息 / DNR）仍真机人工；尚非严格门禁 kind。
-- [Firefox 验收清单（简体）](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — Firefox 128+、DNR 配额与 gecko-id Native Messaging 真机项。
-- [Windows 验收清单（简体）](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — UIA、GDI、OCR、能力探针与 Native Messaging 真机项。
+- [Chromium 扩展验收清单（简体）](acceptance-chrome.md) · [繁體](acceptance-chrome.zh-TW.md) · [English](acceptance-chrome.en.md) — 39 项真 Chromium E2E + Chrome/Edge 正式候选 ZIP 的 B1–B5 人工发布证据；Chrome 与 Edge 是两个独立的严格门禁 kind。
+- [iOS 真机与 TestFlight 验收（简体）](acceptance-ios.md) · [繁體](acceptance-ios.zh-TW.md) · [English](acceptance-ios.en.md) — I1–I6 真机 Safari Extension 与 TF1–TF3 TestFlight 是两个独立的严格门禁 kind。
+- [Firefox 首个 GA 排除说明（简体）](acceptance-firefox.md) · [繁體](acceptance-firefox.zh-TW.md) · [English](acceptance-firefox.en.md) — 仅源码原型，不封装、不提交、不产生首个 GA PASS。
+- [Windows 验收清单（简体）](acceptance-windows.md) · [繁體](acceptance-windows.zh-TW.md) · [English](acceptance-windows.en.md) — `first-ga-v1` 要求 UIA、GDI、OCR、能力探针等 W1–W6/W8–W11 真机项；W7 Native Messaging 仅为非 GA/遗留可选记录。
 - [macOS 验收清单（简体）](acceptance-macos.md) · [繁體](acceptance-macos.zh-TW.md) · [English](acceptance-macos.en.md) — SCK、AX、TCC 与原生用例的严格 PASS/BLOCKED 边界。
 
 ## 发布、平台与运维
@@ -64,8 +71,8 @@
 - [architecture.md](architecture.md) — 原始语言：中英混合；状态：技术参考。
 - [android-completeness.md](android-completeness.md) — 原始语言：英文为主；状态：Android 能力与缺口参考。
 - [android-env-survey.md](android-env-survey.md) — 原始语言：英文；状态：Android 环境调查技术参考。
-- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与阻断模态的部分真机证据；完整 W1–W11 端到端验收仍未完成。
-- [ios-limited-sku.md](ios-limited-sku.md) — 原始语言：英文为主；状态：有限脚手架说明，不是完整产品。
+- [windows-observation.md](windows-observation.md) — 原始语言：英文；状态：Windows 实现参考，已有启动、连续观测与事后风险确认的历史部分真机证据；它不证明外部动作被阻止，`first-ga-v1` W1–W6/W8–W11 端到端验收仍未完成。
+- [ios-limited-sku.md](ios-limited-sku.md) — 三语受限 Safari WebShield 候选；工程与模拟器证据已具备，签名、真机 Safari 与 TestFlight 仍是发布门槛。
 - [local-api.md](local-api.md) — 原始语言：中英混合；状态：本地 API 技术参考。
 - [billing.md](billing.md) — 原始语言：中英混合；状态：计费与授权技术参考。
 - [sck-bridge.md](sck-bridge.md) — 原始语言：英文为主；状态：ScreenCaptureKit 接线参考。

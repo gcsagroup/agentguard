@@ -2,7 +2,7 @@
 
 [简体中文](STORE.md) · [繁體中文](STORE.zh-TW.md) · English
 
-> **Draft only; not submitted to or approved by the Chrome Web Store.** This copy is not evidence of publication, review, or real-browser acceptance.
+> **Draft only; not submitted to or approved by the Chrome Web Store.** This copy is not evidence of publication, review, or real-browser acceptance. The first GA targets Chrome / Edge only; the Firefox source prototype is not packaged and is not an acceptance gate.
 
 ## Name
 
@@ -10,45 +10,39 @@ AgentGuard Web Shield
 
 ## Summary
 
-Hold payment, privacy-trap, and high-risk network actions before they happen, while surfacing hidden prompt injection on pages used by AI agents. Local-first.
+Stop matching payment or privacy-trap DOM actions before execution and hard-block declared non-read-only payment-path requests, while surfacing hidden prompt injection. Local-first.
 
 ## Description
 
-AgentGuard Web Shield provides three limited layers for pages an AI agent uses on the user's behalf:
+AgentGuard Web Shield provides three bounded protections on Chrome / Edge pages:
 
-- **In-page approval gate:** payment or transfer clicks, personal-data submissions into a privacy trap, and payment-shaped `fetch`/XHR calls are held first and replayed only after **Allow once**.
-- **Network block list:** browser DNR stops threat-intelligence matches and hosts outside an explicitly supplied task allowlist before requests leave. The popup shows each host, its reason, and an unblock control.
-- **Page detection:** hidden / subliminal prompt-injection text, unnecessary personal-data fields, privacy traps, and high-risk CTA text.
+- **DOM action blocking:** from `document_start`, the browser injects the content script into every HTTP(S) frame it allows the extension to enter. Payment or transfer clicks and privacy-trap personal-data submissions in those frames are synchronously stopped before execution. There is no in-page “Allow once,” Continue, or replay control.
+- **Payment-path network hard block:** default static DNR blocks declared non-GET/HEAD HTTP(S) requests at the browser network layer when Chrome classifies them as `xmlhttprequest`, `ping`, `main_frame`, or `sub_frame`.
+- **Page detection:** the extension surfaces hidden or subliminal prompt-injection text, unnecessary personal-data fields, privacy traps, and high-risk CTA text, and keeps results in its local recent list.
 
-Findings stay in the extension by default. With the optional `guard-nm-host`, matching events are evaluated by the local engine and can enter a signed, tamper-evident audit chain; the desktop app need not be running. Host verdicts are **asynchronous**: a Critical result raises a notification after the fact and cannot undo an action that already occurred. Pre-action control comes from the page gate and successfully installed DNR rules.
+An in-page warning is informational only. The page can delete, cover, imitate, or otherwise influence it, so it is not authorization UI and no click inside the page can release a block. If a user understands the risk and still wants to continue, they must first disable or remove AgentGuard in the browser's trusted extension-management surface (`chrome://extensions` or `edge://extensions`), then independently repeat the action. The first GA has no temporary exception.
 
-**Honest limits:** the page gate covers only main-frame DOM actions the extension can reach and `fetch`/XHR references that a page did not capture first. A clean iframe or earlier API reference can bypass it. DNR fails open if rules cannot be installed. The extension does not monitor native apps outside the browser.
+Static DNR hard-blocks only when all of these conditions hold: the URL is HTTP(S); the method is not GET/HEAD; either a path component begins with `pay`, `payment`, `checkout`, `charge`, `transfer`, `remit`, `purchase`, `orderconfirm` / `order-confirm` / `order_confirm`, or `confirmorder` / `confirm-order` / `confirm_order` at the documented character boundary, or the query key `op`, `action`, or `operation` explicitly equals one of those markers; and the resource type is one of the four listed above. The path rules also explicitly cover percent-encoded bytes for core markers and `%2F` separators. It does not inspect request bodies or cover body-only payment intent, custom aliases, encoded or obfuscated forms not explicitly listed, arbitrary query keys or values, WebSocket/WebTransport, GET/HEAD, or other resource types.
+
+**Honest limits:** DOM blocking covers only HTTP(S) frames where the browser actually injects the content script and an observable click/submit event occurs. Direct `form.submit()`, uninjected pages or schemes, and script paths that emit no observed event are outside that guarantee. A page can affect the visibility or authenticity of the information notice but cannot use it to create release state. Both DOM and static-DNR controls are block-only: there is no in-page approval, scope exception, or one-shot release. The extension does not monitor native apps outside the browser.
 
 ## Privacy
 
-- Browsing history is not uploaded to AgentGuard servers by default.
-- Native Messaging forwarding is **off by default**; it only starts after the user enables it in the popup settings. Events that arrive before settings have loaded are queued, not sent (fail-closed).
-- Without an installed or enabled Native Messaging host, findings remain in the extension-local buffer.
-- With the host enabled, matching events go to the user's local `guard-nm-host` process. URLs that are forwarded or kept in the local list are **minimized**: userinfo, fragment and the whole query are dropped and token-shaped path segments become `…` — the rules read page text, not the tokens, OAuth codes or reset links a URL may carry.
-- The popup shows the site currently being checked, where findings are forwarded (the local host name), whether it is connected, and the time of the last success.
-- The host audit database remains local by default. Audit signing and encryption require explicit user configuration and must not be assumed enabled.
-- Threat intel updates are signed (Ed25519) and optional; production deployments must replace repository fixture keys.
+- Browsing history and findings are not uploaded to AgentGuard servers by default.
+- Matching results stay in the extension-local recent list.
+- Locally recorded URLs are minimized: userinfo, fragment, and the entire query are removed, and token-shaped path segments become `…`. This is heuristic; short tokens or secrets embedded in ordinary text may not be recognized.
+- The GA manifest does not request `nativeMessaging`, and the extension does not connect to a local host. Native-host source and templates retained in the repository are not a first-GA capability and are not shipped in the store ZIP.
 - See the [privacy policy](../../docs/privacy-policy.en.md).
 
 ## Permission justification
 
 - `storage`: stores settings and the local recent-findings buffer.
-- `nativeMessaging`: optionally connects to the user-installed local `guard-nm-host`.
-- `declarativeNetRequest`: blocks listed malicious or out-of-scope hosts before a request leaves.
-- `notifications`: displays asynchronous high-risk engine verdicts.
+- `declarativeNetRequest`: enables the declared static payment-path network hard block by default.
+- `notifications`: shows browser-owned information after a DOM action has been blocked; it is not an authorization surface.
 - `activeTab`: supports extension interaction associated with the active tab.
-- `http://*/*`, `https://*/*`: runs the content script and inspects the DOM on pages the user visits.
+- `http://*/*`, `https://*/*`: runs the content script and inspects the DOM on HTTP(S) pages the user visits.
 
-## Local-host security boundary
-
-In addition to Chrome manifest `allowed_origins`, the host verifies the origin Chrome supplies through `argv[1]`. It refuses to start when no expected origin is configured or the values differ. The installer writes the extension origin to an `allowed-origin` file beside the binary.
-
-**This is not caller authentication.** `argv[1]` is a caller-controlled string and `allowed-origin` is a readable value on disk: a local process running as the same user can read it, execute the host with the same argument and feed it native-messaging frames, forging or polluting events and audit rows. A stdio host cannot obtain peer-process credentials, so this boundary cannot be closed in this architecture; what it stops is processes that do not know the protocol and misconfigured browsers, not a malicious local process. The persistent connection between extension and host (`connectNative`) carries a per-connection random nonce and a monotonic sequence number, and the host rejects replayed, out-of-order or mismatched frames; that too constrains frames, not processes.
+`nativeMessaging` is explicitly absent from the GA manifest. The first GA does not claim Native-host verdicts, dynamic host lists, or a local audit-chain capability.
 
 ## Package
 
@@ -56,13 +50,14 @@ In addition to Chrome manifest `allowed_origins`, the host verifies the origin C
 ./apps/extension-chromium/scripts/package-store.sh
 ```
 
-The resulting ZIP does not contain the Native Messaging host. The extension package, host installation, and local audit configuration must be documented separately.
+This command produces the shared Chrome / Edge ZIP. The release script rejects `--firefox`; the ZIP contains neither a Firefox manifest nor a Native Messaging host.
 
 ## Current release status
 
-- Not submitted to the Chrome Web Store.
-- No real-browser store install, upgrade, or permission-prompt acceptance record.
-- Native Messaging installers: `install-host.sh` for macOS / Linux, `install-host.ps1` for Windows (writes the registry key under `HKCU\Software\<browser>\NativeMessagingHosts`); neither has real-device store-flow evidence yet.
-- Real store installation and end-to-end pre-action acceptance still require separate evidence for Chrome, Edge, and Firefox; Safari remains a design item.
+- Not submitted to the Chrome Web Store or Microsoft Edge Add-ons.
+- Chrome and Edge still require separate real-browser evidence for store-candidate installation, upgrade, permission prompts, and pre-execution behavior.
+- Firefox remains a source prototype; it is not packaged, submitted, or an acceptance gate for the first GA.
+- Native Messaging is completely disabled in the GA manifest; retained prototype components are not a shipping capability.
+- Safari is a separate product line outside this extension's first GA.
 
-See the [Chromium Extension README](README.en.md) for technical setup.
+See the [Chrome / Edge Extension README](README.en.md) for technical details.

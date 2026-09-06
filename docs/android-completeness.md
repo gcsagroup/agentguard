@@ -102,9 +102,11 @@ notification naming **the engine's rule**, not a local heuristic's guess. The tw
 the engine is the one holding the policy, the plan and the session scope.
 
 But the companion observes an accessibility event that has **already happened**. There is no point
-at which it holds the action and waits. On the desktop the modal blocks before the action proceeds;
-here the user is told after. That is a real difference, and calling both "Critical Confirm ✅" is
-what the old capability matrix did.
+at which it holds the action and waits. Native macOS and Windows observers have the same
+post-observation boundary: their modal can pause the session and later cooperative operations, but
+cannot undo or prove prevention of the external action. Only the separately accepted Chromium DOM /
+network gates and cooperative Gateway can hold covered operations before execution. Calling every
+one of these paths "Critical Confirm ✅" is what the old capability matrix did.
 
 Every send now goes through one function, so whether the phone learns the verdict is a property of
 the companion rather than of whichever call site you happen to read. Relay failures are recorded
@@ -149,11 +151,12 @@ now covered without a device, because Robolectric runs the **real Android framew
 
 What Robolectric is **not**: the device. It ships its own `android-all` implementation, so whether
 the system actually delivers those events (per `accessibility_service_config` and OEM behaviour),
-whether TalkBack coexists, whether the foreground service survives Android 15/16 restrictions,
-whether a notification is really posted, and whether a permission prompt grants — all still need
-hardware. `rootInActiveWindow` is null here, so the `ui_text` branch is only pinned negatively
-("does not invent events"). There is still **no instrumented test and no device run** in this
-repository: the APK builds and packages in CI, and nobody has watched it observe a real agent.
+whether TalkBack coexists, whether the ordinary ongoing session notification is really posted,
+and whether a permission prompt grants — all still need physical-device coverage. There is no
+foreground service in the current product. `rootInActiveWindow` is null here, so the `ui_text`
+branch is only pinned negatively ("does not invent events"). There is still **no instrumented test
+or physical-device run** in this repository: the APK builds and packages in CI, and nobody has
+watched it observe a real agent on hardware.
 `scripts/acceptance/android-e2e.sh` (A1–A4, L, S, T) is that layer.
 
 Also still untested: `gridFrom`'s rendering step, as above.
@@ -170,10 +173,10 @@ The 2026-08-31 real-device report listed four Android gaps; this is what changed
   "active"; a relay that is switched off reads "off", not "connected"; a relay that has never
   succeeded reads "connecting". The newest of last-ok / last-error wins, and **an empty verdict is a
   success** — it clears an old error, which it did not before.
-- **Session state survives the process.** `SessionState` persists `active` / `sessionId` / `startedAt`
-  to prefs; the `START_STICKY` restart path (`onStartCommand(null)`) restores it and re-enters the
-  foreground with its notification, or stops itself if no session was open. Before, a restarted
-  service sat there with no notification and a blank session.
+- **Process restart fails closed.** The current product does not use a foreground service or
+  `START_STICKY`. After process death, the persisted request is cleared, the old ordinary ongoing
+  session notification is not restored, and AccessibilityService being enabled does not silently
+  restart observation. The user must explicitly start a new guard session.
 - **The bearer token is not plaintext any more.** `TokenVault` wraps it with an AES-256/GCM key in
   the Android Keystore; the settings field is a password field that is never pre-filled and shows
   only "saved (encrypted, not shown)". A legacy plaintext `relay_token` is migrated on first read.
@@ -183,18 +186,19 @@ The 2026-08-31 real-device report listed four Android gaps; this is what changed
   20 files, 50 MiB total, 5 MiB per file with rotation; the current session's file is never
   deleted; a "delete local event log" button is the user-visible clearing entry.
 
-Still true, and unchanged by the above: none of it has run on a device in this repository's
-history. The state machine and retention policy are tested on the JVM; the Keystore path, the
-`START_STICKY` restart and the notification re-entry are code paths that compile and that a phone
-has to exercise.
+The API 36 emulator has covered notification permission and status, Accessibility start/stop,
+runtime revocation, and fail-closed process death. That remains simulator evidence. The state
+machine and retention policy are JVM-tested, while the Keystore path, OEM behaviour, ordinary
+notification lifecycle, and explicit restart requirement still need API 35+ physical-device
+coverage.
 
 ## What is still missing
 
 - **No `deeplink` source**, as above.
-- **No blocking confirmation.**
+- **No pre-action blocking confirmation.** High-risk notices are post-observation only.
 - **No logcat monitoring.** `READ_LOGS` is `signature|privileged` — the check we would need is the
   permission we are warning about.
 - **The relay is a development wiring.** `adb reverse tcp:8788` to the desktop loopback, over a
   bearer token. (发布阻塞项清理之后,那个令牌不再有硬编码默认值:`api-serve` 会拒绝启动在弱
   令牌上,不带 `--token` 时自己生成一个强的。中转本身仍然是开发接线,不是产品形态。)
-- **No instrumented or on-device test.**
+- **No physical-device instrumented or real-agent E2E test.**

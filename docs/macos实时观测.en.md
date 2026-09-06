@@ -2,7 +2,7 @@
 
 # Real-Time macOS Observation (E3)
 
-> Status: **Implemented (tree-signal push + coalescer); pixels are still sampled; the local ad-hoc path is validated**.
+> Status: **Implemented (tree-signal push + coalescer + generation cancel/drain); pixels are still sampled; an old 2026-09-01 ad-hoc candidate has local wiring smoke, while the latest universal `.app` is not revalidated**.
 > This changes macOS UI-tree observation from fixed polling to “capture when it changes,” narrowing the limitation
 > that this is not real-time monitoring and actions occurring between polls may be missed.
 
@@ -19,7 +19,8 @@ The design has three layers, each with a distinct responsibility and explicit bo
 1. **AXObserver push** (`native/AgentGuardAX.m`, with FFI in `ax_native.rs`). It registers for tree-change
    notifications from the foreground application (value changes, focus changes, window creation/destruction, and
    title changes). A signal is pushed **when the change occurs**, instead of waiting for the next polling point.
-   The callback does only one thing: increment an atomic counter. It is kept as thin as possible.
+   The callback does only one thing: under a short lock, validate its registration generation and increment that
+   generation's notification counter. It is kept as thin as possible.
 
 2. **Pure coalescer** (`ax_push.rs`, `PushCoalescer`). Capturing once for every notification is not viable—one input
    action can emit dozens of `kAXValueChangedNotification` events, and capturing each one could saturate the CPU
@@ -42,14 +43,17 @@ push is entirely unavailable.
 ## Driver usage
 
 ```rust
-adapter.start_ax_push()?;              // Session start: register observer (fall back to polling only on failure)
+let generation = lifecycle.begin_if_drained()?;
+adapter.start_ax_push(generation)?;    // Bind the observer to a non-reusable generation
 loop {
     let now = now_ms();
-    let captured = adapter.maybe_capture_ax(now)?;  // Feed notifications to the coalescer; capture when due
+    let captured = adapter.maybe_capture_ax(generation, now)?;
     // When captured==true, a pixel frame can also be captured for pairing
     sleep(tick);
 }
-adapter.stop_ax_push();                // Session end
+lifecycle.cancel(generation);          // Async/UI path only cancels; it does not block
+lifecycle.wait(generation, timeout);   // Bounded drain on a blocking worker
+adapter.stop_ax_push(generation);      // A stale stop cannot stop the successor
 ```
 
 `maybe_capture_ax` combines “read notification count → feed coalescer → decide whether to capture → capture → mark”
@@ -64,11 +68,13 @@ has the same gap as before. Making pixel capture event-driven would be separate 
 change callbacks; it has not been done.
 
 **2. Local wiring is validated; release-grade timing is not.** Six unit tests cover debounce, maximum latency,
-fallback, clearing after capture, and cold start. A desktop-shell test also pins startup, driving, shutdown, and the
-main-RunLoop connection. On 2026-09-01, the local ad-hoc candidate was launched with both AX and Capture TCC status
+fallback, clearing after capture, and cold start. Five lifecycle tests cover 1,000 start/end/start cycles, startup
+failure, worker panic, stop timeout, and queued stale callbacks. Those tests establish the controller boundary; they
+do not replace a callback-storm and system-queue drain test with real AX/SCK TCC grants. A desktop-shell test also
+pins startup, driving, shutdown, and the main-RunLoop connection. On 2026-09-01, the local ad-hoc candidate was launched with both AX and Capture TCC status
 true. Enabling real-time AX observation displayed `AXObserver push on`; changing the UI tree then produced
-`live AX ingested · 1 decision(s)`, after which observation was disabled and the session ended. This proves that the
-Objective-C callback and product driver are connected on this Mac. It is **not** a real-device latency-distribution
+`live AX ingested · 1 decision(s)`, after which observation was disabled and the session ended. This proves only that the
+Objective-C callback and product driver were connected for that candidate on that Mac; it is not evidence for the current universal candidate. It is **not** a real-device latency-distribution
 benchmark for the 150ms/800ms targets, nor does it replace fresh-install, upgrade, foreground-app-switching, or
 long-duration acceptance after Developer ID signing and notarization.
 

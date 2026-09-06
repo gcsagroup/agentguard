@@ -15,10 +15,10 @@ That one is fixed at the audit path. This iteration audits the rest.
 
 | Sink | Carried | Now |
 |---|---|---|
-| `AuditRecord::event_json` | the whole event, PAN included | masked where a checksum-verified entity was found (iter 16) |
+| `AuditRecord::event_json` | the whole event, PAN included | `persistable_event_v1`: allow-listed typed fields only; raw UI/OCR/clipboard text, paths and unknown fields are absent |
 | `StdinConfirm` | `ui: <excerpt>` on **stderr** | `log_excerpt(…, 160)` |
 | `sim-capture`, `replay` | `ui={:?}` per event on stdout | `log_excerpt_opt(…, 120 / 80)` |
-| `audit-report` | `human_message`, built from event text by rule templates | `log_safe` |
+| `audit-report` | `human_message`, built from event text by rule templates | exact-value removal + `log_safe` + 512-character cap; any lossy event uses a fixed rule/action/severity summary |
 | `flow-eval` | an intel finding's `human_message` | `log_safe` |
 | Android `Log.d(TAG, envelope.toString())` | **the full JSON of every accessibility batch**, raw `node.text` included | `LogSafe.envelopeSummary` — shapes and counts, no content |
 | Android `Log.i(TAG, "env survey: …")` | the package names of every app watching the device | counts only |
@@ -53,11 +53,24 @@ one in two places the Rust one was wrong about (Unicode digits, non-ASCII email 
 parts), and the two are kept deliberately similar rather than shared, because the companion
 does not link the engine and pretending otherwise is how this happened.
 
-Also worth stating plainly: of the Rust sinks, `StdinConfirm` **is never constructed
-anywhere in the repo**, and the other four are developer CLI commands (`sim-capture`,
-`replay`, `audit-report`, `flow-eval`). No shipping desktop or extension path calls
-`log_safe`. The redaction that protects a user today is the Kotlin one and the audit-row
-masking from iteration 16.
+Also worth stating plainly: `StdinConfirm` **is never constructed anywhere in the repo**,
+and the other print sinks are developer CLI commands. The durable audit constructor is now
+itself an egress boundary: every desktop/Core caller reaches the same typed projection and
+message policy before SQLite, the hash chain, signing, export or reports.
+
+`persistable_event_v1` does not serialize `GuardEvent`. It stores the stable event type and
+an allow-list of JSON booleans/numbers, canonical enums, bounded identifiers and validated
+digests. URLs retain only scheme plus normalized host; non-HTTP URI schemes retain only the
+scheme. Environment/package lists become counts. Raw `ui_text`, OCR, clipboard content,
+userinfo, URL path/query/fragment, file paths, command operands, labels, reasons and unknown
+fields are omitted. An app without a validated package identifier and every external session
+ID are represented by stable SHA-256 pseudonyms; malformed attributed-agent IDs are likewise
+pseudonymized. This keeps correlation without making those columns alternate raw-text sinks.
+
+This is a write-boundary change, not a destructive migration. Existing rows remain readable and
+their original chain/signatures remain verifiable; consequently, a database written by an older
+build may still contain raw `event_json`. Until the product owner approves clear-or-migrate and
+backup-destruction handling, treat historical databases and unfiltered JSONL exports as sensitive.
 
 ## One redactor, and a test that fails when a sink forgets it
 
@@ -94,13 +107,13 @@ alternative is a newtype whose `Display` is redacted — but observed text arriv
 reshaping the event schema for every adapter. What this catches is the thing that actually
 goes wrong: someone adds a `println!` in six months and nobody remembers this file.
 
-## Display masking is stricter than audit masking
+## Display masking and durable minimisation are different controls
 
 Two thresholds, on purpose:
 
-- **The audit row is evidence.** `entity::mask_sensitive_runs` masks only what could be an
-  account number or credential, and only in fields where a checksum-verified entity was
-  found. Over-masking evidence costs forensic value.
+- **The durable audit row is structured evidence.** Raw observed text is not evidence that
+  must be retained. Rules evaluate it in memory, then the audit row keeps the typed event
+  shape, rule/action/severity, minimized destination and validated integrity identifiers.
 - **A console line is not.** `log_safe` also masks every unseparated digit run longer than
   **8**, and every email's local part, whether or not a checksum confirmed anything.
 

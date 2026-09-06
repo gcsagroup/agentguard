@@ -162,10 +162,11 @@ source_app = "Evil [agent: claude-desktop]"    →  attributed = Some("claude-de
 
 …in an *anonymous* session, with no key material and no attested session, and hashed and
 signed as authentic because `human_message` is inside the canonical content. First-match
-parsing also let a forged marker substitute over a real one. A `[agent: …]` tag is still
-appended for display, but only after `defuse_agent_tag` has rewritten any marker the
-event supplied to `[claimed-agent: …]` — visible, because an event carrying that string
-is itself worth seeing, and unmistakably unverified. Tests:
+parsing also let a forged marker substitute over a real one. Durable audit construction now
+omits event-derived prose whenever an event value was removed or minimized, so a forged marker
+does not survive as either a real or “claimed” tag. A `[agent: …]` display tag is appended only
+from the verified identity; a canonical bounded agent ID stays readable and any malformed/free-form
+ID is replaced by a stable SHA-256 pseudonym. Tests:
 `an_event_cannot_write_its_own_attribution`, `an_event_cannot_forge_an_attribution`,
 `attribution_is_covered_by_the_hash`.
 
