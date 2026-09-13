@@ -49,7 +49,11 @@ impl Server {
     }
 
     pub fn host_session_state(&self) -> &'static str {
-        if self.workspace_faulted || self.journal_failed || self.browser_faulted() {
+        if self.workspace_faulted
+            || self.journal_failed
+            || self.browser_faulted()
+            || self.sources_faulted()
+        {
             "failed"
         } else if self.pending.is_closed() {
             "stopped"
@@ -69,6 +73,7 @@ impl Server {
                 && !self.pending.is_closed()
                 && !self.workspace_faulted
                 && !self.journal_failed
+                && !self.sources_faulted()
                 && review.cancellation_epoch == self.pending.cancellation_epoch()
         });
         json!({"service":"agentguard-mcp", "workspace_protocol":WORKSPACE_PROTOCOL,
@@ -83,6 +88,7 @@ impl Server {
             "last_result":self.last_workspace_result,
             "browser":self.browser.as_ref().map(|b|b.host().status()),
             "audit":self.journal.as_ref().map(ExecutionJournal::status).unwrap_or(json!({"persistent":false})),
+            "source_provenance":self.sources.lock().map(|sources| sources.status()).unwrap_or_else(|_| json!({"healthy":false})),
         })
     }
 
@@ -161,12 +167,20 @@ impl Server {
             issued_at_ms,
             expires_at_ms: issued_at_ms.saturating_add(lifetime.max(1)),
             nonce: random_nonce(),
-            sources: vec![],
+            sources: self
+                .sources
+                .lock()
+                .map_err(|_| anyhow::anyhow!("来源锁已失效"))?
+                .action_sources()?,
         })?)
     }
 
     fn writable_state(&self) -> Result<(), OperatorReply> {
-        if self.journal_failed || self.workspace_faulted || self.browser_faulted() {
+        if self.journal_failed
+            || self.workspace_faulted
+            || self.browser_faulted()
+            || self.sources_faulted()
+        {
             return Err(failure(
                 "WORKSPACE_FAILED",
                 "上次审计或回写结果需要核实，当前会话禁止新动作",
@@ -514,6 +528,7 @@ impl Server {
     ) -> OperatorReply {
         if kind == "resume"
             && (self.journal_failed
+                || self.sources_faulted()
                 || self.browser_faulted()
                 || self.workspace_faulted
                 || self.pending.is_closed()

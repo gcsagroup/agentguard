@@ -1486,6 +1486,18 @@ impl AuditStore {
             .map_err(Into::into)
     }
 
+    /// 独占来源日志按真实追加顺序恢复；多读一条用于识别超限，禁止静默截掉旧来源。
+    pub fn source_observations(&self, limit: usize) -> Result<Vec<AuditRecord>> {
+        anyhow::ensure!((1..=4097).contains(&limit), "来源恢复上限无效");
+        let cols = self.record_cols()?;
+        let sql = format!("SELECT {cols} FROM audit_events WHERE event_type = 'GatewaySourceObserved' ORDER BY rowid LIMIT ?1");
+        let mut statement = self.conn.prepare(&sql)?;
+        let records = statement.query_map(params![limit as i64], map_record_row)?;
+        records
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
     /// 本机出口独占日志的崩溃恢复输入，不与工具网关的执行记录混用。
     pub fn unfinished_egress_actions(&self) -> Result<Vec<AuditRecord>> {
         let cols = self.record_cols()?;

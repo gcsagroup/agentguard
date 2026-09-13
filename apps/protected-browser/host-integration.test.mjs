@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { startHostFixture, toolValue, until } from './host-test-support.mjs';
 
 test('真实Chromium统一宿主：审批、业务回执、撤权、重放与未知结果', { timeout: 120000 }, async () => {
@@ -21,11 +22,17 @@ test('真实Chromium统一宿主：审批、业务回执、撤权、重放与未
     host = await startHostFixture([origin]);
     const tools = (await host.rpc('tools/list')).result.tools;
     assert.equal(tools.filter(tool => tool.name.startsWith('browser_')).length, 5);
+    const fileRead = await host.call('read_file', { path: `${host.fixture.work}/read.txt` });
+    assert.equal(fileRead.result.isError, false);
+    const fileSource = fileRead.result._meta.agentguard.source;
+    assert.equal(fileSource.observation.content_sha256, createHash('sha256').update('SYNTHETIC_WORKSPACE').digest('hex'));
+    assert.equal((await host.rpc('gateway/stats')).result.source_provenance.persistent, true);
     const executor = JSON.parse(await readFile(host.executorFile, 'utf8'));
     const forbidden = await fetch(`${executor.url}/approve`, { method: 'POST', headers: { authorization: `Bearer ${executor.token}` }, body: '{}' });
     assert.ok([403, 404].includes(forbidden.status), '执行连接不能批准');
     let navigate = host.call('browser_navigate', { url: `${origin}/` });
     let pending = await host.pending(); assert.equal(pending.binding.action.session_id, (await host.operator('/workspace/status')).body.session_id);
+    assert.deepEqual(pending.binding.action.sources, [fileSource], '实际隔离文件返回的来源必须进入浏览器 HTTP 批准绑定');
     assert.equal((await host.decide(pending, false)).status, 200); assert.equal((await navigate).result.isError, true); assert.equal(received.length, 0);
     navigate = host.call('browser_navigate', { url: `${origin}/` }); pending = await host.pending();
     assert.equal((await host.decide(pending)).status, 200); const state = toolValue(await navigate);
@@ -51,16 +58,28 @@ test('真实Chromium统一宿主：审批、业务回执、撤权、重放与未
     assert.equal(readReceipt.result._meta.agentguard.scope, 'browser_dom');
     assert.equal(readReceipt.result._meta.agentguard.outcome, 'success');
     assert.equal(readReceipt.result._meta.agentguard.business_success_asserted, false);
+    const browserSource = readReceipt.result._meta.agentguard.source;
+    assert.equal(readReceipt.result._meta.agentguard.instruction_authority, 'none');
+    assert.equal(browserSource.observation.content_sha256, createHash('sha256').update(JSON.stringify(readReceipt.result.content)).digest('hex'));
     const observed = toolValue(readReceipt);
     assert.equal(observed.page, page);
     assert.equal(/SYNTHETIC_(EXISTING_INPUT|PASSWORD|HIDDEN)/.test(JSON.stringify(observed)), false);
     const input = observed.controls.find(item => item.label === '合成内容');
     const save = observed.controls.find(item => item.label === '保存');
     assert.ok(input && save);
-    await host.call('browser_fill', { page, selector: input.selector, value: '已批准的合成内容' });
+    const fillReceipt = await host.call('browser_fill', { page, selector: input.selector, value: '已批准的合成内容' });
+    assert.deepEqual(fillReceipt.result._meta.agentguard.source.observation.parent_source_ids, [browserSource.source_id]);
     const click = host.call('browser_click', { page, selector: save.selector }); pending = await host.pending();
+    const boundSources = pending.binding.action.sources;
     assert.equal(received.length, 1); assert.ok(pending.binding.action.parameters.body.includes(encodeURIComponent('已批准的合成内容')));
-    assert.equal((await host.decide(pending)).status, 200); toolValue(await click);
+    assert.equal((await host.decide(pending)).status, 200);
+    const clickReceipt = await click; toolValue(clickReceipt);
+    const clickSource = clickReceipt.result._meta.agentguard.source;
+    assert.deepEqual(clickSource.observation.parent_source_ids, [fillReceipt.result._meta.agentguard.source.source_id]);
+    // 异步 HTTP 可以在 DOM 的 accepted 回执之前或之后建立绑定；两种顺序都必须保留同一父链。
+    assert.equal(boundSources.length, 1);
+    assert.deepEqual(boundSources[0], boundSources[0].source_id === clickSource.source_id
+      ? clickSource : fillReceipt.result._meta.agentguard.source);
     await until(() => value === '已批准的合成内容');
     assert.match(received.find(r => r.method === 'POST').cookie, /one=1/);
     assert.match(received.find(r => r.method === 'POST').cookie, /two=2/);

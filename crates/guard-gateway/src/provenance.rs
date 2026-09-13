@@ -1,20 +1,211 @@
-//! 可信读取入口的来源采集器。此模块不提供 MCP 写入口，也不接受 Agent 自报的来源对象。
-//! 父来源只能引用本采集器已经观测的 ID；采集器重建后无法识别的旧 ID 保守记为未知。
-use anyhow::{bail, Result};
+//! 可信读取入口的来源采集器。没有接受 Agent 自报标签的 MCP 写入口。
+//! 持久模式先验证已有审计链，再恢复有界来源图；只保存宿主 ID、摘要和固定版本标识。
+use crate::journal::ExecutionJournal;
+use anyhow::{ensure, Result};
 use guard_schema::{
-    Sha256Digest, SourceEntryPoint, SourceObject, SourceObservation, SourceSensitivity, ValidatedId,
+    Sha256Digest, SourceEntryPoint, SourceObject, SourceObservation, SourceObservedEvent,
+    SourceSensitivity, ValidatedId,
 };
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const MAX_SOURCES: usize = 4096;
+pub type SharedSources = Arc<Mutex<SourceCollector>>;
+const PARSERS: &[&str] = &[
+    "utf8/1",
+    "utf8-search/1",
+    "text/1",
+    "json/1",
+    "dom/1",
+    "tool-output/1",
+];
+
+#[derive(Debug, Clone, Copy)]
+pub enum MissingSource {
+    UnregisteredParent,
+    UnsupportedEncoding,
+    Truncated,
+    ParserFailed,
+    NotObserved,
+}
+impl MissingSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::UnregisteredParent => "parent_not_registered",
+            Self::UnsupportedEncoding => "unsupported_encoding",
+            Self::Truncated => "content_truncated",
+            Self::ParserFailed => "parser_failed",
+            Self::NotObserved => "not_observed",
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct SourceCollector {
     sources: HashMap<ValidatedId, SourceObject>,
+    latest: Option<ValidatedId>,
+    journal: Option<ExecutionJournal>,
+    faulted: bool,
 }
 
 impl SourceCollector {
+    pub fn open(path: &Path) -> Result<Self> {
+        let journal = ExecutionJournal::open(path)?;
+        let events = journal.source_events()?;
+        ensure!(
+            events.len() <= MAX_SOURCES,
+            "来源日志超过恢复上限，不能省略旧标签"
+        );
+        let mut collector = Self::default();
+        for event in events {
+            event.validate()?;
+            collector.validate_source(&event.source)?;
+            collector.latest = Some(event.source.source_id.clone());
+            collector
+                .sources
+                .insert(event.source.source_id.clone(), event.source);
+        }
+        collector.journal = Some(journal);
+        Ok(collector)
+    }
+
+    pub fn status(&self) -> serde_json::Value {
+        serde_json::json!({"persistent":self.journal.is_some(), "healthy":self.healthy(),
+            "sources":self.sources.len(), "max_sources":MAX_SOURCES, "instruction_authority":"none"})
+    }
+
+    pub fn healthy(&self) -> bool {
+        !self.faulted
+            && self.sources.len() < MAX_SOURCES
+            && self.journal.as_ref().is_none_or(ExecutionJournal::healthy)
+    }
+
+    pub fn latest(&self) -> Option<SourceObject> {
+        self.latest
+            .as_ref()
+            .and_then(|id| self.sources.get(id))
+            .cloned()
+    }
+
+    /// 保守绑定本宿主已经返回的内容历史；不声称能观察模型内部的推理依赖。
+    pub fn action_sources(&self) -> Result<Vec<SourceObject>> {
+        ensure!(
+            self.healthy(),
+            "来源日志已失效或已达上限，不能继续建立动作绑定"
+        );
+        Ok(self.latest().into_iter().collect())
+    }
+
+    /// 摘要只覆盖宿主实际返回的 UTF-8 内容，不冒充原文件或原始 DOM 的摘要。
+    /// 尚未完成入口检测时敏感度保持未知；正文中的可信声明没有授权作用。
+    pub fn tool_output(&mut self, content: &[u8], complete: bool) -> Result<SourceObject> {
+        if !complete {
+            return self.unknown(MissingSource::Truncated);
+        }
+        let parents = self.latest.iter().cloned().collect::<Vec<_>>();
+        self.observe(
+            content,
+            SourceEntryPoint::ToolOutput,
+            "tool-output/1",
+            SourceSensitivity::Unknown,
+            &parents,
+        )
+    }
+
+    pub fn resolve(&self, id: &ValidatedId) -> Option<SourceObject> {
+        self.sources.get(id).cloned()
+    }
+
+    fn validate_source(&self, source: &SourceObject) -> Result<()> {
+        source.validate()?;
+        let id = source
+            .source_id
+            .as_str()
+            .strip_prefix("source-")
+            .unwrap_or_default();
+        ensure!(
+            id.len() == 64
+                && id
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+            "来源 ID 不是宿主生成的标识"
+        );
+        ensure!(
+            !self.sources.contains_key(&source.source_id),
+            "重复来源 ID，禁止替换旧标签"
+        );
+        match &source.observation {
+            SourceObservation::Observed {
+                parser_version,
+                parent_source_ids,
+                ..
+            } => {
+                ensure!(
+                    PARSERS.contains(&parser_version.as_str()),
+                    "来源解析器版本未登记"
+                );
+                ensure!(parent_source_ids.len() <= 64, "来源父引用超限");
+                for id in parent_source_ids {
+                    let parent = self
+                        .sources
+                        .get(id)
+                        .ok_or_else(|| anyhow::anyhow!("来源日志父引用未登记或顺序无效"))?;
+                    ensure!(
+                        source.sensitivity.constrain(parent.sensitivity) == source.sensitivity,
+                        "来源日志降低了父来源限制"
+                    );
+                }
+            }
+            SourceObservation::Unknown { reason } => {
+                ensure!(
+                    [
+                        MissingSource::UnregisteredParent,
+                        MissingSource::UnsupportedEncoding,
+                        MissingSource::Truncated,
+                        MissingSource::ParserFailed,
+                        MissingSource::NotObserved
+                    ]
+                    .iter()
+                    .any(|item| item.as_str() == reason),
+                    "未知原因未登记，不能把任意正文写入来源日志"
+                );
+            }
+        }
+        Ok(())
+    }
+
+    fn record(&mut self, source: SourceObject) -> Result<SourceObject> {
+        ensure!(
+            !self.faulted,
+            "来源持久化已失败，不能继续读取或降级为内存模式"
+        );
+        ensure!(self.sources.len() < MAX_SOURCES, "本次来源采集数量已达上限");
+        self.validate_source(&source)?;
+        let event = SourceObservedEvent {
+            source_event_version: 1,
+            observed_at_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)?
+                .as_millis()
+                .min(i64::MAX as u128) as i64,
+            source: source.clone(),
+        };
+        if let Some(journal) = &self.journal {
+            if let Err(error) = journal.source_observed(&event) {
+                self.faulted = true;
+                return Err(error);
+            }
+        }
+        self.latest = Some(source.source_id.clone());
+        self.sources
+            .insert(source.source_id.clone(), source.clone());
+        Ok(source)
+    }
+
     /// 敏感度由可信入口的检测器／宿主配置给出，不能从工具参数或模型正文提取。
-    /// 这里只跟踪实际可观察的父来源，不推断模型内部的派生关系。
+    /// 父引用表示可观察的依赖；不推断模型内部派生过程。
     pub fn observe(
         &mut self,
         content: &[u8],
@@ -23,22 +214,19 @@ impl SourceCollector {
         sensitivity: SourceSensitivity,
         parents: &[ValidatedId],
     ) -> Result<SourceObject> {
-        if parents.len() > 64 || parser_version.len() > 128 {
-            bail!("来源父引用或解析器标识超出采集上限");
-        }
-        if self.sources.len() >= 4096 {
-            bail!("本次来源采集数量已达上限");
-        }
-        let source_id = ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?;
+        ensure!(
+            parents.len() <= 64 && PARSERS.contains(&parser_version),
+            "来源父引用或解析器版本无效"
+        );
         let mut inherited = sensitivity;
         for parent in parents {
             let Some(source) = self.sources.get(parent) else {
-                return self.unknown("父来源未登记，不能接受自报来源标签");
+                return self.unknown(MissingSource::UnregisteredParent);
             };
             inherited = inherited.constrain(source.sensitivity);
         }
-        let source = SourceObject {
-            source_id,
+        self.record(SourceObject {
+            source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
             sensitivity: inherited,
             observation: SourceObservation::Observed {
                 entry,
@@ -46,28 +234,17 @@ impl SourceCollector {
                 parser_version: parser_version.into(),
                 parent_source_ids: parents.to_vec(),
             },
-        };
-        source.validate()?;
-        self.sources
-            .insert(source.source_id.clone(), source.clone());
-        Ok(source)
+        })
     }
 
-    pub fn unknown(&mut self, reason: &str) -> Result<SourceObject> {
-        if self.sources.len() >= 4096 {
-            bail!("本次来源采集数量已达上限");
-        }
-        let source = SourceObject {
+    pub fn unknown(&mut self, reason: MissingSource) -> Result<SourceObject> {
+        self.record(SourceObject {
             source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
             observation: SourceObservation::Unknown {
-                reason: reason.into(),
+                reason: reason.as_str().into(),
             },
             sensitivity: SourceSensitivity::Unknown,
-        };
-        source.validate()?;
-        self.sources
-            .insert(source.source_id.clone(), source.clone());
-        Ok(source)
+        })
     }
 }
 
@@ -183,5 +360,242 @@ mod tests {
                 &[]
             )
             .is_err());
+    }
+}
+
+#[cfg(all(test, unix))]
+mod persistence_tests {
+    use super::*;
+
+    struct Fixture(std::path::PathBuf);
+    impl Fixture {
+        fn new() -> Self {
+            let path =
+                std::env::temp_dir().join(format!("agd-source-{}", crate::browser_bridge::token()));
+            std::fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+        fn path(&self) -> std::path::PathBuf {
+            self.0.join("sources.db")
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            std::fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    #[test]
+    fn 来源日志重开保持原对象与父约束且正文不落盘() {
+        let fixture = Fixture::new();
+        let mut collector = SourceCollector::open(&fixture.path()).unwrap();
+        let parent = collector
+            .observe(
+                b"SYNTHETIC_PRIVATE_SOURCE",
+                SourceEntryPoint::FileRead,
+                "utf8/1",
+                SourceSensitivity::Sensitive,
+                &[],
+            )
+            .unwrap();
+        let unknown = collector
+            .unknown(MissingSource::UnsupportedEncoding)
+            .unwrap();
+        assert!(
+            SourceCollector::open(&fixture.path()).is_err(),
+            "同一来源日志不能双写"
+        );
+        drop(collector);
+        let mut reopened = SourceCollector::open(&fixture.path()).unwrap();
+        assert_eq!(reopened.resolve(&parent.source_id), Some(parent.clone()));
+        assert_eq!(reopened.latest(), Some(unknown.clone()));
+        let child = reopened
+            .observe(
+                b"public summary",
+                SourceEntryPoint::ToolOutput,
+                "tool-output/1",
+                SourceSensitivity::Public,
+                std::slice::from_ref(&parent.source_id),
+            )
+            .unwrap();
+        assert_eq!(child.sensitivity, SourceSensitivity::Sensitive);
+        let unresolved = reopened
+            .observe(
+                b"normal",
+                SourceEntryPoint::ToolOutput,
+                "tool-output/1",
+                SourceSensitivity::Public,
+                &[unknown.source_id],
+            )
+            .unwrap();
+        assert_eq!(unresolved.sensitivity, SourceSensitivity::Unknown);
+        drop(reopened);
+        let store = guard_audit::AuditStore::open_read_only(fixture.path()).unwrap();
+        assert!(store.verify_chain().unwrap().ok);
+        assert_eq!(store.source_observations(10).unwrap().len(), 4);
+        assert!(!store
+            .export_jsonl(10)
+            .unwrap()
+            .contains("SYNTHETIC_PRIVATE_SOURCE"));
+    }
+
+    #[test]
+    fn 有效审计链中的降级父标签或悬空引用仍拒绝恢复() {
+        for dangling in [false, true] {
+            let fixture = Fixture::new();
+            let mut collector = SourceCollector::open(&fixture.path()).unwrap();
+            let parent = collector
+                .observe(
+                    b"private",
+                    SourceEntryPoint::FileRead,
+                    "utf8/1",
+                    SourceSensitivity::Sensitive,
+                    &[],
+                )
+                .unwrap();
+            drop(collector);
+            let child = SourceObject {
+                source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))
+                    .unwrap(),
+                sensitivity: SourceSensitivity::Public,
+                observation: SourceObservation::Observed {
+                    entry: SourceEntryPoint::ToolOutput,
+                    content_sha256: Sha256Digest::new("a".repeat(64)).unwrap(),
+                    parser_version: "tool-output/1".into(),
+                    parent_source_ids: vec![if dangling {
+                        ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))
+                            .unwrap()
+                    } else {
+                        parent.source_id
+                    }],
+                },
+            };
+            let journal = ExecutionJournal::open(&fixture.path()).unwrap();
+            journal
+                .source_observed(&SourceObservedEvent {
+                    source_event_version: 1,
+                    observed_at_ms: 1,
+                    source: child,
+                })
+                .unwrap();
+            drop(journal);
+            let store = guard_audit::AuditStore::open_read_only(fixture.path()).unwrap();
+            assert!(store.verify_chain().unwrap().ok, "负例必须是结构完整的链");
+            drop(store);
+            assert!(SourceCollector::open(&fixture.path()).is_err());
+        }
+    }
+
+    #[test]
+    fn 来源写入失败不得返回新标签或退回内存成功() {
+        let fixture = Fixture::new();
+        let mut collector = SourceCollector::open(&fixture.path()).unwrap();
+        let source = collector
+            .observe(
+                b"safe",
+                SourceEntryPoint::FileRead,
+                "utf8/1",
+                SourceSensitivity::Internal,
+                &[],
+            )
+            .unwrap();
+        // 对真实 SQLite 发出重复主键写入，触发持久层错误；不是用布尔返回值冒充磁盘写入。
+        let duplicate = SourceObservedEvent {
+            source_event_version: 1,
+            observed_at_ms: 1,
+            source: source.clone(),
+        };
+        assert!(collector
+            .journal
+            .as_ref()
+            .unwrap()
+            .source_observed(&duplicate)
+            .is_err());
+        assert!(collector
+            .observe(
+                b"next",
+                SourceEntryPoint::FileRead,
+                "utf8/1",
+                SourceSensitivity::Public,
+                &[]
+            )
+            .is_err());
+        assert!(collector.unknown(MissingSource::NotObserved).is_err());
+        assert_eq!(collector.latest(), Some(source));
+        assert_eq!(collector.status()["healthy"], false);
+        assert_eq!(collector.status()["sources"], 1);
+    }
+
+    #[test]
+    fn 日志损坏和任意解析器正文均不被当作可信元数据() {
+        let fixture = Fixture::new();
+        let mut collector = SourceCollector::open(&fixture.path()).unwrap();
+        assert!(collector
+            .observe(
+                b"body",
+                SourceEntryPoint::FileRead,
+                "PRIVATE_PARSER_CONTENT",
+                SourceSensitivity::Public,
+                &[]
+            )
+            .is_err());
+        collector.unknown(MissingSource::ParserFailed).unwrap();
+        drop(collector);
+        let mut bytes = std::fs::read(fixture.path()).unwrap();
+        bytes[0] ^= 1;
+        std::fs::write(fixture.path(), bytes).unwrap();
+        assert!(SourceCollector::open(&fixture.path()).is_err());
+    }
+
+    #[test]
+    fn 来源磁盘故障进入真实宿主失败状态且后续文件动作不执行() {
+        let fixture = Fixture::new();
+        let mut collector = SourceCollector::open(&fixture.path()).unwrap();
+        let source = collector.tool_output(b"previous output", true).unwrap();
+        assert!(collector
+            .journal
+            .as_ref()
+            .unwrap()
+            .source_observed(&SourceObservedEvent {
+                source_event_version: 1,
+                observed_at_ms: 1,
+                source,
+            })
+            .is_err());
+        assert!(!collector.healthy());
+        let (shell, rejected) =
+            guard_shell::SafeShell::from_policy(guard_shell::ShellPolicy::default_embedded())
+                .with_workspace(
+                    [fixture.0.to_string_lossy().as_ref()],
+                    [fixture.0.to_string_lossy().as_ref()],
+                );
+        assert!(rejected.is_empty());
+        let engine = guard_core::Engine::from_paths(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml"),
+            None::<std::path::PathBuf>,
+        )
+        .unwrap();
+        let mut server = crate::Server::new(
+            crate::Gate::new(shell, engine),
+            crate::PendingConfirm::new(),
+            std::time::Duration::from_secs(1),
+        )
+        .with_sources(Arc::new(Mutex::new(collector)));
+        assert_eq!(server.host_session_state(), "failed");
+        let path = fixture.0.join("must-not-write.txt");
+        let result = server.gate_and_run(
+            crate::ToolCall::WriteFile {
+                path: path.clone(),
+                contents: "不得执行".into(),
+            },
+            guard_shell::ShellAction {
+                tool: "write_file".into(),
+                action: None,
+                target: Some(path.to_string_lossy().into()),
+                args: vec![],
+            },
+        );
+        assert!(matches!(result, crate::Handled::Refused { .. }));
+        assert!(!path.exists());
     }
 }

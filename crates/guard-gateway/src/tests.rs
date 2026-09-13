@@ -438,11 +438,13 @@ rules:
         let result = &reply["result"];
         let text = result["content"][0]["text"].as_str().unwrap();
         let approved = answer == Answer::Approved;
-        assert_eq!(
-            result["_meta"]["agentguard"],
-            serde_json::json!({"outcome":expected_outcome,"dispatched":approved}),
-            "{reply}"
-        );
+        let receipt = &result["_meta"]["agentguard"];
+        assert_eq!(receipt["outcome"], expected_outcome, "{reply}");
+        assert_eq!(receipt["dispatched"], approved, "{reply}");
+        assert_eq!(receipt["source"].is_object(), approved, "{reply}");
+        if approved {
+            assert_eq!(receipt["instruction_authority"], "none");
+        }
         assert_eq!(
             result["isError"].as_bool().unwrap_or(false),
             expected_outcome != "success",
@@ -643,7 +645,20 @@ fn 工具回执结构化区分成功执行失败与拒绝() {
             "jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":name,"arguments":arguments}
         })).unwrap();
         let result = server.handle(request).unwrap();
-        assert_eq!(result["result"]["_meta"]["agentguard"], expected);
+        let receipt = &result["result"]["_meta"]["agentguard"];
+        assert_eq!(receipt["outcome"], expected["outcome"]);
+        assert_eq!(receipt["dispatched"], expected["dispatched"]);
+        assert_eq!(
+            receipt["source"].is_object(),
+            expected["dispatched"] == true
+        );
+        if expected["dispatched"] == true {
+            assert_eq!(receipt["instruction_authority"], "none");
+            let source: guard_schema::SourceObject =
+                serde_json::from_value(receipt["source"].clone()).unwrap();
+            source.validate().unwrap();
+            assert_eq!(source.sensitivity, guard_schema::SourceSensitivity::Unknown);
+        }
     }
     assert_eq!(std::fs::read_to_string(&source).unwrap(), "合成正文");
     assert!(!system_write_target("agd-receipt-never-write").exists());

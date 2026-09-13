@@ -4,7 +4,7 @@ use crate::gate::Outcome;
 use crate::ExecOutput;
 use anyhow::{bail, Context, Result};
 use guard_audit::{AuditRecord, AuditStore};
-use guard_schema::{ActionSnapshot, ExecutionOutcome, SourceObservation};
+use guard_schema::{ActionSnapshot, ExecutionOutcome, SourceObservation, SourceObservedEvent};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::cell::Cell;
@@ -121,6 +121,7 @@ impl ExecutionJournal {
         #[cfg(not(unix))]
         bail!("当前网关执行日志锁尚未验证该宿主平台");
         let store = AuditStore::open_runtime(path, None)?;
+        store.enforce_durable_writes()?;
         let chain = store.verify_chain()?;
         if !chain.ok {
             bail!("审计链校验失败，禁止继续执行");
@@ -156,6 +157,53 @@ impl ExecutionJournal {
     pub fn status(&self) -> Value {
         json!({"persistent":true, "healthy":self.healthy.get(), "recovered_unknown":self.recovered_unknown,
             "contents":"ids_and_digests_only", "automatic_retry":false})
+    }
+    pub(crate) fn healthy(&self) -> bool {
+        self.healthy.get()
+    }
+
+    pub(crate) fn source_events(&self) -> Result<Vec<SourceObservedEvent>> {
+        self.store
+            .source_observations(4097)?
+            .into_iter()
+            .map(|row| {
+                let event: SourceObservedEvent = serde_json::from_str(&row.event_json)?;
+                event.validate()?;
+                if row.id
+                    != format!(
+                        "source/{}",
+                        sha256(event.source.source_id.as_str().as_bytes())
+                    )
+                {
+                    bail!("来源事件标识与元数据不一致");
+                }
+                Ok(event)
+            })
+            .collect()
+    }
+
+    /// 仅采集器调用：来源 ID、解析器及未知原因必须先经过宿主固定词表检查。
+    pub(crate) fn source_observed(&self, event: &SourceObservedEvent) -> Result<()> {
+        event.validate()?;
+        self.append(&AuditRecord {
+            id: format!(
+                "source/{}",
+                sha256(event.source.source_id.as_str().as_bytes())
+            ),
+            timestamp_ms: event.observed_at_ms,
+            platform: "gateway".into(),
+            event_type: "GatewaySourceObserved".into(),
+            source_app: "agentguard-mcp".into(),
+            agent_session_id: None,
+            rule_id: "GATEWAY-SOURCE".into(),
+            severity: "Info".into(),
+            action: "observed".into(),
+            human_message: "宿主来源元数据；无正文，不授予指令或执行权限".into(),
+            evidence_ref: None,
+            user_decision: None,
+            event_json: serde_json::to_string(event)?,
+            attributed_agent: None,
+        })
     }
 
     /// 判决在批准等待之前持久化；正文与自定义规则标识不能进入审计原文。
@@ -363,15 +411,18 @@ mod tests {
         let root = temp_dir();
         let path = root.join("audit.db");
         let mut collector = crate::provenance::SourceCollector::default();
-        let source = collector
+        let mut source = collector
             .observe(
                 b"PRIVATE_SOURCE_BODY",
                 SourceEntryPoint::FileRead,
-                "PRIVATE_PARSER_VERSION",
+                "utf8/1",
                 SourceSensitivity::Sensitive,
                 &[],
             )
             .unwrap();
+        if let SourceObservation::Observed { parser_version, .. } = &mut source.observation {
+            *parser_version = "PRIVATE_PARSER_VERSION".into();
+        }
         let source_id = source.source_id.clone();
         let mut spec = action().spec().clone();
         spec.sources = vec![source];

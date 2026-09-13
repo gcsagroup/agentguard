@@ -13,7 +13,7 @@
 [M0／M1 源码整合与验证记录（简体，2026-09-14）](agentguard-source-merge-2026-09-14.zh.md)
 
 - [F13 暂缓与 F14 Docker 网络恢复](agd-f14-docker-network-2026-09-14.zh.md) — 010 原生批准和实际虚拟链路故障验收。
-- [AGD-014 来源标记首批](agd-014-source-provenance-2026-09-14.zh.md) — 开发中，三类读取入口尚未接线。
+- [AGD-014 来源标记与持久恢复](agd-014-source-provenance-2026-09-14.zh.md) — 来源框架及真实工具返回已接线；原始内容与检测视图按 AGD-015 验收。
 
 ## 状态说明
 

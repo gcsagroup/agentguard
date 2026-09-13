@@ -306,6 +306,24 @@ impl SourceObject {
     }
 }
 
+/// 宿主采集的元数据事件；不含正文，不承载批准或执行权限。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceObservedEvent {
+    pub source_event_version: u16,
+    pub observed_at_ms: i64,
+    pub source: SourceObject,
+}
+
+impl SourceObservedEvent {
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if self.source_event_version != 1 || self.observed_at_ms < 0 {
+            return Err(invalid("source_event", "来源事件版本或时间无效"));
+        }
+        self.source.validate()
+    }
+}
+
 /// 构造输入可修改；只有通过 `ActionSnapshot::new` 后的只读快照可用于绑定。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

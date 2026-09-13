@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Durable provenance and live tool-output integration (2026-09-14)
+
+- Completed AGD-014 with an exclusive provenance journal, restart recovery, parent-label validation, and shared action bindings across tools and the browser. Self-reported trust grants no authority; provenance failures stop subsequent actions.
+- Passed 15 Docker checks, live Chromium integration, 1,302 workspace tests, and 122 desktop tests. AGD-015 raw-content and detection views are next. F13 remains deferred and untested; the 010 app is unchanged. See the [provenance record in Simplified Chinese](docs/agd-014-source-provenance-2026-09-14.zh.md).
+
 ### F13 deferral, F14 network recovery, and initial provenance work (2026-09-14)
 
 - Deferred F13 at the user’s request without marking it passed. F14 passed on a Docker VM virtual link using native approvals in the exact 010 app, a live interface disconnect/reconnect, an unknown receipt, 25 seconds without retry, and one explicitly approved submission in a new session. Verified 33 audit rows and 90 unchanged app files.

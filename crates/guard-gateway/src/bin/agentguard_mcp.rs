@@ -197,9 +197,20 @@ fn main() -> anyhow::Result<()> {
         eprintln!("  警告：没给 --plans，因此没有 paths 天花板；写和删只能判成「证明不了」");
     }
 
-    for path in [&audit_path, &control_path, &browser_audit, &browser_file]
-        .into_iter()
-        .flatten()
+    let source_path = audit_path.as_ref().or(browser_audit.as_ref()).map(|path| {
+        let mut name = path.as_os_str().to_os_string();
+        name.push(".sources.db");
+        std::path::PathBuf::from(name)
+    });
+    for path in [
+        &audit_path,
+        &control_path,
+        &browser_audit,
+        &browser_file,
+        &source_path,
+    ]
+    .into_iter()
+    .flatten()
     {
         if !path.is_absolute()
             || path
@@ -231,6 +242,10 @@ fn main() -> anyhow::Result<()> {
         .as_deref()
         .map(guard_gateway::journal::ExecutionJournal::open)
         .transpose()?;
+    let sources = std::sync::Arc::new(std::sync::Mutex::new(match source_path {
+        Some(path) => guard_gateway::provenance::SourceCollector::open(&path)?,
+        None => guard_gateway::provenance::SourceCollector::default(),
+    }));
     let isolation = isolation_image
         .map(|image| {
             guard_gateway::isolation::DockerExecutor::new(
@@ -287,6 +302,7 @@ fn main() -> anyhow::Result<()> {
     }
     let pending = PendingConfirm::new();
     let mut server = Server::new(Gate::new(shell, engine), pending.clone(), confirm_timeout)
+        .with_sources(sources)
         .with_policy_version(policy_version)?;
     if let Some(executor) = isolation {
         server = server.with_isolation(executor);
@@ -336,7 +352,7 @@ fn main() -> anyhow::Result<()> {
             let browser_host = if browser_enabled {
                 let browser_token = guard_gateway::browser_bridge::token();
                 let (session, policy) = server.host_session_binding();
-                let host = guard_gateway::browser_bridge::BrowserHost::new(
+                let host = guard_gateway::browser_bridge::BrowserHost::new_with_sources(
                     browser_origins.clone(),
                     pending.clone(),
                     guard_gateway::journal::ExecutionJournal::open(
@@ -347,6 +363,7 @@ fn main() -> anyhow::Result<()> {
                     confirm_timeout,
                     browser_token.clone(),
                     actual_port,
+                    server.sources(),
                 )?;
                 _browser_file = Some(guard_gateway::control_file::ControlFile::create(
                     browser_file.as_ref().expect("浏览器连接"),
@@ -421,16 +438,17 @@ fn main() -> anyhow::Result<()> {
             }))?;
             _control_http = Some(http);
             if let Some(host) = browser_actor_host {
-                server = server.with_browser(guard_gateway::browser_bridge::BrowserActor::spawn(
-                    browser_node.as_ref().expect("浏览器Node"),
-                    browser_runtime.as_ref().expect("浏览器入口"),
-                    browser_file.as_ref().expect("浏览器连接"),
-                    browser_playwright.as_ref().expect("Playwright包"),
-                    browser_browsers.as_ref().expect("浏览器缓存"),
-                    cli_args.iter().any(|arg| arg == "--browser-headless"),
-                    host,
-                    confirm_timeout,
-                )?);
+                server =
+                    server.with_browser(guard_gateway::browser_bridge::BrowserActor::spawn(
+                        browser_node.as_ref().expect("浏览器Node"),
+                        browser_runtime.as_ref().expect("浏览器入口"),
+                        browser_file.as_ref().expect("浏览器连接"),
+                        browser_playwright.as_ref().expect("Playwright包"),
+                        browser_browsers.as_ref().expect("浏览器缓存"),
+                        cli_args.iter().any(|arg| arg == "--browser-headless"),
+                        host,
+                        confirm_timeout,
+                    )?)?;
                 actor_operator.publish(server.operator_status(&actor_instance));
             }
         }

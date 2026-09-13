@@ -2,6 +2,7 @@
 //! 当前范围是明确登记的 IPv4 回环 HTTP 站点；DNS、TLS、升级与重定向均不支持。
 use crate::gate::Outcome;
 use crate::journal::ExecutionJournal;
+use crate::provenance::{SharedSources, SourceCollector};
 use crate::{Answer, ConfirmRequest, ExecOutput, PendingConfirm};
 use anyhow::{bail, Context, Result};
 use guard_schema::{
@@ -68,6 +69,7 @@ pub struct BrowserHost {
     ports: HashSet<u16>,
     session: Mutex<Session>,
     journal: Mutex<ExecutionJournal>,
+    sources: SharedSources,
     faulted: AtomicBool,
     active: Mutex<HashMap<String, ActiveRequest>>,
     seen: Mutex<HashSet<String>>,
@@ -112,6 +114,31 @@ impl BrowserHost {
         secret: String,
         control_port: u16,
     ) -> Result<Arc<Self>> {
+        Self::new_with_sources(
+            origins,
+            pending,
+            journal,
+            session,
+            policy,
+            timeout,
+            secret,
+            control_port,
+            Arc::new(Mutex::new(SourceCollector::default())),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_sources(
+        origins: Vec<String>,
+        pending: PendingConfirm,
+        journal: ExecutionJournal,
+        session: String,
+        policy: String,
+        timeout: Duration,
+        secret: String,
+        control_port: u16,
+        sources: SharedSources,
+    ) -> Result<Arc<Self>> {
         if origins.is_empty() || origins.len() > 8 {
             bail!("浏览器须明确选择1至8个本机HTTP站点");
         }
@@ -141,6 +168,7 @@ impl BrowserHost {
                 policy,
             }),
             journal: Mutex::new(journal),
+            sources,
             faulted: AtomicBool::new(false),
             active: Mutex::new(HashMap::new()),
             seen: Mutex::new(HashSet::new()),
@@ -162,6 +190,15 @@ impl BrowserHost {
     pub fn execution_url(&self) -> String {
         format!("http://127.0.0.1:{}", self.execution_port)
     }
+    pub fn sources(&self) -> SharedSources {
+        self.sources.clone()
+    }
+    fn action_sources(&self) -> Result<Vec<guard_schema::SourceObject>> {
+        self.sources
+            .lock()
+            .map_err(|_| anyhow::anyhow!("来源锁已失效"))?
+            .action_sources()
+    }
     pub fn update_session(&self, session: &str, policy: &str) {
         if let Ok(mut state) = self.session.lock() {
             *state = Session {
@@ -172,6 +209,11 @@ impl BrowserHost {
     }
     pub fn faulted(&self) -> bool {
         self.faulted.load(Ordering::SeqCst)
+            || self
+                .sources
+                .lock()
+                .map(|sources| !sources.healthy())
+                .unwrap_or(true)
     }
     fn fault(&self) {
         self.faulted.store(true, Ordering::SeqCst);
@@ -185,6 +227,7 @@ impl BrowserHost {
             "origins":self.origins,"coverage":"macos_sandbox_host_proxy_exact_loopback_http","all_http_requires_confirmation":true,
             "unsupported":["public_https","dns","redirect","websocket","background_worker","outside_home_file_isolation"],
             "audit":self.journal.lock().expect("浏览器审计").status(),
+            "source_provenance":self.sources.lock().map(|sources| sources.status()).unwrap_or_else(|_| json!({"healthy":false})),
             "pending_http_requests":self.active.lock().expect("浏览器请求").len(),
             "receipts":self.receipts.lock().expect("浏览器回执").iter().collect::<Vec<_>>()})
     }
@@ -367,6 +410,13 @@ impl BrowserHost {
     ) -> Value {
         let state = self.session.lock().expect("浏览器会话").clone();
         let issued = now();
+        let sources = match self.action_sources() {
+            Ok(sources) => sources,
+            Err(_) => {
+                self.fault();
+                return error("BROWSER_SOURCE_UNAVAILABLE");
+            }
+        };
         let snapshot = match ActionSnapshot::new(ActionSpec {
             contract_version: EXECUTION_CONTRACT_VERSION,
             session_id: ValidatedId::new(state.id).expect("宿主会话"),
@@ -384,13 +434,7 @@ impl BrowserHost {
             expires_at_ms: issued
                 .saturating_add(self.timeout.as_millis().min(i64::MAX as u128) as i64),
             nonce: token(),
-            sources: vec![guard_schema::SourceObject {
-                sensitivity: guard_schema::SourceSensitivity::Unknown,
-                source_id: id("browser-source"),
-                observation: guard_schema::SourceObservation::Unknown {
-                    reason: "网页请求不具有来源授权，须由人核对完整发送内容".into(),
-                },
-            }],
+            sources,
         }) {
             Ok(action) => action,
             Err(_) => return error("BROWSER_ACTION"),
@@ -1033,6 +1077,17 @@ impl BrowserActor {
     }
     /// DOM动作和HTTP请求分别给回执。点击成功只说明控件操作，不代替HTTP或业务终态。
     pub fn execute_tool(&mut self, params: Value) -> Value {
+        let refusal = |code: &str| {
+            json!({"isError":true,"content":[{"type":"text","text":code}],
+            "_meta":{"agentguard":{"outcome":"refused","dispatched":false,"scope":"browser_dom","automatic_retry":false}}})
+        };
+        let sources = match self.host.action_sources() {
+            Ok(sources) => sources,
+            Err(_) => {
+                self.host.fault();
+                return refusal("来源日志不可用，浏览器工具未执行");
+            }
+        };
         let session = self.host.session.lock().expect("浏览器会话").clone();
         let epoch = self.host.pending.cancellation_epoch();
         let issued = now();
@@ -1061,18 +1116,8 @@ impl BrowserActor {
                     .min(i64::MAX as u128) as i64,
             ),
             nonce: token(),
-            sources: vec![guard_schema::SourceObject {
-                sensitivity: guard_schema::SourceSensitivity::Unknown,
-                source_id: id("browser-dom-source"),
-                observation: guard_schema::SourceObservation::Unknown {
-                    reason: "网页内容不能授予动作权限".into(),
-                },
-            }],
+            sources,
         });
-        let refusal = |code: &str| {
-            json!({"isError":true,"content":[{"type":"text","text":code}],
-            "_meta":{"agentguard":{"outcome":"refused","dispatched":false,"scope":"browser_dom","automatic_retry":false}}})
-        };
         let Ok(action) = action else {
             return refusal("浏览器工具参数无法冻结，未执行");
         };
@@ -1122,6 +1167,25 @@ impl BrowserActor {
         } else {
             ExecutionOutcome::Success
         };
+        // 只观测受控 actor 实际返回的 content，忽略其自报的任何来源／可信元数据。
+        // 原 DOM、隐藏内容与规范化检测视图将在入口采集阶段分别处理。
+        let source = self
+            .host
+            .sources
+            .lock()
+            .map_err(|_| anyhow::anyhow!("来源锁已失效"))
+            .and_then(|mut sources| {
+                sources.tool_output(result["content"].to_string().as_bytes(), true)
+            });
+        let source = match source {
+            Ok(source) => Some(source),
+            Err(_) => {
+                self.host.fault();
+                outcome = ExecutionOutcome::Unknown;
+                result = json!({"isError":true,"content":[{"type":"text","text":"浏览器已经返回，但来源无法持久保存；已暂停，不自动重试"}]});
+                None
+            }
+        };
         let output = ExecOutput {
             ok: outcome == ExecutionOutcome::Success,
             detail: result.to_string(),
@@ -1155,6 +1219,7 @@ impl BrowserActor {
             "action_id":action.spec().action_id,"action_sha256":digest(&action.canonical_bytes()),
             "session_id":action.spec().session_id,"epoch":epoch,"automatic_retry":false,
             "business_success_asserted":false,"pending_http_requests":self.host.active.lock().expect("浏览器请求").len(),
+            "source":source,"source_content":"serialized_content_array","instruction_authority":"none",
             "http_receipts":recent}});
         result
     }
