@@ -13,7 +13,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::io::{BufRead, Read, Write};
+#[cfg(target_os = "macos")]
+use std::io::BufRead;
+use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin};
@@ -1261,8 +1263,10 @@ pub fn tools() -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::net::TcpListener;
 
+    #[cfg(unix)]
     fn request(session: &str, port: u16) -> Request {
         Request {
             session_id: session.into(),
@@ -1276,6 +1280,7 @@ mod tests {
             body: Some("SYNTHETIC_BROWSER_BODY".into()),
         }
     }
+    #[cfg(unix)]
     fn waiting(pending: &PendingConfirm) -> ConfirmRequest {
         let deadline = Instant::now() + Duration::from_secs(3);
         loop {
@@ -1287,6 +1292,7 @@ mod tests {
         }
     }
     #[test]
+    #[cfg(unix)]
     fn 浏览器真实持久失败在派发前零请求且派发后未知关闭全局会话() {
         for fail_before in [true, false] {
             let directory = std::env::temp_dir().join(format!("ag-browser-audit-{}", token()));
@@ -1386,6 +1392,7 @@ mod tests {
         }
     }
     #[test]
+    #[cfg(unix)]
     fn 页面取消先于执行提交时没有网络请求() {
         let directory = std::env::temp_dir().join(format!("ag-browser-cancel-{}", token()));
         std::fs::create_dir(&directory).unwrap();

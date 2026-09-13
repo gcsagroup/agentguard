@@ -13,6 +13,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 - Added the threat knowledge base, execution contracts, isolation and normal-task acceptance scripts, plus macOS observation and gateway usability fixes.
 - Ver 1.0 (010) has frozen backend results of 60/60 tasks and a 30-minute run, plus separately verified native operations after recorded failures and explicit follow-ups: 3/3 host tests, one browser submission, and both F07 crash phases. This is not a single autonomous combined-task pass.
 - See the [source integration record (Simplified Chinese)](docs/agentguard-source-merge-2026-09-14.zh.md) for merge checks and local log locations. F13 real sleep/wake and F14 non-loopback network recovery remain unverified: 12 tasks completed, 1 blocked, 19 not started; production release remains No-Go.
+- Fixed Linux Clippy and scenario-registration gaps, premature browser-test rejections on page closure, unsupported Windows journal-lock test assumptions, and unnecessary waits while reading long macOS gateway output. Preserved initial CI failures and follow-up verification logs.
 
 ### Experimental webmail protection (2026-09-07)
 

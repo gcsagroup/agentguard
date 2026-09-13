@@ -1061,16 +1061,10 @@ mod platform {
                 bail!("扩展属性列表在读取时改变");
             }
             names.truncate(length as usize);
-            for name in names
-                .split(|byte| *byte == 0)
-                .filter(|name| !name.is_empty())
-            {
-                // macOS 自动为新建对象生成来源标记；替换后由系统记录新写入来源。
-                #[cfg(target_os = "macos")]
-                if name == b"com.apple.provenance" {
-                    continue;
-                }
-                let _ = name;
+            // macOS 自动生成的来源标记由系统重建；Linux 仍拒绝所有扩展属性。
+            if names.split(|byte| *byte == 0).any(|name| {
+                !(name.is_empty() || cfg!(target_os = "macos") && name == b"com.apple.provenance")
+            }) {
                 bail!("首版回写拒绝其它扩展属性或 ACL，避免替换时丢失安全元数据");
             }
         }

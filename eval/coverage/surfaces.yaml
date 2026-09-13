@@ -39,7 +39,7 @@ surfaces:
     status: covered
     mechanism: "mac-adapter::subliminal two-band grid contrast + Vision OCR sanitization loop"
     rules: [OVL-007, OVL-004]
-    scenarios: [inject_subliminal_pixel, inject_subliminal_ocr, inject_subliminal_block]
+    scenarios: [inject_subliminal_pixel, inject_subliminal_ocr, inject_subliminal_block, inject_subliminal_pixel_with_instruction]
     note: >
       Strong band [0.008,0.08) plus a wide band [0.08,0.22) added in iter 6 to cover
       the paper's upper opacity levels. Luma contrast is a proxy for alpha, so the

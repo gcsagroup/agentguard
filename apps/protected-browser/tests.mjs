@@ -124,10 +124,12 @@ test('受保护任务：真实浏览器、请求副作用与人工界面', { tim
     });
     await check('页面导航使旧请求失效', async () => {
       const count = site.hits.length;
-      const request = send({ test: '导航失效' });
+      // 在导航前接住页面销毁的拒绝，避免它先被 Node 判为未处理异常。
+      const request = send({ test: '导航失效' }).catch((error) => ({ error }));
       await until(first);
       await page.goto(site.origin);
-      await request.catch(() => {});
+      const result = await request;
+      if (result.error) assert.match(result.error.message, /Execution context was destroyed|Target page, context or browser has been closed/);
       await until(() => !task.pending.size);
       assert.equal(site.hits.length, count);
     });
@@ -200,8 +202,10 @@ test('受保护任务：真实浏览器、请求副作用与人工界面', { tim
       operator = await operatorBrowser.newPage(); await operator.goto(`${task.controlOrigin}/#${task.token}`);
       await until(() => task.connected());
       const count = site.hits.length;
-      const request = send({ test: '停止' });
-      await until(first); await task.stopBrowser(); await request.catch(() => {});
+      const request = send({ test: '停止' }).catch((error) => ({ error }));
+      await until(first); await task.stopBrowser();
+      const result = await request;
+      if (result.error) assert.match(result.error.message, /Target page, context or browser has been closed/);
       assert.equal(task.active, false); assert.equal(task.pending.size, 0); assert.equal(site.hits.length, count);
     });
   } catch (error) {

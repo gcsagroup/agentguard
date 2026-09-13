@@ -445,6 +445,7 @@ fn supervise(
     let mut forced = false;
     let mut eof = false;
     loop {
+        let mut read_progress = false;
         if shared.closed.load(Ordering::SeqCst) && closing.is_none() {
             closing = Some(Instant::now());
         }
@@ -458,6 +459,7 @@ fn supervise(
                     }
                 }
                 Ok(count) if !shared.closed.load(Ordering::SeqCst) => {
+                    read_progress = true;
                     for byte in &chunk[..count] {
                         bytes.push(*byte);
                         if bytes.len() > MESSAGE_LIMIT {
@@ -490,7 +492,7 @@ fn supervise(
                         }
                     }
                 }
-                Ok(_) => {}
+                Ok(_) => read_progress = true,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
                 Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
                 Err(_) => {
@@ -522,7 +524,11 @@ fn supervise(
             terminate_child(&mut child.0);
             forced = true;
         }
-        thread::sleep(POLL);
+        // 有数据时继续排空；每 8 KiB 强制睡眠会让长回执在繁忙主机上先触发超时。
+        // 每轮仍检查撤销与子进程状态，无数据时才等待，避免空转。
+        if !read_progress {
+            thread::sleep(POLL);
+        }
     }
 }
 

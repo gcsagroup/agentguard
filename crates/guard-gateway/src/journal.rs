@@ -265,6 +265,27 @@ impl ExecutionJournal {
     }
 }
 
+#[cfg(all(test, not(unix)))]
+mod unsupported_platform_tests {
+    use super::*;
+
+    #[test]
+    fn 未验证日志锁的平台拒绝创建可执行审计会话() {
+        let directory = std::env::temp_dir().join(format!(
+            "ag-journal-unsupported-{}",
+            crate::browser_bridge::token()
+        ));
+        let database = directory.join("audit.db");
+        let error = match ExecutionJournal::open(&database) {
+            Ok(_) => panic!("未验证平台不得打开可执行审计日志"),
+            Err(error) => error,
+        };
+        assert_eq!(error.to_string(), "当前网关执行日志锁尚未验证该宿主平台");
+        assert!(!database.exists());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
