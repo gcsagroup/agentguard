@@ -882,6 +882,8 @@ fn revoke_between_authorization_and_dispatch(check_number: usize) {
         );
     } else {
         let (mut stream, _) = listener.accept().unwrap();
+        // macOS 接受的连接可能继承监听器的非阻塞状态；必须等到 EOF 才能证明零字节。
+        stream.set_nonblocking(false).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(1)))
             .unwrap();

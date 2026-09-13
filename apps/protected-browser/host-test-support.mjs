@@ -17,7 +17,7 @@ export function toolValue(response) {
   assert.notEqual(response.result?.isError, true, JSON.stringify(response));
   return JSON.parse(response.result.content[0].text);
 }
-export async function startHostFixture(origins, { timeout = 8, binary = process.env.AGD_BROWSER_GATEWAY || join(ROOT, 'target/debug/agentguard-mcp'), runtime = join(ROOT, 'apps/protected-browser/cli.mjs') } = {}) {
+export async function startHostFixture(origins, { timeout = 8, rpcTimeout = 45000, binary = process.env.AGD_BROWSER_GATEWAY || join(ROOT, 'target/debug/agentguard-mcp'), runtime = join(ROOT, 'apps/protected-browser/cli.mjs') } = {}) {
   const fixture = await createWorkspaceFixture({ name: 'browser-host', seed: { 'read.txt': 'SYNTHETIC_WORKSPACE' } });
   const controlFile = join(fixture.control, 'connection.json'), executorFile = join(fixture.control, 'browser.json');
   const args = ['--rules', fixture.rules, '--shell-policy', fixture.shellPolicy, '--plans', fixture.plans, '--task', fixture.taskProfile,
@@ -33,7 +33,7 @@ export async function startHostFixture(origins, { timeout = 8, binary = process.
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => { const response = JSON.parse(line), pending = waiting.get(response.id); if (pending) { clearTimeout(pending.timer); waiting.delete(response.id); pending.resolve(response); } });
   const rpc = (method, params = {}) => new Promise((resolve, reject) => {
-    const id = ++sequence; const timer = setTimeout(() => { waiting.delete(id); reject(new Error(`MCP超时 ${method}：${stderr}`)); }, 45000);
+    const id = ++sequence; const timer = setTimeout(() => { waiting.delete(id); reject(new Error(`MCP超时 ${method}：${stderr}`)); }, rpcTimeout);
     waiting.set(id, { resolve, reject, timer }); child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`);
   });
   try {

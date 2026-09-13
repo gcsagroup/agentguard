@@ -4,7 +4,7 @@ use crate::gate::Outcome;
 use crate::ExecOutput;
 use anyhow::{bail, Context, Result};
 use guard_audit::{AuditRecord, AuditStore};
-use guard_schema::{ActionSnapshot, ExecutionOutcome};
+use guard_schema::{ActionSnapshot, ExecutionOutcome, SourceObservation};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::cell::Cell;
@@ -224,7 +224,42 @@ impl ExecutionJournal {
         let state = outcome
             .map(|s| serde_json::to_value(s).unwrap())
             .unwrap_or(json!("started"));
+        // 保留来源绑定与限制；父 ID、解析器及未知原因可能带任意文本，仍只落摘要。
+        let sources: Vec<Value> = spec
+            .sources
+            .iter()
+            .map(|source| {
+                let mut value = json!({
+                    "source_id_sha256": sha256(source.source_id.as_str().as_bytes()),
+                    "sensitivity": source.sensitivity,
+                });
+                match &source.observation {
+                    SourceObservation::Observed {
+                        entry,
+                        content_sha256,
+                        parser_version,
+                        parent_source_ids,
+                    } => {
+                        value["status"] = json!("observed");
+                        value["entry"] = json!(entry);
+                        value["content_sha256"] = json!(content_sha256);
+                        value["parser_version_sha256"] = json!(sha256(parser_version.as_bytes()));
+                        value["parent_source_ids_sha256"] = json!(parent_source_ids
+                            .iter()
+                            .map(|id| sha256(id.as_str().as_bytes()))
+                            .collect::<Vec<_>>());
+                    }
+                    SourceObservation::Unknown { reason } => {
+                        value["status"] = json!("unknown");
+                        value["reason_sha256"] = json!(sha256(reason.as_bytes()));
+                    }
+                }
+                value
+            })
+            .collect();
         let summary = json!({"schema":"gateway_execution_v1", "action_sha256":action_hash,
+            "source_metadata_version":1, "sources":sources,
+            "source_coverage":if spec.sources.is_empty() { "missing" } else { "attached" },
             "request_id_sha256":sha256(spec.request_id.as_str().as_bytes()),
             "policy_version_sha256":sha256(spec.policy_version.as_str().as_bytes()),
             "tool_identity_sha256":sha256(&serde_json::to_vec(&spec.tool)?),
@@ -320,6 +355,52 @@ mod tests {
             sources: vec![],
         })
         .unwrap()
+    }
+
+    #[test]
+    fn 来源约束跨日志重开保留且正文和来源描述不落盘() {
+        use guard_schema::{SourceEntryPoint, SourceSensitivity};
+        let root = temp_dir();
+        let path = root.join("audit.db");
+        let mut collector = crate::provenance::SourceCollector::default();
+        let source = collector
+            .observe(
+                b"PRIVATE_SOURCE_BODY",
+                SourceEntryPoint::FileRead,
+                "PRIVATE_PARSER_VERSION",
+                SourceSensitivity::Sensitive,
+                &[],
+            )
+            .unwrap();
+        let source_id = source.source_id.clone();
+        let mut spec = action().spec().clone();
+        spec.sources = vec![source];
+        let snapshot = ActionSnapshot::new(spec).unwrap();
+        {
+            let journal = ExecutionJournal::open(&path).unwrap();
+            journal.started(&snapshot, None).unwrap();
+        }
+        // 未完成动作重启转未知，来源敏感度与内容摘要仍绑定原动作。
+        let reopened = ExecutionJournal::open(&path).unwrap();
+        assert_eq!(reopened.recovered_unknown, 1);
+        let rows = reopened.store.list_recent(10).unwrap();
+        assert_eq!(rows.len(), 2);
+        for row in rows {
+            assert!(!row.event_json.contains("PRIVATE_SOURCE_BODY"));
+            assert!(!row.event_json.contains("PRIVATE_PARSER_VERSION"));
+            assert!(!row.event_json.contains(source_id.as_str()));
+            let value: Value = serde_json::from_str(&row.event_json).unwrap();
+            assert_eq!(value["sources"][0]["sensitivity"], "sensitive");
+            assert_eq!(value["sources"][0]["entry"], "file_read");
+            assert_eq!(
+                value["sources"][0]["content_sha256"],
+                sha256(b"PRIVATE_SOURCE_BODY")
+            );
+            assert_eq!(value["source_coverage"], "attached");
+        }
+        assert!(reopened.store.verify_chain().unwrap().ok);
+        drop(reopened);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

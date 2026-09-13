@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### F13 deferral, F14 network recovery, and initial provenance work (2026-09-14)
+
+- Deferred F13 at the user’s request without marking it passed. F14 passed on a Docker VM virtual link using native approvals in the exact 010 app, a live interface disconnect/reconnect, an unknown receipt, 25 seconds without retry, and one explicitly approved submission in a new session. Verified 33 audit rows and 90 unchanged app files.
+- Started AGD-014 sensitivity inheritance, host observation, and redacted audit metadata. The three read paths are not connected yet, and AGD-014 is not complete. Original full M1 and release acceptance remain incomplete. See the [record in Simplified Chinese](docs/agd-f14-docker-network-2026-09-14.zh.md).
+
 ### Protected local agent and M0/M1 source integration (2026-09-14)
 
 - Integrated local models, controlled workspace snapshots, command and full-diff approvals, host writeback, recovery copies, persistent audit, and dedicated browser sessions; retained read-only defaults and explicit data consent.

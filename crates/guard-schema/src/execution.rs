@@ -227,6 +227,33 @@ pub enum SourceEntryPoint {
     UserInput,
 }
 
+/// 来源敏感度只增加约束，不能替代目的地授权或单次批准。缺失值按未知处理。
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceSensitivity {
+    Public,
+    Internal,
+    Sensitive,
+    #[default]
+    Unknown,
+}
+
+impl SourceSensitivity {
+    pub fn is_unknown(&self) -> bool {
+        *self == Self::Unknown
+    }
+
+    /// 派生内容不得因新的低敏感度观测清除父来源的限制。
+    pub fn constrain(self, parent: Self) -> Self {
+        match (self, parent) {
+            (Self::Unknown, _) | (_, Self::Unknown) => Self::Unknown,
+            (Self::Sensitive, _) | (_, Self::Sensitive) => Self::Sensitive,
+            (Self::Internal, _) | (_, Self::Internal) => Self::Internal,
+            _ => Self::Public,
+        }
+    }
+}
+
 /// 没有 `trusted: true` 字段；来源描述不得提升动作权限。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
@@ -247,6 +274,9 @@ pub enum SourceObservation {
 pub struct SourceObject {
     pub source_id: ValidatedId,
     pub observation: SourceObservation,
+    // 兼容契约 1 已冻结的缺省未知记录；不改变旧动作的规范化字节。
+    #[serde(default, skip_serializing_if = "SourceSensitivity::is_unknown")]
+    pub sensitivity: SourceSensitivity,
 }
 
 impl SourceObject {
@@ -266,7 +296,12 @@ impl SourceObject {
                 }
                 Ok(())
             }
-            SourceObservation::Unknown { reason } => required_text("source.reason", reason),
+            SourceObservation::Unknown { reason } => {
+                if !self.sensitivity.is_unknown() {
+                    return Err(invalid("source.sensitivity", "未知来源必须保留未知敏感度"));
+                }
+                required_text("source.reason", reason)
+            }
         }
     }
 }
@@ -627,6 +662,7 @@ mod tests {
             expires_at_ms: 2000,
             nonce: "ab".repeat(16),
             sources: vec![SourceObject {
+                sensitivity: SourceSensitivity::Unknown,
                 source_id: id("source-1"),
                 observation: SourceObservation::Unknown {
                     reason: "读取入口尚未接入".into(),
@@ -863,6 +899,7 @@ mod tests {
             assert!(Sha256Digest::new(invalid).is_err());
         }
         let source = SourceObject {
+            sensitivity: SourceSensitivity::Unknown,
             source_id: id("s"),
             observation: SourceObservation::Observed {
                 entry: SourceEntryPoint::FileRead,
@@ -872,6 +909,59 @@ mod tests {
             },
         };
         assert!(source.validate().is_err());
+    }
+
+    #[test]
+    fn 旧来源缺省未知保持规范字节且自报可信字段被拒绝() {
+        let legacy = serde_json::json!({"source_id":"old-source", "observation":{"status":"unknown","reason":"未接入"}});
+        let source: SourceObject = serde_json::from_value(legacy.clone()).unwrap();
+        assert_eq!(source.sensitivity, SourceSensitivity::Unknown);
+        assert_eq!(serde_json::to_value(&source).unwrap(), legacy);
+        let mut forged = legacy;
+        forged["trusted"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<SourceObject>(forged).is_err());
+        let mut invalid = source;
+        invalid.sensitivity = SourceSensitivity::Public;
+        assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn 已知敏感来源不能被公开标签或未知父来源洗白() {
+        use SourceSensitivity::*;
+        for a in [Public, Internal, Sensitive, Unknown] {
+            assert_eq!(a.constrain(Unknown), Unknown);
+            assert_eq!(Unknown.constrain(a), Unknown);
+            for b in [Public, Internal, Sensitive, Unknown] {
+                assert_eq!(a.constrain(b), b.constrain(a));
+            }
+        }
+        assert_eq!(Public.constrain(Sensitive), Sensitive);
+        assert_eq!(Internal.constrain(Public), Internal);
+
+        let mut spec = action().spec().clone();
+        spec.sources[0].observation = SourceObservation::Observed {
+            entry: SourceEntryPoint::FileRead,
+            content_sha256: Sha256Digest::new("a".repeat(64)).unwrap(),
+            parser_version: "text/1".into(),
+            parent_source_ids: vec![],
+        };
+        spec.sources[0].sensitivity = Sensitive;
+        let original = ActionSnapshot::new(spec.clone()).unwrap();
+        let approval = ApprovalBinding::new(
+            id("source-approval"),
+            original.clone(),
+            "cd".repeat(16),
+            1100,
+            1900,
+        )
+        .unwrap();
+        spec.sources[0].sensitivity = Public;
+        let changed = ActionSnapshot::new(spec).unwrap();
+        assert_ne!(original.canonical_bytes(), changed.canonical_bytes());
+        assert_eq!(
+            approval.validate_for_action(&changed, 1200),
+            Err(ContractError::BindingMismatch)
+        );
     }
 
     #[test]

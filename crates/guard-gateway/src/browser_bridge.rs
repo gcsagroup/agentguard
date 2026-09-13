@@ -385,6 +385,7 @@ impl BrowserHost {
                 .saturating_add(self.timeout.as_millis().min(i64::MAX as u128) as i64),
             nonce: token(),
             sources: vec![guard_schema::SourceObject {
+                sensitivity: guard_schema::SourceSensitivity::Unknown,
                 source_id: id("browser-source"),
                 observation: guard_schema::SourceObservation::Unknown {
                     reason: "网页请求不具有来源授权，须由人核对完整发送内容".into(),
@@ -1061,6 +1062,7 @@ impl BrowserActor {
             ),
             nonce: token(),
             sources: vec![guard_schema::SourceObject {
+                sensitivity: guard_schema::SourceSensitivity::Unknown,
                 source_id: id("browser-dom-source"),
                 observation: guard_schema::SourceObservation::Unknown {
                     reason: "网页内容不能授予动作权限".into(),

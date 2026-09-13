@@ -1,0 +1,89 @@
+{
+  "recorded_date": "2026-09-14",
+  "f13": "user_deferred_not_tested",
+  "f14": {
+    "result": "passed",
+    "scope": "Docker Desktop Linux VM 的实际非回环虚拟网卡断开和恢复；Mac 入口为回环端口，不覆盖 Mac 物理网卡",
+    "driver": "确定性验收器与真实受保护 Chromium，四次批准由准确原生 App 界面操作",
+    "app_version": "Ver 1.0 (010)",
+    "app_sha256": "e67d0d412f06aa5d028706e6b66195b3f6048e0456fc5df2331a1a4e280666e1",
+    "gateway_sha256": "773c6732e9fd0fa2f1e92b1c54ae40e04aac2864ccb937984edd7fe476d3100a",
+    "node": "v22.23.2",
+    "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+    "service_process_unchanged": true,
+    "service_start_unchanged": true,
+    "interface": "eth0",
+    "address": "172.18.0.2",
+    "interface_removed": true,
+    "routes_removed": true,
+    "routes_restored": true,
+    "unknown_receipt": {
+      "action_id": "browser-action-c8c60237977ef16e85d16a0a95097be29fe1c84fee0c7a9b9a2f9708de876f55",
+      "action_sha256": "9cb1d61517d6411e1b6ca5f0b8ff0e3f2d0f32eacc4fce21b900f7288a25c226",
+      "automatic_retry": false,
+      "dispatched": true,
+      "epoch": 0,
+      "http_status": null,
+      "outcome": "unknown",
+      "request_id": "26f72ab5-eafa-4d1f-9865-7405a6fa2a22",
+      "session_id": "mcp-session-0d54303642824c6a15f89b304e8497254e60e8d3c4165bde3b2ac5d931e362ce"
+    },
+    "no_retry": {
+      "observed_ms": 25102,
+      "count": 2,
+      "old_approval_status": 409,
+      "failed_session_resume_status": 409
+    },
+    "initial_count": 1,
+    "final_count": 3,
+    "expected_new_posts": 2,
+    "new_request": {
+      "session_id": "mcp-session-ba4f139a4ec94f855a7fbd8b6e04f25e1ecf067eeef1acf169cca2d654f9d8c7",
+      "request_id": "browser-confirm-64852911f92120d4733247ab05612f3929b9bc6f07ad1552547b6ce9b8ab178c",
+      "action_id": "browser-action-8e9d87c3bd0338b31c9fb34b09bd9f41829baaa1ad1d8eb7fdd3d03107b92d46",
+      "receipt": {
+        "action_id": "browser-action-8e9d87c3bd0338b31c9fb34b09bd9f41829baaa1ad1d8eb7fdd3d03107b92d46",
+        "action_sha256": "897243715bc192d3fe21212e45d5ba2058156211e9dfbdc4fe77bcf0cd634f82",
+        "automatic_retry": false,
+        "dispatched": true,
+        "epoch": 0,
+        "http_status": 200,
+        "outcome": "success",
+        "request_id": "a377a2e8-bdc5-4c62-86a5-14c4cf545d5d",
+        "session_id": "mcp-session-ba4f139a4ec94f855a7fbd8b6e04f25e1ecf067eeef1acf169cca2d654f9d8c7"
+      },
+      "new_receipts": 2,
+      "browser_readback": true
+    },
+    "audit_rows": 33,
+    "all_audit_chains_verified": true,
+    "app_files_unchanged": 90,
+    "signature_verified": true,
+    "container_stopped_and_retained": true,
+    "volumes_created": 0,
+    "raw_report_sha256": "3256f65c360ee2e42161783d6ec0d9a0896929bafae9a64109fe7e662490798d"
+  },
+  "agd_014": "in_progress_not_complete",
+  "local_checks": {
+    "workspace": {
+      "passed": 1296,
+      "ignored": 11
+    },
+    "desktop": {
+      "passed": 122,
+      "ignored": 9
+    },
+    "browser_contract": 6,
+    "host_browser_integration": 1,
+    "clippy": "passed",
+    "fmt": "passed",
+    "docs_links": 297
+  },
+  "failures_retained": [
+    "内部网络未发布端口，环境探针失败",
+    "native-01 验收脚本错误使用 succeeded，GET 后终止",
+    "native-02 验收脚本未等待异步状态同步，保留已派发未知",
+    "Homebrew Rust 动态库不匹配，改用项目固定 1.95.0",
+    "既有撤权测试非阻塞读取报 WouldBlock，保持 EOF/零字节标准修复后通过"
+  ]
+}

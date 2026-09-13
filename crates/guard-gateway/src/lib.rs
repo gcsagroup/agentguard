@@ -27,6 +27,7 @@ pub mod isolation;
 pub mod journal;
 pub mod mcp;
 pub mod operator;
+pub mod provenance;
 pub mod server;
 pub mod writeback;
 
