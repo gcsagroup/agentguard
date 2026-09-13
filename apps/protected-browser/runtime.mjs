@@ -322,9 +322,45 @@ export class BrowserTask {
     if (!page) throw new Error('BROWSER_PAGE_ID_INVALID');
     if (!this.origins.has(originOf(page.url()))) throw new Error('页面不在授权范围');
     if (name === 'browser_read') {
-      const text = (await page.locator('body').innerText()).slice(0, 16000);
-      // 返回只读、有限的控件描述，供现有填写/点击工具定位；不读取输入值，也不新增脚本执行工具。
-      const description = await page.locator('body').evaluate(body => {
+      // 同一次同步 DOM 快照生成原文本、可见文本和控件描述，避免两次读取对应不同页面状态。
+      const snapshot = await page.locator('body').evaluate(body => {
+        const encoder = new TextEncoder();
+        const cut = (text, end) => {
+          if (end > 0 && end < text.length && /[\uD800-\uDBFF]/u.test(text[end - 1])) end--;
+          return text.slice(0, end);
+        };
+        const originalVisible = body.innerText;
+        let text = cut(originalVisible, Math.min(originalVisible.length, 16000));
+        // JSON 中的控制字符需要转义；保证公开内容及控件描述仍在既有消息上限内。
+        let low = 0, high = text.length;
+        while (low < high) {
+          const mid = Math.ceil((low + high) / 2);
+          if (encoder.encode(JSON.stringify(cut(text, mid))).length <= 48 * 1024) low = mid;
+          else high = mid - 1;
+        }
+        text = cut(text, low);
+        const text_truncated = text.length !== originalVisible.length;
+        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+        const rawNodes = []; let rawBytes = 2, rawComplete = true, visited = 0;
+        while (walker.nextNode()) {
+          if (++visited > 10000) { rawComplete = false; break; }
+          // 不扩大到既有输入值；包含普通隐藏节点和脚本文本，仅供宿主检测。
+          if (walker.currentNode.parentElement?.closest('input,textarea,select,option')) continue;
+          const data = walker.currentNode.data;
+          const remaining = 128 * 1024 - rawBytes - 1;
+          if (remaining < 2) { rawComplete = false; break; }
+          let start = 0, end = Math.min(data.length, remaining);
+          while (start < end) {
+            const mid = Math.ceil((start + end) / 2);
+            if (encoder.encode(JSON.stringify(cut(data, mid))).length <= remaining) start = mid;
+            else end = mid - 1;
+          }
+          const part = cut(data, start);
+          // 原文保留节点边界；宿主检测时才使用分隔符，不把两节点拼成一个词或编号。
+          rawNodes.push(part);
+          rawBytes += encoder.encode(JSON.stringify(part)).length + 1;
+          if (part.length !== data.length) { rawComplete = false; break; }
+        }
         const nodes = body.querySelectorAll('input,textarea,select,button,a[href],[contenteditable="true"],[role="button"]');
         const controls = []; let bytes = 2; let truncated = nodes.length > 200;
         for (const element of Array.from(nodes).slice(0, 200)) {
@@ -348,9 +384,11 @@ export class BrowserTask {
           if (controls.length >= 32 || bytes + size > 8192) { truncated = true; break; }
           controls.push(item); bytes += size;
         }
-        return { controls, controls_truncated: truncated };
+        return { text, text_truncated, controls, controls_truncated: truncated, rawNodes, rawComplete };
       });
-      return { page: args.page, text, ...description };
+      const { rawNodes, rawComplete, ...visible } = snapshot;
+      return { page: args.page, ...visible, ...(this.host ? { _agentguard_capture: { version: 1,
+        streams: [{ origin: 'dom_text_nodes', raw_base64: Buffer.from(JSON.stringify(rawNodes), 'utf8').toString('base64'), complete: rawComplete }] } } : {}) };
     }
     if (typeof args.selector !== 'string' || args.selector.length > 1000) throw new Error('控件定位无效');
     const locator = page.locator(args.selector);

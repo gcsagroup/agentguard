@@ -21,6 +21,7 @@ const PARSERS: &[&str] = &[
     "json/1",
     "dom/1",
     "tool-output/1",
+    "source-views/1",
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -89,6 +90,9 @@ impl SourceCollector {
             .and_then(|id| self.sources.get(id))
             .cloned()
     }
+    pub(crate) fn fault(&mut self) {
+        self.faulted = true;
+    }
 
     /// 保守绑定本宿主已经返回的内容历史；不声称能观察模型内部的推理依赖。
     pub fn action_sources(&self) -> Result<Vec<SourceObject>> {
@@ -113,6 +117,50 @@ impl SourceCollector {
             SourceSensitivity::Unknown,
             &parents,
         )
+    }
+
+    pub(crate) fn captured_output(
+        &mut self,
+        capture: &crate::content::RawCapture,
+        content: &str,
+        entry: SourceEntryPoint,
+        complete: bool,
+    ) -> Result<SourceObject> {
+        use guard_schema::{ContentViewOrigin as Origin, ContentViewState};
+        let origins: &[Origin] = match entry {
+            SourceEntryPoint::FileRead => &[Origin::FileBytes],
+            SourceEntryPoint::BrowserRead => &[Origin::DomTextNodes],
+            SourceEntryPoint::ToolOutput if capture.streams.len() == 2 => {
+                &[Origin::Stdout, Origin::Stderr]
+            }
+            SourceEntryPoint::ToolOutput => &[Origin::ToolText],
+            _ => return self.unknown(MissingSource::NotObserved),
+        };
+        let views = match capture.views(content, complete, origins) {
+            Ok(views) => views,
+            Err(_) => return self.unknown(MissingSource::ParserFailed),
+        };
+        let mut sensitivity =
+            if views.state == ContentViewState::Complete && views.verified_sensitive {
+                SourceSensitivity::Sensitive
+            } else {
+                SourceSensitivity::Unknown
+            };
+        let parents = self.latest.iter().cloned().collect::<Vec<_>>();
+        for parent in &parents {
+            sensitivity = sensitivity.constrain(self.sources[parent].sensitivity);
+        }
+        self.record(SourceObject {
+            source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
+            observation: SourceObservation::Observed {
+                entry,
+                content_sha256: views.visible.sha256.clone(),
+                parser_version: "source-views/1".into(),
+                parent_source_ids: parents,
+            },
+            sensitivity,
+            content_views: Some(views),
+        })
     }
 
     pub fn resolve(&self, id: &ValidatedId) -> Option<SourceObject> {
@@ -226,6 +274,7 @@ impl SourceCollector {
             inherited = inherited.constrain(source.sensitivity);
         }
         self.record(SourceObject {
+            content_views: None,
             source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
             sensitivity: inherited,
             observation: SourceObservation::Observed {
@@ -239,6 +288,7 @@ impl SourceCollector {
 
     pub fn unknown(&mut self, reason: MissingSource) -> Result<SourceObject> {
         self.record(SourceObject {
+            content_views: None,
             source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
             observation: SourceObservation::Unknown {
                 reason: reason.as_str().into(),
@@ -455,6 +505,7 @@ mod persistence_tests {
                 .unwrap();
             drop(collector);
             let child = SourceObject {
+                content_views: None,
                 source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))
                     .unwrap(),
                 sensitivity: SourceSensitivity::Public,

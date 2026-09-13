@@ -28,7 +28,9 @@ export async function handleMessage(task, message) {
       const waitForHttp = message.params?._meta?.agentguard_wait_http === true;
       const value = await task.act(tool.name, args, { waitForHttp });
       if (waitForHttp) await task.waitForHttp();
-      return { ...(task.host ? { isError: false } : {}), content: [{ type: 'text', text: JSON.stringify(value) }] };
+      const { _agentguard_capture, ...visible } = value;
+      return { ...(task.host ? { isError: false, ...(_agentguard_capture ? { _agentguard_capture } : {}) } : {}),
+        content: [{ type: 'text', text: JSON.stringify(visible) }] };
     }
     catch (error) {
       // 仅公开运行时固定的参数错误，不透传页面内容或任意内部异常。

@@ -1,5 +1,6 @@
 """容器内固定工具入口；不读取宿主环境，不将参数拼成 shell。"""
 import json
+import base64
 import os
 import stat
 import sys
@@ -52,19 +53,37 @@ def main():
         os.execvp(argv[0], argv)
     path = args['path']
     truncated = False
+    capture = None
     if name in ('ReadFile', 'SearchFile'):
         scan_limit = LIMIT if name == 'ReadFile' else 4 * 1024 * 1024
         with os.fdopen(regular(path, os.O_RDONLY), 'rb') as stream:
             raw = stream.read(scan_limit + 1)
         truncated = len(raw) > scan_limit
-        text = raw[:scan_limit].decode('utf-8', errors='replace')
+        capture = {'version': 1, 'streams': [{'origin': 'file_bytes',
+            'raw_base64': base64.b64encode(raw).decode('ascii'), 'complete': not truncated}]}
+        prefix = raw[:scan_limit]
+        try:
+            text = prefix.decode('utf-8')
+        except UnicodeDecodeError as error:
+            # 只移除被上限截开的末尾字符；原有坏字节保留替换视图，宿主另报编码未知。
+            if truncated and error.reason == 'unexpected end of data' and error.end == len(prefix):
+                prefix = prefix[:error.start]
+            text = prefix.decode('utf-8', errors='replace')
         if name == 'SearchFile':
             query = args['query']
             if not 1 <= len(query.encode()) <= 1024 or '\n' in query or '\r' in query:
                 raise ValueError('query 必须是 1–1024 字节单行文本')
-            found = [f'{i}:{line}\n' for i, line in enumerate(text.splitlines(), 1) if query in line]
-            truncated |= len(found) > 200
-            text = ''.join(found[:200])
+            found = []
+            lines = text.split('\n')
+            for i, line in enumerate(lines, 1):
+                if i < len(lines) and line.endswith('\r'):
+                    line = line[:-1]
+                if query in line:
+                    if len(found) == 200:
+                        truncated = True
+                        break
+                    found.append(f'{i}:{line}\n')
+            text = ''.join(found)
         encoded = text.encode()
         truncated |= len(encoded) > LIMIT
         detail = encoded[:LIMIT].decode('utf-8', errors='ignore')
@@ -82,7 +101,8 @@ def main():
         detail = f'已删除隔离工作区副本：{path}；宿主原文件未回写'
     else:
         raise ValueError('未知工具')
-    print(json.dumps({'ok': True, 'detail': detail, 'truncated': truncated, 'outcome': 'success', 'dispatched': True}, ensure_ascii=False))
+    print(json.dumps({'ok': True, 'detail': detail, 'truncated': truncated, 'outcome': 'success', 'dispatched': True,
+        'capture': capture}, ensure_ascii=False))
 
 try:
     main()

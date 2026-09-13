@@ -17,6 +17,7 @@
 
 pub mod browser_bridge;
 pub mod confirm;
+mod content;
 pub mod control_file;
 pub mod control_http;
 pub mod egress;

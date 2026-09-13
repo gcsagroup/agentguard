@@ -1690,8 +1690,10 @@ name = "guard-gateway"
 version = "1.0.0-rc.1"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "guard-audit",
  "guard-core",
+ "guard-privacy",
  "guard-schema",
  "guard-shell",
  "guard-trust",

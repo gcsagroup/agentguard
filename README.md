@@ -11,7 +11,7 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 > **当前状态：`1.0.0-rc.1` 是源码候选版，不是生产安装包发布。**
 > 仓库尚未提供本次发布所需的代码签名、公证、商店发布及真实设备端到端验收证据，生产发布判断仍为 **No-Go**。
 
-本次 M0／M1 源码整合新增受保护本地 Agent：模型数据授权、隔离副本、命令及差异批准、实际回写、持久审计和专用浏览器统一会话。Ver 1.0（010）已有后台与原生逐项验收记录；F13 按用户要求暂缓；[F14 Docker 虚拟链路](docs/agd-f14-docker-network-2026-09-14.zh.md)已通过，[AGD-014 来源框架与持久恢复](docs/agd-014-source-provenance-2026-09-14.zh.md)已完成，接续 AGD-015 原始内容与检测视图。完整原 M1 未通过。见[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)、[010 验收](docs/agd-m1-pending-draft-010-2026-09-11.zh.md)和[源码整合记录](docs/agentguard-source-merge-2026-09-14.zh.md)。
+本次 M0／M1 源码整合新增受保护本地 Agent：模型数据授权、隔离副本、命令及差异批准、实际回写、持久审计和专用浏览器统一会话。Ver 1.0（010）已有后台与原生逐项验收记录；F13 按用户要求暂缓；[F14 Docker 虚拟链路](docs/agd-f14-docker-network-2026-09-14.zh.md)已通过，[AGD-014 来源框架与持久恢复](docs/agd-014-source-provenance-2026-09-14.zh.md)以及 [AGD-015 原始内容与检测视图](docs/agd-015-content-views-2026-09-14.zh.md)已完成，接续 AGD-016 工具登记。完整原 M1 未通过。见[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)、[010 验收](docs/agd-m1-pending-draft-010-2026-09-11.zh.md)和[源码整合记录](docs/agentguard-source-merge-2026-09-14.zh.md)。
 
 ## 能做什么
 

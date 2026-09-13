@@ -760,16 +760,47 @@ impl Server {
         };
         self.executed += u64::from(output.dispatched);
         if output.dispatched {
+            let capture = output.capture.take();
+            let file_read = output.ok
+                && matches!(
+                    call,
+                    ToolCall::ReadFile { .. } | ToolCall::SearchFile { .. }
+                );
             let source = self
                 .sources
                 .lock()
                 .map_err(|_| anyhow::anyhow!("来源锁已失效"))
-                .and_then(|mut sources| {
-                    sources.tool_output(output.detail.as_bytes(), !output.truncated)
+                .and_then(|mut sources| match capture {
+                    Some(capture) => sources.captured_output(
+                        &capture,
+                        &output.detail,
+                        if file_read {
+                            guard_schema::SourceEntryPoint::FileRead
+                        } else {
+                            guard_schema::SourceEntryPoint::ToolOutput
+                        },
+                        !output.truncated,
+                    ),
+                    None if file_read => {
+                        sources.unknown(crate::provenance::MissingSource::NotObserved)
+                    }
+                    None => sources.captured_output(
+                        &crate::content::RawCapture::single(
+                            guard_schema::ContentViewOrigin::ToolText,
+                            output.detail.as_bytes(),
+                            !output.truncated,
+                        ),
+                        &output.detail,
+                        guard_schema::SourceEntryPoint::ToolOutput,
+                        !output.truncated,
+                    ),
                 });
             match source {
                 Ok(source) => self.last_output_source = Some(source),
                 Err(error) => {
+                    if let Ok(mut sources) = self.sources.lock() {
+                        sources.fault();
+                    }
                     self.pending.pause();
                     output.ok = false;
                     output.outcome = ExecutionOutcome::Unknown;

@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Raw, visible, and detection views (2026-09-14)
+
+- Completed AGD-015 with captures from actual file reads/searches, DOM text nodes, and separate stdout/stderr streams. Each view has its own digest; private raw captures are excluded from model responses and audit records.
+- Fixed missed detection across DOM node boundaries and the detection-byte limit for a truncated UTF-8 prefix. Retained failed runs; ordinary Unicode and research documents remain readable and cannot grant approval.
+- Passed 1,310 workspace tests, 122 desktop tests, 43 Docker checks, 15 provenance regression checks, and 9 live browser tests. See the [content-view record in Simplified Chinese](docs/agd-015-content-views-2026-09-14.zh.md). F13 remains deferred and untested, the 010 app is unchanged, and AGD-016 is next.
+
+
 ### Durable provenance and live tool-output integration (2026-09-14)
 
 - Completed AGD-014 with an exclusive provenance journal, restart recovery, parent-label validation, and shared action bindings across tools and the browser. Self-reported trust grants no authority; provenance failures stop subsequent actions.

@@ -277,10 +277,140 @@ pub struct SourceObject {
     // 兼容契约 1 已冻结的缺省未知记录；不改变旧动作的规范化字节。
     #[serde(default, skip_serializing_if = "SourceSensitivity::is_unknown")]
     pub sensitivity: SourceSensitivity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_views: Option<SourceContentViews>,
+}
+
+/// 只描述观测内容；没有正文、信任开关或授予权限的字段。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentViewOrigin {
+    FileBytes,
+    Stdout,
+    Stderr,
+    DomTextNodes,
+    ToolText,
+    Visible,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentViewDigest {
+    pub sha256: Sha256Digest,
+    pub bytes: u64,
+    pub complete: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RawContentView {
+    pub origin: ContentViewOrigin,
+    pub digest: ContentViewDigest,
+    pub utf8_valid: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DetectionContentView {
+    pub origin: ContentViewOrigin,
+    pub variant: u32,
+    pub digest: ContentViewDigest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentViewState {
+    Complete,
+    Truncated,
+    UnsupportedEncoding,
+    DetectionLimited,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceContentViews {
+    pub version: u16,
+    pub raw: Vec<RawContentView>,
+    pub visible: ContentViewDigest,
+    pub detection: Vec<DetectionContentView>,
+    pub state: ContentViewState,
+    pub boundary_marker: bool,
+    pub text_anomaly: bool,
+    pub verified_sensitive: bool,
 }
 
 impl SourceObject {
     pub fn validate(&self) -> Result<(), ContractError> {
+        if let Some(views) = &self.content_views {
+            if views.version != 1
+                || views.raw.is_empty()
+                || views.raw.len() > 2
+                || views.detection.len() > 64
+                || views.visible.bytes > 512 * 1024
+                || views.raw.iter().any(|view| {
+                    view.digest.bytes > 4 * 1024 * 1024 + 1
+                        || view.origin == ContentViewOrigin::Visible
+                })
+                || views
+                    .detection
+                    .iter()
+                    // 一个坏字节在 UTF-8 替换视图中最多占三个字节。
+                    .any(|view| view.digest.bytes > 3 * (4 * 1024 * 1024 + 1) || view.variant >= 64)
+            {
+                return Err(invalid("source.content_views", "视图版本、类型或边界无效"));
+            }
+            let SourceObservation::Observed {
+                content_sha256,
+                entry,
+                ..
+            } = &self.observation
+            else {
+                return Err(invalid(
+                    "source.content_views",
+                    "视图必须绑定已观测的返回内容",
+                ));
+            };
+            let origins = views.raw.iter().map(|v| v.origin).collect::<Vec<_>>();
+            let origin_valid = match entry {
+                SourceEntryPoint::FileRead => origins == [ContentViewOrigin::FileBytes],
+                SourceEntryPoint::BrowserRead => origins == [ContentViewOrigin::DomTextNodes],
+                SourceEntryPoint::ToolOutput => {
+                    origins == [ContentViewOrigin::ToolText]
+                        || origins == [ContentViewOrigin::Stdout, ContentViewOrigin::Stderr]
+                }
+                _ => false,
+            };
+            let mut variants = HashSet::new();
+            if !origin_valid
+                || views.detection.iter().any(|v| {
+                    (!origins.contains(&v.origin) && v.origin != ContentViewOrigin::Visible)
+                        || !variants.insert((v.origin, v.variant))
+                })
+                || (views.state == ContentViewState::Complete && views.detection.is_empty())
+            {
+                return Err(invalid(
+                    "source.content_views",
+                    "观测入口或检测视图归属不一致",
+                ));
+            }
+            if content_sha256 != &views.visible.sha256
+                || (views.state != ContentViewState::Complete && !self.sensitivity.is_unknown())
+                || (views.verified_sensitive
+                    && self.sensitivity.constrain(SourceSensitivity::Sensitive) != self.sensitivity)
+                || (views.state == ContentViewState::Complete
+                    && (!views.visible.complete
+                        || views
+                            .raw
+                            .iter()
+                            .any(|v| !v.digest.complete || !v.utf8_valid)
+                        || views.detection.iter().any(|v| !v.digest.complete)))
+            {
+                return Err(invalid(
+                    "source.content_views",
+                    "视图摘要、完整性或敏感度不一致",
+                ));
+            }
+        }
         match &self.observation {
             SourceObservation::Observed {
                 parser_version,
@@ -680,6 +810,7 @@ mod tests {
             expires_at_ms: 2000,
             nonce: "ab".repeat(16),
             sources: vec![SourceObject {
+                content_views: None,
                 sensitivity: SourceSensitivity::Unknown,
                 source_id: id("source-1"),
                 observation: SourceObservation::Unknown {
@@ -917,6 +1048,7 @@ mod tests {
             assert!(Sha256Digest::new(invalid).is_err());
         }
         let source = SourceObject {
+            content_views: None,
             sensitivity: SourceSensitivity::Unknown,
             source_id: id("s"),
             observation: SourceObservation::Observed {
@@ -927,6 +1059,95 @@ mod tests {
             },
         };
         assert!(source.validate().is_err());
+    }
+
+    #[test]
+    fn 内容视图必需字段及归属校验且原始摘要替换会撤销旧批准() {
+        let hash = Sha256Digest::new("a".repeat(64)).unwrap();
+        let digest = ContentViewDigest {
+            sha256: hash.clone(),
+            bytes: 1,
+            complete: true,
+        };
+        let source = SourceObject {
+            source_id: id("source-view"),
+            sensitivity: SourceSensitivity::Unknown,
+            observation: SourceObservation::Observed {
+                entry: SourceEntryPoint::FileRead,
+                content_sha256: hash,
+                parser_version: "source-views/1".into(),
+                parent_source_ids: vec![],
+            },
+            content_views: Some(SourceContentViews {
+                version: 1,
+                raw: vec![RawContentView {
+                    origin: ContentViewOrigin::FileBytes,
+                    digest: digest.clone(),
+                    utf8_valid: true,
+                }],
+                visible: digest.clone(),
+                detection: vec![DetectionContentView {
+                    origin: ContentViewOrigin::FileBytes,
+                    variant: 0,
+                    digest,
+                }],
+                state: ContentViewState::Complete,
+                boundary_marker: false,
+                text_anomaly: false,
+                verified_sensitive: false,
+            }),
+        };
+        source.validate().unwrap();
+        let mut spec = action().spec().clone();
+        spec.sources = vec![source.clone()];
+        let before = ActionSnapshot::new(spec.clone()).unwrap();
+        let approved = ApprovalBinding::new(
+            id("approval-views"),
+            before.clone(),
+            "ab".repeat(16),
+            1100,
+            1900,
+        )
+        .unwrap();
+        spec.sources[0].content_views.as_mut().unwrap().raw[0]
+            .digest
+            .sha256 = Sha256Digest::new("b".repeat(64)).unwrap();
+        let after = ActionSnapshot::new(spec).unwrap();
+        assert_ne!(before.canonical_bytes(), after.canonical_bytes());
+        assert!(approved.validate_for_action(&after, 1200).is_err());
+        for field in [
+            "version",
+            "raw",
+            "visible",
+            "detection",
+            "state",
+            "boundary_marker",
+            "text_anomaly",
+            "verified_sensitive",
+        ] {
+            let mut value = serde_json::to_value(&source).unwrap();
+            value["content_views"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+            assert!(
+                serde_json::from_value::<SourceObject>(value).is_err(),
+                "缺少字段 {field} 不应得到完整视图"
+            );
+        }
+        let mut forged = serde_json::to_value(&source).unwrap();
+        forged["content_views"]["trusted"] = json!(true);
+        assert!(serde_json::from_value::<SourceObject>(forged).is_err());
+        let mut mismatch = source.clone();
+        mismatch.content_views.as_mut().unwrap().raw[0].origin = ContentViewOrigin::DomTextNodes;
+        assert!(mismatch.validate().is_err());
+        mismatch = source.clone();
+        mismatch.sensitivity = SourceSensitivity::Public;
+        mismatch.content_views.as_mut().unwrap().verified_sensitive = true;
+        assert!(mismatch.validate().is_err());
+        mismatch = source;
+        mismatch.content_views.as_mut().unwrap().raw[0].utf8_valid = false;
+        assert!(mismatch.validate().is_err());
     }
 
     #[test]

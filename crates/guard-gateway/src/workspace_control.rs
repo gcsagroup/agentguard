@@ -486,6 +486,7 @@ impl Server {
         };
         let detail = serde_json::to_string(&report).expect("固定回写回执可序列化");
         let output = ExecOutput {
+            capture: None,
             ok: outcome == ExecutionOutcome::Success,
             detail,
             truncated: false,

@@ -320,11 +320,11 @@ impl DockerExecutor {
                 "-I",
                 "/run/agentguard-request/helper.py",
             ]);
-            // 固定 helper 的 JSON 包络需要容纳最多 6 倍字符串转义；实际正文仍为 64 KiB。
+            // 私有包络容纳 4 MiB 扫描字节的 base64 及转义正文；返回模型的正文仍为 64 KiB。
             let limit = if matches!(call, ToolCall::RunShell { .. }) {
                 MAX_OUTPUT_BYTES
             } else {
-                MAX_OUTPUT_BYTES * 8
+                crate::content::MAX_CAPTURE_WIRE
             };
             let output = run_command_bounded(command, EXEC_TIMEOUT, cancelled, limit);
             // 正常退出后 --rm 已删除；失败或断连时此处仍清理整棵容器进程树。
@@ -337,19 +337,38 @@ impl DockerExecutor {
                         .with_state(ExecutionOutcome::Unknown, true),
                 );
             }
-            if matches!(call, ToolCall::RunShell { .. }) || !output.ok {
+            if matches!(call, ToolCall::RunShell { .. }) {
                 return Ok(output);
             }
-            Ok(serde_json::from_str(&output.detail).unwrap_or_else(|_| {
-                ExecOutput::err("隔离文件工具返回格式无效，实际结果未知")
-                    .with_state(ExecutionOutcome::Unknown, true)
-            }))
+            Ok(decode_file_reply(output))
         })();
         let _ = fs::remove_dir_all(request_root);
         result.unwrap_or_else(|e| {
             ExecOutput::err(format!("隔离执行准备失败：{e:#}"))
                 .with_state(ExecutionOutcome::Failed, false)
         })
+    }
+}
+
+fn decode_file_reply(output: ExecOutput) -> ExecOutput {
+    // 私有包络可能包含整段原始捕获；错误、截断或子进程异常时也不能原样返回模型。
+    let unknown = || {
+        ExecOutput::err("隔离文件工具回执不完整或格式无效，实际结果未知，不自动重试")
+            .with_state(ExecutionOutcome::Unknown, output.dispatched)
+    };
+    if output.truncated
+        || !matches!(
+            output.outcome,
+            ExecutionOutcome::Success | ExecutionOutcome::Failed
+        )
+    {
+        return unknown();
+    }
+    match serde_json::from_str::<ExecOutput>(&output.detail) {
+        Ok(decoded) if decoded.detail.len() <= MAX_OUTPUT_BYTES && (!decoded.ok || output.ok) => {
+            decoded
+        }
+        _ => unknown(),
     }
 }
 
@@ -712,6 +731,38 @@ fn copy_tree(source: &File, target: &Path, original: &Path, budget: &mut CopyBud
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 文件执行器异常时私有捕获包络不得作为工具正文返回() {
+        let wire = serde_json::json!({"ok":true,"detail":"公开回执","truncated":false,
+            "outcome":"success","dispatched":true,"capture":{"version":1,"streams":[{
+                "origin":"file_bytes","raw_base64":"U1lOVEhFVElDX1BSSVZBVEU=","complete":true}]}})
+        .to_string();
+        for (detail, truncated, outcome) in [
+            (wire.clone(), false, ExecutionOutcome::Failed),
+            (wire.clone(), true, ExecutionOutcome::Success),
+            (format!("{wire}\nextra"), false, ExecutionOutcome::Success),
+        ] {
+            let mut outer = ExecOutput::ok(detail);
+            outer.ok = outcome == ExecutionOutcome::Success;
+            outer.outcome = outcome;
+            outer.truncated = truncated;
+            let decoded = decode_file_reply(outer);
+            assert_eq!(decoded.outcome, ExecutionOutcome::Unknown);
+            assert!(decoded.dispatched);
+            assert!(
+                !decoded.detail.contains("raw_base64") && !decoded.detail.contains("U1lOVEhFVElD")
+            );
+        }
+        let outer = ExecOutput::err(
+            serde_json::json!({"ok":false,"detail":"文件不存在",
+            "truncated":false,"outcome":"failed","dispatched":true})
+            .to_string(),
+        );
+        let decoded = decode_file_reply(outer);
+        assert_eq!(decoded.outcome, ExecutionOutcome::Failed);
+        assert_eq!(decoded.detail, "文件不存在");
+    }
     fn temporary() -> PathBuf {
         // macOS 默认临时目录很长；Unix Socket 的路径上限比普通文件小。
         let root = Path::new("/tmp").join(format!("agd-snapshot-test-{}", random_id()));

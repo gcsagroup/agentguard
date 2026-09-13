@@ -16,6 +16,8 @@ guard-trust = { workspace = true }
 guard-schema = { workspace = true }
 guard-shell = { workspace = true, features = ["test-helpers"] }
 guard-core = { workspace = true }
+guard-privacy = { workspace = true }
+base64 = "0.22"
 # `default-features = false` 删掉了。
 #
 # 它一直是个空操作:guard-audit 是通过 [workspace.dependencies] 引的,而那里没写

@@ -469,6 +469,7 @@ impl BrowserHost {
                       response: Option<HttpResponse>,
                       code: &str| {
             let output = ExecOutput {
+                capture: None,
                 ok: matches!(outcome, ExecutionOutcome::Success),
                 detail: format!(
                     "HTTP {}",
@@ -1152,6 +1153,7 @@ impl BrowserActor {
             }
             Some(Ok(())) => {}
         }
+        let is_read = name == "browser_read";
         let response = self.call("tools/call", params);
         let mut result = match response {
             Ok(value) if valid_actor_result(&value) => value,
@@ -1167,16 +1169,62 @@ impl BrowserActor {
         } else {
             ExecutionOutcome::Success
         };
-        // 只观测受控 actor 实际返回的 content，忽略其自报的任何来源／可信元数据。
-        // 原 DOM、隐藏内容与规范化检测视图将在入口采集阶段分别处理。
-        let source = self
-            .host
-            .sources
-            .lock()
-            .map_err(|_| anyhow::anyhow!("来源锁已失效"))
-            .and_then(|mut sources| {
-                sources.tool_output(result["content"].to_string().as_bytes(), true)
-            });
+        // 私有原始捕获在返回模型前移除；页面无法提供或覆盖这些结构字段。
+        let capture = result
+            .as_object_mut()
+            .and_then(|object| object.remove("_agentguard_capture"));
+        let visible = result["content"].to_string();
+        let read_body = result["content"][0]["text"]
+            .as_str()
+            .and_then(|text| serde_json::from_str::<Value>(text).ok());
+        let valid_read_body = read_body.as_ref().is_some_and(|body| {
+            body["page"].is_string()
+                && body["text"].is_string()
+                && body["text_truncated"].is_boolean()
+                && body["controls"].is_array()
+                && body["controls_truncated"].is_boolean()
+        });
+        let complete = read_body.as_ref().is_none_or(|body| {
+            body["text_truncated"] != true && body["controls_truncated"] != true
+        });
+        let source =
+            self.host
+                .sources
+                .lock()
+                .map_err(|_| anyhow::anyhow!("来源锁已失效"))
+                .and_then(|mut sources| {
+                    if is_read && outcome == ExecutionOutcome::Success {
+                        if !valid_read_body {
+                            return sources.unknown(crate::provenance::MissingSource::ParserFailed);
+                        }
+                        match capture {
+                            Some(value) => {
+                                match serde_json::from_value::<crate::content::RawCapture>(value) {
+                                    Ok(capture) => sources.captured_output(
+                                        &capture,
+                                        &visible,
+                                        guard_schema::SourceEntryPoint::BrowserRead,
+                                        complete,
+                                    ),
+                                    Err(_) => sources
+                                        .unknown(crate::provenance::MissingSource::ParserFailed),
+                                }
+                            }
+                            None => sources.unknown(crate::provenance::MissingSource::NotObserved),
+                        }
+                    } else {
+                        sources.captured_output(
+                            &crate::content::RawCapture::single(
+                                guard_schema::ContentViewOrigin::ToolText,
+                                visible.as_bytes(),
+                                true,
+                            ),
+                            &visible,
+                            guard_schema::SourceEntryPoint::ToolOutput,
+                            true,
+                        )
+                    }
+                });
         let source = match source {
             Ok(source) => Some(source),
             Err(_) => {
@@ -1187,6 +1235,7 @@ impl BrowserActor {
             }
         };
         let output = ExecOutput {
+            capture: None,
             ok: outcome == ExecutionOutcome::Success,
             detail: result.to_string(),
             truncated: false,

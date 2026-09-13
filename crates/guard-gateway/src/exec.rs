@@ -15,6 +15,8 @@
 //! 而不是只断言"返回了一个错误对象"。后者是这个项目反复抓到的那种缺陷：机制存在、被直接测试过、
 //! 被描述成完整的，然后什么都没接上。
 
+use crate::content::{visible_prefix, CapturedStream, RawCapture};
+use guard_schema::ContentViewOrigin;
 use guard_schema::ExecutionOutcome;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
@@ -101,6 +103,9 @@ pub struct ExecOutput {
     pub outcome: ExecutionOutcome,
     #[serde(default)]
     pub dispatched: bool,
+    // 仅接收可信执行器的私有捕获；即使误序列化 ExecOutput，也不能把原字节发给模型。
+    #[serde(default, skip_serializing)]
+    pub(crate) capture: Option<RawCapture>,
 }
 
 fn unknown_outcome() -> ExecutionOutcome {
@@ -171,12 +176,15 @@ impl ToolCall {
                 match read {
                     Err(e) => ExecOutput::err(format!("read {} 失败：{e}", path.display())),
                     Ok(bytes) => {
-                        let mut detail =
-                            String::from_utf8_lossy(&bytes[..bytes.len().min(MAX_OUTPUT_BYTES)])
-                                .into_owned();
+                        let mut detail = visible_prefix(&bytes, MAX_OUTPUT_BYTES);
                         let detail_truncated = truncate_detail(&mut detail);
                         let truncated = bytes.len() > MAX_OUTPUT_BYTES || detail_truncated;
                         ExecOutput {
+                            capture: Some(RawCapture::single(
+                                ContentViewOrigin::FileBytes,
+                                &bytes,
+                                bytes.len() <= MAX_OUTPUT_BYTES,
+                            )),
                             ok: true,
                             outcome: ExecutionOutcome::Success,
                             dispatched: true,
@@ -263,7 +271,7 @@ fn search_file(path: &std::path::Path, query: &str) -> ExecOutput {
         Err(error) => return ExecOutput::err(format!("search {} 失败：{error}", path.display())),
     };
     let mut truncated = bytes.len() > MAX_SCAN_BYTES;
-    let text = String::from_utf8_lossy(&bytes[..bytes.len().min(MAX_SCAN_BYTES)]);
+    let text = visible_prefix(&bytes, MAX_SCAN_BYTES);
     let mut detail = String::new();
     let mut matches = 0;
     for (index, line) in text.lines().enumerate() {
@@ -282,6 +290,11 @@ fn search_file(path: &std::path::Path, query: &str) -> ExecOutput {
         }
     }
     ExecOutput {
+        capture: Some(RawCapture::single(
+            ContentViewOrigin::FileBytes,
+            &bytes,
+            bytes.len() <= MAX_SCAN_BYTES,
+        )),
         ok: true,
         outcome: ExecutionOutcome::Success,
         dispatched: true,
@@ -292,20 +305,32 @@ fn search_file(path: &std::path::Path, query: &str) -> ExecOutput {
 
 impl ExecOutput {
     pub(crate) fn ok(detail: impl Into<String>) -> Self {
+        let detail = detail.into();
         Self {
+            capture: Some(RawCapture::single(
+                ContentViewOrigin::ToolText,
+                detail.as_bytes(),
+                true,
+            )),
             ok: true,
             outcome: ExecutionOutcome::Success,
             dispatched: true,
-            detail: detail.into(),
+            detail,
             truncated: false,
         }
     }
     pub(crate) fn err(detail: impl Into<String>) -> Self {
+        let detail = detail.into();
         Self {
+            capture: Some(RawCapture::single(
+                ContentViewOrigin::ToolText,
+                detail.as_bytes(),
+                true,
+            )),
             ok: false,
             outcome: ExecutionOutcome::Failed,
             dispatched: true,
-            detail: detail.into(),
+            detail,
             truncated: false,
         }
     }
@@ -519,13 +544,23 @@ pub(crate) fn run_command_bounded(
         return ExecOutput::err("输出未能在期限内完整收集；结果需核实，不自动重试")
             .with_state(ExecutionOutcome::Unknown, true);
     }
-    let mut detail = String::from_utf8_lossy(&stdout.bytes).into_owned();
+    let mut detail = crate::content::visible_text(&stdout.bytes, stdout.truncated);
     if !stderr.bytes.is_empty() {
         detail.push_str("\n--- stderr ---\n");
-        detail.push_str(&String::from_utf8_lossy(&stderr.bytes));
+        detail.push_str(&crate::content::visible_text(
+            &stderr.bytes,
+            stderr.truncated,
+        ));
     }
     let detail_truncated = truncate_detail_to(&mut detail, output_limit);
     ExecOutput {
+        capture: (output_limit == MAX_OUTPUT_BYTES).then(|| RawCapture {
+            version: 1,
+            streams: vec![
+                CapturedStream::new(ContentViewOrigin::Stdout, &stdout.bytes, !stdout.truncated),
+                CapturedStream::new(ContentViewOrigin::Stderr, &stderr.bytes, !stderr.truncated),
+            ],
+        }),
         ok: status.is_some_and(|status| status.success()),
         outcome: if status.is_some_and(|status| status.success()) {
             ExecutionOutcome::Success
@@ -541,6 +576,37 @@ pub(crate) fn run_command_bounded(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 文件返回后被改写也不会重新读取路径来伪造原始摘要() {
+        let root = tempfile_dir("same-read-capture");
+        let path = root.join("input.txt");
+        let original = "实际读取的中文正文 👩‍💻";
+        std::fs::write(&path, original).unwrap();
+        let mut output =
+            ToolCall::ReadFile { path: path.clone() }.execute_with_mode(ExecutionMode::Native);
+        assert!(output.ok);
+        std::fs::write(&path, "工具已经返回后的另一个内容").unwrap();
+        let capture = output.capture.take().unwrap();
+        let mut sources = crate::provenance::SourceCollector::default();
+        let source = sources
+            .captured_output(
+                &capture,
+                &output.detail,
+                guard_schema::SourceEntryPoint::FileRead,
+                true,
+            )
+            .unwrap();
+        let views = source.content_views.unwrap();
+        use sha2::{Digest, Sha256};
+        assert_eq!(
+            views.raw[0].digest.sha256.as_str(),
+            format!("{:x}", Sha256::digest(original.as_bytes()))
+        );
+        assert_eq!(output.detail, original);
+        assert_ne!(std::fs::read_to_string(&path).unwrap(), output.detail);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn windows_fail_closed_mode_blocks_every_side_effect_before_it_happens() {
