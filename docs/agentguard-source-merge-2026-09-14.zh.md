@@ -54,6 +54,15 @@
 
 修正后工作区 1,290 项、桌面 122 项、真实浏览器 39 项、场景评估 135/135 通过；覆盖登记 112/112，格式、Clippy 与三语能力矩阵检查通过。默认忽略项仍分别为 11 与 9。日志使用 `*-ci-fix*.log`，GitHub 最终状态单独保存在本地 `ci-latest.json`。网关读取修正只交付源码，未替换已有 010 安装候选，其原生验收证据仍只绑定旧冻结包。
 
+## 第二轮 CI 的检出与用例选择修复
+
+[第二轮 CI](https://github.com/gcsagroup/agentguard/actions/runs/34773140315) 中，Linux／macOS 工作区、Clippy 和完整浏览器 E2E 已通过，Windows 与 macOS 壳子继续执行后暴露了后续问题：
+
+- Windows `core.autocrlf=true` 将 12 个知识库 JSON 夹具从 LF 转为 CRLF，破坏登记的原始字节摘要。已在 `.gitattributes` 只为这些夹具固定 LF。用实际 Git 检出复现原失败，再检出验证 12/12 字节和登记摘要一致；未修改夹具或放松摘要校验，知识库回归 11 项通过。记录为 `crlf-before.json`、`crlf-after.json` 和 `knowledge-tests-crlf-fix.log`。
+- macOS 默认桌面回归和真实网关副作用用例均通过，但宽泛的 `--include-ignored` 同时启动了新增的人工宿主连接验收；CI 没有该连接文件，因此明确失败。默认单测仍完整执行，后续独立进程步骤改为精确选择原有的自建网关副作用用例，并要求输出恰好 1 项通过，避免用例改名后零测试假通过。需 `AGENTGUARD_WORKSPACE_CONTROL_FILE` 的人工宿主验收保留原显式条件，未计作 CI 通过。
+
+本地已用刚构建的真实网关执行同一条精确用例：1 项通过；仓库不变量 23 项通过。日志为 `native-gateway-fixture-second-ci-fix.log` 和 `repository-invariants-second-ci-fix.log`。
+
 ## 剩余条件与入口
 
 F13 尚缺可中断的真实睡眠／唤醒时段和可靠恢复方式。F14 尚缺不含生产数据的自有非回环测试服务，以及真实断网／恢复的时段和方法；当前受保护浏览器仅支持登记回环 HTTP。M1 未通过前不进入 M2。

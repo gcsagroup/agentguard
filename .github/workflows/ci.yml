@@ -266,10 +266,21 @@ jobs:
         run: cargo test
       - name: 真实网关确认的文件副作用回归
         run: |
+          set -euo pipefail
           cargo build --locked -p guard-gateway --bin agentguard-mcp
-          AGENTGUARD_GATEWAY_TEST_BIN="$GITHUB_WORKSPACE/target/debug/agentguard-mcp" \
+          log="$(mktemp)"
+          trap 'rm -f "$log"' EXIT
+          # 默认单测已在上一步执行；这里只启用自建网关夹具，不启用需人工宿主连接的验收。
+          if ! AGENTGUARD_GATEWAY_TEST_BIN="$GITHUB_WORKSPACE/target/debug/agentguard-mcp" \
             cargo test --manifest-path apps/desktop-macos/src-tauri/Cargo.toml --locked \
-            --no-default-features --features audit-sqlcipher gateway_confirm -- --include-ignored
+            --no-default-features --features audit-sqlcipher --lib \
+            gateway_confirm::tests::真实网关允许拒绝批准超时与断连的文件副作用 \
+            -- --include-ignored --exact >"$log" 2>&1; then
+            cat "$log"
+            exit 1
+          fi
+          cat "$log"
+          grep -Fq '1 passed; 0 failed' "$log"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
