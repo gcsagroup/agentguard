@@ -122,12 +122,14 @@ rules:
 
   - id: OVL-007
     name: subliminal_low_contrast_text
-    severity: high
-    action: block
-    require_confirm: true
+    # 像素对比度只能证明存在低对比纹理，不能证明其中有文字或恶意指令。
+    # 保留观察告警；OCR 中的明确注入及付款内容仍由对应规则独立处理。
+    severity: medium
+    action: alert
+    require_confirm: false
     platforms: [macos, windows, android]
     match_any_text: ["[AG_SUBLIMINAL_TEXT]"]
-    description: "Low-contrast subliminal text detected in captured pixels (A1 injection)"
+    description: "发现低对比度画面线索；尚不能确认存在隐藏文字或攻击"
 
   - id: OVL-008
     name: stego_lsb_hint

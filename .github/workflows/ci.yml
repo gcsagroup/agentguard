@@ -270,6 +270,11 @@ jobs:
           AGENTGUARD_GATEWAY_TEST_BIN="$GITHUB_WORKSPACE/target/debug/agentguard-mcp" \
             cargo test --manifest-path apps/desktop-macos/src-tauri/Cargo.toml --locked \
             --no-default-features --features audit-sqlcipher gateway_confirm -- --include-ignored
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: 桌面生成配置的真实网关范围回归（无需模型账号）
+        run: node scripts/test-desktop-codex-setup.mjs
       - name: macOS Release audit must fail closed to SQLCipher
         working-directory: apps/desktop-macos/src-tauri
         run: |
@@ -453,6 +458,14 @@ jobs:
         # pre-execution gates against eval/acceptance-fixtures. Not part of release-gate
         # (needs a browser); a FAIL here is still a FAIL of the extension.
         run: make e2e-extension
+      - name: 受保护浏览器任务：请求副作用、独立确认与真实 MCP 回归
+        run: node --test apps/protected-browser/tests.mjs apps/protected-browser/lifecycle.test.mjs apps/protected-browser/transport.test.mjs apps/protected-browser/bridge.test.mjs apps/protected-browser/control-recovery.test.mjs
+      - name: 网关正常代码操作对照（不调用模型）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+          cargo build --locked -p guard-gateway --bin agentguard-mcp
+          node scripts/test-gateway-normal-tasks.mjs
       - name: Acceptance fixtures render + detector contract (W3/W4/W5)
         # Generates the deterministic fixtures, renders the HTML ones in real Chromium and
         # runs guard-vision over every pixel buffer, including the ignored render-contract test.
@@ -464,6 +477,8 @@ jobs:
           name: extension-e2e
           path: |
             eval/e2e-extension/out/
+            apps/protected-browser/out/
+            eval/gateway-normal/out/
             eval/acceptance-fixtures/generated/MANIFEST.json
             eval/acceptance-fixtures/generated/rendered/INDEX.json
 

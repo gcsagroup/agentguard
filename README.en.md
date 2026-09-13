@@ -11,6 +11,8 @@ AgentGuard is a local-first observation and audit system for third-party GUI age
 > **Current status: `1.0.0-rc.1` is a source release candidate, not a production installer release.**
 > This repository does not yet contain the code-signing, notarization, store-publication, or real-device end-to-end acceptance evidence required for this release. The production release decision remains **No-Go**.
 
+This M0/M1 source integration adds a protected local agent with model-data consent, isolated snapshots, command and diff approvals, verified host writeback, persistent audit, and unified browser sessions. Ver 1.0 (010) has backend and separately recorded native acceptance evidence; real-system F13/F14 conditions are still missing, so M1 is incomplete. See the [development plan](docs/agentguard-development-plan-2026-09-09.zh.md), [010 acceptance](docs/agd-m1-pending-draft-010-2026-09-11.zh.md), and [source integration record](docs/agentguard-source-merge-2026-09-14.zh.md), all in Simplified Chinese.
+
 ## What it can do
 
 - Collect available interface or event signals on macOS, Windows, Android, and Chromium paths.

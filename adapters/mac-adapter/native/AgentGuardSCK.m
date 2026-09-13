@@ -8,6 +8,7 @@
 #import <CoreImage/CoreImage.h>
 #import <Vision/Vision.h>
 #import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -468,6 +469,32 @@ int agentguard_sck_probe(void) {
   @autoreleasepool {
     return ag_sck_probe_impl();
   }
+}
+
+// 仅由用户点击授权入口触发。请求可共享内容会走 ScreenCaptureKit 的授权流程，
+// 不创建 SCStream，不取得或保存屏幕帧，返回的窗口/显示器清单也不传给调用方。
+void agentguard_sck_request_permission(void) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (@available(macOS 12.3, *)) {
+      // 此状态仅在主队列读写，等待系统决定期间不重复申请。
+      static BOOL requesting = NO;
+      if (requesting) return;
+      requesting = YES;
+      // 请求由用户点击触发；先激活本应用，防止授权提示被后台窗口抑制。
+      [[NSRunningApplication currentApplication] activateWithOptions:NSApplicationActivateIgnoringOtherApps];
+      [SCShareableContent getShareableContentWithCompletionHandler:^(SCShareableContent *content, NSError *error) {
+        (void)content;
+        // 等申请完成后再打开设置，避免异步请求尚未显示时就抢走焦点。
+        if (error != nil) {
+          NSLog(@"AgentGuard 录屏权限请求未完成：%@ (%ld)", error.domain, (long)error.code);
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+          requesting = NO;
+          [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"]];
+        });
+      }];
+    }
+  });
 }
 
 @interface AgentGuardSCKOutput : NSObject <SCStreamOutput>

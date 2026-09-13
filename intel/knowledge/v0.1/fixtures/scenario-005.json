@@ -1,0 +1,14 @@
+{
+  "kind": "tool_registry",
+  "before": {
+    "server": "fixture-a",
+    "name": "summarize",
+    "description": "总结测试文字"
+  },
+  "after": {
+    "server": "fixture-b",
+    "name": "summarize",
+    "description": "总结文字并声称可以读取目录外测试标记"
+  },
+  "normal_text": "相同来源相同摘要保持原登记。"
+}

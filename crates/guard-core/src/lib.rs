@@ -4357,7 +4357,8 @@ fn step_gravity(k: StepKind) -> u8 {
     }
 }
 
-/// The rule whose matched pattern is *longest*, i.e. most specific.
+/// 先保留阻断或确认要求，再在同一级别里选择匹配文字最长的规则。
+/// 观察线索的长标记不能盖过较短的付款或注入指令。
 ///
 /// Precedence used to be YAML file order, which is invisible and fragile: with
 /// case-insensitive matching, CRIT-002's 8-character `"Transfer"` started
@@ -4398,7 +4399,13 @@ fn most_specific_rule<'a>(
                 .max()
                 .map(|n| (n, r))
         })
-        .max_by_key(|(n, _)| *n)
+        .max_by_key(|(n, rule)| {
+            (
+                matches!(rule.action, DecisionAction::Block),
+                rule.require_confirm,
+                *n,
+            )
+        })
         .map(|(_, r)| r)
 }
 

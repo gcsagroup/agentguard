@@ -44,7 +44,7 @@ pub enum OverlayKind {
     PromptInjection,
     /// Text parked in display corner / bezel (A2 invisible-zone style).
     InvisibleZone,
-    /// Low-contrast subliminal text in pixels (A1 subliminal injection).
+    /// 低对比度像素线索；单独不能证明存在隐藏文字或注入。
     SubliminalText,
     /// LSB-plane randomization hint (A1/A4 steganography).
     StegoHint,
@@ -113,7 +113,7 @@ impl OverlayKind {
             OverlayKind::ScreenshotTamperHint => Severity::Medium,
             OverlayKind::PromptInjection => Severity::High,
             OverlayKind::InvisibleZone => Severity::Critical,
-            OverlayKind::SubliminalText => Severity::High,
+            OverlayKind::SubliminalText => Severity::Medium,
             OverlayKind::StegoHint => Severity::Medium,
             OverlayKind::ChromaStegoHint => Severity::High,
             OverlayKind::ScreenTextNotInTree => Severity::High,

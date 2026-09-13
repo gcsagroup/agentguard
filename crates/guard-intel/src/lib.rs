@@ -1,6 +1,7 @@
 //! Threat intel bundles with Ed25519 signatures (sha256: digest still accepted for legacy).
 
 mod crypto;
+pub mod knowledge;
 mod update;
 
 pub use crypto::{generate_keypair, sign_digest, verify_digest, KeyPair, PublicKeyBytes};

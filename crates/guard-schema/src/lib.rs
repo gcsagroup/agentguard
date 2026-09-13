@@ -2,6 +2,7 @@
 
 pub mod agent;
 pub mod events;
+pub mod execution;
 pub mod plan;
 pub mod policy;
 pub mod rules;
@@ -10,6 +11,7 @@ pub mod visual;
 
 pub use agent::*;
 pub use events::*;
+pub use execution::*;
 pub use rules::*;
 pub mod adapter;
 pub use adapter::*;

@@ -12,6 +12,7 @@ name = "agentguard-mcp"
 path = "src/bin/agentguard_mcp.rs"
 
 [dependencies]
+guard-trust = { workspace = true }
 guard-schema = { workspace = true }
 guard-shell = { workspace = true, features = ["test-helpers"] }
 guard-core = { workspace = true }
@@ -25,11 +26,15 @@ guard-core = { workspace = true }
 # [workspace.dependencies] —— 那会影响每一个成员,是另一件事(见 make test-sqlcipher)。
 guard-audit = { workspace = true }
 rand = "0.8"
+sha2 = "0.10"
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 tiny_http = "0.12"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 serde_yaml = { workspace = true }

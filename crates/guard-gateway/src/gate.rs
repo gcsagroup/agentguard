@@ -328,8 +328,16 @@ impl Gate {
     /// 文本类规则不受影响。
     fn tool_event(&mut self, action: &ShellAction) -> GuardEvent {
         let mut metadata = HashMap::new();
+        // argv[0] 的目录是程序位置，不是动作文本；例如 fnm 的 installation/bin/node
+        // 不能命中“Install”。完整路径仍保存在 gateway_action，实际执行参数不改。
+        let executable = action.action.as_deref().map(|name| {
+            std::path::Path::new(name)
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or(name)
+        });
         let command = std::iter::once(action.tool.as_str())
-            .chain(action.action.as_deref())
+            .chain(executable)
             .chain(action.target.as_deref())
             .chain(action.args.iter().map(String::as_str))
             .collect::<Vec<_>>()

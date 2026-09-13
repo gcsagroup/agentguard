@@ -5,6 +5,189 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+use tauri::Manager;
+
+#[derive(Serialize)]
+pub struct CodexSetup {
+    workspace: String,
+    write_enabled: bool,
+    command: String,
+    plan_path: String,
+}
+
+pub(crate) fn checked_workspace(input: &str) -> Result<PathBuf, String> {
+    let path = Path::new(input);
+    if !path.is_absolute() || input.chars().any(char::is_control) {
+        return Err("请填写工作区的绝对目录路径".into());
+    }
+    let path = path.canonicalize().map_err(|_| "工作区不存在或无法访问")?;
+    if !path.is_dir() || path.parent().is_none() {
+        return Err("请选择具体项目目录".into());
+    }
+    if std::env::var_os("HOME").is_some_and(|home| Path::new(&home) == path) {
+        return Err("请选具体项目，不要授权整个个人目录".into());
+    }
+    Ok(path)
+}
+
+fn quote_argument(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+fn prepare_codex(
+    mut config: Value,
+    workspace: &str,
+    write_enabled: bool,
+    task: &str,
+    storage: &Path,
+) -> Result<CodexSetup, String> {
+    let workspace = checked_workspace(workspace)?;
+    if task.trim().is_empty() || task.len() > 8192 || task.contains('\0') {
+        return Err("请填写任务，最多 8192 字节".into());
+    }
+    // 配置独立于工作区，避免智能体通过正常的文件工具改写自己的授权。
+    if storage.starts_with(&workspace) {
+        return Err("工作区不能包含接入配置目录".into());
+    }
+    std::fs::create_dir_all(storage).map_err(|_| "无法创建接入配置目录")?;
+    let storage = storage.canonicalize().map_err(|_| "无法访问接入配置目录")?;
+    if storage.starts_with(&workspace) {
+        return Err("工作区不能包含接入配置目录".into());
+    }
+    let plan = json!({"plans": [{"task_profile": "desktop-code-work", "allow": ["run_shell"],
+        "scope": {"paths": {"read": [&workspace], "write": if write_enabled { vec![&workspace] } else { vec![] }}}}]});
+    let serialized = serde_json::to_string_pretty(&plan).map_err(|e| e.to_string())?;
+    guard_schema::TaskPlanLibrary::from_yaml_str(&serialized).map_err(|e| e.to_string())?;
+    let directory = storage.join(uuid::Uuid::new_v4().to_string());
+    let mut builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder
+        .create(&directory)
+        .map_err(|_| "无法保存本次接入配置")?;
+    let plan_path = directory.join("plans.json");
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options
+        .open(&plan_path)
+        .and_then(|mut f| f.write_all(serialized.as_bytes()))
+        .map_err(|_| "无法写入任务范围")?;
+    let server = &mut config["mcpServers"]["agentguard"];
+    let server_args = server["args"].as_array_mut().ok_or("网关配置不完整")?;
+    if !write_enabled {
+        let at = server_args
+            .iter()
+            .position(|value| value == "--shell-policy")
+            .ok_or("缺少网关策略")?
+            + 1;
+        let mut policy =
+            guard_shell::ShellPolicy::from_path(server_args[at].as_str().ok_or("策略路径无效")?)
+                .map_err(|e| e.to_string())?;
+        // 只读模式不允许用任意解释器或命令产生写入副作用。
+        policy
+            .denied_actions
+            .extend(["run_terminal".into(), "write_file".into()]);
+        let policy_path = directory.join("readonly-policy.json");
+        options
+            .open(&policy_path)
+            .and_then(|mut file| file.write_all(serde_json::to_string(&policy).unwrap().as_bytes()))
+            .map_err(|_| "无法保存只读策略")?;
+        server_args[at] = json!(policy_path);
+    }
+    server_args.extend([
+        json!("--plans"),
+        json!(plan_path),
+        json!("--task"),
+        json!("desktop-code-work"),
+    ]);
+    let mut args = vec![
+        "codex".to_string(),
+        "exec".into(),
+        "--ignore-user-config".into(),
+        "--ignore-rules".into(),
+        "--ephemeral".into(),
+        "--skip-git-repo-check".into(),
+        "--sandbox".into(),
+        if write_enabled {
+            "workspace-write"
+        } else {
+            "read-only"
+        }
+        .into(),
+        "-C".into(),
+        workspace.to_string_lossy().into_owned(),
+        "-c".into(),
+        "approval_policy=\"never\"".into(),
+    ];
+    for feature in [
+        "shell_tool",
+        "unified_exec",
+        "plugins",
+        "hooks",
+        "apps",
+        "browser_use",
+        "browser_use_external",
+        "computer_use",
+        "in_app_browser",
+        "memories",
+        "multi_agent",
+    ] {
+        args.extend(["--disable".into(), feature.into()]);
+    }
+    for setting in [
+        "web_search=\"disabled\"".to_string(),
+        // 本机 CLI 的 WebSocket 多轮超时后才回落 HTTP；本次入口直接使用已验证的 HTTPS。
+        "model_provider=\"agentguard-local-https\"".into(),
+        "model_providers.agentguard-local-https.name=\"OpenAI\"".into(),
+        "model_providers.agentguard-local-https.requires_openai_auth=true".into(),
+        "model_providers.agentguard-local-https.supports_websockets=false".into(),
+        format!("mcp_servers.agentguard.command={}", server["command"]),
+        format!("mcp_servers.agentguard.args={}", server["args"]),
+        "mcp_servers.agentguard.required=true".into(),
+        "mcp_servers.agentguard.default_tools_approval_mode=\"approve\"".into(),
+    ] {
+        args.extend(["-c".into(), setting]);
+    }
+    args.push(format!("先通过 agentguard.start_session 声明 task_profile=desktop-code-work。仅使用 agentguard 工具完成下面的本地代码任务，路径使用绝对路径。需要确认或被拒绝时停止说明，不得绕过。任务：\n{task}"));
+    Ok(CodexSetup {
+        workspace: workspace.to_string_lossy().into_owned(),
+        write_enabled,
+        command: args
+            .iter()
+            .map(|arg| quote_argument(arg))
+            .collect::<Vec<_>>()
+            .join(" "),
+        plan_path: plan_path.to_string_lossy().into_owned(),
+    })
+}
+
+#[tauri::command]
+pub async fn prepare_codex_setup(
+    app: tauri::AppHandle,
+    workspace: String,
+    write_enabled: bool,
+    task: String,
+) -> Result<CodexSetup, String> {
+    let storage = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("gateway-setups");
+    tauri::async_runtime::spawn_blocking(move || {
+        let setup = check_gateway()?;
+        prepare_codex(setup.config, &workspace, write_enabled, &task, &storage)
+    })
+    .await
+    .map_err(|_| "SETUP_WORKER_FAILED".to_string())?
+}
 
 #[derive(Serialize)]
 pub struct InstallationInfo {
@@ -35,7 +218,7 @@ pub fn get_installation_info() -> Result<InstallationInfo, String> {
     })
 }
 
-fn resource(relative: &str) -> Result<PathBuf, String> {
+pub(crate) fn resource(relative: &str) -> Result<PathBuf, String> {
     let executable = std::env::current_exe().map_err(|e| e.to_string())?;
     let root = super::bundle_resources_from_executable(&executable)
         .ok_or("SETUP_BUNDLE_REQUIRED")?
@@ -209,6 +392,136 @@ pub async fn check_gateway_setup() -> Result<GatewaySetup, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fixture() -> (PathBuf, Value) {
+        let root =
+            std::env::temp_dir().join(format!("agentguard-desktop-setup-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(root.join("work space")).unwrap();
+        let policy = root.join("default.json");
+        std::fs::write(
+            &policy,
+            serde_json::to_vec(&guard_shell::ShellPolicy::default_embedded()).unwrap(),
+        )
+        .unwrap();
+        let config = configuration(Path::new("/A B/gateway"), Path::new("/A B/rules"), &policy);
+        (root, config)
+    }
+    #[test]
+    fn 工作区必须是存在的具体绝对目录() {
+        for path in ["", ".", "/", "/missing-agentguard-fixture", "/tmp\n/"] {
+            assert!(checked_workspace(path).is_err(), "{path}");
+        }
+        assert!(checked_workspace(&std::env::var("HOME").unwrap()).is_err());
+    }
+    #[test]
+    fn 只读配置拒绝命令写入删除且不含写权限() {
+        let (root, config) = fixture();
+        let result = prepare_codex(
+            config,
+            root.join("work space").to_str().unwrap(),
+            false,
+            "搜索 README",
+            &root.join("setups"),
+        )
+        .unwrap();
+        let plan: Value =
+            serde_json::from_slice(&std::fs::read(&result.plan_path).unwrap()).unwrap();
+        assert_eq!(plan["plans"][0]["scope"]["paths"]["write"], json!([]));
+        let policy = guard_shell::ShellPolicy::from_path(
+            Path::new(&result.plan_path).with_file_name("readonly-policy.json"),
+        )
+        .unwrap();
+        let shell = guard_shell::SafeShell::from_policy(policy);
+        for tool in ["run_terminal", "write_file"] {
+            assert_eq!(
+                shell.propose(&guard_shell::ShellAction::new(tool)),
+                guard_shell::ShellDecision::Deny
+            );
+        }
+        assert!(result.command.contains("'read-only'"));
+        assert!(!result.command.contains("workspace-write"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn 读写配置只授权规范项目路径且配置位于外部() {
+        let (root, config) = fixture();
+        let result = prepare_codex(
+            config.clone(),
+            root.join("work space").to_str().unwrap(),
+            true,
+            "生成摘要",
+            &root.join("setups"),
+        )
+        .unwrap();
+        let plan: Value =
+            serde_json::from_slice(&std::fs::read(&result.plan_path).unwrap()).unwrap();
+        assert_eq!(
+            plan["plans"][0]["scope"]["paths"]["write"],
+            json!([result.workspace])
+        );
+        assert!(result.command.contains("'workspace-write'"));
+        assert!(!Path::new(&result.plan_path).starts_with(&result.workspace));
+        assert!(prepare_codex(
+            config,
+            &result.workspace,
+            true,
+            "生成摘要",
+            &Path::new(&result.workspace).join("setups")
+        )
+        .is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn 启动命令引用可原样往返而不执行插值() {
+        let text = "带 空格 ' 引号 $(exit 17) `exit 18` \\ 路径\n第二行";
+        let output = Command::new("/bin/sh")
+            .args(["-c", &format!("printf %s {}", quote_argument(text))])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, text.as_bytes());
+    }
+    #[test]
+    #[ignore = "显式生成临时配置，供真实 Codex 与网关验收脚本使用"]
+    fn 生成真实接入验收配置() {
+        let root = PathBuf::from(std::env::var("AGENTGUARD_SETUP_FIXTURE_ROOT").unwrap());
+        let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../..")
+            .canonicalize()
+            .unwrap();
+        let config = configuration(
+            &repo.join("target/debug/agentguard-mcp"),
+            &repo.join("crates/guard-schema/rules/p0_rules.yaml"),
+            &repo.join("crates/guard-shell/policies/default.yaml"),
+        );
+        for write in [false, true] {
+            let name = if write { "write" } else { "read" };
+            let work = root.join(name);
+            std::fs::create_dir_all(&work).unwrap();
+            std::fs::write(
+                work.join("README.md"),
+                "AgentGuard 桌面接入验收标记：LOCAL_SETUP_OK\n",
+            )
+            .unwrap();
+            let task = if write {
+                "读取 README.md，将其中验收标记原样写到 result.txt，只做这两个操作。"
+            } else {
+                "读取 README.md，在最终回答中给出其中验收标记，只读取这一个文件。"
+            };
+            let result = prepare_codex(
+                config.clone(),
+                work.to_str().unwrap(),
+                write,
+                task,
+                &root.join("setups"),
+            )
+            .unwrap();
+            std::fs::write(
+                root.join(format!("{name}.json")),
+                serde_json::to_vec(&result).unwrap(),
+            )
+            .unwrap();
+        }
+    }
     #[test]
     fn 资源入口只有固定的两个目标() {
         assert!(setup_relative("extension").is_some());

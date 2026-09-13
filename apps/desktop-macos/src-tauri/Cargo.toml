@@ -26,6 +26,8 @@ audit-sqlcipher = ["guard-audit/sqlcipher"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+libc = "0.2"
+sha2 = "0.10"
 tauri = { version = "2", features = ["image-png", "tray-icon"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
@@ -33,6 +35,8 @@ serde_json = "1"
 anyhow = "1"
 uuid = { version = "1", features = ["v4"] }
 guard-schema = { path = "../../../crates/guard-schema" }
+guard-gateway = { path = "../../../crates/guard-gateway" }
+guard-shell = { path = "../../../crates/guard-shell" }
 guard-privacy = { path = "../../../crates/guard-privacy" }
 guard-core = { path = "../../../crates/guard-core" }
 guard-audit = { path = "../../../crates/guard-audit", default-features = false }
@@ -43,6 +47,10 @@ guard-netmon = { path = "../../../crates/guard-netmon" }
 mac-adapter = { path = "../../../adapters/mac-adapter" }
 win-adapter = { path = "../../../adapters/win-adapter" }
 browser-adapter = { path = "../../../adapters/browser-adapter" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# 已缓存的轻量原生选择器；macOS 直接使用 NSOpenPanel，不启用 Linux portal 后端。
+rfd = { version = "=0.15.4", default-features = false }
 
 # 这个 Tauri 壳有独立锁文件，并刻意位于根 workspace 之外。
 # 在此声明边界也能防止 Cargo 误认无关的外层 workspace。

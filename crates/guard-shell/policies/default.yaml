@@ -4,6 +4,7 @@ version: "1.0"
 # Tools the agent may invoke without extra scrutiny.
 allowlisted_tools:
   - read_file
+  - search_file
   - list_dir
   - grep
   - search

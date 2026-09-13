@@ -1,0 +1,14 @@
+{
+  "kind": "recovery",
+  "states": [
+    "approval_pending",
+    "approved_not_started",
+    "submitted_result_unknown"
+  ],
+  "expected": [
+    "cancel",
+    "cancel",
+    "retain_unknown_no_retry"
+  ],
+  "normal_text": "可确认已完成的只读结果可恢复展示。"
+}

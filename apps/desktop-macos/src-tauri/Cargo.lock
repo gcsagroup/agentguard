@@ -808,14 +808,19 @@ dependencies = [
  "guard-audit",
  "guard-billing",
  "guard-core",
+ "guard-gateway",
  "guard-intel",
  "guard-netmon",
  "guard-privacy",
  "guard-schema",
+ "guard-shell",
  "guard-sync",
+ "libc",
  "mac-adapter",
+ "rfd",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",
@@ -1681,6 +1686,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "guard-gateway"
+version = "1.0.0-rc.1"
+dependencies = [
+ "anyhow",
+ "guard-audit",
+ "guard-core",
+ "guard-schema",
+ "guard-shell",
+ "guard-trust",
+ "libc",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.19",
+ "tiny_http",
+]
+
+[[package]]
 name = "guard-intel"
 version = "1.0.0-rc.1"
 dependencies = [
@@ -1730,6 +1754,17 @@ version = "1.0.0-rc.1"
 dependencies = [
  "serde",
  "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.19",
+]
+
+[[package]]
+name = "guard-shell"
+version = "1.0.0-rc.1"
+dependencies = [
+ "anyhow",
+ "guard-schema",
+ "serde",
  "serde_yaml",
  "thiserror 2.0.19",
 ]
@@ -3240,6 +3275,27 @@ checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
  "hmac",
  "subtle",
+]
+
+[[package]]
+name = "rfd"
+version = "0.15.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef2bee61e6cffa4635c72d7d81a84294e28f0930db0ddcb0f66d10244674ebed"
+dependencies = [
+ "block2",
+ "dispatch2",
+ "js-sys",
+ "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "raw-window-handle",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

@@ -1,0 +1,12 @@
+{
+  "kind": "approval_substitution",
+  "approved": {
+    "destination": "fixture-local-A",
+    "body": "测试草稿 A"
+  },
+  "requested": {
+    "destination": "fixture-local-B",
+    "body": "测试草稿 B"
+  },
+  "normal_text": "目标和正文均未变化的已批准动作只执行一次。"
+}

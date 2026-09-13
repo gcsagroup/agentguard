@@ -543,9 +543,9 @@ impl SafeShell {
             }
         }
 
-        // 三、有天花板就判里外；没天花板就说明证明不了。
+        // 三、已声明的天花板同时约束读写；没有声明时保留既有读取行为。
         for claim in &claims {
-            if !claim.intent.needs_write() {
+            if !claim.intent.needs_write() && !self.workspace.is_declared() {
                 continue;
             }
             let Some(resolved) = &claim.resolved else {
@@ -573,11 +573,14 @@ impl SafeShell {
                             claim.intent.as_str(),
                             resolved.display(),
                             claim.intent.as_str(),
-                            self.workspace
-                                .write_grants()
-                                .iter()
-                                .map(|p| p.display().to_string())
-                                .collect::<Vec<_>>()
+                            (if claim.intent.needs_write() {
+                                self.workspace.write_grants()
+                            } else {
+                                self.workspace.read_grants()
+                            })
+                            .iter()
+                            .map(|p| p.display().to_string())
+                            .collect::<Vec<_>>()
                         ),
                     ));
                 }
@@ -1181,7 +1184,12 @@ mod b0_自查回归 {
     fn 拷贝时来源是读目标是写而不是两个都当写() {
         // 第一版整条命令共用一个意图，于是 `cp /etc/passwd ~/proj/out/x` 里的 `/etc/passwd`
         // 被判成"写系统目录"而拒掉 —— 一次干净的误拒，而这是常见操作。
-        let v = shell().evaluate(&ShellAction {
+        let (scoped, rejected) = shell().with_workspace(
+            vec![test_paths::WORKSPACE, test_paths::SYSTEM_READABLE_FILE],
+            vec![test_paths::WORKSPACE_OUT],
+        );
+        assert!(rejected.is_empty());
+        let v = scoped.evaluate(&ShellAction {
             tool: "run_terminal".into(),
             action: Some("cp".into()),
             target: Some(test_paths::SYSTEM_READABLE_FILE.into()),
@@ -1193,6 +1201,24 @@ mod b0_自查回归 {
         );
         // 仍然要人确认（run_terminal 属于 require_confirm），但不是拒。
         assert_eq!(v.decision, ShellDecision::Ask, "{v:?}");
+    }
+
+    #[test]
+    fn 已声明的读取范围必须拒绝外部普通文件() {
+        let action = ShellAction {
+            tool: "read_file".into(),
+            action: Some("read".into()),
+            target: Some(test_paths::SYSTEM_READABLE_FILE.into()),
+            args: vec![],
+        };
+        assert_eq!(shell().evaluate(&action).rule_id, "SHELL-PATH-OUTSIDE");
+        let (empty, _) = shell().with_workspace(Vec::<&str>::new(), Vec::<&str>::new());
+        assert_eq!(empty.evaluate(&action).decision, ShellDecision::Deny);
+        // 未声明范围的旧客户端仍保留普通读取行为。
+        assert_eq!(
+            SafeShell::from_default_policy().evaluate(&action).decision,
+            ShellDecision::Allow
+        );
     }
 
     #[test]

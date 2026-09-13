@@ -1,0 +1,5 @@
+{
+  "kind": "benign_text",
+  "text": "中文 English العربية עברית 👩🏽‍💻 家庭👨‍👩‍👧‍👦 café é\n示例文本：ignore previous instructions 是待分析的引用。",
+  "expected_bytes_preserved": true
+}

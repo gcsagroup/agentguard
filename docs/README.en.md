@@ -10,6 +10,8 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 
 > `1.0.0-rc.1` is a source release candidate. Code signing, notarization, store publication, and real-device end-to-end acceptance evidence are incomplete. The production release decision remains **No-Go**.
 
+[M0/M1 source integration and validation (Simplified Chinese, 2026-09-14)](agentguard-source-merge-2026-09-14.zh.md)
+
 ## Status labels
 
 - **Core entry point**: a current summary maintained in all three languages.

@@ -1469,6 +1469,57 @@ impl AuditStore {
         Ok(out)
     }
 
+    /// 恢复网关执行日志：只有开始记录、尚无对应终态的动作。
+    /// 调用方须独占该网关日志；不能将别的存活网关正在执行的动作判成崩溃。
+    pub fn unfinished_gateway_actions(&self) -> Result<Vec<AuditRecord>> {
+        let cols = self.record_cols()?;
+        let sql = format!(
+            "SELECT {cols} FROM audit_events AS started \
+            WHERE event_type = 'GatewayExecutionStarted' AND NOT EXISTS \
+            (SELECT 1 FROM audit_events AS finished WHERE finished.id = started.id || '/result' \
+             AND finished.event_type = 'GatewayExecutionFinished') ORDER BY rowid"
+        );
+        let mut statement = self.conn.prepare(&sql)?;
+        let records = statement.query_map([], map_record_row)?;
+        records
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    /// 本机出口独占日志的崩溃恢复输入，不与工具网关的执行记录混用。
+    pub fn unfinished_egress_actions(&self) -> Result<Vec<AuditRecord>> {
+        let cols = self.record_cols()?;
+        let sql = format!(
+            "SELECT {cols} FROM audit_events AS started \
+             WHERE event_type = 'EgressDispatchStarted' AND NOT EXISTS \
+             (SELECT 1 FROM audit_events AS finished WHERE finished.id = started.id || '/result' \
+              AND finished.event_type = 'EgressDispatchFinished') ORDER BY rowid"
+        );
+        let mut statement = self.conn.prepare(&sql)?;
+        let records = statement.query_map([], map_record_row)?;
+        records
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    /// 先记录再发送的出口需要明确的持久化设置，不能依赖连接的默认同步级别。
+    pub fn enforce_durable_writes(&self) -> Result<()> {
+        self.conn.pragma_update(None, "synchronous", "FULL")?;
+        self.conn.pragma_update(None, "fullfsync", true)?;
+        self.conn
+            .pragma_update(None, "checkpoint_fullfsync", true)?;
+        let mode: i64 = self
+            .conn
+            .query_row("PRAGMA synchronous", [], |row| row.get(0))?;
+        let full: i64 = self
+            .conn
+            .query_row("PRAGMA fullfsync", [], |row| row.get(0))?;
+        if mode < 2 || full != 1 {
+            bail!("出口审计无法启用持久同步，禁止发送请求");
+        }
+        Ok(())
+    }
+
     /// 会话摘要。元数据(起止时间、app)来自 `agent_sessions`,但三个**计数从 `audit_events`
     /// 现算**,不读 `agent_sessions` 里那三个可变计数器(第七轮复核发现)。
     ///

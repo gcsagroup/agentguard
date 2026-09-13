@@ -320,6 +320,41 @@ mod tests {
         );
     }
 
+    #[test]
+    fn 无文字的低对比纹理只能提供启发式线索() {
+        // 确定性的灰色细条纹，没有字形或指令；像素统计本身无法判定其语义。
+        let (width, height) = (320, 180);
+        let mut pixels = vec![255; width * height * 4];
+        for y in 0..height {
+            for x in 0..width {
+                let offset = (y * width + x) * 4;
+                let luma = if x % 4 < 2 { 128 } else { 136 };
+                pixels[offset..offset + 3].fill(luma);
+            }
+        }
+        let stats = crate::stats_from_pixels(
+            &pixels,
+            width as u32,
+            height as u32,
+            1,
+            false,
+            crate::AlphaChannel::Padding,
+        );
+        assert!(crate::subliminal::is_suspicious(
+            stats.subliminal_ratio,
+            stats.subliminal_ratio_wide,
+        ));
+        assert!(stats.ocr_text.is_none());
+        let analysis = analyze_frame(&stats);
+        let finding = analysis
+            .findings
+            .iter()
+            .find(|finding| finding.kind == guard_overlay::OverlayKind::SubliminalText)
+            .expect("保留低对比度线索");
+        assert_eq!(finding.severity, guard_schema::Severity::Medium);
+        assert!(analysis.ui_text.contains("[AG_SUBLIMINAL_TEXT]"));
+    }
+
     fn digest_of(buf: &[u8], w: usize, h: usize) -> String {
         crate::framehash::digest_rgba(buf, w, h, false)
             .expect("digest")

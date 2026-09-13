@@ -43,6 +43,8 @@ policies/entitlement.json
 
 # Generated eval / acceptance artifacts (regenerate via make)
 /.artifacts/
+# 本机验收输出含运行上下文与候选二进制，保留在本地。
+/eval/out/
 /evidence/
 eval/leaderboard.json
 eval/leaderboard.html

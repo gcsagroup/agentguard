@@ -25,29 +25,29 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | crates/guard-audit | 102 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-billing | 18 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-cli | 93 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-core | 256 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-core | 259 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-eval | 43 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-ffi | 1 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-gateway | 37 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-intel | 15 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-gateway | 187 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-intel | 26 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-localapi | 17 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-netmon | 2 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-nm-host | 27 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-overlay | 10 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-privacy | 105 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-schema | 154 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-shell | 41 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-schema | 171 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-shell | 42 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-sync | 6 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-trust | 6 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-vision | 100 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-vision | 101 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/android-adapter | 14 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/mac-adapter | 30 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 43 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 132 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust total** | **1210** | |
+| **Rust total** | **1482** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari extension node `test(` |
 | eval/e2e-extension/run.mjs | 39 | real-browser E2E checks `record(` |
@@ -55,7 +55,7 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | apps/android-companion/app/src/test(Robolectric) | 26 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test` (needs a device) |
 | apps/ios-webshield | 22 | Swift `func test*(` |
-| eval/scenarios | 134 | offline evaluation scenarios (YAML) |
+| eval/scenarios | 135 | offline evaluation scenarios (YAML) |
 | eval/capability-claims.yaml | 36 | user-facing capability claims (each pinned to a proving test) |
 
 ## Version strings

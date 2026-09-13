@@ -1,5 +1,7 @@
 import { uiText, translateWorkspace } from "./workspace-i18n.js";
 import { initializeGatewayConfirmation } from "./gateway-confirmation.js";
+import { initializeCodexSetup } from "./codex-setup.js";
+import { initializeLocalAgent } from "./local-agent.js";
 
 const byId = (id) => document.getElementById(id);
 const ROUTES = new Set(["overview", "active", "activity", "settings", "help"]);
@@ -199,7 +201,9 @@ export function initializeWorkspace(backendInvoke) {
   byId("settings-observation").before(settingsContent, settingsParking);
   byId("active-title").closest(".hero").after(byId("setup-dialog"));
   translateWorkspace();
-  initializeGatewayConfirmation(invoke);
+  const gateway = initializeGatewayConfirmation(invoke);
+  initializeLocalAgent(invoke, gateway, () => showPage("active"));
+  initializeCodexSetup(invoke);
   setTab("observation");
   renderRecent([]);
   document.querySelectorAll("[data-route]").forEach((btn) => { btn.onclick = () => showPage(btn.dataset.route); });

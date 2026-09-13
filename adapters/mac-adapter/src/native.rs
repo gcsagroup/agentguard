@@ -453,12 +453,12 @@ pub mod permissions {
 
         extern "C" {
             fn agentguard_ax_request_permission() -> std::os::raw::c_int;
+            fn agentguard_sck_request_permission();
         }
 
         #[link(name = "CoreGraphics", kind = "framework")]
         extern "C" {
             fn CGPreflightScreenCaptureAccess() -> u8;
-            fn CGRequestScreenCaptureAccess() -> u8;
         }
 
         pub fn ax_is_process_trusted() -> bool {
@@ -474,7 +474,9 @@ pub mod permissions {
         }
 
         pub fn cg_request_screen_capture() -> bool {
-            unsafe { CGRequestScreenCaptureAccess() != 0 }
+            // 申请成功发出不等于用户已授权；最终状态仍由系统预检给出。
+            unsafe { agentguard_sck_request_permission() };
+            cg_preflight_screen_capture()
         }
     }
 }

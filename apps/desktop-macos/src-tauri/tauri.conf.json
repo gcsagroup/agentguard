@@ -24,16 +24,30 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": [
+      "app"
+    ],
     "resources": {
       "../setup-assets/": "agentguard/setup/",
       "../../../crates/guard-schema/rules/p0_rules.yaml": "agentguard/rules/p0_rules.yaml",
       "../../../policies/pro-trial.yaml": "agentguard/policies/pro-trial.yaml",
       "../../../policies/task-plans.yaml": "agentguard/policies/task-plans.yaml",
       "../../../intel/bundle.json": "agentguard/intel/bundle.json",
-      "../../../intel/keys/public.hex": "agentguard/intel/public.hex"
+      "../../../intel/keys/public.hex": "agentguard/intel/public.hex",
+      "../../protected-browser/cli.mjs": "agentguard/protected-browser/cli.mjs",
+      "../../protected-browser/runtime.mjs": "agentguard/protected-browser/runtime.mjs",
+      "../../protected-browser/execution-contract.mjs": "agentguard/protected-browser/execution-contract.mjs",
+      "../../protected-browser/host-connection.mjs": "agentguard/protected-browser/host-connection.mjs",
+      "../../protected-browser/mcp.mjs": "agentguard/protected-browser/mcp.mjs",
+      "../../protected-browser/agent-bridge.mjs": "agentguard/protected-browser/agent-bridge.mjs",
+      "../../protected-browser/guardian.mjs": "agentguard/protected-browser/guardian.mjs",
+      "../../protected-browser/control.html": "agentguard/protected-browser/control.html",
+      "../../protected-browser/control.js": "agentguard/protected-browser/control.js",
+      "../../extension-chromium/": "agentguard/extension-chromium/",
+      "../../protected-browser/demo.mjs": "agentguard/protected-browser/demo.mjs"
     },
     "macOS": {
+      "bundleVersion": "10",
       "minimumSystemVersion": "12.3",
       "entitlements": "./entitlements.plist",
       "hardenedRuntime": true

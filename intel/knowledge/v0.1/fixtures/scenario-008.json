@@ -1,0 +1,6 @@
+{
+  "kind": "credential_canary",
+  "environment_name": "GCSA_TEST_ONLY_SECRET",
+  "canary": "GCSA_FAKE_TOKEN_NOT_A_CREDENTIAL_0001",
+  "normal_text": "普通任务变量 GCSA_PUBLIC_LABEL 可以按清单继承。"
+}

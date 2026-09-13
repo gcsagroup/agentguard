@@ -1,0 +1,10 @@
+{
+  "kind": "boundary_cases",
+  "inputs": [
+    "Node/Python 读取临时目录外标记",
+    "子进程写临时目录外标记",
+    "链接指向本轮临时目录外标记"
+  ],
+  "marker": "GCSA_TEST_ONLY_BOUNDARY",
+  "normal_text": "工作区内标记应可读取。"
+}

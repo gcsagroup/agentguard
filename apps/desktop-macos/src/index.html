@@ -29,6 +29,7 @@
         <section data-page="overview" aria-labelledby="overview-title">
           <div class="hero"><div><h1 id="overview-title" tabindex="-1" data-ui="welcome"></h1><p id="overview-summary" class="lead"></p></div><div id="status-slot"></div></div>
           <div id="recovery-slot"></div>
+          <section class="card local-agent-entry"><div><h2 data-ui="localAgentTitle"></h2><p data-ui="localAgentEntry"></p></div><button data-open-local-agent data-ui="localAgentOpen"></button></section>
           <div class="overview-grid">
             <section class="card"><h2 data-ui="checks"></h2>
               <div class="setting-row"><div><strong data-ui="accessibility"></strong><small data-ui="required"></small></div><span data-readiness="ax"></span></div>
@@ -51,25 +52,91 @@
         </section>
         <section data-page="active" aria-labelledby="active-title" hidden>
           <div class="hero"><div><h1 id="active-title" tabindex="-1" data-ui="activeTitle"></h1><p class="lead" data-ui="activeScope"></p></div><span class="badge warning" data-ui="notVerified"></span></div>
+          <section id="local-agent" class="card" aria-labelledby="local-agent-title">
+            <h2 id="local-agent-title" tabindex="-1" data-ui="localAgentTitle"></h2><p data-ui="localAgentLead"></p>
+            <form id="local-agent-form" autocomplete="off">
+              <label class="local-agent-field" for="local-agent-workspace"><span data-ui="localAgentProject"></span><span class="local-agent-folder"><input id="local-agent-workspace" type="text" readonly required><button id="local-agent-pick" type="button" class="secondary" data-ui="localAgentChoose"></button></span></label>
+              <div class="two-columns local-agent-options">
+                <label class="local-agent-field" for="local-agent-mode"><span data-ui="localAgentMode"></span><select id="local-agent-mode"><option value="read" data-ui="localAgentRead"></option><option value="write" data-ui="localAgentWrite"></option></select></label>
+                <label class="local-agent-field" for="local-agent-model"><span data-ui="localAgentModel"></span><span class="local-agent-model-row"><select id="local-agent-model" required><option value="" data-ui="localAgentNoModel"></option></select><button id="local-agent-models" type="button" class="secondary" data-ui="localAgentLoadModels"></button></span></label>
+              </div>
+              <p id="local-agent-scope" class="muted"></p>
+              <details class="local-agent-endpoint"><summary data-ui="localAgentModelService"></summary><label for="local-agent-port"><span>127.0.0.1:</span><input id="local-agent-port" type="number" min="1" max="65535" value="8000" required></label><p class="muted" data-ui="localAgentServiceHelp"></p></details>
+              <details class="local-agent-browser"><summary data-ui="localAgentBrowserTitle"></summary>
+                <label><input id="local-agent-browser-enabled" type="checkbox"><span data-ui="localAgentBrowserEnable"></span></label>
+                <p class="muted" data-ui="localAgentBrowserHelp"></p>
+                <label class="local-agent-field" for="local-agent-browser-origins"><span data-ui="localAgentBrowserOrigins"></span><textarea id="local-agent-browser-origins" rows="2" placeholder="http://127.0.0.1:3000" disabled></textarea></label>
+                <button id="local-agent-browser-check" type="button" class="secondary" data-ui="localAgentBrowserCheck"></button><p id="local-agent-browser-status" role="status"></p>
+              </details>
+              <label class="local-agent-field" for="local-agent-task"><span data-ui="localAgentTask"></span><textarea id="local-agent-task" rows="3" required></textarea></label>
+              <label class="local-agent-data-consent"><input id="local-agent-model-data" type="checkbox" required><span data-ui="localAgentModelDataConsent"></span></label><p id="local-agent-model-recipient" class="muted"></p>
+              <button id="local-agent-start" type="submit" data-ui="localAgentStart" disabled></button>
+            </form>
+            <p id="local-agent-feedback" role="status"></p>
+            <section id="local-agent-run" hidden aria-labelledby="local-agent-run-title">
+              <div class="row-between"><h3 id="local-agent-run-title" data-ui="localAgentCurrent"></h3><span id="local-agent-phase" class="badge" role="status"></span></div>
+              <p id="local-agent-run-scope" class="gateway-location"></p><p id="local-agent-run-model" class="muted"></p>
+              <p id="local-agent-run-browser" class="muted"></p>
+              <div class="btn-row wrap"><button id="local-agent-pause" class="secondary" data-ui="workspacePause"></button><button id="local-agent-resume" class="secondary" data-ui="localAgentResume"></button><button id="local-agent-stop" class="secondary" data-ui="workspaceStop"></button><button id="local-agent-refresh" class="secondary" data-ui="workspaceRefresh"></button></div>
+              <p id="local-agent-control-help" class="muted" data-ui="localAgentControlHelp"></p>
+              <p id="local-agent-run-error" role="status" hidden></p>
+              <h4 data-ui="localAgentSteps"></h4><p id="local-agent-empty-steps" class="muted" data-ui="localAgentNoSteps"></p><ol id="local-agent-steps" class="local-agent-steps"></ol>
+              <button id="local-agent-confirm" class="secondary" data-ui="localAgentConfirm" hidden></button>
+              <section id="local-agent-answer-section" hidden><h4 data-ui="localAgentAnswer"></h4><pre id="local-agent-answer" class="local-agent-answer"></pre><p class="boundary" data-ui="localAgentAnswerBoundary"></p></section>
+              <div class="btn-row wrap"><button id="local-agent-results" data-ui="localAgentResults"></button><button id="local-agent-new" class="secondary" data-ui="localAgentNew" hidden></button></div>
+              <form id="local-agent-followup-form" autocomplete="off"><label class="local-agent-field" for="local-agent-followup"><span data-ui="localAgentFollowup"></span><textarea id="local-agent-followup" rows="3" required></textarea></label><p id="local-agent-followup-help" class="muted"></p><button id="local-agent-continue" type="submit" data-ui="localAgentContinue" disabled></button></form>
+            </section>
+            <p class="boundary" data-ui="localAgentBoundary"></p>
+          </section>
           <div class="two-columns">
             <section class="card"><h2 data-ui="browserProtection"></h2><p>Chrome / Edge <span class="badge" data-ui="independent"></span></p><p data-ui="browserRules"></p><p data-ui="browserNoAllow"></p><p class="subtle-box" data-ui="browserUnknown"></p><button data-open-guide="browser" data-ui="installVerify"></button></section>
             <section class="card"><h2 data-ui="gateway"></h2><p>MCP <span class="badge" data-ui="cooperative"></span></p><p data-ui="gatewayScope"></p><p data-ui="gatewayTimeout"></p><p class="subtle-box" data-ui="gatewayUnconnected"></p><button data-open-guide="gateway" data-ui="configure"></button></section>
           </div>
           <section class="card"><h2 data-ui="firstUse"></h2><ol class="flow-steps"><li data-ui="stepChoose"></li><li data-ui="stepConfigure"></li><li data-ui="stepVerify"></li></ol><button class="text-button" data-route="help" data-ui="fullGuide"></button></section>
-          <section class="card" id="gateway-confirmation"><h2 data-ui="pendingGateway"></h2><p data-ui="gatewayPendingBoundary"></p>
-            <form id="gateway-connect-form" autocomplete="off">
-              <div class="gateway-connection-fields"><label for="gateway-port"><span data-ui="gatewayPort"></span><input id="gateway-port" type="number" min="1" max="65535" value="8790" required></label>
-              <label for="gateway-token"><span data-ui="gatewayToken"></span><input id="gateway-token" type="password" autocomplete="off" spellcheck="false" minlength="32" maxlength="32" required></label></div>
-              <p class="muted" data-ui="gatewayTokenHelp"></p><button id="gateway-connect" type="submit" data-ui="gatewayConnect"></button>
-            </form>
+          <section class="card" id="gateway-confirmation" tabindex="-1"><h2 data-ui="pendingGateway"></h2><p id="gateway-confirmation-description" data-ui="gatewayPendingBoundary"></p>
+            <div id="gateway-connect-form">
+              <form id="gateway-import-form" autocomplete="off">
+                <h3 data-ui="gatewayImportTitle"></h3><p data-ui="gatewayImportHelp"></p>
+                <div class="gateway-connection-fields"><label for="gateway-control-path"><span data-ui="gatewayControlPath"></span><input id="gateway-control-path" type="text" autocomplete="off" spellcheck="false" required></label></div>
+                <div class="btn-row"><button id="gateway-pick-file" type="button" class="secondary" data-ui="gatewayChooseFile"></button><button id="gateway-import" type="submit" data-ui="gatewayImport"></button></div>
+              </form>
+              <details id="gateway-legacy-connection" class="gateway-legacy"><summary data-ui="gatewayLegacyConnection"></summary>
+                <form id="gateway-legacy-form" autocomplete="off">
+                  <div class="gateway-connection-fields"><label for="gateway-port"><span data-ui="gatewayPort"></span><input id="gateway-port" type="number" min="1" max="65535" value="8790" required></label>
+                  <label for="gateway-token"><span data-ui="gatewayToken"></span><input id="gateway-token" type="password" autocomplete="off" spellcheck="false" minlength="32" maxlength="32" required></label></div>
+                  <p class="muted" data-ui="gatewayTokenHelp"></p><button id="gateway-connect" type="submit" data-ui="gatewayConnect"></button>
+                </form>
+              </details>
+            </div>
             <p id="gateway-connection-status" role="status"></p><p id="gateway-connection-detail" class="muted"></p>
             <button id="gateway-disconnect" class="secondary" data-ui="gatewayDisconnect" hidden></button>
             <p id="gateway-answer-feedback" role="status"></p>
-            <section id="gateway-pending" hidden aria-labelledby="gateway-pending-title"><h3 id="gateway-pending-title" data-ui="gatewayReview"></h3>
+            <section id="gateway-pending" hidden aria-labelledby="gateway-pending-title"><h3 id="gateway-pending-title" tabindex="-1" data-ui="gatewayReview"></h3>
               <p id="gateway-request-id"></p><p id="gateway-countdown"></p><p class="boundary" data-ui="gatewayUntrusted"></p>
               <pre id="gateway-request-what" class="gateway-request-text"></pre><ul id="gateway-findings"></ul>
               <label class="gateway-review-check"><input id="gateway-reviewed" type="checkbox"><span data-ui="gatewayReviewed"></span></label>
               <div class="btn-row wrap"><button id="gateway-deny" data-ui="gatewayDeny" disabled></button><button id="gateway-approve" class="secondary" data-ui="gatewayApprove" disabled></button></div>
+            </section>
+            <section id="gateway-workspace" hidden aria-labelledby="gateway-workspace-title">
+              <h3 id="gateway-workspace-title" tabindex="-1" data-ui="workspaceSessionTitle"></h3>
+              <p class="boundary" data-ui="workspaceSessionBoundary"></p>
+              <p id="gateway-workspace-state" role="status"></p><p id="gateway-workspace-detail" class="muted"></p>
+              <div class="btn-row wrap"><button id="gateway-workspace-pause" class="secondary" data-ui="workspacePause"></button><button id="gateway-workspace-resume" class="secondary" data-ui="workspaceResume"></button><button id="gateway-workspace-stop" class="secondary" data-ui="workspaceStop"></button><button id="gateway-workspace-refresh" class="secondary" data-ui="workspaceRefresh"></button></div>
+              <p id="gateway-workspace-control-help" class="muted" data-ui="workspaceControlHelp"></p>
+              <p id="gateway-workspace-feedback" role="status"></p><pre id="gateway-workspace-submitted" class="gateway-request-text" hidden></pre>
+              <label class="gateway-workspace-selector"><span data-ui="workspaceSelection"></span><select id="gateway-workspace-select"></select></label>
+              <p id="gateway-workspace-location" class="gateway-location"></p><p id="gateway-workspace-reason" class="boundary"></p>
+              <button id="gateway-workspace-preview" data-ui="workspacePreview"></button>
+              <section id="gateway-workspace-review" hidden>
+                <h4 data-ui="workspaceReviewTitle"></h4><p class="boundary" data-ui="workspaceReviewBoundary"></p>
+                <pre id="gateway-workspace-review-detail" class="gateway-request-text"></pre>
+                <ul id="gateway-workspace-limitations"></ul><div id="gateway-workspace-changes"></div>
+                <label class="gateway-review-check"><input id="gateway-workspace-reviewed" type="checkbox"><span data-ui="workspaceReviewed"></span></label>
+                <p class="muted" data-ui="workspaceDiscardHelp"></p>
+                <div class="btn-row wrap"><button id="gateway-workspace-discard" class="secondary" data-ui="workspaceDiscard" disabled></button><button id="gateway-workspace-apply" data-ui="workspaceApply" disabled></button></div>
+              </section>
+              <section id="gateway-workspace-result" hidden><h4 data-ui="workspaceResultTitle"></h4><p id="gateway-workspace-result-summary" role="status"></p><pre id="gateway-workspace-result-recovery" class="gateway-request-text"></pre><ul id="gateway-workspace-result-files"></ul></section>
+              <button id="local-agent-return" class="text-button" data-ui="localAgentReturn" hidden></button>
             </section>
           </section>
           <p class="boundary" data-ui="activeBoundary"></p>
@@ -275,7 +342,26 @@
     <section id="setup-dialog" class="setup-dialog card" role="region" aria-labelledby="setup-title" hidden>
       <div class="row-between"><h2 id="setup-title" tabindex="-1"></h2><button id="setup-close" class="secondary" data-ui="close"></button></div>
       <div id="browser-guide" hidden><ol class="guide-steps"><li data-ui="browserStep1"></li><li data-ui="browserStep2"></li><li data-ui="browserStep3"></li></ol><div class="btn-row wrap"><button data-setup-action="extension" data-ui="showExtension"></button><button data-setup-action="fixture" data-ui="showFixture"></button></div><p class="boundary" data-ui="browserWarning"></p></div>
-      <div id="gateway-guide" hidden><ol class="guide-steps"><li data-ui="gatewayStep1"></li><li data-ui="gatewayStep2"></li><li data-ui="gatewayStep3"></li></ol><button id="gateway-check" data-ui="checkGateway"></button><pre id="gateway-result" class="config-output" hidden></pre><label class="config-label" for="gateway-config" data-ui="configPreview"></label><textarea id="gateway-config" rows="9" readonly spellcheck="false"></textarea><button id="gateway-copy" class="secondary" data-ui="copyConfig" disabled></button><p class="boundary" data-ui="gatewayWarning"></p></div>
+      <div id="gateway-guide" hidden>
+        <section id="codex-setup" aria-labelledby="codex-setup-title">
+          <h3 id="codex-setup-title" data-ui="codexSetup"></h3>
+          <p data-ui="codexSetupHelp"></p>
+          <form id="codex-setup-form">
+            <div class="gateway-connection-fields"><label for="codex-workspace"><span data-ui="codexWorkspace"></span><input id="codex-workspace" type="text" spellcheck="false" autocomplete="off" required placeholder="/Users/…/Projects/…"></label>
+            <label for="codex-mode"><span data-ui="codexMode"></span><select id="codex-mode"><option value="read" data-ui="codexRead"></option><option value="write" data-ui="codexWrite"></option></select></label></div>
+            <label class="config-label" for="codex-task" data-ui="codexTask"></label><textarea id="codex-task" rows="3" required maxlength="8192"></textarea>
+            <p id="codex-scope" class="subtle-box"></p>
+            <button id="codex-generate" type="submit" data-ui="codexGenerate"></button>
+          </form>
+          <p id="codex-feedback" role="status"></p>
+          <div id="codex-output" hidden><p data-ui="codexNext"></p><p id="codex-verified-scope"></p>
+            <label class="config-label" for="codex-command" data-ui="codexCommand"></label><textarea id="codex-command" rows="6" readonly spellcheck="false"></textarea>
+            <div class="btn-row"><button id="codex-copy" class="secondary" data-ui="codexCopy"></button><button id="codex-confirm-link" class="secondary" type="button" data-ui="codexConfirmLink"></button></div>
+            <details><summary data-ui="diagnosticsDetails"></summary><p id="codex-plan-path"></p></details>
+          </div>
+          <p class="boundary" data-ui="codexBoundary"></p>
+        </section>
+        <details><summary data-ui="genericMcp"></summary><ol class="guide-steps"><li data-ui="gatewayStep1"></li><li data-ui="gatewayStep2"></li><li data-ui="gatewayStep3"></li></ol><button id="gateway-check" data-ui="checkGateway"></button><pre id="gateway-result" class="config-output" hidden></pre><label class="config-label" for="gateway-config" data-ui="configPreview"></label><textarea id="gateway-config" rows="9" readonly spellcheck="false"></textarea><button id="gateway-copy" class="secondary" data-ui="copyConfig" disabled></button><p class="boundary" data-ui="gatewayWarning"></p></details></div>
       <p id="setup-feedback" role="status"></p>
       <details><summary data-ui="diagnosticsDetails"></summary><pre id="setup-error"></pre></details>
     </section>

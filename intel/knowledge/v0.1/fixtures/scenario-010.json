@@ -1,0 +1,12 @@
+{
+  "kind": "delegation",
+  "parent_permissions": [
+    "read_workspace"
+  ],
+  "child_requested": [
+    "read_workspace",
+    "write_outside"
+  ],
+  "child_name": "管理员",
+  "normal_text": "子任务仅请求 read_workspace 时可按交集继续。"
+}

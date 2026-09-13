@@ -15,9 +15,12 @@
 //! 而不是只断言"返回了一个错误对象"。后者是这个项目反复抓到的那种缺陷：机制存在、被直接测试过、
 //! 被描述成完整的，然后什么都没接上。
 
+use guard_schema::ExecutionOutcome;
 use serde::{Deserialize, Serialize};
+use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 /// 单次执行的输出上限，防止一条 `cat` 把整个 MCP 通道塞满。
 pub const MAX_OUTPUT_BYTES: usize = 64 * 1024;
@@ -74,6 +77,10 @@ pub enum ToolCall {
     ReadFile {
         path: PathBuf,
     },
+    SearchFile {
+        path: PathBuf,
+        query: String,
+    },
     WriteFile {
         path: PathBuf,
         contents: String,
@@ -90,6 +97,14 @@ pub struct ExecOutput {
     pub detail: String,
     #[serde(default)]
     pub truncated: bool,
+    #[serde(default = "unknown_outcome")]
+    pub outcome: ExecutionOutcome,
+    #[serde(default)]
+    pub dispatched: bool,
+}
+
+fn unknown_outcome() -> ExecutionOutcome {
+    ExecutionOutcome::Unknown
 }
 
 impl ToolCall {
@@ -103,6 +118,9 @@ impl ToolCall {
                     .unwrap_or_default()
             ),
             ToolCall::ReadFile { path } => format!("read {}", path.display()),
+            ToolCall::SearchFile { path, query } => {
+                format!("search {:?} in {}", query, path.display())
+            }
             ToolCall::WriteFile { path, contents } => {
                 format!("write {} bytes to {}", contents.len(), path.display())
             }
@@ -129,30 +147,72 @@ impl ToolCall {
     }
 
     pub(crate) fn execute_with_mode(&self, mode: ExecutionMode) -> ExecOutput {
+        self.execute_with_mode_and_cancel(mode, &|| false)
+    }
+
+    pub(crate) fn execute_with_mode_and_cancel(
+        &self,
+        mode: ExecutionMode,
+        cancelled: &dyn Fn() -> bool,
+    ) -> ExecOutput {
         if let Some(reason) = self.platform_denial(mode) {
-            return ExecOutput::err(reason);
+            return ExecOutput::err(reason).with_state(ExecutionOutcome::Refused, false);
+        }
+        if cancelled() {
+            return ExecOutput::err("客户端连接已断开，未开始执行")
+                .with_state(ExecutionOutcome::Cancelled, false);
         }
         match self {
-            ToolCall::RunShell { argv, cwd } => run_argv(argv, cwd.as_deref()),
-            ToolCall::ReadFile { path } => match std::fs::read(path) {
-                Err(e) => ExecOutput::err(format!("read {} 失败：{e}", path.display())),
-                Ok(bytes) => {
-                    let truncated = bytes.len() > MAX_OUTPUT_BYTES;
-                    let slice = &bytes[..bytes.len().min(MAX_OUTPUT_BYTES)];
-                    ExecOutput {
-                        ok: true,
-                        detail: String::from_utf8_lossy(slice).into_owned(),
-                        truncated,
+            ToolCall::RunShell { argv, cwd } => {
+                run_argv_with_cancel(argv, cwd.as_deref(), EXEC_TIMEOUT, cancelled)
+            }
+            ToolCall::ReadFile { path } => {
+                let read = read_regular(path, MAX_OUTPUT_BYTES);
+                match read {
+                    Err(e) => ExecOutput::err(format!("read {} 失败：{e}", path.display())),
+                    Ok(bytes) => {
+                        let mut detail =
+                            String::from_utf8_lossy(&bytes[..bytes.len().min(MAX_OUTPUT_BYTES)])
+                                .into_owned();
+                        let detail_truncated = truncate_detail(&mut detail);
+                        let truncated = bytes.len() > MAX_OUTPUT_BYTES || detail_truncated;
+                        ExecOutput {
+                            ok: true,
+                            outcome: ExecutionOutcome::Success,
+                            dispatched: true,
+                            detail,
+                            truncated,
+                        }
                     }
                 }
-            },
+            }
+            ToolCall::SearchFile { path, query } => search_file(path, query),
             ToolCall::WriteFile { path, contents } => {
                 if let Some(parent) = path.parent() {
                     if let Err(e) = std::fs::create_dir_all(parent) {
                         return ExecOutput::err(format!("建目录 {} 失败：{e}", parent.display()));
                     }
                 }
-                match std::fs::write(path, contents) {
+                let mut options = std::fs::OpenOptions::new();
+                options.write(true).create(true);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::OpenOptionsExt;
+                    options.custom_flags(libc::O_NONBLOCK);
+                }
+                let write = options.open(path).and_then(|mut file| {
+                    use std::io::Write;
+                    if !file.metadata()?.is_file() {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "只写入普通文件，不写入管道或设备",
+                        ));
+                    }
+                    // 先检查已打开对象，再截断；避免特殊文件阻塞或接收本次正文。
+                    file.set_len(0)?;
+                    file.write_all(contents.as_bytes())
+                });
+                match write {
                     Ok(()) => {
                         ExecOutput::ok(format!("写入 {} 字节到 {}", contents.len(), path.display()))
                     }
@@ -172,119 +232,309 @@ impl ToolCall {
     }
 }
 
+fn read_regular(path: &std::path::Path, limit: usize) -> std::io::Result<Vec<u8>> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options.open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "只读取普通文件，不读取管道或设备",
+        ));
+    }
+    let mut bytes = Vec::with_capacity(limit.min(MAX_OUTPUT_BYTES) + 1);
+    file.take((limit + 1) as u64).read_to_end(&mut bytes)?;
+    Ok(bytes)
+}
+
+/// 单文件字面搜索。查询串从不经过 shell，也不作为动作或路径参数推断。
+fn search_file(path: &std::path::Path, query: &str) -> ExecOutput {
+    const MAX_SCAN_BYTES: usize = 4 * 1024 * 1024;
+    if query.is_empty() || query.len() > 1024 || query.contains(['\r', '\n']) {
+        return ExecOutput::err("query 必须是 1–1024 字节的单行字面文本");
+    }
+    let bytes = match read_regular(path, MAX_SCAN_BYTES) {
+        Ok(bytes) => bytes,
+        Err(error) => return ExecOutput::err(format!("search {} 失败：{error}", path.display())),
+    };
+    let mut truncated = bytes.len() > MAX_SCAN_BYTES;
+    let text = String::from_utf8_lossy(&bytes[..bytes.len().min(MAX_SCAN_BYTES)]);
+    let mut detail = String::new();
+    let mut matches = 0;
+    for (index, line) in text.lines().enumerate() {
+        if !line.contains(query) {
+            continue;
+        }
+        if matches == 200 || detail.len() >= MAX_OUTPUT_BYTES {
+            truncated = true;
+            break;
+        }
+        matches += 1;
+        detail.push_str(&format!("{}:{line}\n", index + 1));
+        if truncate_detail(&mut detail) {
+            truncated = true;
+            break;
+        }
+    }
+    ExecOutput {
+        ok: true,
+        outcome: ExecutionOutcome::Success,
+        dispatched: true,
+        detail,
+        truncated,
+    }
+}
+
 impl ExecOutput {
-    fn ok(detail: impl Into<String>) -> Self {
+    pub(crate) fn ok(detail: impl Into<String>) -> Self {
         Self {
             ok: true,
+            outcome: ExecutionOutcome::Success,
+            dispatched: true,
             detail: detail.into(),
             truncated: false,
         }
     }
-    fn err(detail: impl Into<String>) -> Self {
+    pub(crate) fn err(detail: impl Into<String>) -> Self {
         Self {
             ok: false,
+            outcome: ExecutionOutcome::Failed,
+            dispatched: true,
             detail: detail.into(),
             truncated: false,
+        }
+    }
+
+    pub(crate) fn with_state(mut self, outcome: ExecutionOutcome, dispatched: bool) -> Self {
+        self.outcome = outcome;
+        self.dispatched = dispatched;
+        self
+    }
+}
+
+/// 读到上限后继续排空管道，但不继续积累内存，避免将内存上限变成管道死锁。
+#[derive(Default)]
+struct Captured {
+    bytes: Vec<u8>,
+    truncated: bool,
+    incomplete: bool,
+}
+
+fn capture(mut reader: impl Read, deadline: Instant, limit: usize) -> Captured {
+    let mut result = Captured::default();
+    let mut chunk = [0u8; 8192];
+    loop {
+        if Instant::now() >= deadline {
+            result.incomplete = true;
+            return result;
+        }
+        match reader.read(&mut chunk) {
+            Ok(0) => return result,
+            Ok(n) => {
+                let take = n.min(limit.saturating_sub(result.bytes.len()));
+                result.bytes.extend_from_slice(&chunk[..take]);
+                result.truncated |= take < n;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(_) => {
+                result.incomplete = true;
+                return result;
+            }
         }
     }
 }
 
+fn truncate_detail(detail: &mut String) -> bool {
+    truncate_detail_to(detail, MAX_OUTPUT_BYTES)
+}
+
+fn truncate_detail_to(detail: &mut String, limit: usize) -> bool {
+    if detail.len() <= limit {
+        return false;
+    }
+    let mut cut = limit;
+    while !detail.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    detail.truncate(cut);
+    true
+}
+
+#[cfg(unix)]
+fn nonblocking(pipe: &impl std::os::fd::AsRawFd) -> std::io::Result<()> {
+    let fd = pipe.as_raw_fd();
+    // fd 由仍存活的 ChildStdout/ChildStderr 持有；这里只修改该管道的读取标志。
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn stop_group(pid: u32) -> bool {
+    // Command::process_group(0) 为本次命令单独建组，不给用户的终端进程组发信号。
+    // 只清理未自行脱离进程组的后代；这不是系统沙箱。
+    unsafe { libc::kill(-(pid as libc::pid_t), libc::SIGKILL) == 0 }
+}
+
+#[cfg(test)]
 fn run_argv(argv: &[String], cwd: Option<&std::path::Path>) -> ExecOutput {
+    run_argv_with_timeout(argv, cwd, EXEC_TIMEOUT)
+}
+
+#[cfg(test)]
+fn run_argv_with_timeout(
+    argv: &[String],
+    cwd: Option<&std::path::Path>,
+    timeout: Duration,
+) -> ExecOutput {
+    run_argv_with_cancel(argv, cwd, timeout, &|| false)
+}
+
+fn run_argv_with_cancel(
+    argv: &[String],
+    cwd: Option<&std::path::Path>,
+    timeout: Duration,
+    cancelled: &dyn Fn() -> bool,
+) -> ExecOutput {
     let Some((program, rest)) = argv.split_first() else {
-        return ExecOutput::err("argv 为空");
+        return ExecOutput::err("argv 为空").with_state(ExecutionOutcome::Refused, false);
     };
     let mut cmd = Command::new(program);
     cmd.args(rest);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    // stdin 关掉：一个等输入的子进程会挂住整个 MCP 会话，而智能体只看到没有响应。
+    run_command_with_cancel(cmd, timeout, cancelled)
+}
+
+/// 复用限时、取消和有界输出；容器生命周期由隔离后端另行清理。
+pub(crate) fn run_command_with_cancel(
+    cmd: Command,
+    timeout: Duration,
+    cancelled: &dyn Fn() -> bool,
+) -> ExecOutput {
+    run_command_bounded(cmd, timeout, cancelled, MAX_OUTPUT_BYTES)
+}
+
+pub(crate) fn run_command_bounded(
+    mut cmd: Command,
+    timeout: Duration,
+    cancelled: &dyn Fn() -> bool,
+    output_limit: usize,
+) -> ExecOutput {
+    let program = cmd.get_program().to_string_lossy().into_owned();
     cmd.stdin(std::process::Stdio::null());
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
-
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
     let mut child = match cmd.spawn() {
-        Ok(c) => c,
-        Err(e) => return ExecOutput::err(format!("启动 {program:?} 失败：{e}")),
+        Ok(child) => child,
+        Err(error) => {
+            return ExecOutput::err(format!("启动 {program:?} 失败：{error}"))
+                .with_state(ExecutionOutcome::Failed, false)
+        }
     };
-
-    // 管道要**并发**排空,不能"先等退出再读"。
-    //
-    // 旧代码在 `try_wait()` 上轮询,只有子进程退出之后才 `wait_with_output()` 去读管道。
-    // 但一个写满管道缓冲区(Linux 默认 64 KiB)的子进程会阻塞在 write 上、永远不退出,
-    // 于是必然走到 30 秒超时被杀。两个后果都被实测出来:
-    //
-    //   * 60000 字节 stdout -> 2.7ms,ok=true;70000 字节 -> **30.008 秒**,ok=false,
-    //     detail="超过 30s 未结束,已杀掉"。一次**成功**的命令被错报成超时失败。
-    //   * `MAX_OUTPUT_BYTES`(那条"输出上限")在 stdout 这条路上根本到不了 —— 死锁先
-    //     发生在 64 KiB。文档承诺的截断保护是空的。
-    //   * 而且执行是同步单线程的,所以一次这样的调用把**全部**判决停住 30 秒。一次调用
-    //     换 30 秒,成本极低。
-    //
-    // 两个读线程各自 `read_to_end`,主线程照旧轮询超时。读线程在子进程被杀、管道关闭后
-    // 自然结束,所以超时路径也不会泄漏线程。
-    let mut stdout_pipe = child.stdout.take();
-    let mut stderr_pipe = child.stderr.take();
-    let out_h = std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(p) = stdout_pipe.as_mut() {
-            let _ = std::io::Read::read_to_end(p, &mut buf);
-        }
-        buf
-    });
-    let err_h = std::thread::spawn(move || {
-        let mut buf = Vec::new();
-        if let Some(p) = stderr_pipe.as_mut() {
-            let _ = std::io::Read::read_to_end(p, &mut buf);
-        }
-        buf
-    });
-
-    let deadline = std::time::Instant::now() + EXEC_TIMEOUT;
+    let stdout = child.stdout.take().expect("stdout 已配置管道");
+    let stderr = child.stderr.take().expect("stderr 已配置管道");
+    #[cfg(unix)]
+    if let Err(error) = nonblocking(&stdout).and_then(|_| nonblocking(&stderr)) {
+        stop_group(child.id());
+        let _ = child.kill();
+        let _ = child.wait();
+        return ExecOutput::err(format!(
+            "无法建立限时输出读取：{error}；命令结果需核实，不自动重试"
+        ))
+        .with_state(ExecutionOutcome::Unknown, true);
+    }
+    let deadline = Instant::now() + timeout;
+    let out_h = std::thread::spawn(move || capture(stdout, deadline, output_limit));
+    let err_h = std::thread::spawn(move || capture(stderr, deadline, output_limit));
+    let mut failed = None;
     let status = loop {
+        if cancelled() {
+            failed = Some((
+                "客户端已断开，已停止本次命令；已发生的结果需核实，不自动重试".into(),
+                ExecutionOutcome::Cancelled,
+            ));
+            break None;
+        }
         match child.try_wait() {
-            Err(e) => return ExecOutput::err(format!("等待子进程失败：{e}")),
-            Ok(Some(st)) => break st,
-            Ok(None) => {
-                if std::time::Instant::now() >= deadline {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return ExecOutput::err(format!("超过 {EXEC_TIMEOUT:?} 未结束，已杀掉"));
-                }
-                std::thread::sleep(std::time::Duration::from_millis(20));
+            Ok(Some(status)) => break Some(status),
+            Err(error) => {
+                failed = Some((
+                    format!("等待子进程失败：{error}"),
+                    ExecutionOutcome::Unknown,
+                ));
+                break None;
             }
+            Ok(None) if Instant::now() >= deadline => {
+                failed = Some((
+                    format!("超过 {timeout:?} 未结束，已停止本次命令；结果未知，不自动重试"),
+                    ExecutionOutcome::TimedOut,
+                ));
+                break None;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
         }
     };
-    let stdout_bytes = out_h.join().unwrap_or_default();
-    let stderr_bytes = err_h.join().unwrap_or_default();
-
-    let mut detail = String::new();
-    detail.push_str(&String::from_utf8_lossy(&stdout_bytes));
-    if !stderr_bytes.is_empty() {
+    #[cfg(unix)]
+    let remaining_group = stop_group(child.id());
+    if status.is_none() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    // Unix 读取端非阻塞且有相同 deadline，后代继承管道也不能无限卡住 join。
+    // Windows 的生产执行模式仍全部拒绝；不能把这条 Unix 边界声称为 Windows 支持。
+    let stdout = out_h.join().unwrap_or_else(|_| Captured {
+        incomplete: true,
+        ..Default::default()
+    });
+    let stderr = err_h.join().unwrap_or_else(|_| Captured {
+        incomplete: true,
+        ..Default::default()
+    });
+    if let Some((reason, outcome)) = failed {
+        return ExecOutput::err(reason).with_state(outcome, true);
+    }
+    #[cfg(unix)]
+    if remaining_group {
+        return ExecOutput::err("命令退出后仍有同组子进程，已清理；结果需核实，不自动重试")
+            .with_state(ExecutionOutcome::Unknown, true);
+    }
+    if stdout.incomplete || stderr.incomplete {
+        return ExecOutput::err("输出未能在期限内完整收集；结果需核实，不自动重试")
+            .with_state(ExecutionOutcome::Unknown, true);
+    }
+    let mut detail = String::from_utf8_lossy(&stdout.bytes).into_owned();
+    if !stderr.bytes.is_empty() {
         detail.push_str("\n--- stderr ---\n");
-        detail.push_str(&String::from_utf8_lossy(&stderr_bytes));
+        detail.push_str(&String::from_utf8_lossy(&stderr.bytes));
     }
-    let truncated = detail.len() > MAX_OUTPUT_BYTES;
-    if truncated {
-        // `String::truncate` panics unless the new length is a char boundary, and this
-        // string is built from `from_utf8_lossy` of arbitrary child-process output, so the
-        // cap lands mid-character whenever the byte at the boundary is a continuation.
-        // 65519 bytes of ASCII stdout plus the 16-byte stderr header puts the cut exactly
-        // inside a multi-byte character, and the gateway's event loop *is* `main`: the
-        // process died with exit 101 and the agent never even received a response. Non-ASCII
-        // child output is the norm here — the rules, the logs and the error strings are all
-        // Chinese. `ReadFile` already gets this right (slice bytes, then `from_utf8_lossy`);
-        // this path did not.
-        let mut cut = MAX_OUTPUT_BYTES;
-        while cut > 0 && !detail.is_char_boundary(cut) {
-            cut -= 1;
-        }
-        detail.truncate(cut);
-    }
+    let detail_truncated = truncate_detail_to(&mut detail, output_limit);
     ExecOutput {
-        ok: status.success(),
+        ok: status.is_some_and(|status| status.success()),
+        outcome: if status.is_some_and(|status| status.success()) {
+            ExecutionOutcome::Success
+        } else {
+            ExecutionOutcome::Failed
+        },
+        dispatched: true,
         detail,
-        truncated,
+        truncated: stdout.truncated || stderr.truncated || detail_truncated,
     }
 }
 
@@ -302,6 +552,10 @@ mod tests {
         let calls = [
             ToolCall::ReadFile {
                 path: existing.clone(),
+            },
+            ToolCall::SearchFile {
+                path: existing.clone(),
+                query: "secret".into(),
             },
             ToolCall::WriteFile {
                 path: missing.clone(),
@@ -427,6 +681,34 @@ mod tests {
                     .write_all("中".repeat(10_000).as_bytes())
                     .expect("写边界 stderr");
             }
+            "sleep-marker" => {
+                std::fs::write("ready", "ready").expect("标记子进程已启动");
+                std::thread::sleep(Duration::from_millis(count as u64));
+                std::fs::write("finished", "不应在清理后继续执行").expect("写测试标记");
+            }
+            "spawn-holder" => {
+                let holder = std::env::current_dir().unwrap().join("holder");
+                std::fs::create_dir(&holder).unwrap();
+                std::fs::write(holder.join("mode"), "sleep-marker\n1000\n0\n").unwrap();
+                // 故意让父进程先退出，复现后代持有输出管道；被测执行器负责终止该进程组。
+                #[allow(clippy::zombie_processes)]
+                let _holder = Command::new(std::env::current_exe().unwrap())
+                    .args([
+                        "--exact",
+                        "exec::tests::可控子进程",
+                        "--ignored",
+                        "--nocapture",
+                        "--quiet",
+                    ])
+                    .current_dir(&holder)
+                    .spawn()
+                    .expect("启动继承管道的后代");
+                let deadline = Instant::now() + Duration::from_secs(2);
+                while !holder.join("ready").exists() && Instant::now() < deadline {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                assert!(holder.join("ready").exists());
+            }
             "none" => {}
             other => panic!("未知子进程测试模式：{other}"),
         }
@@ -524,5 +806,145 @@ mod tests {
         assert!(child("none", 0, 0).ok);
         assert!(!child("none", 0, 1).ok);
         assert!(!child("stdout-ascii", 200_000, 3).ok);
+    }
+    #[test]
+    fn 大输出在读取期间就限制缓存且仍完整排空() {
+        let source = std::io::repeat(b'x').take((MAX_OUTPUT_BYTES * 128) as u64);
+        let got = capture(
+            source,
+            Instant::now() + Duration::from_secs(5),
+            MAX_OUTPUT_BYTES,
+        );
+        assert_eq!(got.bytes.len(), MAX_OUTPUT_BYTES);
+        assert!(got.truncated);
+        assert!(!got.incomplete);
+        assert!(got.bytes.iter().all(|byte| *byte == b'x'));
+    }
+
+    #[test]
+    fn 大文件及无效字符读取仍受输出上限约束() {
+        let dir = tempfile_dir("bounded-file");
+        let path = dir.join("large.bin");
+        std::fs::File::create(&path)
+            .unwrap()
+            .set_len(256 * 1024 * 1024)
+            .unwrap();
+        let result =
+            ToolCall::ReadFile { path: path.clone() }.execute_with_mode(ExecutionMode::Native);
+        assert!(result.ok && result.truncated);
+        assert_eq!(result.detail.len(), MAX_OUTPUT_BYTES);
+        std::fs::write(&path, vec![0xff; MAX_OUTPUT_BYTES + 100]).unwrap();
+        let result = ToolCall::ReadFile { path }.execute_with_mode(ExecutionMode::Native);
+        assert!(result.ok && result.truncated);
+        assert!(result.detail.len() <= MAX_OUTPUT_BYTES);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn 字面搜索只返回匹配行且有扫描和输出上限() {
+        let dir = tempfile_dir("search-file");
+        let path = dir.join("source.txt");
+        std::fs::write(&path, "首行\nwrite_file || && $(literal)\n末行\n").unwrap();
+        for query in ["write_file", "||", "&&", "$(literal)"] {
+            let output = search_file(&path, query);
+            assert!(output.ok && !output.truncated);
+            assert_eq!(output.detail, "2:write_file || && $(literal)\n");
+        }
+        assert_eq!(search_file(&path, "不存在").detail, "");
+        for query in ["", "两\n行", "两\r行", &"x".repeat(1025)] {
+            assert!(!search_file(&path, query).ok);
+        }
+        std::fs::write(&path, "匹配\n".repeat(201)).unwrap();
+        let output = search_file(&path, "匹配");
+        assert!(output.ok && output.truncated);
+        assert_eq!(output.detail.lines().count(), 200);
+        std::fs::write(&path, "中".repeat(MAX_OUTPUT_BYTES)).unwrap();
+        let output = search_file(&path, "中");
+        assert!(output.truncated && output.detail.len() <= MAX_OUTPUT_BYTES);
+        std::fs::File::create(&path)
+            .unwrap()
+            .set_len(8 * 1024 * 1024)
+            .unwrap();
+        let output = search_file(&path, "不在扫描范围");
+        assert!(output.ok && output.truncated && output.detail.is_empty());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn 命名管道不会让文件读写工具无限阻塞() {
+        use std::os::unix::ffi::OsStrExt;
+        let dir = tempfile_dir("fifo");
+        let path = dir.join("input.fifo");
+        let name = std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+        let start = Instant::now();
+        let result =
+            ToolCall::ReadFile { path: path.clone() }.execute_with_mode(ExecutionMode::Native);
+        assert!(!result.ok);
+        assert!(result.detail.contains("普通文件"));
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert!(!search_file(&path, "不可阻塞").ok);
+        let start = Instant::now();
+        let result = ToolCall::WriteFile {
+            path,
+            contents: "不得发出".into(),
+        }
+        .execute_with_mode(ExecutionMode::Native);
+        assert!(!result.ok);
+        assert!(start.elapsed() < Duration::from_secs(2));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn 命令退出后继承管道的后代被清理而非挂住网关() {
+        let dir = tempfile_dir("inherited-pipe");
+        std::fs::write(dir.join("mode"), "spawn-holder\n0\n0\n").unwrap();
+        let argv = vec![
+            std::env::current_exe()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            "--exact".into(),
+            "exec::tests::可控子进程".into(),
+            "--ignored".into(),
+            "--nocapture".into(),
+            "--quiet".into(),
+        ];
+        let start = Instant::now();
+        let output = run_argv_with_timeout(&argv, Some(&dir), Duration::from_secs(3));
+        assert!(!output.ok, "遗留后台后代不能报告同步命令成功");
+        assert!(output.detail.contains("同组子进程"));
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert!(dir.join("holder/ready").exists());
+        assert!(!dir.join("holder/finished").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn 超时结束命令且下一调用可继续完成() {
+        let dir = tempfile_dir("deadline");
+        std::fs::write(dir.join("mode"), "sleep-marker\n2000\n0\n").unwrap();
+        let argv = vec![
+            std::env::current_exe()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            "--exact".into(),
+            "exec::tests::可控子进程".into(),
+            "--ignored".into(),
+            "--nocapture".into(),
+            "--quiet".into(),
+        ];
+        let start = Instant::now();
+        let output = run_argv_with_timeout(&argv, Some(&dir), Duration::from_millis(250));
+        assert!(!output.ok);
+        assert!(output.detail.contains("超过"));
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert!(!dir.join("finished").exists());
+        std::fs::remove_dir_all(dir).unwrap();
+        assert!(child("stdout-ascii", 128, 0).ok);
     }
 }

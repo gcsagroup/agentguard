@@ -356,6 +356,130 @@ fn 有人批准之后才执行() {
 }
 
 #[test]
+fn 绑定批准后的回执说明确认完成且不掩盖真实失败或其它风险() {
+    for (tag, flag, answer, expected_outcome) in [
+        (
+            "receipt-approved-success",
+            "--version",
+            Answer::Approved,
+            "success",
+        ),
+        (
+            "receipt-approved-failed",
+            "--agentguard-invalid-option",
+            Answer::Approved,
+            "failed",
+        ),
+        ("receipt-denied", "--version", Answer::Denied, "refused"),
+    ] {
+        let tmp = Tmp::new(tag);
+        // 独立告警夹具用于验证：确认已完成不能吞掉另一个来源的风险记录。
+        let rules = tmp.path().join("receipt-rules.yaml");
+        std::fs::write(
+            &rules,
+            r#"version: "1.0"
+rules:
+  - id: TEST-RECEIPT-RISK
+    name: receipt_risk
+    severity: medium
+    action: alert
+    require_confirm: false
+    platforms: [gateway]
+    match_any_text: ["rustc"]
+    description: "应保留的独立风险线索"
+"#,
+        )
+        .unwrap();
+        let ws = tmp.path().to_string_lossy().into_owned();
+        let (shell, rejected) = SafeShell::from_path(shell_policy_path())
+            .unwrap()
+            .with_workspace(vec![ws.clone()], vec![ws]);
+        assert!(rejected.is_empty());
+        let engine = guard_core::Engine::from_paths(&rules, None::<PathBuf>).unwrap();
+        let mut server = Server::new_with_execution_mode(
+            Gate::new(shell, engine),
+            PendingConfirm::new(),
+            Duration::from_secs(5),
+            ExecutionMode::Native,
+        );
+        let pending = server.pending();
+        let confirmer = pending.clone();
+        let waiter = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + Duration::from_secs(2);
+            while std::time::Instant::now() < deadline {
+                if let Some(request) = confirmer.peek() {
+                    let finding = request
+                        .findings
+                        .iter()
+                        .find(|f| f.layer == "path" && f.rule_id == "SHELL-CONFIRM")
+                        .expect("真实确认判据");
+                    assert_eq!(finding.severity, "medium");
+                    assert!(finding.message.contains("requires user confirmation"));
+                    let binding = request.binding.as_ref().expect("完整单次绑定");
+                    let digest = request.action_sha256.as_deref().expect("动作摘要");
+                    assert!(confirmer.answer_bound(&request.id, digest, binding.nonce(), answer));
+                    assert!(
+                        !confirmer.answer_bound(&request.id, digest, binding.nonce(), answer),
+                        "同一批准不能重复消费"
+                    );
+                    return request.findings;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            panic!("有界等待内未出现确认请求");
+        });
+        let request = serde_json::from_value(serde_json::json!({
+            "jsonrpc":"2.0", "id":1, "method":"tools/call",
+            "params":{"name":"run_shell", "arguments":{"argv":["rustc",flag],"cwd":tmp.path()}}
+        }))
+        .unwrap();
+        let reply = server.handle(request).unwrap();
+        let findings = waiter.join().expect("确认线程");
+        let result = &reply["result"];
+        let text = result["content"][0]["text"].as_str().unwrap();
+        let approved = answer == Answer::Approved;
+        assert_eq!(
+            result["_meta"]["agentguard"],
+            serde_json::json!({"outcome":expected_outcome,"dispatched":approved}),
+            "{reply}"
+        );
+        assert_eq!(
+            result["isError"].as_bool().unwrap_or(false),
+            expected_outcome != "success",
+            "{reply}"
+        );
+        assert!(text.contains("[path/SHELL-CONFIRM]"), "{text}");
+        assert_eq!(text.contains("单次批准已完成"), approved, "{text}");
+        assert_eq!(
+            text.contains("requires user confirmation"),
+            !approved,
+            "{text}"
+        );
+        if approved {
+            assert!(
+                text.contains("风险等级：medium") && text.contains("批准不代表执行成功"),
+                "{text}"
+            );
+        }
+        let risk = findings
+            .iter()
+            .find(|f| f.rule_id == "TEST-RECEIPT-RISK")
+            .expect("另一条风险已判出");
+        assert!(
+            text.contains(&format!(
+                "[{}/{}] {}",
+                risk.layer, risk.rule_id, risk.message
+            )),
+            "独立风险不能丢失：{text}"
+        );
+        assert!(pending.peek().is_none());
+        let stats = server.handle(serde_json::from_value(serde_json::json!({"jsonrpc":"2.0","id":2,"method":"gateway/stats","params":{}})).unwrap()).unwrap();
+        assert_eq!(stats["result"]["executed"], u64::from(approved));
+        assert_eq!(stats["result"]["refused"], u64::from(!approved));
+    }
+}
+
+#[test]
 fn 有人拒绝之后不执行() {
     let tmp = Tmp::new("denied");
     let mut server = server_for(&tmp, Duration::from_secs(5));
@@ -487,6 +611,42 @@ fn 被拒绝走的是工具级错误而不是传输级错误() {
         text.contains("重试不会改变结果"),
         "要告诉智能体这是判决不是故障：{text}"
     );
+}
+
+#[test]
+fn 工具回执结构化区分成功执行失败与拒绝() {
+    let tmp = Tmp::new("structured-receipt");
+    let mut server = server_for(&tmp, Duration::from_millis(50));
+    let source = tmp.path().join("input.txt");
+    std::fs::write(&source, "合成正文").unwrap();
+    for (id, name, arguments, expected) in [
+        (
+            1,
+            "read_file",
+            serde_json::json!({"path":source}),
+            serde_json::json!({"outcome":"success","dispatched":true}),
+        ),
+        (
+            2,
+            "read_file",
+            serde_json::json!({"path":tmp.path().join("absent.txt")}),
+            serde_json::json!({"outcome":"failed","dispatched":true}),
+        ),
+        (
+            3,
+            "write_file",
+            serde_json::json!({"path":system_write_target("agd-receipt-never-write"),"contents":"x"}),
+            serde_json::json!({"outcome":"refused","dispatched":false}),
+        ),
+    ] {
+        let request = serde_json::from_value(serde_json::json!({
+            "jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":name,"arguments":arguments}
+        })).unwrap();
+        let result = server.handle(request).unwrap();
+        assert_eq!(result["result"]["_meta"]["agentguard"], expected);
+    }
+    assert_eq!(std::fs::read_to_string(&source).unwrap(), "合成正文");
+    assert!(!system_write_target("agd-receipt-never-write").exists());
 }
 
 #[test]

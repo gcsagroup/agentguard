@@ -13,13 +13,22 @@
 //! 区分写成不能含混的一条，本 crate 每一条响应、`initialize` 的 instructions、以及
 //! `gateway/stats` 都带 `enforcement: "cooperative"`。
 //!
-//! 内核级约束是另一层（设计文档里的 B2/B3，`guard-jail`），还没做。
+//! 可选 Linux 容器后端约束经本网关执行的工具；原生模式及客户端其它入口仍是合作式边界。
 
+pub mod browser_bridge;
 pub mod confirm;
+pub mod control_file;
+pub mod control_http;
+pub mod egress;
+pub mod egress_journal;
 pub mod exec;
 pub mod gate;
+pub mod isolation;
+pub mod journal;
 pub mod mcp;
+pub mod operator;
 pub mod server;
+pub mod writeback;
 
 pub use confirm::{Answer, ConfirmRequest, PendingConfirm};
 pub use exec::{ExecOutput, ToolCall};

@@ -11,6 +11,8 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 > **当前状态：`1.0.0-rc.1` 是源码候选版，不是生产安装包发布。**
 > 仓库尚未提供本次发布所需的代码签名、公证、商店发布及真实设备端到端验收证据，生产发布判断仍为 **No-Go**。
 
+本次 M0／M1 源码整合新增受保护本地 Agent：模型数据授权、隔离副本、命令及差异批准、实际回写、持久审计和专用浏览器统一会话。Ver 1.0（010）已有后台与原生逐项验收记录；F13／F14 仍缺真实系统故障条件，完整 M1 未通过。见[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)、[010 验收](docs/agd-m1-pending-draft-010-2026-09-11.zh.md)和[源码整合记录](docs/agentguard-source-merge-2026-09-14.zh.md)。
+
 ## 能做什么
 
 - 在 macOS、Windows、Android 与 Chromium 路径上采集可用的界面或事件信号。
@@ -33,6 +35,8 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 适用对象是研究与评测、开发或预发环境，以及知情运维控制下的内部试点；不应把当前 RC 作为面向消费者或受监管环境的强制安全控制。
 
 ## 快速开始
+
+新增独立的[受保护浏览器本地试用](apps/protected-browser/README.md)：专用 Chromium、真实请求确认、有限 MCP 工具及无害自动验收。现支持用户持有会话、Agent 断连暂停与重连，以及本机 Codex CLI 的有限批准/拒绝验收。它仍是工程原型，没有系统隔离，也没有完成正式 Chrome/Edge 或客户端全面验收；[实施方案](docs/protected-browser-plan.md)列出范围与后续门槛。
 
 ~~~bash
 # 一次性安装 rust-toolchain.toml 钉住的 1.95.0；不会改系统默认工具链。
@@ -60,9 +64,14 @@ npm run tauri dev
 
 网关确认需连接当前进程的端口和令牌，可核对、拒绝或仅批准当前请求；过期和断连不自动放行。它不代表具体 MCP 客户端已接入。见[本次整改与验证说明](docs/remediation-publication-2026-09-06.md)。
 
+新增本机可用性验证：网关处理大输出、命令超时和客户端断连，真实 Codex 已完成授权目录写读与越界拒绝。范围和测试结果见[网关可用性验收](docs/gateway-availability-acceptance-2026-09-08.zh.md)。
+
+Codex 日常代码工作新增字面搜索工具，并修复程序安装目录引发的误拦截；50 项固定源码操作与 5 个独立真实客户端任务已通过。口径、失败记录和剩余门槛见[代码任务验收](docs/codex-normal-work-acceptance-2026-09-08.zh.md)。
+
 ## 文档
 
 - [文档门户](docs/README.md)
+- [Agent 安全卫士：可行性与可用性方案](docs/agent-safety-viability-plan.zh.md)
 - [桌面端使用说明](docs/desktop-guide.md)
 - [邮件防护：实验性网页扩展与后续代理设计](docs/mail-protection-design.md)
 - [1.0.0-rc.1 发布说明](docs/RELEASE-1.0.0-rc.1.md)
@@ -93,3 +102,5 @@ eval/      场景、夹具、覆盖声明与生成报告
 ## 许可证
 
 [Apache License 2.0](LICENSE)
+
+- [macOS Codex 工作区接入验收（2026-09-08）](docs/desktop-codex-setup-acceptance-2026-09-08.zh.md)：本次任务配置、默认只读、真实网关范围回归与两项 Codex 任务；完整桌面会话管理仍待完成。

@@ -81,6 +81,9 @@ typedef void (*agentguard_sck_frame_cb)(const agentguard_frame_stats *stats, voi
 /** Probe ScreenCaptureKit + Screen Recording permission (sync). */
 int agentguard_sck_probe(void);
 
+/** 用户点击后异步申请录屏权限；不启动采集，不返回屏幕内容。 */
+void agentguard_sck_request_permission(void);
+
 /**
  * Start a low-FPS display stream; invokes cb on the capture queue.
  * After AG_SCK_TIMEOUT, later starts return AG_SCK_BUSY until Apple's pending

@@ -78,15 +78,16 @@ pub fn initialize_result(server_name: &str, version: &str) -> Value {
     )
     .to_string();
     if cfg!(target_os = "windows") {
-        instructions
-            .push_str("\n\nWindows 首个 GA 不发布 run_shell/read_file/write_file/delete_file：");
+        instructions.push_str(
+            "\n\nWindows 首个 GA 不发布 run_shell/read_file/search_file/write_file/delete_file：",
+        );
         instructions.push_str(
             "在同一对象句柄执行完成前，这些工具为防 junction/reparse/hard-link TOCTOU 而失败关闭。",
         );
     }
     json!({
         "protocolVersion": PROTOCOL_VERSION,
-        "capabilities": { "tools": {} },
+        "capabilities": { "tools": {}, "experimental": { "agentguardExecutionReceipt": 1 } },
         "serverInfo": { "name": server_name, "version": version },
         "instructions": instructions
     })

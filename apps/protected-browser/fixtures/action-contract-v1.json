@@ -1,0 +1,91 @@
+{
+  "description": "浏览器与 Rust 共享的无害动作契约样例；正文和所有凭据均为合成值",
+  "action": {
+    "contract_version": 1,
+    "session_id": "browser-session-fixture",
+    "action_id": "browser-action-fixture",
+    "request_id": "browser-request-fixture",
+    "tool": {
+      "service": "agentguard-protected-browser",
+      "name": "http_request",
+      "version": "1"
+    },
+    "target": "https://example.test/submit?kind=note",
+    "parameters": {
+      "method": "POST",
+      "headers": {
+        "x-fixture": "无害样例",
+        "cookie": "",
+        "content-type": "application/json"
+      },
+      "body": "{\"note\":\"完整正文\\n只用于验收🙂\"}",
+      "key_sort_probe": {
+        "2": "二",
+        "10": "十",
+        "😀": "补充平面",
+        "": "基本平面"
+      }
+    },
+    "policy_version": "browser-request-v1:fixture",
+    "issued_at_ms": 1800000000000,
+    "expires_at_ms": 1800000060000,
+    "nonce": "0101010101010101010101010101010101010101010101010101010101010101",
+    "sources": [
+      {
+        "source_id": "unknown-source-fixture",
+        "observation": {
+          "status": "unknown",
+          "reason": "浏览器内容来源链尚未接入"
+        }
+      }
+    ]
+  },
+  "approval": {
+    "approval_id": "browser-request-fixture",
+    "action": {
+      "contract_version": 1,
+      "session_id": "browser-session-fixture",
+      "action_id": "browser-action-fixture",
+      "request_id": "browser-request-fixture",
+      "tool": {
+        "service": "agentguard-protected-browser",
+        "name": "http_request",
+        "version": "1"
+      },
+      "target": "https://example.test/submit?kind=note",
+      "parameters": {
+        "method": "POST",
+        "headers": {
+          "x-fixture": "无害样例",
+          "cookie": "",
+          "content-type": "application/json"
+        },
+        "body": "{\"note\":\"完整正文\\n只用于验收🙂\"}",
+        "key_sort_probe": {
+          "2": "二",
+          "10": "十",
+          "😀": "补充平面",
+          "": "基本平面"
+        }
+      },
+      "policy_version": "browser-request-v1:fixture",
+      "issued_at_ms": 1800000000000,
+      "expires_at_ms": 1800000060000,
+      "nonce": "0101010101010101010101010101010101010101010101010101010101010101",
+      "sources": [
+        {
+          "source_id": "unknown-source-fixture",
+          "observation": {
+            "status": "unknown",
+            "reason": "浏览器内容来源链尚未接入"
+          }
+        }
+      ]
+    },
+    "nonce": "0202020202020202020202020202020202020202020202020202020202020202",
+    "issued_at_ms": 1800000000000,
+    "expires_at_ms": 1800000060000
+  },
+  "expected_canonical_utf8": "agentguard.execution.action.v1\u0000{\"action_id\":\"browser-action-fixture\",\"contract_version\":1,\"expires_at_ms\":1800000060000,\"issued_at_ms\":1800000000000,\"nonce\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"parameters\":{\"body\":\"{\\\"note\\\":\\\"完整正文\\\\n只用于验收🙂\\\"}\",\"headers\":{\"content-type\":\"application/json\",\"cookie\":\"\",\"x-fixture\":\"无害样例\"},\"key_sort_probe\":{\"10\":\"十\",\"2\":\"二\",\"\":\"基本平面\",\"😀\":\"补充平面\"},\"method\":\"POST\"},\"policy_version\":\"browser-request-v1:fixture\",\"request_id\":\"browser-request-fixture\",\"session_id\":\"browser-session-fixture\",\"sources\":[{\"observation\":{\"reason\":\"浏览器内容来源链尚未接入\",\"status\":\"unknown\"},\"source_id\":\"unknown-source-fixture\"}],\"target\":\"https://example.test/submit?kind=note\",\"tool\":{\"name\":\"http_request\",\"service\":\"agentguard-protected-browser\",\"version\":\"1\"}}",
+  "expected_sha256": "f4826bb0b06e1a9935c6f816aeed8231cd9488b1403dd43b8fad2feca6c8357c"
+}
