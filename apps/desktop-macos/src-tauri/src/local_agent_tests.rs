@@ -64,6 +64,7 @@ struct ModelFixture {
     replies: mpsc::SyncSender<Value>,
     stopped: Arc<AtomicBool>,
     worker: Option<std::thread::JoinHandle<()>>,
+    run: Mutex<Option<std::sync::Weak<AgentRun>>>,
 }
 
 impl ModelFixture {
@@ -120,6 +121,7 @@ impl ModelFixture {
             replies,
             stopped,
             worker: Some(worker),
+            run: Mutex::new(None),
         }
     }
 
@@ -127,7 +129,15 @@ impl ModelFixture {
         let request = self
             .requests
             .recv_timeout(Duration::from_secs(8))
-            .expect("合成模型应收到请求");
+            .unwrap_or_else(|error| {
+                // 保留原 8 秒门槛。失败时给出实际阶段，不将网关启动失败混成模型超时。
+                let state = self.run.try_lock().ok().and_then(|run| run.as_ref().and_then(std::sync::Weak::upgrade))
+                    .map(|run| {
+                        let view = run.state.try_lock().ok().map(|state| json!({"phase":state.view.phase,"error":state.view.error}));
+                        json!({"view":view,"worker":run.worker.load(Ordering::SeqCst),"stopped":run.stopped.load(Ordering::SeqCst),"faulted":run.faulted.load(Ordering::SeqCst)})
+                    });
+                panic!("合成模型未收到 {path}：{error:?}；状态：{state:?}")
+            });
         assert!(
             request.lines().next().unwrap().contains(path),
             "请求路径不符"
@@ -225,7 +235,9 @@ fn start_fixture(
         )
         .unwrap();
     assert_eq!(view.phase, "starting");
-    manager.get(&view.run_id).unwrap()
+    let run = manager.get(&view.run_id).unwrap();
+    *model.run.lock().unwrap() = Some(Arc::downgrade(&run));
+    run
 }
 
 #[test]
