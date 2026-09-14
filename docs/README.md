@@ -15,6 +15,7 @@
 - [F13 暂缓与 F14 Docker 网络恢复](agd-f14-docker-network-2026-09-14.zh.md) — 010 原生批准和实际虚拟链路故障验收。
 - [AGD-014 来源标记与持久恢复](agd-014-source-provenance-2026-09-14.zh.md) — 来源框架、持久恢复及跨工具动作绑定。
 - [AGD-015 原始内容、可见内容与检测视图](agd-015-content-views-2026-09-14.zh.md) — 三类入口已接通，Docker 43 项及真实 Chromium 内容测试通过。
+- [AGD-016 工具登记与变更复核](agd-016-tool-registry-2026-09-15.zh.md) — 独立复核、包冻结、71 项真实宿主检查及 62 条审计验链。
 
 ## 状态说明
 

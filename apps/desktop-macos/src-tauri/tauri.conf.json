@@ -39,6 +39,7 @@
       "../../protected-browser/execution-contract.mjs": "agentguard/protected-browser/execution-contract.mjs",
       "../../protected-browser/host-connection.mjs": "agentguard/protected-browser/host-connection.mjs",
       "../../protected-browser/mcp.mjs": "agentguard/protected-browser/mcp.mjs",
+      "../../protected-browser/tools.json": "agentguard/protected-browser/tools.json",
       "../../protected-browser/agent-bridge.mjs": "agentguard/protected-browser/agent-bridge.mjs",
       "../../protected-browser/guardian.mjs": "agentguard/protected-browser/guardian.mjs",
       "../../protected-browser/control.html": "agentguard/protected-browser/control.html",

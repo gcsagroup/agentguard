@@ -17,8 +17,8 @@ export function toolValue(response) {
   assert.notEqual(response.result?.isError, true, JSON.stringify(response));
   return JSON.parse(response.result.content[0].text);
 }
-export async function startHostFixture(origins, { timeout = 8, rpcTimeout = 45000, binary = process.env.AGD_BROWSER_GATEWAY || join(ROOT, 'target/debug/agentguard-mcp'), runtime = join(ROOT, 'apps/protected-browser/cli.mjs') } = {}) {
-  const fixture = await createWorkspaceFixture({ name: 'browser-host', seed: { 'read.txt': 'SYNTHETIC_WORKSPACE' } });
+export async function startHostFixture(origins, { timeout = 8, rpcTimeout = 45000, binary = process.env.AGD_BROWSER_GATEWAY || join(ROOT, 'target/debug/agentguard-mcp'), runtime = join(ROOT, 'apps/protected-browser/cli.mjs'), seed = { 'read.txt': 'SYNTHETIC_WORKSPACE' }, fixture: existingFixture } = {}) {
+  const fixture = existingFixture ?? await createWorkspaceFixture({ name: 'browser-host', seed });
   const controlFile = join(fixture.control, 'connection.json'), executorFile = join(fixture.control, 'browser.json');
   const args = ['--rules', fixture.rules, '--shell-policy', fixture.shellPolicy, '--plans', fixture.plans, '--task', fixture.taskProfile,
     '--confirm-port', '0', '--confirm-timeout-secs', String(timeout), '--isolation-image', DEFAULT_IMAGE,

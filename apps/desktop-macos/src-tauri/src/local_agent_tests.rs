@@ -1720,6 +1720,7 @@ fn real_browser_source_hashes(repo: &Path) -> Value {
         "apps/protected-browser/runtime.mjs",
         "apps/protected-browser/host-connection.mjs",
         "apps/protected-browser/mcp.mjs",
+        "apps/protected-browser/tools.json",
         "apps/protected-browser/guardian.mjs",
         "apps/protected-browser/execution-contract.mjs",
         "apps/protected-browser/agent-bridge.mjs",

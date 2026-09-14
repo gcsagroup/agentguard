@@ -1498,6 +1498,18 @@ impl AuditStore {
             .map_err(Into::into)
     }
 
+    /// 工具登记的独占日志；恢复时按实际追加顺序验证状态迁移。
+    pub fn tool_registrations(&self, limit: usize) -> Result<Vec<AuditRecord>> {
+        anyhow::ensure!((1..=4097).contains(&limit), "工具登记恢复上限无效");
+        let cols = self.record_cols()?;
+        let sql = format!("SELECT {cols} FROM audit_events WHERE event_type = 'GatewayToolRegistration' ORDER BY rowid LIMIT ?1");
+        let mut statement = self.conn.prepare(&sql)?;
+        let records = statement.query_map(params![limit as i64], map_record_row)?;
+        records
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
     /// 本机出口独占日志的崩溃恢复输入，不与工具网关的执行记录混用。
     pub fn unfinished_egress_actions(&self) -> Result<Vec<AuditRecord>> {
         let cols = self.record_cols()?;

@@ -367,6 +367,7 @@ mod tests {
             action_id: id("expiry-action"),
             request_id: id("expiry-request"),
             tool: ToolIdentity {
+                registration: None,
                 service: "agentguard-gateway".into(),
                 name: "run_shell".into(),
                 version: "test-1".into(),

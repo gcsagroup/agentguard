@@ -53,6 +53,7 @@ impl Server {
             || self.journal_failed
             || self.browser_faulted()
             || self.sources_faulted()
+            || self.registry_faulted()
         {
             "failed"
         } else if self.pending.is_closed() {
@@ -89,6 +90,7 @@ impl Server {
             "browser":self.browser.as_ref().map(|b|b.host().status()),
             "audit":self.journal.as_ref().map(ExecutionJournal::status).unwrap_or(json!({"persistent":false})),
             "source_provenance":self.sources.lock().map(|sources| sources.status()).unwrap_or_else(|_| json!({"healthy":false})),
+            "tool_registry":self.registry.lock().map(|r|r.status()).unwrap_or_else(|_|json!({"healthy":false})),
         })
     }
 
@@ -157,11 +159,7 @@ impl Server {
             action_id: validated_id(random_id("host-action")),
             request_id: validated_id(random_id("host-request")),
             policy_version: validated_id(self.policy_version.clone()),
-            tool: ToolIdentity {
-                service: "agentguard-host-control".into(),
-                name: name.into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-            },
+            tool: self.registered_tool("agentguard-host-control", name)?,
             target,
             parameters,
             issued_at_ms,
@@ -180,6 +178,7 @@ impl Server {
             || self.workspace_faulted
             || self.browser_faulted()
             || self.sources_faulted()
+            || self.registry_faulted()
         {
             return Err(failure(
                 "WORKSPACE_FAILED",
@@ -386,6 +385,9 @@ impl Server {
                     && review.binding.nonce() == nonce
                     && review.binding.action().spec().session_id.as_str() == self.host_session_id
                     && review.cancellation_epoch == cancellation_epoch
+                    && self
+                        .verify_tool(&review.binding.action().spec().tool)
+                        .is_ok()
                     && review
                         .binding
                         .validate_for_action(review.binding.action(), now_ms())

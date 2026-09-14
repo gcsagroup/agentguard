@@ -129,6 +129,7 @@ pub struct OperatorEndpoint {
     submission: Arc<Mutex<()>>,
     workers: Arc<AtomicUsize>,
     last_client_message_ms: Arc<AtomicU64>,
+    registry: Option<crate::tool_registry::SharedRegistry>,
 }
 impl OperatorEndpoint {
     pub fn new(pending: PendingConfirm) -> (Self, mpsc::Receiver<OperatorJob>) {
@@ -142,6 +143,7 @@ impl OperatorEndpoint {
                 submission: Arc::new(Mutex::new(())),
                 workers: Arc::new(AtomicUsize::new(0)),
                 last_client_message_ms: Arc::new(AtomicU64::new(0)),
+                registry: None,
             },
             receiver,
         )
@@ -149,6 +151,10 @@ impl OperatorEndpoint {
 
     pub fn epoch(&self) -> u64 {
         self.epoch.load(Ordering::SeqCst)
+    }
+    pub fn with_registry(mut self, registry: crate::tool_registry::SharedRegistry) -> Self {
+        self.registry = Some(registry);
+        self
     }
     pub fn advance_epoch(&self) {
         self.epoch.fetch_add(1, Ordering::SeqCst);
@@ -253,6 +259,9 @@ impl OperatorEndpoint {
         &self,
         request: &crate::control_http::ControlRequest,
     ) -> OperatorReply {
+        if request.url().starts_with("/registry/") {
+            return self.serve_registry(request);
+        }
         if request.method() == "GET" && request.url() == "/workspace/status" {
             return (200, self.snapshot());
         }
@@ -279,11 +288,152 @@ impl OperatorEndpoint {
             Err(reply) => reply,
         }
     }
+
+    fn serve_registry(&self, request: &crate::control_http::ControlRequest) -> OperatorReply {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Observe {
+            manifest: guard_schema::ToolServiceManifest,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Service {
+            service_id: String,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Decide {
+            service_id: String,
+            review_id: String,
+            review_nonce: String,
+            manifest_sha256: String,
+            approve: bool,
+        }
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Revoke {
+            service_id: String,
+            registration_id: String,
+        }
+        let Some(shared) = &self.registry else {
+            return failure("REGISTRY_UNAVAILABLE", "宿主没有工具登记通道", 404);
+        };
+        let Ok(_submission) = self.submission.try_lock() else {
+            return failure("REGISTRY_BUSY", "操作者正在提交另一操作", 503);
+        };
+        let Ok(mut registry) = shared.try_lock() else {
+            return failure("REGISTRY_BUSY", "工具登记正在处理另一操作", 503);
+        };
+        let result = (|| -> anyhow::Result<Value> {
+            match (request.method(), request.url()) {
+                ("GET", "/registry/status") => Ok(registry.status()),
+                ("POST", "/registry/observe") => {
+                    let b: Observe = serde_json::from_slice(request.body())?;
+                    b.manifest.validate()?;
+                    if registry.approved_change(&b.manifest) {
+                        // HTTP 派发持有撤权锁时会检查登记。此处先释放登记锁，
+                        // 避免相反的锁顺序；提交锁仍串行化所有操作者变更。
+                        drop(registry);
+                        self.advance_epoch();
+                        self.pending.pause();
+                        registry = shared
+                            .try_lock()
+                            .map_err(|_| anyhow::anyhow!("登记繁忙，撤权已生效"))?;
+                    }
+                    registry.observe(b.manifest)
+                }
+                ("POST", "/registry/review") => {
+                    let b: Service = serde_json::from_slice(request.body())?;
+                    registry.review(&b.service_id)
+                }
+                ("POST", "/registry/refresh") => {
+                    let b: Service = serde_json::from_slice(request.body())?;
+                    registry.refresh(&b.service_id)
+                }
+                ("POST", "/registry/decide") => {
+                    let b: Decide = serde_json::from_slice(request.body())?;
+                    registry.decide(
+                        &b.service_id,
+                        &b.review_id,
+                        &b.review_nonce,
+                        &b.manifest_sha256,
+                        b.approve,
+                    )
+                }
+                ("POST", "/registry/revoke") => {
+                    let b: Revoke = serde_json::from_slice(request.body())?;
+                    drop(registry);
+                    self.advance_epoch();
+                    self.pending.pause();
+                    registry = shared
+                        .try_lock()
+                        .map_err(|_| anyhow::anyhow!("登记繁忙，撤权已生效"))?;
+                    registry.revoke(&b.service_id, &b.registration_id)
+                }
+                _ => anyhow::bail!("不支持此工具登记请求"),
+            }
+        })();
+        match result {
+            Ok(value) => (200, value),
+            Err(_) => failure(
+                "REGISTRY_REFUSED",
+                "工具登记请求无效、过期、冲突或存储不可用；未授予新的工具认可",
+                409,
+            ),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn 撤销登记与正在派发的请求没有相反锁顺序() {
+        use crate::control_http::{ControlHttp, ControlResponse, HttpLimits};
+        use std::io::{Read, Write};
+        let pending = PendingConfirm::new();
+        let registry = Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
+            crate::exec::ExecutionMode::host(),
+        )));
+        let registration = registry
+            .lock()
+            .unwrap()
+            .binding("agentguard-gateway", "read_file")
+            .unwrap()
+            .registration_id;
+        let (endpoint, _receiver) = OperatorEndpoint::new(pending.clone());
+        let endpoint = endpoint.with_registry(registry.clone());
+        let handler = endpoint.clone();
+        let mut http = ControlHttp::bind(0, HttpLimits::default()).unwrap();
+        http.start(Arc::new(move |request| {
+            let (code, body) = handler.serve_authenticated(&request);
+            ControlResponse::json(code, body)
+        }))
+        .unwrap();
+        let address = http.address();
+        let mut worker = None;
+        let released = pending.with_active_epoch(pending.cancellation_epoch(), || {
+            worker = Some(std::thread::spawn(move || {
+                let body = json!({"service_id":"agentguard-gateway","registration_id":registration}).to_string();
+                let mut stream = std::net::TcpStream::connect(address).unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                write!(stream, "POST /registry/revoke HTTP/1.1\r\nHost: {address}\r\nContent-Length: {}\r\n\r\n{body}", body.len()).unwrap();
+                let mut response = String::new(); stream.read_to_string(&mut response).unwrap(); response
+            }));
+            let deadline = Instant::now() + Duration::from_secs(3);
+            while endpoint.epoch() == 0 && Instant::now() < deadline { std::thread::yield_now(); }
+            // 控制面正在等待撤权锁，登记锁必须已释放；旧实现会在这里得到 WouldBlock。
+            endpoint.epoch() > 0 && registry.try_lock().is_ok()
+        });
+        let response = worker.unwrap().join().unwrap();
+        assert_eq!(released, Some(true));
+        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+        assert!(registry
+            .lock()
+            .unwrap()
+            .binding("agentguard-gateway", "read_file")
+            .is_err());
+    }
     #[test]
     fn 操作者参数不接受附带授权或旧批准() {
         assert!(parse_command(

@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { lookup } from 'node:dns/promises';
 import { createSocket } from 'node:dgram';
 import { HostConnection } from './host-connection.mjs';
+import { browserTools } from './mcp.mjs';
 
 const hostFile = process.argv[process.argv.indexOf('--host-file') + 1];
 const host = await HostConnection.open(hostFile);
@@ -30,6 +31,6 @@ async function probe() {
 }
 for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
   const request = JSON.parse(line);
-  const result = request.method === 'initialize' ? { protocolVersion: '2024-11-05' } : { isError: false, content: [{ type: 'text', text: JSON.stringify(await probe()) }] };
+  const result = request.method === 'initialize' ? { protocolVersion: '2024-11-05' } : request.method === 'tools/list' ? { tools: browserTools } : { isError: false, content: [{ type: 'text', text: JSON.stringify(await probe()) }] };
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id: request.id, result })}\n`);
 }

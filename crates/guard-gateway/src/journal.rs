@@ -182,6 +182,47 @@ impl ExecutionJournal {
             .collect()
     }
 
+    pub(crate) fn registry_events(&self) -> Result<Vec<crate::tool_registry::RegistryEvent>> {
+        self.store
+            .tool_registrations(4097)?
+            .into_iter()
+            .map(|row| {
+                let event: crate::tool_registry::RegistryEvent =
+                    serde_json::from_str(&row.event_json)?;
+                event.validate()?;
+                if row.id != format!("tool-registry/{}", event.event_id)
+                    || row.timestamp_ms != event.at_ms
+                {
+                    bail!("工具登记事件与审计元数据不一致");
+                }
+                Ok(event)
+            })
+            .collect()
+    }
+
+    pub(crate) fn registry_changed(
+        &self,
+        event: &crate::tool_registry::RegistryEvent,
+    ) -> Result<()> {
+        event.validate()?;
+        self.append(&AuditRecord {
+            id: format!("tool-registry/{}", event.event_id),
+            timestamp_ms: event.at_ms,
+            platform: "gateway".into(),
+            event_type: "GatewayToolRegistration".into(),
+            source_app: "agentguard-mcp".into(),
+            agent_session_id: None,
+            rule_id: "GATEWAY-TOOL-REGISTRY".into(),
+            severity: "Info".into(),
+            action: "registration".into(),
+            human_message: "宿主工具登记状态；仅身份和摘要，不保存描述或 Schema 原文".into(),
+            event_json: serde_json::to_string(event)?,
+            evidence_ref: None,
+            user_decision: None,
+            attributed_agent: None,
+        })
+    }
+
     /// 仅采集器调用：来源 ID、解析器及未知原因必须先经过宿主固定词表检查。
     pub(crate) fn source_observed(&self, event: &SourceObservedEvent) -> Result<()> {
         event.validate()?;
@@ -391,6 +432,7 @@ mod tests {
             request_id: id("host-request-1"),
             policy_version: id("host-policy-1"),
             tool: ToolIdentity {
+                registration: None,
                 service: "gateway".into(),
                 name: "write_file".into(),
                 version: "1".into(),

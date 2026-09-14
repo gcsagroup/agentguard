@@ -202,12 +202,18 @@ fn main() -> anyhow::Result<()> {
         name.push(".sources.db");
         std::path::PathBuf::from(name)
     });
+    let registry_path = audit_path.as_ref().or(browser_audit.as_ref()).map(|path| {
+        let mut name = path.as_os_str().to_os_string();
+        name.push(".tools.db");
+        std::path::PathBuf::from(name)
+    });
     for path in [
         &audit_path,
         &control_path,
         &browser_audit,
         &browser_file,
         &source_path,
+        &registry_path,
     ]
     .into_iter()
     .flatten()
@@ -245,6 +251,10 @@ fn main() -> anyhow::Result<()> {
     let sources = std::sync::Arc::new(std::sync::Mutex::new(match source_path {
         Some(path) => guard_gateway::provenance::SourceCollector::open(&path)?,
         None => guard_gateway::provenance::SourceCollector::default(),
+    }));
+    let registry = std::sync::Arc::new(std::sync::Mutex::new(match registry_path {
+        Some(path) => guard_gateway::tool_registry::ToolRegistry::open(&path)?,
+        None => guard_gateway::tool_registry::ToolRegistry::default(),
     }));
     let isolation = isolation_image
         .map(|image| {
@@ -303,6 +313,7 @@ fn main() -> anyhow::Result<()> {
     let pending = PendingConfirm::new();
     let mut server = Server::new(Gate::new(shell, engine), pending.clone(), confirm_timeout)
         .with_sources(sources)
+        .with_registry(registry)?
         .with_policy_version(policy_version)?;
     if let Some(executor) = isolation {
         server = server.with_isolation(executor);
@@ -328,6 +339,7 @@ fn main() -> anyhow::Result<()> {
     let instance_id = new_confirm_token();
     let (operator, operator_requests) =
         guard_gateway::operator::OperatorEndpoint::new(pending.clone());
+    let operator = operator.with_registry(server.registry());
     server.start_host_session(task.as_deref())?;
     operator.publish(server.operator_status(&instance_id));
     let mut _control_http = None;
@@ -336,7 +348,7 @@ fn main() -> anyhow::Result<()> {
     match guard_gateway::control_http::ControlHttp::bind(
         confirm_port,
         guard_gateway::control_http::HttpLimits {
-            max_body_bytes: 4096,
+            max_body_bytes: 64 * 1024,
             max_response_bytes: 8 * 1024 * 1024,
             ..Default::default()
         },
@@ -352,7 +364,7 @@ fn main() -> anyhow::Result<()> {
             let browser_host = if browser_enabled {
                 let browser_token = guard_gateway::browser_bridge::token();
                 let (session, policy) = server.host_session_binding();
-                let host = guard_gateway::browser_bridge::BrowserHost::new_with_sources(
+                let host = guard_gateway::browser_bridge::BrowserHost::new_with_registry(
                     browser_origins.clone(),
                     pending.clone(),
                     guard_gateway::journal::ExecutionJournal::open(
@@ -364,6 +376,7 @@ fn main() -> anyhow::Result<()> {
                     browser_token.clone(),
                     actual_port,
                     server.sources(),
+                    server.registry(),
                 )?;
                 _browser_file = Some(guard_gateway::control_file::ControlFile::create(
                     browser_file.as_ref().expect("浏览器连接"),
@@ -415,7 +428,8 @@ fn main() -> anyhow::Result<()> {
                     return ControlResponse::json(403,serde_json::json!({"error":"bad host"}));
                 }
                 if let Some(why)=reject_confirm_request(&req,&token) {return ControlResponse::json(403,serde_json::json!({"error":why}));}
-                if req.url().starts_with("/workspace/") {let (status,body)=operator.serve_authenticated(&req);return ControlResponse::json(status,body);}
+                if req.url().starts_with("/workspace/") || req.url().starts_with("/registry/") {let (status,body)=operator.serve_authenticated(&req);return ControlResponse::json(status,body);}
+                if req.body().len()>4096 {return ControlResponse::json(413,serde_json::json!({"error":"confirmation body too large"}));}
                 let body=match std::str::from_utf8(req.body()){Ok(body)=>body,Err(_)=>return ControlResponse::json(400,serde_json::json!({"error":"invalid UTF-8"}))};
                 let (status,body)=match (req.method(),req.url()) {
                     ("GET","/status")=>{let snapshot=p.snapshot();(200,serde_json::json!({"service":"agentguard-mcp","confirm_protocol":2,

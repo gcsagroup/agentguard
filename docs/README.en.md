@@ -13,6 +13,7 @@ This portal is the trilingual entry point. Trilingual coverage includes the root
 [M0/M1 source integration and validation (Simplified Chinese, 2026-09-14)](agentguard-source-merge-2026-09-14.zh.md)
 
 - [AGD-015 raw, visible, and detection views (Simplified Chinese)](agd-015-content-views-2026-09-14.zh.md) — Three content paths, 43 Docker checks, and live Chromium content acceptance.
+- [AGD-016 tool registration and change review (Simplified Chinese)](agd-016-tool-registry-2026-09-15.zh.md) — Independent review, frozen packages, 71 live host checks, and 62 verified audit rows.
 
 ## Status labels
 

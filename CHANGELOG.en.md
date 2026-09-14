@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Tool registration, frozen packages, and change review (2026-09-15)
+
+- Completed AGD-016: independent registration binds service, namespace, package identity, and manifest digests. Initial external observations require review; changes and revocations invalidate prior action approvals.
+- Browser resources run from a frozen copy of verified bytes. Fixed lock ordering between revocation and HTTP dispatch; retained earlier failures.
+- Passed 1,326 workspace tests, 122 desktop tests, and 71 live host checks, plus provenance/content regressions. Verified 62 unsigned audit rows. See the [registration record in Simplified Chinese](docs/agd-016-tool-registry-2026-09-15.zh.md). F13 remains deferred and untested; the 010 app is unchanged. AGD-017 is next.
+
+
 ### Raw, visible, and detection views (2026-09-14)
 
 - Completed AGD-015 with captures from actual file reads/searches, DOM text nodes, and separate stdout/stderr streams. Each view has its own digest; private raw captures are excluded from model responses and audit records.

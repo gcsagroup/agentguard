@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-14T20:58:39.622143+00:00",
+  "agd_016": "passed",
+  "agd_017": "not_started",
+  "f13": "user_deferred_not_tested",
+  "original_m1_passed": false,
+  "full_plan_passed": false,
+  "release_passed": false,
+  "base_commit": "72c307108ee3a320d37071adfa86bb99f823dba8",
+  "scope": "首批工具登记、独立复核、变更撤销、宿主执行绑定与第一方浏览器包冻结；不包括第三方代理及完整依赖供应链认证",
+  "source_files": {
+    "Cargo.lock": "b017174c59618a4561219e0e75b8faa1198f02da19de8dd7568b9c8343e49b33",
+    "apps/desktop-macos/src-tauri/Cargo.lock": "c1048d7534d38b13e893c49b13251112fd905de1275c3b3b27900eca9e3c66c1",
+    "apps/desktop-macos/src-tauri/src/gateway_confirm.rs": "4f8e5cccbc78b3606a4422367dec00882cb6c33e75064304174026560eeea09e",
+    "apps/desktop-macos/src-tauri/src/local_agent_tests.rs": "c518f065d9eb2799d031110d17b2cbd6b265257d1482dec07a31d36fdead9a9c",
+    "apps/desktop-macos/src-tauri/tauri.conf.json": "bd838323319aac500ce8d8a1afd7c2809600d0aee1f4f7f95d2baf2237eff19e",
+    "apps/protected-browser/host-resolver-probe-actor.mjs": "30ed84ac471e193f813fef7100d190b8b8c0f771574bf85cf35655df6f229b2a",
+    "apps/protected-browser/host-test-support.mjs": "06df060ab281b3776980e5e1c1e71e78f60b4045cddce72fe5685e3ac7f711f2",
+    "apps/protected-browser/mcp.mjs": "b0aeec99ff57c316a26ce02b20e6002c1858f831bb0365a6bd5782dc4f7cbe1d",
+    "apps/protected-browser/tools.json": "63987f961e19fce69f0f0ac76a6ae5ba1097cfb986b428a753ee3bb658ae53e9",
+    "crates/guard-audit/src/store.rs": "fb0cb969ef40e421c9651834f2c43ca779eb9e2fb878947d877ead72884df9b2",
+    "crates/guard-gateway/src/bin/agentguard_mcp.rs": "31ec89b2f80e425b6a0c04a7be612520f24383afbacb564f2b035e71d635ff42",
+    "crates/guard-gateway/src/browser_bridge.rs": "fa8bb809accf09f55a4bb5e2b269aaf087b03ec0a3c71cef232ef290e5266f49",
+    "crates/guard-gateway/src/browser_package.rs": "6f5854e291d1c1a7a5d16981136fd2304ad105570d4103d74695567a64370634",
+    "crates/guard-gateway/src/confirm.rs": "dfc8d0625303a114c653ed1bd3c73e3009c794942b6287573a9f54e349cf59b6",
+    "crates/guard-gateway/src/journal.rs": "1a49956183aec51fdf8a86b306f0b5abfad2c945717de7dc8dbb7febd9d2e5ee",
+    "crates/guard-gateway/src/lib.rs": "fa4d190de0b3e11e4d560b41ec57b9b74d23e59b1699b07fc89293086971914d",
+    "crates/guard-gateway/src/operator.rs": "6cd1fb536d86ed173158c4bb3c6cc9edc0463b0b48f9d2962ef22004387a477a",
+    "crates/guard-gateway/src/server.rs": "b9ca43d5ef836e4b735beb3cc802c3ae231e1f43fac66077ce7e6e2cc2873573",
+    "crates/guard-gateway/src/tool_registry.rs": "7151cf32c491d27bedc045c13cf8a9a74d2cd2ff466ae472a349550e194e1035",
+    "crates/guard-gateway/src/workspace_control.rs": "b6b7744b2f78a42329eeca306710e4d2b08c5301a379f59ce85a3477c69b883b",
+    "crates/guard-schema/src/execution.rs": "16502fb95d01a41e607d88e9195d382b25551bf3cb05ebeea3693688c53a4b68",
+    "crates/guard-schema/src/lib.rs": "6fb49b3d568e0a134b1013b9baacd29f0265d21d515bce25d0ee3f954173480a",
+    "crates/guard-schema/src/tool_registry.rs": "fd2ddc75e5c69db75352833b17e66418e382782c95bc35f942b9088800c2fb36",
+    "scripts/acceptance/agd-tool-registry.mjs": "9e3b5aa470ed1e07cb589ab6d49af8ee7aefb6662cb93f7a7fff781267101c2a",
+    "scripts/test-codex-normal-work.mjs": "9bd0aef034073e8c5dbed65272a11aa224bf005727572e8f778e0c7dac093035"
+  },
+  "gateway_sha256": "4873624ce0c07c745775352f582d1fc4e166586b115050825a981fad1eb3575e",
+  "tests": {
+    "workspace-01": {
+      "passed": 1326,
+      "failed": 0,
+      "ignored": 11
+    },
+    "desktop-01": {
+      "passed": 122,
+      "failed": 0,
+      "ignored": 9
+    }
+  },
+  "live_registry_checks": 71,
+  "content_regression_checks": 43,
+  "source_regression_checks": 15,
+  "browser_host_tests": 3,
+  "existing_browser_tests": 36,
+  "browser_binding_and_controls_tests": 2,
+  "repository_invariant_tests": 23,
+  "clippy": "passed",
+  "fmt": "passed",
+  "shell_and_frontend_syntax": "passed",
+  "normal_model_fixture": "代表性输入检查通过，未重跑真实模型任务",
+  "preservation_and_audit": {
+    "passed": true,
+    "independent_files_unchanged": 127,
+    "app_files_unchanged": 90,
+    "app_strict_signature": "passed",
+    "active_project_containers": 0,
+    "gateway_sha256": "4873624ce0c07c745775352f582d1fc4e166586b115050825a981fad1eb3575e",
+    "audit": {
+      "audit.db": {
+        "rows": 27,
+        "sha256": "c300e6cc89757cbb98fee9cbc2e828922cb56ae85665720848967b13b836fae5"
+      },
+      "audit.db.sources.db": {
+        "rows": 5,
+        "sha256": "33dd94f361dedef14523052dc0918dc9db081e93526a1ad7082a1d7c7a5f7174"
+      },
+      "audit.db.tools.db": {
+        "rows": 19,
+        "sha256": "914c750f873b743ccd8d9de9448e51834acc70ecda0266309b6f74f0c6e18a96"
+      },
+      "browser.db": {
+        "rows": 11,
+        "sha256": "9ebd6073a2f7461b5ae724e054e2be493bcc5f55117e3929b608f8884e86bed9"
+      }
+    },
+    "audit_total_rows": 62,
+    "registry_events_match_actual_final_state": 19,
+    "registry_descriptors_independently_rehashed": 21,
+    "audit_scope": "无签名哈希链一致性；未使用外部头部见证",
+    "registration_audit_excludes_raw_descriptions_schema_and_review_nonces": true
+  },
+  "prior_failures_retained": [
+    "registry-first.log",
+    "gateway-01.log",
+    "gateway-02.log",
+    "runtime-01/",
+    "build-final.log"
+  ],
+  "artifact_directory": ".artifacts/m2-registry-2026-09-14/",
+  "documentation_links": {
+    "files": 14,
+    "relative_links_checked": 608,
+    "missing": []
+  }
+}

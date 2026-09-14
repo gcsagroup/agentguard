@@ -1490,7 +1490,7 @@ mod tests {
             session_id: id("workspace-session"),
             action_id: id("workspace-action"),
             request_id: id("workspace-request"),
-            tool: ToolIdentity {
+            tool: ToolIdentity { registration: None,
                 service: "agentguard-host-control".into(),
                 name: "workspace_apply".into(),
                 version: "fixture".into(),
@@ -1868,7 +1868,7 @@ mod tests {
         let action = ActionSnapshot::new(ActionSpec {
             contract_version: EXECUTION_CONTRACT_VERSION,
             session_id: id("desktop-fixture-session"), action_id: id("desktop-action-1"),
-            request_id: id("request-1"), tool: ToolIdentity { service: "gateway".into(), name: "write_file".into(), version: "test-1".into() },
+            request_id: id("request-1"), tool: ToolIdentity { registration: None, service: "gateway".into(), name: "write_file".into(), version: "test-1".into() },
             target: "/workspace/fixture.txt".into(),
             parameters: serde_json::json!({"path":"/workspace/fixture.txt", "contents":"完整写入正文 <script>仅文字</script>"}),
             policy_version: id("fixture-policy"), issued_at_ms: now - 1000, expires_at_ms: now + 10000,

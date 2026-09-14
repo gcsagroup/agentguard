@@ -16,6 +16,7 @@
 //! 可选 Linux 容器后端约束经本网关执行的工具；原生模式及客户端其它入口仍是合作式边界。
 
 pub mod browser_bridge;
+mod browser_package;
 pub mod confirm;
 mod content;
 pub mod control_file;
@@ -30,6 +31,7 @@ pub mod mcp;
 pub mod operator;
 pub mod provenance;
 pub mod server;
+pub mod tool_registry;
 pub mod writeback;
 
 pub use confirm::{Answer, ConfirmRequest, PendingConfirm};

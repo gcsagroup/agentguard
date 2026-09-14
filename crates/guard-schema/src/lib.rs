@@ -7,12 +7,14 @@ pub mod plan;
 pub mod policy;
 pub mod rules;
 pub mod text;
+pub mod tool_registry;
 pub mod visual;
 
 pub use agent::*;
 pub use events::*;
 pub use execution::*;
 pub use rules::*;
+pub use tool_registry::*;
 pub mod adapter;
 pub use adapter::*;
 pub mod paths;

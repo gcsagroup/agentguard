@@ -208,10 +208,17 @@ pub struct ToolIdentity {
     pub service: String,
     pub name: String,
     pub version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub registration: Option<crate::ToolRegistrationBinding>,
 }
 
 impl ToolIdentity {
     fn validate(&self) -> Result<(), ContractError> {
+        if let Some(binding) = &self.registration {
+            binding
+                .validate()
+                .map_err(|_| invalid("tool.registration", "工具登记绑定无效"))?;
+        }
         required_text("tool.service", &self.service)?;
         required_text("tool.name", &self.name)?;
         required_text("tool.version", &self.version)
@@ -799,6 +806,7 @@ mod tests {
             action_id: id("action-1"),
             request_id: id("request-1"),
             tool: ToolIdentity {
+                registration: None,
                 service: "gateway".into(),
                 name: "write_file".into(),
                 version: "1.0.0-rc.1".into(),
@@ -1148,6 +1156,39 @@ mod tests {
         mismatch = source;
         mismatch.content_views.as_mut().unwrap().raw[0].utf8_valid = false;
         assert!(mismatch.validate().is_err());
+    }
+
+    #[test]
+    fn 工具登记的包描述与代次变化使既有动作批准失效() {
+        let mut spec = action().spec().clone();
+        spec.tool.registration = Some(crate::ToolRegistrationBinding {
+            namespace: "fixture".into(),
+            manifest_sha256: Sha256Digest::new("a".repeat(64)).unwrap(),
+            descriptor_sha256: Sha256Digest::new("b".repeat(64)).unwrap(),
+            registration_id: id("registration-original"),
+        });
+        let original = ActionSnapshot::new(spec.clone()).unwrap();
+        let approval = ApprovalBinding::new(
+            id("approval-registration"),
+            original.clone(),
+            "ab".repeat(16),
+            1100,
+            1900,
+        )
+        .unwrap();
+        for change in 0..4 {
+            let mut changed = spec.clone();
+            let binding = changed.tool.registration.as_mut().unwrap();
+            match change {
+                0 => binding.namespace = "replacement".into(),
+                1 => binding.manifest_sha256 = Sha256Digest::new("c".repeat(64)).unwrap(),
+                2 => binding.descriptor_sha256 = Sha256Digest::new("d".repeat(64)).unwrap(),
+                _ => binding.registration_id = id("registration-new"),
+            }
+            let changed = ActionSnapshot::new(changed).unwrap();
+            assert_ne!(original.canonical_bytes(), changed.canonical_bytes());
+            assert!(approval.validate_for_action(&changed, 1200).is_err());
+        }
     }
 
     #[test]

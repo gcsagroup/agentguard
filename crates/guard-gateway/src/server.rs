@@ -33,6 +33,7 @@ pub struct Server {
     journal: Option<ExecutionJournal>,
     journal_failed: bool,
     sources: SharedSources,
+    registry: crate::tool_registry::SharedRegistry,
     last_output_source: Option<guard_schema::SourceObject>,
     browser: Option<crate::browser_bridge::BrowserActor>,
     /// 仅宿主设置；客户端声明不能选择另一个计划或刷新预算。
@@ -114,6 +115,9 @@ impl Server {
             journal: None,
             journal_failed: false,
             sources: Arc::new(Mutex::new(SourceCollector::default())),
+            registry: Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
+                ExecutionMode::host(),
+            ))),
             last_output_source: None,
             browser: None,
             host_profile: None,
@@ -145,6 +149,9 @@ impl Server {
             journal: None,
             journal_failed: false,
             sources: Arc::new(Mutex::new(SourceCollector::default())),
+            registry: Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
+                execution_mode,
+            ))),
             last_output_source: None,
             browser: None,
             host_profile: None,
@@ -182,6 +189,10 @@ impl Server {
             Arc::ptr_eq(&self.sources, &browser.host().sources()),
             "浏览器和文件工具的宿主来源图不一致"
         );
+        anyhow::ensure!(
+            Arc::ptr_eq(&self.registry, &browser.host().registry()),
+            "浏览器和文件工具的宿主登记表不一致"
+        );
         self.browser = Some(browser);
         Ok(self)
     }
@@ -193,6 +204,36 @@ impl Server {
 
     pub fn sources(&self) -> SharedSources {
         self.sources.clone()
+    }
+
+    pub fn registry(&self) -> crate::tool_registry::SharedRegistry {
+        self.registry.clone()
+    }
+    pub fn with_registry(
+        mut self,
+        registry: crate::tool_registry::SharedRegistry,
+    ) -> anyhow::Result<Self> {
+        registry
+            .lock()
+            .map_err(|_| anyhow::anyhow!("工具登记锁失效"))?
+            .bootstrap(self.execution_mode)?;
+        self.registry = registry;
+        Ok(self)
+    }
+    fn registry_faulted(&self) -> bool {
+        self.registry.lock().map(|r| !r.healthy()).unwrap_or(true)
+    }
+    fn registered_tool(&self, service: &str, name: &str) -> anyhow::Result<ToolIdentity> {
+        self.registry
+            .lock()
+            .map_err(|_| anyhow::anyhow!("工具登记锁失效"))?
+            .identity(service, name)
+    }
+    fn verify_tool(&self, tool: &ToolIdentity) -> anyhow::Result<()> {
+        self.registry
+            .lock()
+            .map_err(|_| anyhow::anyhow!("工具登记锁失效"))?
+            .verify_identity(tool)
     }
 
     pub fn host_session_binding(&self) -> (&str, &str) {
@@ -346,11 +387,21 @@ impl Server {
                 mcp::result(id, result)
             }
             "tools/list" => {
-                let mut tools = Self::tools_for(self.execution_mode);
-                if self.browser.is_some() {
-                    tools.extend(crate::browser_bridge::tools());
+                let result = (|| -> anyhow::Result<Vec<Value>> {
+                    let registry = self
+                        .registry
+                        .lock()
+                        .map_err(|_| anyhow::anyhow!("工具登记锁失效"))?;
+                    let mut tools = registry.published("agentguard-gateway")?;
+                    if self.browser.is_some() {
+                        tools.extend(registry.published("agentguard-protected-browser")?);
+                    }
+                    Ok(tools)
+                })();
+                match result {
+                    Ok(tools) => mcp::result(id, json!({"tools":tools})),
+                    Err(error) => mcp::error(id, mcp::code::REFUSED, error.to_string(), None),
                 }
-                mcp::result(id, json!({ "tools": tools }))
             }
             "tools/call" => self.handle_tool_call(id, &req.params),
             "ping" => mcp::result(id, json!({})),
@@ -368,6 +419,7 @@ impl Server {
                     "task_profile": self.host_profile,
                     "policy_version": self.policy_version,
                     "source_provenance": self.sources.lock().map(|sources| sources.status()).unwrap_or_else(|_| json!({"healthy":false})),
+                    "tool_registry": self.registry.lock().map(|r|r.status()).unwrap_or_else(|_|json!({"healthy":false})),
                     "browser": self.browser.as_ref().map(|b| b.host().status()),
                     "confirm_protocol": 2,
                     "required_mcp_session_binding": self.require_session_binding,
@@ -397,6 +449,22 @@ impl Server {
             .and_then(Value::as_str)
             .unwrap_or_default();
         let args = params.get("arguments").cloned().unwrap_or(json!({}));
+        let service = if name.starts_with("browser_") {
+            "agentguard-protected-browser"
+        } else {
+            "agentguard-gateway"
+        };
+        // 文件与命令在构造实际动作时核对登记；先保留平台失败关闭的明确原因。
+        if !matches!(
+            name,
+            "read_file" | "search_file" | "run_shell" | "write_file" | "delete_file"
+        ) && self.registered_tool(service, name).is_err()
+        {
+            let mut result =
+                mcp::tool_error("工具未登记、已撤销或清单已变化；未执行，客户端不能自行认可工具");
+            result["_meta"] = json!({"agentguard":{"outcome":"refused","dispatched":false}});
+            return mcp::result(id, result);
+        }
         let binding = params.pointer("/_meta/agentguard_session_id");
         if name != "start_session"
             && (self.require_session_binding || binding.is_some())
@@ -521,6 +589,10 @@ impl Server {
     /// 只断言前者，就还是那种"机制存在、被直接测过、什么都没接上"的缺陷。
     pub fn gate_and_run(&mut self, call: ToolCall, action: ShellAction) -> Handled {
         self.last_output_source = None;
+        if let Some(reason) = call.platform_denial(self.execution_mode) {
+            self.refused += 1;
+            return Handled::Refused { reason };
+        }
         if self.workspace_faulted {
             self.refused += 1;
             return Handled::Refused {
@@ -744,6 +816,12 @@ impl Server {
                 reason: "动作在执行前已过期，未执行".into(),
             };
         }
+        if self.verify_tool(&snapshot.spec().tool).is_err() {
+            self.refused += 1;
+            return Handled::Refused {
+                reason: "执行前工具登记已失效，旧动作或批准不能派发".into(),
+            };
+        }
         if let Some(journal) = &self.journal {
             if let Err(error) = journal.started(snapshot, approval_id.as_deref()) {
                 self.journal_failed = true;
@@ -860,11 +938,7 @@ impl Server {
             ),
             action_id: validated_id(random_id("action")),
             request_id: validated_id(random_id("request")),
-            tool: ToolIdentity {
-                service: "agentguard-gateway".into(),
-                name: name.into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-            },
+            tool: self.registered_tool("agentguard-gateway", name)?,
             target: match call {
                 ToolCall::RunShell { argv, .. } => argv.first().cloned().unwrap_or_default(),
                 ToolCall::ReadFile { path }
