@@ -70,6 +70,8 @@ unused-allowed-license = "warn"
 confidence-threshold = 0.9
 # 待法务确认的逐 crate 例外(见文件头第 3 条)。不是 allow-list:MPL 仍然不许出现在别的 crate 上。
 exceptions = [
+    # 与根 deny.toml 相同：已核对随包 LICENSE；升级时重新核对这个精确版本。
+    { name = "borrow-or-share", version = "=0.2.4", allow = ["MIT-0"] },
     { name = "cssparser", allow = ["MPL-2.0"] },
     { name = "cssparser-macros", allow = ["MPL-2.0"] },
     { name = "selectors", allow = ["MPL-2.0"] },

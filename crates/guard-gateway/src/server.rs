@@ -21,6 +21,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[path = "proxy_control.rs"]
+mod proxy_control;
 #[path = "workspace_control.rs"]
 mod workspace_control;
 
@@ -36,6 +39,10 @@ pub struct Server {
     registry: crate::tool_registry::SharedRegistry,
     last_output_source: Option<guard_schema::SourceObject>,
     browser: Option<crate::browser_bridge::BrowserActor>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    proxies: Vec<crate::mcp_proxy::ProxyService>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    proxy_recovery: Option<crate::mcp_recovery::RecoveryLog>,
     /// 仅宿主设置；客户端声明不能选择另一个计划或刷新预算。
     host_profile: Option<String>,
     host_session_id: String,
@@ -69,6 +76,11 @@ fn random_id(prefix: &str) -> String {
 
 fn validated_id(value: String) -> ValidatedId {
     ValidatedId::new(value).expect("宿主生成的随机标识符或已校验策略版本")
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) fn proxy_now_ms() -> i64 {
+    now_ms()
 }
 
 fn now_ms() -> i64 {
@@ -120,6 +132,10 @@ impl Server {
             ))),
             last_output_source: None,
             browser: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            proxies: Vec::new(),
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            proxy_recovery: None,
             host_profile: None,
             host_session_id: random_id("mcp-session"),
             session_stopped: false,
@@ -154,6 +170,10 @@ impl Server {
             ))),
             last_output_source: None,
             browser: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            proxies: Vec::new(),
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            proxy_recovery: None,
             host_profile: None,
             host_session_id: random_id("mcp-session"),
             session_stopped: false,
@@ -396,6 +416,18 @@ impl Server {
                     if self.browser.is_some() {
                         tools.extend(registry.published("agentguard-protected-browser")?);
                     }
+                    #[cfg(any(target_os = "linux", target_os = "macos"))]
+                    for proxy in &self.proxies {
+                        if proxy.service.healthy() {
+                            let published = registry.published(&proxy.manifest.service_id)?;
+                            tools.extend(published.into_iter().filter(|t| {
+                                t.pointer("/_meta/agentguard/registration/manifest_sha256")
+                                    == Some(&json!(crate::tool_registry::digest(
+                                        &proxy.manifest.canonical_bytes()
+                                    )))
+                            }));
+                        }
+                    }
                     Ok(tools)
                 })();
                 match result {
@@ -449,6 +481,20 @@ impl Server {
             .and_then(Value::as_str)
             .unwrap_or_default();
         let args = params.get("arguments").cloned().unwrap_or(json!({}));
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if name.starts_with("mcp__") {
+            if params
+                .pointer("/_meta/agentguard_session_id")
+                .and_then(Value::as_str)
+                != Some(self.host_session_id.as_str())
+            {
+                return mcp::result(
+                    id,
+                    mcp::tool_error("第三方工具请求缺少正确宿主会话绑定，未执行"),
+                );
+            }
+            return mcp::result(id, self.proxy_call(name, &args));
+        }
         let service = if name.starts_with("browser_") {
             "agentguard-protected-browser"
         } else {

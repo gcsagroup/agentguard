@@ -60,6 +60,14 @@ allow = [
 unused-allowed-license = "warn"
 confidence-threshold = 0.9
 
+# 2026-09-15：jsonschema -> referencing -> fluent-uri 的精确传递依赖。
+# 已核对 borrow-or-share 0.2.4 随包 LICENSE 与 SPDX MIT-0 原文。
+# 只允许这一版本；升级或移除此依赖时重新核对并移除此项。
+[[licenses.exceptions]]
+name = "borrow-or-share"
+version = "=0.2.4"
+allow = ["MIT-0"]
+
 [bans]
 # 多版本共存设成 warn 而不是 deny。
 #

@@ -270,6 +270,40 @@ impl Gate {
         }
     }
 
+    /// 第三方服务按一次程序执行扣减预算。任意工具参数不能当成可信路径声明；
+    /// 实际路径边界由已批准的容器挂载约束，每次启动仍必须独立批准。
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn judge_proxy(&mut self, name: &str, arguments: &serde_json::Value) -> Outcome {
+        let mut metadata = HashMap::new();
+        metadata.insert("gateway_tool".into(), name.into());
+        metadata.insert("ui_text".into(), format!("{name} {}", arguments));
+        metadata.insert("argv0".into(), "node".into());
+        let event = self.event(EventType::ProcessExec, "agentguard-mcp", metadata);
+        match self.engine.process(&event) {
+            Ok(decision) => {
+                let findings = vec![Finding {
+                    rule_id: decision.rule_id,
+                    layer: "engine".into(),
+                    severity: format!("{:?}", decision.severity).to_lowercase(),
+                    message: decision.human_message,
+                }];
+                if decision.action == DecisionAction::Block {
+                    Outcome::Refuse { findings }
+                } else {
+                    Outcome::NeedsConfirmation { findings }
+                }
+            }
+            Err(_) => Outcome::Refuse {
+                findings: vec![Finding {
+                    rule_id: "GATEWAY-ENGINE-ERROR".into(),
+                    layer: "engine".into(),
+                    severity: "high".into(),
+                    message: "引擎不能判决第三方服务，未执行".into(),
+                }],
+            },
+        }
+    }
+
     /// 已声明的 paths 天花板，能不能替代一次逐次确认。
     ///
     /// # 为什么需要这个判断
@@ -424,6 +458,37 @@ mod judge_tests {
         // 宽松的 shell 策略:这几条测试要考的是**引擎判决怎么被翻译成 Outcome**,
         // 不是 shell 那道门。让 shell 层放行,才能看到引擎侧的那一步。
         Gate::new(SafeShell::permissive_for_tests(), engine)
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn 第三方代理仍受关键动作拒绝和计划预算约束() {
+        let mut gate = gate();
+        assert!(matches!(
+            gate.judge_proxy(
+                "mcp__fixture__read",
+                &serde_json::json!({"text":"永久删除"})
+            ),
+            Outcome::Refuse { .. }
+        ));
+        let rules = guard_schema::RuleSet::from_yaml_str("version: \"1.0\"\nrules: []").unwrap();
+        let plans=guard_schema::TaskPlanLibrary::from_yaml_str("plans:\n  - task_profile: fixture\n    goal: 合成预算验证\n    allow: [run_shell]\n    max: {run_shell: 0}\n").unwrap();
+        let contract = guard_schema::GuardContract {
+            on_plan_drift: guard_schema::EnforcementMode::Block,
+            ..Default::default()
+        };
+        let mut gate = Gate::new(
+            SafeShell::permissive_for_tests(),
+            Engine::new(rules, contract).with_task_plans(plans),
+        );
+        gate.start_session("fixture-session", Some("fixture"))
+            .unwrap();
+        let decision = gate.judge_proxy("mcp__fixture__read", &serde_json::json!({}));
+        assert!(matches!(decision, Outcome::Refuse { .. }));
+        assert!(decision
+            .findings()
+            .iter()
+            .any(|f| f.rule_id == "PLAN-OVER-BUDGET"));
     }
 
     /// `action: block` 必须是 `Refuse`,即使同一条规则还写了 `require_confirm: true`。

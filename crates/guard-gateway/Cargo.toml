@@ -35,6 +35,10 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 tiny_http = "0.12"
 
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+# 禁止 Schema 自动读取宿主文件或请求网络，另由代理显式拒绝外部引用。
+jsonschema = { version = "=0.51.0", default-features = false }
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

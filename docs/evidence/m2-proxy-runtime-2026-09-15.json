@@ -1,0 +1,191 @@
+{
+  "recorded_at": "2026-09-14T23:44:42.891559+00:00",
+  "task": "AGD-017",
+  "status": "in_progress",
+  "complete": false,
+  "scope": "本地生产CLI、独立登记和逐次批准、输出来源及实际崩溃恢复；远程代理未交付",
+  "base_commit": "6b2da4cd6dcf65c2d1458391542b11847878692f",
+  "source_files": {
+    "Cargo.lock": "c84a3d66e097adaf6e9b9a95edc4825bd949f1abece485fc3b70c509df7e48a0",
+    "apps/desktop-macos/src-tauri/Cargo.lock": "467316d93b0c0cb696ca1352b6c375d1fb6cd52c7425e297fff8d447c69f637c",
+    "crates/guard-gateway/Cargo.toml": "7bb2bded97e917d540baf9ec5d9d041b917326aa48886f75cbb4c0cb06aad80d",
+    "crates/guard-gateway/src/bin/agentguard_mcp.rs": "4036c7424231d33cac85e30656ccb57584240377c1ab9dc583ef91ef383a7347",
+    "crates/guard-gateway/src/gate.rs": "c99fa7aeb136ba53381483f86387cc1bea65400cf2b8601f42654303d7bced47",
+    "crates/guard-gateway/src/lib.rs": "7a9a09ae86bd0ed39354433dbd5b3966ceb8f602ced3ee2f6a9be390e6a9c86e",
+    "crates/guard-gateway/src/mcp_permission.rs": "e9cbf682b701ba682fe56bb4a638ca25e191170fa97dbd060f4e39463288fab0",
+    "crates/guard-gateway/src/mcp_proxy.rs": "f5ff4c68da526ce2fdcd232ba9d886a2c0f380620b6436f73da0e5043f169815",
+    "crates/guard-gateway/src/mcp_recovery.rs": "d1b42a1db66582f7ddec3e72776682270cf9bf4e7278f4c719afbd9a232defdd",
+    "crates/guard-gateway/src/mcp_service.rs": "48e9dde05b04d1155993972e7897da13995b4379fe81c14e25494815b4ae8844",
+    "crates/guard-gateway/src/mcp_service/tests.rs": "fddfac41e37f4c351620642ef960ecb06b63c79d7c5beea8f8c7c41eb07682f7",
+    "crates/guard-gateway/src/mcp_stdio.rs": "5c77add147397a37dccdae040b9f6bee0b1ca3ecf345ab966b3bdeccd495b49c",
+    "crates/guard-gateway/src/mcp_stdio/tests.rs": "a2b24e9666946a34be2180132d1ea3604e7ed95a8cfbfdd00798aa82af81bde0",
+    "crates/guard-gateway/src/proxy_control.rs": "d9a33999a58f9e2a99cff5972199e40d5cfc46e2b981b3664c9848dbc0a2339b",
+    "crates/guard-gateway/src/server.rs": "c0c4024f79a3b36f1359cc9c9c5399e1e6b876bf13a366a67c7b12ab4895ce41",
+    "crates/guard-gateway/src/tool_registry.rs": "25bba7a0b24db123783770574e588a0f8127080b3063fc697d7b37756b81e8c0",
+    "crates/guard-gateway/src/workspace_control.rs": "ff07ac8d7212d2c6b20a1acaf89e5bfd133315ec58a9ee0dc5e948cafd4cbfa4",
+    "crates/guard-gateway/tests/fixtures/mcp_proxy_probe.mjs": "8c98ddcbd9cb143d39ce0c6f5fb2e85d781c00966d3fe388bd85649a6b1caca3",
+    "deny.shells.toml": "a421832703d85e83f8dd1244630917a5ccbf2f135569bf158c6ea065be6aa883",
+    "deny.toml": "731df459ff92fc632ce02d83f45837275d52db48e8413968c62ce5f6811408b5",
+    "scripts/acceptance/agd-mcp-proxy.mjs": "92f1cf125c70f8caea7fe1e9e3c5e29f381282925fc239ce7cced722baf4ffc3",
+    "scripts/acceptance/agd-workspace-session.mjs": "d0207f8f7cb57407eb1cced1eaf8aa3e13d4a40892a167d3889007f622da2d0b"
+  },
+  "tests": {
+    "new_default_passed": 13,
+    "workspace_passed": 1365,
+    "workspace_default_ignored": 14,
+    "desktop_passed": 122,
+    "desktop_default_ignored": 9,
+    "clippy": "passed",
+    "fmt": "passed",
+    "supply_chain_graphs_passed": 3,
+    "capability_matrix": "passed"
+  },
+  "runtime": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "首次发现只挂空目录，没有初始化写入副本",
+        "passed": true
+      },
+      {
+        "name": "待登记第三方工具不公开",
+        "passed": true
+      },
+      {
+        "name": "未登记调用不启动服务",
+        "passed": true
+      },
+      {
+        "name": "批准后公开官方全部14项和2项探针",
+        "passed": true
+      },
+      {
+        "name": "不符合Schema的请求在服务启动前拒绝",
+        "passed": true
+      },
+      {
+        "name": "批准前副本与宿主均无目标文件",
+        "passed": true
+      },
+      {
+        "name": "独立拒绝成功",
+        "passed": true
+      },
+      {
+        "name": "拒绝产生明确未派发终态",
+        "passed": true
+      },
+      {
+        "name": "官方工具经过产品入口真实写入副本",
+        "passed": true
+      },
+      {
+        "name": "写入未自动回写原件",
+        "passed": true
+      },
+      {
+        "name": "官方读取返回实际内容和来源",
+        "passed": true
+      },
+      {
+        "name": "初始化副作用受同次批准覆盖且凭据和外连被隔离",
+        "passed": true
+      },
+      {
+        "name": "下游自报元数据不能覆盖宿主回执",
+        "passed": true
+      },
+      {
+        "name": "错误输出Schema在派发后保留未知而不冒充成功",
+        "passed": true
+      },
+      {
+        "name": "独立预览并批准后原件实际读回服务写入",
+        "passed": true
+      },
+      {
+        "name": "撤销待批准动作无副作用且旧批准失效",
+        "passed": true
+      },
+      {
+        "name": "已派发的暂停记为未知并清理全部后代",
+        "passed": true
+      },
+      {
+        "name": "实际重启按精确身份清理旧容器并记录未知",
+        "passed": true
+      },
+      {
+        "name": "原动作没有重放，新副本没有悬挂副作用",
+        "passed": true
+      },
+      {
+        "name": "实际清单改变使旧认可失效且不发送工具调用",
+        "passed": true
+      },
+      {
+        "name": "真实开始审计写入失败时服务不启动且会话禁止新动作",
+        "passed": true
+      }
+    ],
+    "binary_sha256": "af926a6bdae163760762fd01835f3fe294a34cba9158d9c641c7c658207a74eb",
+    "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+    "official_tool_count": 14,
+    "official_manifest_sha256": "1d535b6c0c9ecb68a1b07c04e11ac8b6e81961c81fd456412a8b0374091409bd",
+    "report_path": ".artifacts/m2-proxy-runtime-2026-09-15/runtime-04/report.json",
+    "report_sha256": "077705b4762c85c6859223e6a0d16863c49b86f8c28be6cae44e42cb55f426a4",
+    "scope": "脚本仅批准自有合成任务，不是原生人工或模型自主验收",
+    "all_14_published_descriptors_independently_verified": true,
+    "crash_container_recovery": true,
+    "isolation_regression_checks": 14
+  },
+  "audit": {
+    "execution": {
+      "rows": 38,
+      "chain_verified": true,
+      "head": "d7fe7dd553410a61bdd0c09068d4c579c7d30c715f5e5459b46f861c25fcb5aa",
+      "copy_sha256": "2b17961044c91ab299ffa1edb40ce65505b2839edc1449fd326ddb3bd62af4c7",
+      "raw_tool_contents_absent": true
+    },
+    "registry": {
+      "rows": 11,
+      "chain_verified": true,
+      "head": "6fde79862c12ff44d465d05c41d824740d89f82f2e10644390483a29cae25a92",
+      "copy_sha256": "ebaa82b3cf0b5f0a4a3af0389ea8dacdfaf8a9897285843b564e8b52e02516e9",
+      "raw_tool_contents_absent": true
+    },
+    "sources": {
+      "rows": 6,
+      "chain_verified": true,
+      "head": "308756877e2c3319e20fd570897b247360559e70cd3f5a195eae2af6976a7cab",
+      "copy_sha256": "4fd67551f742b3bf4dbc216569cdee5e31b56faeaa787fcb3881a626a049559a",
+      "raw_tool_contents_absent": true
+    }
+  },
+  "preserved": {
+    "files": 127,
+    "all_matched": true,
+    "app_files": 90,
+    "app_files_matched": true,
+    "app_strict_codesign": true
+  },
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go",
+  "retained_failures": [
+    "compile-01.log",
+    "gateway-02.log",
+    "clippy-01.log",
+    "clippy-final.log",
+    "deny-root-01.log",
+    "runtime-02/report.json",
+    "workspace-01.log",
+    "desktop-01.log"
+  ],
+  "prior_ci": {
+    "commit": "6b2da4cd6dcf65c2d1458391542b11847878692f",
+    "run": 34906905648,
+    "passed": 13,
+    "total": 13
+  }
+}

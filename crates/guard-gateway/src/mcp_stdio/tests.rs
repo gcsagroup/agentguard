@@ -540,3 +540,71 @@ fn 官方服务在既有容器中经过新通道实际读写() {
         output.join("report.json").display()
     );
 }
+
+struct PausingGuard {
+    pending: crate::PendingConfirm,
+    epoch: u64,
+    pause: bool,
+}
+impl DispatchGuard for PausingGuard {
+    fn with_permission(
+        &self,
+        write: &mut dyn FnMut() -> io::Result<usize>,
+    ) -> Option<io::Result<usize>> {
+        if self.pause {
+            self.pending.pause();
+        }
+        self.pending.with_active_epoch(self.epoch, write)
+    }
+}
+#[test]
+fn 取消检查之后首次实际写入之前撤权仍为零请求() {
+    let mut f = Fixture::new("normal");
+    let pending = crate::PendingConfirm::new();
+    f.client
+        .set_dispatch_guard(Box::new(PausingGuard {
+            epoch: pending.cancellation_epoch(),
+            pending,
+            pause: true,
+        }))
+        .unwrap();
+    let failure = f
+        .client
+        .initialize(Duration::from_secs(3), &|| false)
+        .unwrap_err();
+    assert_eq!(failure.kind, FailureKind::Cancelled);
+    assert!(!failure.dispatched);
+    assert!(!f.root.join("calls.jsonl").exists());
+}
+#[test]
+fn 宿主暂停后旧通道不能派发且守卫不能被替换() {
+    let mut f = Fixture::new("normal");
+    let pending = crate::PendingConfirm::new();
+    let epoch = pending.cancellation_epoch();
+    f.client
+        .set_dispatch_guard(Box::new(PausingGuard {
+            epoch,
+            pending: pending.clone(),
+            pause: false,
+        }))
+        .unwrap();
+    assert!(f
+        .client
+        .set_dispatch_guard(Box::new(PausingGuard {
+            epoch,
+            pending: pending.clone(),
+            pause: false
+        }))
+        .is_err());
+    f.client
+        .initialize(Duration::from_secs(3), &|| false)
+        .unwrap();
+    f.client
+        .list_tools(Duration::from_secs(3), &|| false)
+        .unwrap();
+    pending.pause();
+    let failure = f.call().unwrap_err();
+    assert_eq!(failure.kind, FailureKind::Cancelled);
+    assert!(!failure.dispatched);
+    assert_eq!(f.calls(), 0);
+}

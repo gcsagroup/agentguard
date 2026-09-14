@@ -265,7 +265,7 @@ fn 生产启动器的官方服务隔离冻结内核拒绝和完整清理() {
     let mut running = official
         .spawn(
             std::slice::from_ref(&target),
-            ServiceWorkspace::Snapshot(snapshot.clone()),
+            ServiceWorkspace::Snapshot(&snapshot),
         )
         .unwrap();
     let running_receipt = running.receipt().clone();
@@ -325,7 +325,7 @@ fn 生产启动器的官方服务隔离冻结内核拒绝和完整清理() {
     )
     .unwrap();
     let mut process = probe
-        .spawn(&args, ServiceWorkspace::Snapshot(snapshot.clone()))
+        .spawn(&args, ServiceWorkspace::Snapshot(&snapshot))
         .unwrap();
     initialize(&mut process);
     let result = call(&mut process, "probe", json!({}));
@@ -369,7 +369,7 @@ fn 生产启动器的官方服务隔离冻结内核拒绝和完整清理() {
     drop(process);
 
     let mut process = probe
-        .spawn(&args, ServiceWorkspace::Snapshot(snapshot.clone()))
+        .spawn(&args, ServiceWorkspace::Snapshot(&snapshot))
         .unwrap();
     initialize(&mut process);
     let rescue = RescueContainer {
@@ -397,7 +397,7 @@ fn 生产启动器的官方服务隔离冻结内核拒绝和完整清理() {
     assert!(!denied_write.ok && !denied_write.dispatched);
     assert!(!snapshot_path.join("must-not-write.txt").exists());
     assert!(probe
-        .spawn(&args, ServiceWorkspace::Snapshot(snapshot.clone()))
+        .spawn(&args, ServiceWorkspace::Snapshot(&snapshot))
         .is_err());
     assert!(remove_container(&rescue.endpoint, &rescue.name));
     checks.push("受控模拟清理连接丢失，启动器与共享副本均保持故障关闭；另行核实自有容器清理");
@@ -497,4 +497,44 @@ fn 生产启动器的官方服务隔离冻结内核拒绝和完整清理() {
         checks.len(),
         output.join("report.json").display()
     );
+}
+
+#[test]
+fn 未批准的准备只占用一次槽位且丢弃后可重新准备() {
+    let fixture = Fixture::new();
+    let service = fixture.isolated_identity();
+    let prepared = service.prepare(&[], ServiceWorkspace::Discovery).unwrap();
+    let empty = prepared.lease.empty_root.clone().unwrap();
+    assert!(prepared.lease.name.is_none());
+    assert!(empty.is_dir());
+    assert!(service.state.active.load(Ordering::SeqCst));
+    assert!(service.prepare(&[], ServiceWorkspace::Discovery).is_err());
+    let error = prepared.launch_with(|_| anyhow::bail!("合成拒绝"));
+    assert!(error.is_err());
+    assert!(!empty.exists());
+    assert!(service.healthy());
+    assert!(!service.state.active.load(Ordering::SeqCst));
+    let next = service.prepare(&[], ServiceWorkspace::Discovery).unwrap();
+    drop(next);
+    assert!(!service.state.active.load(Ordering::SeqCst));
+}
+
+#[test]
+fn 准备后冻结包改变会在实际启动回调前拒绝() {
+    let fixture = Fixture::new();
+    let service = fixture.isolated_identity();
+    let prepared = service.prepare(&[], ServiceWorkspace::Discovery).unwrap();
+    let path = service.package.path().join("index.mjs");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(&path, "changed").unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+    let mut called = false;
+    assert!(prepared
+        .launch_with(|_| {
+            called = true;
+            anyhow::bail!("不能到达")
+        })
+        .is_err());
+    assert!(!called);
+    assert!(service.healthy());
 }

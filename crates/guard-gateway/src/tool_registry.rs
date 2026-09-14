@@ -221,6 +221,7 @@ struct Review {
 #[derive(Default)]
 pub struct ToolRegistry {
     entries: BTreeMap<String, Entry>,
+    proxy_manifests: BTreeMap<String, Sha256Digest>,
     reviews: HashMap<String, Review>,
     journal: Option<ExecutionJournal>,
     events: usize,
@@ -490,7 +491,7 @@ impl ToolRegistry {
         let result = json!({"review_id":review.id,"review_nonce":review.nonce,"expires_at_ms":review.expires_at_ms,"registration_id":review.registration_id,
             "manifest_sha256":entry.summary.manifest_sha256,"manifest":manifest,"summary":entry.summary,
             "scan":{"boundary_marker":scan.breakout.is_some(),"text_anomaly":!scan.anomalies.is_empty(),"verified_sensitive":scan.confidentiality().is_some(),"approval_authority":"none"},
-            "instruction_authority":"none","dispatch_supported":entry.summary.builtin});
+            "instruction_authority":"none","dispatch_supported":self.dispatch_supported(entry)});
         self.reviews.insert(service.into(), review);
         Ok(result)
     }
@@ -621,10 +622,31 @@ impl ToolRegistry {
             Ok(published)
         }).collect()
     }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn attach_proxy(&mut self, manifest: &ToolServiceManifest) -> Result<()> {
+        ensure!(self.healthy(), "登记存储失效");
+        let entry = self
+            .entries
+            .get(&manifest.service_id)
+            .ok_or_else(|| anyhow::anyhow!("服务未观测"))?;
+        let hash = digest(&manifest.canonical_bytes());
+        ensure!(
+            !entry.summary.builtin && entry.summary.manifest_sha256 == hash,
+            "实际代理与登记清单不一致"
+        );
+        self.proxy_manifests
+            .insert(manifest.service_id.clone(), hash);
+        Ok(())
+    }
+    fn dispatch_supported(&self, entry: &Entry) -> bool {
+        entry.summary.builtin
+            || self.proxy_manifests.get(&entry.summary.service_id)
+                == Some(&entry.summary.manifest_sha256)
+    }
     pub fn status(&self) -> Value {
         json!({"persistent":self.journal.is_some(),"healthy":self.healthy(),"events":self.events,"max_events":MAX_EVENTS,
             "services":self.entries.iter().map(|(service,e)|json!({"service_id":service,"namespace":e.summary.namespace,"state":e.state,"registration_id":e.registration_id,
-                "manifest_sha256":e.summary.manifest_sha256,"observed_in_process":e.manifest.is_some(),"builtin":e.summary.builtin,"dispatch_supported":e.summary.builtin})).collect::<Vec<_>>()})
+                "manifest_sha256":e.summary.manifest_sha256,"observed_in_process":e.manifest.is_some(),"builtin":e.summary.builtin,"dispatch_supported":self.dispatch_supported(e)})).collect::<Vec<_>>()})
     }
 }
 

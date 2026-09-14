@@ -9,7 +9,7 @@ use guard_schema::{Sha256Digest, ToolPackageIdentity, ToolServiceManifest};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::process::{Child, Command, Stdio};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -77,11 +77,13 @@ impl ServiceDiscovery {
 }
 
 /// 工作区权限来自宿主已有授权副本，不能从工具声明或 MCP 参数自行构造。
-pub enum ServiceWorkspace {
+pub enum ServiceWorkspace<'a> {
     /// 工具发现只得到空的只读 /workspace；没有宿主工作区或凭据。
     Discovery,
     /// 上层完成服务授权后，复用隔离副本；不挂宿主原件、不自动回写。
-    Snapshot(Arc<DockerExecutor>),
+    Snapshot(&'a DockerExecutor),
+    /// 发现沿用授权副本的目标路径，但每个目标都只挂载空只读目录。
+    DiscoveryFor(&'a DockerExecutor),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -100,13 +102,13 @@ pub struct Shutdown {
     pub container_removed: bool,
 }
 
-pub struct ServiceProcess {
+pub struct ServiceProcess<'a> {
     client: StdioClient,
     state: Arc<State>,
     name: String,
     receipt: LaunchReceipt,
     _package: Arc<FrozenPackage>,
-    workspace: Option<Arc<DockerExecutor>>,
+    workspace: Option<&'a DockerExecutor>,
     empty_root: Option<PathBuf>,
     shutdown: Option<Shutdown>,
 }
@@ -120,12 +122,83 @@ impl NodeService {
         timeout: Duration,
         cancelled: &dyn Fn() -> bool,
     ) -> Result<ServiceDiscovery> {
+        self.discover_in(
+            registration,
+            arguments,
+            ServiceWorkspace::Discovery,
+            timeout,
+            cancelled,
+            None,
+        )
+    }
+
+    pub fn discover_for_snapshot(
+        &self,
+        registration: &ServiceRegistration,
+        arguments: &[String],
+        snapshot: &DockerExecutor,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<ServiceDiscovery> {
+        self.discover_in(
+            registration,
+            arguments,
+            ServiceWorkspace::DiscoveryFor(snapshot),
+            timeout,
+            cancelled,
+            None,
+        )
+    }
+
+    pub(crate) fn discover_tracked(
+        &self,
+        registration: &ServiceRegistration,
+        arguments: &[String],
+        snapshot: &DockerExecutor,
+        recovery: &mut crate::mcp_recovery::RecoveryLog,
+    ) -> Result<ServiceDiscovery> {
+        self.discover_in(
+            registration,
+            arguments,
+            ServiceWorkspace::DiscoveryFor(snapshot),
+            Duration::from_secs(30),
+            &|| false,
+            Some(recovery),
+        )
+    }
+
+    fn discover_in(
+        &self,
+        registration: &ServiceRegistration,
+        arguments: &[String],
+        workspace: ServiceWorkspace<'_>,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+        mut recovery: Option<&mut crate::mcp_recovery::RecoveryLog>,
+    ) -> Result<ServiceDiscovery> {
         ensure!(
             !cancelled() && !timeout.is_zero() && timeout <= Duration::from_secs(30),
             "发现已取消或时限无效"
         );
         let deadline = Instant::now() + timeout;
-        let mut process = self.spawn(arguments, ServiceWorkspace::Discovery)?;
+        let prepared = self.prepare(arguments, workspace)?;
+        let receipt = prepared.receipt().clone();
+        let name = prepared.container_name().to_owned();
+        if let Some(log) = recovery.as_mut() {
+            log.starting(&prepared)?;
+        }
+        let launch = prepared.launch_with(|spawn| spawn());
+        let mut process = match launch {
+            Ok(process) => process,
+            Err(error) => {
+                if self.healthy() {
+                    if let Some(log) = recovery.as_mut() {
+                        log.removed(&name, &receipt)?;
+                    }
+                }
+                return Err(error);
+            }
+        };
         let observed = (|| -> Result<ServiceDiscovery> {
             let initialization = process.client().initialize(
                 deadline.saturating_duration_since(Instant::now()),
@@ -157,6 +230,9 @@ impl NodeService {
             process.close().container_removed,
             "发现服务清理未知，不能交付观测"
         );
+        if let Some(log) = recovery.as_mut() {
+            log.removed(&name, &receipt)?;
+        }
         ensure!(!cancelled(), "发现已取消，不能交付观测");
         observed
     }
@@ -208,17 +284,28 @@ impl NodeService {
             "mcp-node-execution",
             json!({"package":self.package.sha256(),"image":self.image,
             "entrypoint":self.entrypoint,"arguments":arguments,"hardening":HARDENING,
-            "package_target":PACKAGE_TARGET,"gate_sha256":crate::tool_registry::digest(GATE.as_bytes())}),
+            "package_target":PACKAGE_TARGET,"recovery_label":"com.agentguard.mcp-session","gate_sha256":crate::tool_registry::digest(GATE.as_bytes())}),
         );
         Ok(crate::tool_registry::digest(&bytes))
     }
 
     /// 同一个启动器只允许一个活动服务；发现与授权运行使用不同进程及会话标识。
-    pub fn spawn(
+    pub fn spawn<'a>(
         &self,
         arguments: &[String],
-        workspace: ServiceWorkspace,
-    ) -> Result<ServiceProcess> {
+        workspace: ServiceWorkspace<'a>,
+    ) -> Result<ServiceProcess<'a>> {
+        self.prepare(arguments, workspace)?
+            .launch_with(|spawn| spawn())
+    }
+
+    /// 预分配不可变运行身份并冻结挂载范围；准备期间没有下游进程。
+    /// 借用工作区直至进程退出，阻止同一执行器在后台服务存活时预览或回写。
+    pub fn prepare<'a>(
+        &self,
+        arguments: &[String],
+        workspace: ServiceWorkspace<'a>,
+    ) -> Result<PreparedService<'a>> {
         let execution_sha256 = self.execution_sha256(arguments)?;
         ensure!(
             self.state.healthy.load(Ordering::SeqCst),
@@ -248,7 +335,15 @@ impl NodeService {
         let gid = unsafe { libc::getegid() };
         ensure!(uid != 0, "第三方服务不允许以宿主 root 启动");
         let (mounts, discovery_only) = match workspace {
-            ServiceWorkspace::Discovery => {
+            ServiceWorkspace::Discovery | ServiceWorkspace::DiscoveryFor(_) => {
+                let targets = match workspace {
+                    ServiceWorkspace::DiscoveryFor(snapshot) => snapshot
+                        .service_mounts(&self.image, &self.state.endpoint)?
+                        .into_iter()
+                        .map(|(_, target, _)| target)
+                        .collect(),
+                    _ => vec![PathBuf::from("/workspace")],
+                };
                 use std::os::unix::fs::DirBuilderExt;
                 let root = std::env::temp_dir().join(format!(
                     "agentguard-mcp-empty-{}",
@@ -257,7 +352,10 @@ impl NodeService {
                 std::fs::DirBuilder::new().mode(0o700).create(&root)?;
                 lease.empty_root = Some(root.clone());
                 (
-                    vec![(root.canonicalize()?, PathBuf::from("/workspace"), false)],
+                    targets
+                        .into_iter()
+                        .map(|target| Ok((root.canonicalize()?, target, false)))
+                        .collect::<Result<Vec<_>>>()?,
                     true,
                 )
             }
@@ -295,6 +393,11 @@ impl NodeService {
             crate::isolation::open_absolute_dir(source)?;
             command.args(["--mount", &mount_argument(source, target, *writable)?]);
         }
+        let service_session = format!("mcp-session-{}", crate::browser_bridge::token());
+        command.args([
+            "--label",
+            &format!("com.agentguard.mcp-session={service_session}"),
+        ]);
         let runtime_entry = format!("{PACKAGE_TARGET}/{}", self.entrypoint);
         command.args([
             &self.image,
@@ -316,29 +419,20 @@ impl NodeService {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        // 从这里开始，即使 Docker 客户端先失败，也必须核实容器是否已被创建。
-        lease.name = Some(name.clone());
-        let client = StdioClient::attach(command.spawn().context("无法启动受控 Docker 客户端")?)?;
         let receipt = LaunchReceipt {
-            session_id: format!("mcp-session-{}", crate::browser_bridge::token()),
+            session_id: service_session,
             package_sha256: self.package.sha256().clone(),
             execution_sha256,
             scope_sha256,
             image: self.image.clone(),
             discovery_only,
         };
-        let process = ServiceProcess {
-            client,
-            state: self.state.clone(),
+        Ok(PreparedService {
+            command,
+            lease,
             name,
             receipt,
-            _package: self.package.clone(),
-            workspace: lease.workspace.take(),
-            empty_root: lease.empty_root.take(),
-            shutdown: None,
-        };
-        lease.handed_off = true;
-        Ok(process)
+        })
     }
 
     pub fn healthy(&self) -> bool {
@@ -346,7 +440,56 @@ impl NodeService {
     }
 }
 
-impl ServiceProcess {
+/// 已准备的运行身份只能启动一次；丢弃未批准的准备不会创建容器。
+pub struct PreparedService<'a> {
+    command: Command,
+    lease: LaunchLease<'a>,
+    name: String,
+    receipt: LaunchReceipt,
+}
+impl<'a> PreparedService<'a> {
+    pub fn receipt(&self) -> &LaunchReceipt {
+        &self.receipt
+    }
+    pub fn container_name(&self) -> &str {
+        &self.name
+    }
+
+    /// 宿主把开始审计与实际 spawn 放入撤权共用锁；回调不能等待协议响应。
+    pub fn launch_with(
+        mut self,
+        authorize: impl FnOnce(&mut dyn FnMut() -> Result<Child>) -> Result<Child>,
+    ) -> Result<ServiceProcess<'a>> {
+        self.lease.package.verify()?;
+        ensure!(
+            self.lease.state.healthy.load(Ordering::SeqCst),
+            "服务清理状态已失效"
+        );
+        let mut attempted = false;
+        let child = authorize(&mut || {
+            ensure!(!attempted, "一次准备只能尝试启动一次");
+            attempted = true;
+            // 从这里开始，即使客户端 spawn 失败，也必须核实容器是否已创建。
+            self.lease.name = Some(self.name.clone());
+            self.command.spawn().context("无法启动受控 Docker 客户端")
+        })?;
+        let client = StdioClient::attach(child)?;
+        let process = ServiceProcess {
+            client,
+            state: self.lease.state.clone(),
+            name: self.name.clone(),
+            receipt: self.receipt.clone(),
+            _package: self.lease.package.clone(),
+            workspace: self.lease.workspace.take(),
+            empty_root: self.lease.empty_root.take(),
+            shutdown: None,
+        };
+        self.lease.handed_off = true;
+        Ok(process)
+    }
+}
+
+impl ServiceProcess<'_> {
     pub fn client(&mut self) -> &mut StdioClient {
         &mut self.client
     }
@@ -381,22 +524,22 @@ impl ServiceProcess {
         result
     }
 }
-impl Drop for ServiceProcess {
+impl Drop for ServiceProcess<'_> {
     fn drop(&mut self) {
         self.close();
     }
 }
 
 // 构造失败也释放活动槽；已尝试启动时不能只杀管道客户端。
-struct LaunchLease {
+struct LaunchLease<'a> {
     state: Arc<State>,
     package: Arc<FrozenPackage>,
     name: Option<String>,
     empty_root: Option<PathBuf>,
-    workspace: Option<Arc<DockerExecutor>>,
+    workspace: Option<&'a DockerExecutor>,
     handed_off: bool,
 }
-impl Drop for LaunchLease {
+impl Drop for LaunchLease<'_> {
     fn drop(&mut self) {
         if self.handed_off {
             return;
@@ -417,7 +560,7 @@ impl Drop for LaunchLease {
         self.state.active.store(false, Ordering::SeqCst);
     }
 }
-fn remove_container(endpoint: &str, name: &str) -> bool {
+pub(crate) fn remove_container(endpoint: &str, name: &str) -> bool {
     let _removed = run_command_with_cancel(
         endpoint_command(endpoint, &["rm", "--force", name]),
         Duration::from_secs(10),

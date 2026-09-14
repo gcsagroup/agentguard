@@ -103,6 +103,16 @@ fn main() -> anyhow::Result<()> {
     let isolation_image = arg("--isolation-image");
     let audit_path = arg("--audit-db").map(PathBuf::from);
     let control_path = arg("--control-file").map(PathBuf::from);
+    let mcp_config = arg("--mcp-service-config").map(PathBuf::from);
+    let mcp_recovery_path = mcp_config
+        .as_ref()
+        .and(audit_path.as_ref())
+        .map(|p| p.with_extension("mcp-runs.jsonl"));
+    if mcp_config.is_some()
+        && (isolation_image.is_none() || audit_path.is_none() || control_path.is_none())
+    {
+        anyhow::bail!("第三方服务必须同时配置隔离镜像、审计和宿主控制文件");
+    }
     let browser_runtime = arg("--browser-runtime").map(PathBuf::from);
     let browser_node = arg("--browser-node").map(PathBuf::from);
     let browser_playwright = arg("--browser-playwright").map(PathBuf::from);
@@ -214,6 +224,8 @@ fn main() -> anyhow::Result<()> {
         &browser_file,
         &source_path,
         &registry_path,
+        &mcp_config,
+        &mcp_recovery_path,
     ]
     .into_iter()
     .flatten()
@@ -320,6 +332,31 @@ fn main() -> anyhow::Result<()> {
     }
     if let Some(journal) = journal {
         server = server.with_journal(journal);
+    }
+
+    if let Some(path) = mcp_config {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            use std::io::Read;
+            use std::os::unix::fs::OpenOptionsExt;
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+                .open(&path)?;
+            let mut bytes = Vec::new();
+            file.take(32769).read_to_end(&mut bytes)?;
+            anyhow::ensure!(bytes.len() <= 32768, "服务配置过大");
+            let config = serde_json::from_slice(&bytes)?;
+            server = server.with_mcp_services(
+                config,
+                mcp_recovery_path.as_deref().expect("已验证审计路径"),
+            )?;
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            let _ = path;
+            anyhow::bail!("本平台未验证第三方服务隔离，拒绝启用");
+        }
     }
 
     // 确认用的环回接口。

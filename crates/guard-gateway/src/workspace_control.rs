@@ -49,6 +49,16 @@ impl Server {
     }
 
     pub fn host_session_state(&self) -> &'static str {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if self.proxies.iter().any(|p| !p.service.healthy())
+            || self
+                .proxy_recovery
+                .as_ref()
+                .is_some_and(|r| r.status()["healthy"] != true)
+        {
+            return "failed";
+        }
+
         if self.workspace_faulted
             || self.journal_failed
             || self.browser_faulted()

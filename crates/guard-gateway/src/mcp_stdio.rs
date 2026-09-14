@@ -78,6 +78,15 @@ enum State {
     Closed,
 }
 
+/// 实际非阻塞写入与宿主撤权必须共用锁；这里只包住一次 write，不能等待响应。
+/// 返回 None 表示派发许可已经失效；即使调用者的取消检查尚未发现，也不写入字节。
+pub trait DispatchGuard: Send {
+    fn with_permission(
+        &self,
+        write: &mut dyn FnMut() -> io::Result<usize>,
+    ) -> Option<io::Result<usize>>;
+}
+
 /// 单通道只允许一个在途请求，无重连、重试、分页、后台订阅及服务端请求支持。
 /// 工具清单保留所有原字段，包括 annotations/outputSchema，供代理完整登记和复核。
 pub struct StdioClient {
@@ -91,6 +100,7 @@ pub struct StdioClient {
     state: State,
     next_id: u64,
     tools: HashSet<String>,
+    dispatch_guard: Option<Box<dyn DispatchGuard>>,
 }
 
 impl StdioClient {
@@ -123,7 +133,21 @@ impl StdioClient {
             state: State::New,
             next_id: 1,
             tools: HashSet::new(),
+            dispatch_guard: None,
         })
+    }
+
+    /// 只能在任何请求之前安装一次；握手、通知和工具请求都受同一许可约束。
+    pub fn set_dispatch_guard(&mut self, guard: Box<dyn DispatchGuard>) -> Result<(), Failure> {
+        self.require(State::New)?;
+        if self.dispatch_guard.is_some() {
+            return Err(Failure {
+                kind: FailureKind::State,
+                dispatched: false,
+            });
+        }
+        self.dispatch_guard = Some(guard);
+        Ok(())
     }
 
     /// 初始化与 initialized 通知共享同一总时限；不协商 roots/sampling/elicitation。
@@ -371,12 +395,16 @@ impl StdioClient {
         let mut written = 0;
         while written < wire.0.len() {
             self.check_time(deadline, cancelled, written > 0)?;
-            match self
-                .stdin
-                .as_mut()
-                .expect("可用状态有 stdin")
-                .write(&wire.0[written..])
-            {
+            let stdin = self.stdin.as_mut().expect("可用状态有 stdin");
+            let mut write = || stdin.write(&wire.0[written..]);
+            let result = match &self.dispatch_guard {
+                Some(guard) => guard.with_permission(&mut write),
+                None => Some(write()),
+            };
+            let Some(result) = result else {
+                return self.fail(FailureKind::Cancelled, written > 0);
+            };
+            match result {
                 Ok(0) => return self.fail(FailureKind::Disconnected, written > 0),
                 Ok(n) => written += n,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
