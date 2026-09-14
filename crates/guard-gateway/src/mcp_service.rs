@@ -1,0 +1,407 @@
+//! 第三方 Node MCP 服务的 Linux 容器启动器，复用已验证镜像及既有工作区副本。
+//! 这里只建立执行边界；产品路由必须另行完成登记、授权、动作批准与审计。
+use crate::exec::run_command_with_cancel;
+use crate::isolation::{endpoint_command, verify_local_endpoint, DockerExecutor};
+use crate::mcp_package::FrozenPackage;
+use crate::mcp_stdio::StdioClient;
+use anyhow::{bail, ensure, Context, Result};
+use guard_schema::Sha256Digest;
+use serde::Serialize;
+use serde_json::{json, Value};
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+use std::time::Duration;
+
+const GATE: &str = include_str!("mcp_launch.py");
+const PACKAGE_TARGET: &str = "/run/agentguard-mcp-package";
+const HARDENING: &[&str] = &[
+    "run",
+    "--pull=never",
+    "--rm",
+    "-i",
+    "--network=none",
+    "--read-only",
+    "--no-healthcheck",
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges:true",
+    "--pids-limit=64",
+    "--memory=256m",
+    "--memory-swap=256m",
+    "--cpus=1",
+    "--tmpfs=/tmp:rw,nosuid,nodev,noexec,size=16777216",
+    "--entrypoint=/usr/bin/env",
+];
+
+struct State {
+    endpoint: String,
+    healthy: AtomicBool,
+    active: AtomicBool,
+}
+
+pub struct NodeService {
+    package: Arc<FrozenPackage>,
+    image: String,
+    entrypoint: String,
+    state: Arc<State>,
+}
+
+/// 工作区权限来自宿主已有授权副本，不能从工具声明或 MCP 参数自行构造。
+pub enum ServiceWorkspace {
+    /// 工具发现只得到空的只读 /workspace；没有宿主工作区或凭据。
+    Discovery,
+    /// 上层完成服务授权后，复用隔离副本；不挂宿主原件、不自动回写。
+    Snapshot(Arc<DockerExecutor>),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct LaunchReceipt {
+    pub session_id: String,
+    pub package_sha256: Sha256Digest,
+    pub execution_sha256: Sha256Digest,
+    pub scope_sha256: Sha256Digest,
+    pub image: String,
+    pub discovery_only: bool,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct Shutdown {
+    pub graceful_exit: bool,
+    pub container_removed: bool,
+}
+
+pub struct ServiceProcess {
+    client: StdioClient,
+    state: Arc<State>,
+    name: String,
+    receipt: LaunchReceipt,
+    _package: Arc<FrozenPackage>,
+    workspace: Option<Arc<DockerExecutor>>,
+    empty_root: Option<PathBuf>,
+    shutdown: Option<Shutdown>,
+}
+
+impl NodeService {
+    pub fn new(image: String, package: Arc<FrozenPackage>, entrypoint: String) -> Result<Self> {
+        ensure!(
+            package.contains_entrypoint(&entrypoint),
+            "服务入口必须是冻结包内的普通文件"
+        );
+        validate_image(&image)?;
+        let endpoint = verify_local_endpoint()?;
+        let output = run_command_with_cancel(
+            endpoint_command(&endpoint, &["image", "inspect", &image]),
+            Duration::from_secs(10),
+            &|| false,
+        );
+        ensure!(output.ok && !output.truncated, "不能核实本地服务镜像");
+        let inspected: Value = serde_json::from_str(&output.detail).context("镜像检查回执无效")?;
+        let items = inspected.as_array().context("镜像检查回执不是数组")?;
+        ensure!(
+            items.len() == 1 && items[0]["Id"] == image,
+            "镜像摘要不一致"
+        );
+        ensure!(items[0]["Os"] == "linux", "服务只支持 Linux 镜像");
+        // 镜像声明的匿名卷会绕过本启动器的明确挂载清单，不能自动创建。
+        ensure!(
+            items[0]["Config"]
+                .get("Volumes")
+                .is_none_or(|v| v.is_null() || v.as_object().is_some_and(|v| v.is_empty())),
+            "服务镜像声明了未支持的额外卷"
+        );
+        package.verify()?;
+        Ok(Self {
+            package,
+            image,
+            entrypoint,
+            state: Arc::new(State {
+                endpoint,
+                healthy: AtomicBool::new(true),
+                active: AtomicBool::new(false),
+            }),
+        })
+    }
+
+    /// 清单登记应使用这个实际运行身份，包含包、镜像、入口、参数和限制参数。
+    pub fn execution_sha256(&self, arguments: &[String]) -> Result<Sha256Digest> {
+        validate_arguments(arguments)?;
+        let bytes = guard_schema::registry_canonical_bytes(
+            "mcp-node-execution",
+            json!({"package":self.package.sha256(),"image":self.image,
+            "entrypoint":self.entrypoint,"arguments":arguments,"hardening":HARDENING,
+            "package_target":PACKAGE_TARGET,"gate_sha256":crate::tool_registry::digest(GATE.as_bytes())}),
+        );
+        Ok(crate::tool_registry::digest(&bytes))
+    }
+
+    /// 同一个启动器只允许一个活动服务；发现与授权运行使用不同进程及会话标识。
+    pub fn spawn(
+        &self,
+        arguments: &[String],
+        workspace: ServiceWorkspace,
+    ) -> Result<ServiceProcess> {
+        let execution_sha256 = self.execution_sha256(arguments)?;
+        ensure!(
+            self.state.healthy.load(Ordering::SeqCst),
+            "服务清理状态未知，不能启动新会话"
+        );
+        ensure!(
+            self.state
+                .active
+                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok(),
+            "该服务已有活动会话"
+        );
+        let mut lease = LaunchLease {
+            state: self.state.clone(),
+            package: self.package.clone(),
+            name: None,
+            empty_root: None,
+            workspace: None,
+            handed_off: false,
+        };
+        ensure!(
+            self.state.healthy.load(Ordering::SeqCst),
+            "取得启动槽时服务清理状态已改变"
+        );
+        self.package.verify()?;
+        let uid = unsafe { libc::geteuid() };
+        let gid = unsafe { libc::getegid() };
+        ensure!(uid != 0, "第三方服务不允许以宿主 root 启动");
+        let (mounts, discovery_only) = match workspace {
+            ServiceWorkspace::Discovery => {
+                use std::os::unix::fs::DirBuilderExt;
+                let root = std::env::temp_dir().join(format!(
+                    "agentguard-mcp-empty-{}",
+                    crate::browser_bridge::token()
+                ));
+                std::fs::DirBuilder::new().mode(0o700).create(&root)?;
+                lease.empty_root = Some(root.clone());
+                (
+                    vec![(root.canonicalize()?, PathBuf::from("/workspace"), false)],
+                    true,
+                )
+            }
+            ServiceWorkspace::Snapshot(snapshot) => {
+                let mounts = snapshot.service_mounts(&self.image, &self.state.endpoint)?;
+                lease.workspace = Some(snapshot);
+                (mounts, false)
+            }
+        };
+        let scope_sha256 = crate::tool_registry::digest(&guard_schema::registry_canonical_bytes(
+            "mcp-node-scope",
+            json!({"version":1,"discovery_only":discovery_only,"mounts":mounts,"uid":uid,"gid":gid}),
+        ));
+        let package_path = self.package.path().canonicalize()?;
+        let mut command = endpoint_command(&self.state.endpoint, HARDENING);
+        let name = format!("agentguard-mcp-{}", crate::browser_bridge::token());
+        command.args([
+            "--name",
+            &name,
+            "--user",
+            &format!("{uid}:{gid}"),
+            "--workdir",
+            "/tmp",
+        ]);
+        command.args([
+            "--mount",
+            &mount_argument(&package_path, Path::new(PACKAGE_TARGET), false)?,
+        ]);
+        for (source, target, writable) in &mounts {
+            ensure!(
+                !target.starts_with(PACKAGE_TARGET)
+                    && !Path::new(PACKAGE_TARGET).starts_with(target),
+                "工作区与服务包挂载重叠"
+            );
+            crate::isolation::open_absolute_dir(source)?;
+            command.args(["--mount", &mount_argument(source, target, *writable)?]);
+        }
+        let runtime_entry = format!("{PACKAGE_TARGET}/{}", self.entrypoint);
+        command.args([
+            &self.image,
+            "-i",
+            "PATH=/usr/local/bin:/usr/bin:/bin",
+            "HOME=/tmp",
+            "TMPDIR=/tmp",
+            "LANG=C.UTF-8",
+            "/usr/bin/python3",
+            "-I",
+            "-c",
+            GATE,
+            &uid.to_string(),
+            &gid.to_string(),
+            &runtime_entry,
+        ]);
+        command.args(arguments);
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        // 从这里开始，即使 Docker 客户端先失败，也必须核实容器是否已被创建。
+        lease.name = Some(name.clone());
+        let client = StdioClient::attach(command.spawn().context("无法启动受控 Docker 客户端")?)?;
+        let receipt = LaunchReceipt {
+            session_id: format!("mcp-session-{}", crate::browser_bridge::token()),
+            package_sha256: self.package.sha256().clone(),
+            execution_sha256,
+            scope_sha256,
+            image: self.image.clone(),
+            discovery_only,
+        };
+        let process = ServiceProcess {
+            client,
+            state: self.state.clone(),
+            name,
+            receipt,
+            _package: self.package.clone(),
+            workspace: lease.workspace.take(),
+            empty_root: lease.empty_root.take(),
+            shutdown: None,
+        };
+        lease.handed_off = true;
+        Ok(process)
+    }
+
+    pub fn healthy(&self) -> bool {
+        self.state.healthy.load(Ordering::SeqCst)
+    }
+}
+
+impl ServiceProcess {
+    pub fn client(&mut self) -> &mut StdioClient {
+        &mut self.client
+    }
+    /// 启动回执不能代替协议握手、登记认可或一次动作的成功证据。
+    pub fn receipt(&self) -> &LaunchReceipt {
+        &self.receipt
+    }
+    pub fn close(&mut self) -> Shutdown {
+        if let Some(result) = self.shutdown {
+            return result;
+        }
+        let graceful_exit = self.client.close();
+        let container_removed = remove_container(&self.state.endpoint, &self.name);
+        if !container_removed {
+            self._package.retain_for_recovery();
+            self.state.healthy.store(false, Ordering::SeqCst);
+            if let Some(workspace) = &self.workspace {
+                workspace.service_cleanup_unknown();
+            }
+        }
+        if container_removed {
+            if let Some(root) = self.empty_root.take() {
+                let _ = std::fs::remove_dir_all(root);
+            }
+        }
+        self.state.active.store(false, Ordering::SeqCst);
+        let result = Shutdown {
+            graceful_exit,
+            container_removed,
+        };
+        self.shutdown = Some(result);
+        result
+    }
+}
+impl Drop for ServiceProcess {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
+// 构造失败也释放活动槽；已尝试启动时不能只杀管道客户端。
+struct LaunchLease {
+    state: Arc<State>,
+    package: Arc<FrozenPackage>,
+    name: Option<String>,
+    empty_root: Option<PathBuf>,
+    workspace: Option<Arc<DockerExecutor>>,
+    handed_off: bool,
+}
+impl Drop for LaunchLease {
+    fn drop(&mut self) {
+        if self.handed_off {
+            return;
+        }
+        let removed = self
+            .name
+            .as_ref()
+            .is_none_or(|name| remove_container(&self.state.endpoint, name));
+        if !removed {
+            self.package.retain_for_recovery();
+            self.state.healthy.store(false, Ordering::SeqCst);
+            if let Some(workspace) = &self.workspace {
+                workspace.service_cleanup_unknown();
+            }
+        } else if let Some(root) = &self.empty_root {
+            let _ = std::fs::remove_dir_all(root);
+        }
+        self.state.active.store(false, Ordering::SeqCst);
+    }
+}
+fn remove_container(endpoint: &str, name: &str) -> bool {
+    let removed = run_command_with_cancel(
+        endpoint_command(endpoint, &["rm", "--force", name]),
+        Duration::from_secs(10),
+        &|| false,
+    );
+    if !removed.ok && !removed.detail.contains("No such container") {
+        return false;
+    }
+    // 再读引擎状态，删除命令的返回值本身不充当清理完成证据。
+    let remaining = run_command_with_cancel(
+        endpoint_command(
+            endpoint,
+            &["ps", "-aq", "--filter", &format!("name=^/{name}$")],
+        ),
+        Duration::from_secs(10),
+        &|| false,
+    );
+    remaining.ok && !remaining.truncated && remaining.detail.trim().is_empty()
+}
+fn validate_arguments(arguments: &[String]) -> Result<()> {
+    ensure!(
+        arguments.len() <= 64 && arguments.iter().map(String::len).sum::<usize>() <= 8192,
+        "服务启动参数超过上限"
+    );
+    ensure!(
+        arguments.iter().all(|a| !a.chars().any(char::is_control)),
+        "服务启动参数含控制字符"
+    );
+    Ok(())
+}
+fn validate_image(image: &str) -> Result<()> {
+    let Some(digest) = image.strip_prefix("sha256:") else {
+        bail!("服务镜像必须使用本地 sha256 摘要");
+    };
+    ensure!(
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()),
+        "服务镜像摘要无效"
+    );
+    Ok(())
+}
+fn mount_argument(source: &Path, target: &Path, writable: bool) -> Result<String> {
+    for path in [source, target] {
+        ensure!(
+            path.is_absolute()
+                && path
+                    .to_str()
+                    .is_some_and(|s| !s.contains([',', '\n', '\r', '"'])),
+            "服务挂载路径无效"
+        );
+    }
+    Ok(format!(
+        "type=bind,src={},dst={}{}",
+        source.display(),
+        target.display(),
+        if writable { "" } else { ",readonly" }
+    ))
+}
+
+#[cfg(test)]
+mod tests;

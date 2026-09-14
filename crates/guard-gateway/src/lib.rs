@@ -29,6 +29,10 @@ pub mod gate;
 pub mod isolation;
 pub mod journal;
 pub mod mcp;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod mcp_package;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod mcp_service;
 #[cfg(unix)]
 pub mod mcp_stdio;
 pub mod operator;

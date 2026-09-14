@@ -47,6 +47,33 @@ fn random_id() -> String {
 }
 
 impl DockerExecutor {
+    /// 仅向受控服务启动器交付已建立的副本挂载；不暴露宿主原工作区挂载。
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn service_mounts(
+        &self,
+        image: &str,
+        endpoint: &str,
+    ) -> Result<Vec<(PathBuf, PathBuf, bool)>> {
+        if self.degraded.load(Ordering::SeqCst) || self.image != image || self.endpoint != endpoint
+        {
+            bail!("服务与工作区的隔离后端不一致或状态未知");
+        }
+        Ok(self
+            .mounts
+            .iter()
+            .flat_map(|mount| {
+                std::iter::once(&mount.target)
+                    .chain(mount.aliases.iter())
+                    .map(|target| (mount.source.clone(), target.clone(), mount.writable))
+            })
+            .collect())
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn service_cleanup_unknown(&self) {
+        self.degraded.store(true, Ordering::SeqCst);
+    }
+
     /// 使用宿主已选定的授权目录。镜像必须在本地，并以不可变摘要指定。
     pub fn new(image: String, read: &[String], write: &[String]) -> Result<Self> {
         #[cfg(not(unix))]
@@ -391,7 +418,7 @@ fn base_command(args: &[&str]) -> Command {
     cmd
 }
 
-fn endpoint_command(endpoint: &str, args: &[&str]) -> Command {
+pub(crate) fn endpoint_command(endpoint: &str, args: &[&str]) -> Command {
     let mut command = base_command(args);
     command
         .env_remove("DOCKER_CONTEXT")
@@ -399,7 +426,7 @@ fn endpoint_command(endpoint: &str, args: &[&str]) -> Command {
     command
 }
 
-fn verify_local_endpoint() -> Result<String> {
+pub(crate) fn verify_local_endpoint() -> Result<String> {
     // Docker 的显式 context 优先于 DOCKER_HOST；无覆盖时读取当前 context。
     let context = std::env::var("DOCKER_CONTEXT")
         .ok()

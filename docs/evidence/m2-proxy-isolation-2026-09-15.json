@@ -1,0 +1,94 @@
+{
+  "recorded_at": "2026-09-14T22:26:30.837645+00:00",
+  "task": "AGD-017",
+  "status": "in_progress",
+  "complete": false,
+  "scope": "生产包冻结与隔离启动组件；完整代理未接线，远程传输未实现",
+  "base_commit": "0c9bfef4fe6a95eeb6e12f7ab52c1b29ce886e0a",
+  "source_files": {
+    "crates/guard-gateway/src/lib.rs": "b0c0af329388341ccdcef4c797fb2add605a761cff55178770849c9144f27460",
+    "crates/guard-gateway/src/isolation.rs": "04c27f972883734066938d3c1860650f0b5956be5283b5da77409617d030f273",
+    "crates/guard-gateway/src/mcp_package.rs": "8916d85a20e1042835b09dfa862f908505d76acd58f790ead25b2875035f1c12",
+    "crates/guard-gateway/src/mcp_package/tests.rs": "6f7e9d62bb10fc6e341700224a6be8e22fbb1383f240d3f364e38604a3791c27",
+    "crates/guard-gateway/src/mcp_service.rs": "d5731cb87daa88d07c5bcd9104c9a8872cac7df387991335ccc2bbf5ac6e200e",
+    "crates/guard-gateway/src/mcp_service/tests.rs": "59b4fc63af4920caf3191189ba52c464e3e7805cccea7faa04732e3b098593f7",
+    "crates/guard-gateway/src/mcp_launch.py": "9822d927c7f73228cbe66a92ef2d0f45edf752067ec85df9a9dfbe791122ea67",
+    "crates/guard-gateway/tests/fixtures/mcp_isolation_probe.mjs": "2ee7abb24fec60a9b918502ec7098e51c94ffd50939e974f6462232ad6bc6982"
+  },
+  "tests": {
+    "package_unit_passed": 6,
+    "service_unit_passed": 3,
+    "workspace_passed": 1343,
+    "workspace_default_ignored": 13,
+    "desktop_passed": 122,
+    "desktop_default_ignored": 9,
+    "clippy": "passed",
+    "fmt": "passed",
+    "capability_matrix": "passed"
+  },
+  "runtime": {
+    "passed": true,
+    "checks": [
+      "官方包完整冻结 4034 文件和两条包内链接",
+      "真实发现 14 项工具且同一启动器拒绝并发第二个会话",
+      "容器外核对发现阶段只读包加空工作区且禁网",
+      "发现阶段实际写入被只读挂载拒绝",
+      "发现会话正常退出且容器和空目录已清理",
+      "新会话绑定授权副本范围并真实读取",
+      "实际写入仅改变隔离副本，宿主原件没有自动回写",
+      "服务自身仍拒绝声明范围外路径",
+      "原包替换不改变运行字节，启动期变更也仅发生于已授权副本",
+      "真实服务无法读取未挂载金丝雀，环境清空且外连被内核拒绝",
+      "派发后超时不重试，关闭时删除整棵容器进程树，子进程心跳实际停止",
+      "受控模拟清理连接丢失，启动器与共享副本均保持故障关闭；另行核实自有容器清理",
+      "root、缺少禁止提权和 seccomp 未启用三种真实配置均在第三方代码前拒绝",
+      "清理曾未知的冻结包在所有所有者释放后仍保留供核查"
+    ],
+    "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+    "kernel_denials": [
+      "root",
+      "no-new-privileges",
+      "seccomp"
+    ],
+    "protocol": "2025-06-18",
+    "service": "@modelcontextprotocol/server-filesystem@2026.8.31",
+    "discovered_tools": 14,
+    "test_binary_sha256": "341d3e75c78e804539546c8ed465eeae1e7cdb23ca62784b62a0dc8e15a2952b",
+    "report_path": ".artifacts/m2-proxy-isolation-2026-09-15/runtime-final-02/report.json",
+    "report_sha256": "ae7121d14d0bb29c81324f28fd65b7b3caa75c5019d2d49910e73f38ee62b4c2",
+    "package_manifest_sha256": "75508d10107aaa453ff14e9a4c906aa949c5b56b4bab54722966b83600c05b89"
+  },
+  "independent_verification": {
+    "recorded_at": "2026-09-14T22:26:30.837645+00:00",
+    "complete_original_tree_match": true,
+    "independent_canonical_digest_match": true,
+    "package_sha256": "c127a5f0b42410db5c135fd0e94a08dcd75254cd4ea73eeed0ba3460eb617da9",
+    "entries": {
+      "file": 4034,
+      "directory": 598,
+      "symlink": 2
+    },
+    "bytes": 23607233,
+    "retained_probe_matches_source": true,
+    "original_workspace_unchanged": true,
+    "snapshot_write_verified": true,
+    "post_fault_write_absent": true
+  },
+  "retained_failures": [
+    "package-tests-01.log",
+    "../m2-proxy-2026-09-15/ci-job-104164566541.log"
+  ],
+  "preservation": {
+    "f13": "deferred_unverified",
+    "accurate_010_app_rebuilt": false,
+    "whole_plan_complete": false,
+    "release": "No-Go"
+  },
+  "remaining": [
+    "完整清单和运行身份接入登记与独立复核",
+    "动作批准撤销暂停停止与持久审计恢复",
+    "工具输出来源与内容检查",
+    "远程 JSON/SSE、令牌受众范围有效期与 SSRF",
+    "两类服务经过产品代理的完整联合验收"
+  ]
+}
