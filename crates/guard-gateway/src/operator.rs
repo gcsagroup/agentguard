@@ -391,28 +391,33 @@ mod tests {
     fn 撤销登记与正在派发的请求没有相反锁顺序() {
         use crate::control_http::{ControlHttp, ControlResponse, HttpLimits};
         use std::io::{Read, Write};
-        let pending = PendingConfirm::new();
-        let registry = Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
-            crate::exec::ExecutionMode::host(),
-        )));
-        let registration = registry
-            .lock()
-            .unwrap()
-            .binding("agentguard-gateway", "read_file")
-            .unwrap()
-            .registration_id;
-        let (endpoint, _receiver) = OperatorEndpoint::new(pending.clone());
-        let endpoint = endpoint.with_registry(registry.clone());
-        let handler = endpoint.clone();
-        let mut http = ControlHttp::bind(0, HttpLimits::default()).unwrap();
-        http.start(Arc::new(move |request| {
-            let (code, body) = handler.serve_authenticated(&request);
-            ControlResponse::json(code, body)
-        }))
-        .unwrap();
-        let address = http.address();
-        let mut worker = None;
-        let released = pending.with_active_epoch(pending.cancellation_epoch(), || {
+        // Windows 不发布文件工具；用两种平台都发布的会话工具验证同一撤销锁顺序。
+        for mode in [
+            crate::exec::ExecutionMode::Native,
+            crate::exec::ExecutionMode::WindowsFailClosed,
+        ] {
+            let pending = PendingConfirm::new();
+            let registry = Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
+                mode,
+            )));
+            let registration = registry
+                .lock()
+                .unwrap()
+                .binding("agentguard-gateway", "start_session")
+                .unwrap()
+                .registration_id;
+            let (endpoint, _receiver) = OperatorEndpoint::new(pending.clone());
+            let endpoint = endpoint.with_registry(registry.clone());
+            let handler = endpoint.clone();
+            let mut http = ControlHttp::bind(0, HttpLimits::default()).unwrap();
+            http.start(Arc::new(move |request| {
+                let (code, body) = handler.serve_authenticated(&request);
+                ControlResponse::json(code, body)
+            }))
+            .unwrap();
+            let address = http.address();
+            let mut worker = None;
+            let released = pending.with_active_epoch(pending.cancellation_epoch(), || {
             worker = Some(std::thread::spawn(move || {
                 let body = json!({"service_id":"agentguard-gateway","registration_id":registration}).to_string();
                 let mut stream = std::net::TcpStream::connect(address).unwrap();
@@ -425,14 +430,15 @@ mod tests {
             // 控制面正在等待撤权锁，登记锁必须已释放；旧实现会在这里得到 WouldBlock。
             endpoint.epoch() > 0 && registry.try_lock().is_ok()
         });
-        let response = worker.unwrap().join().unwrap();
-        assert_eq!(released, Some(true));
-        assert!(response.starts_with("HTTP/1.1 200"), "{response}");
-        assert!(registry
-            .lock()
-            .unwrap()
-            .binding("agentguard-gateway", "read_file")
-            .is_err());
+            let response = worker.unwrap().join().unwrap();
+            assert_eq!(released, Some(true));
+            assert!(response.starts_with("HTTP/1.1 200"), "{response}");
+            assert!(registry
+                .lock()
+                .unwrap()
+                .binding("agentguard-gateway", "start_session")
+                .is_err());
+        }
     }
     #[test]
     fn 操作者参数不接受附带授权或旧批准() {

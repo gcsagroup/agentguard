@@ -103,5 +103,79 @@
     "files": 14,
     "relative_links_checked": 608,
     "missing": []
+  },
+  "initial_source_commit": "5264a1f1988cfa2153a9f8353f5935b368a5e56a",
+  "ci_correction": {
+    "recorded_at": "2026-09-14T21:08:30.468669+00:00",
+    "base_commit": "5264a1f1988cfa2153a9f8353f5935b368a5e56a",
+    "initial_ci_run": 34896258866,
+    "initial_failures": [
+      "Windows lock-order fixture used an unavailable file tool",
+      "RUSTSEC-2026-0285 in rustls 0.23.43"
+    ],
+    "source_files": {
+      "Cargo.lock": "6135a1c83cbb3354b72de09a38e4266cf749d06f19d9049355698e75dba3152f",
+      "apps/desktop-macos/src-tauri/Cargo.lock": "5e9cde2aaded2ffa411d42c56f140b7e0ebb117f061546f27e144822e39d8eb1",
+      "apps/desktop-windows/src-tauri/Cargo.lock": "f5b7a018d23590344fb37c5a17e4277b298caa255e447fc01781e06e2be3a655",
+      "crates/guard-gateway/src/operator.rs": "7b57af3255c4f4795c50b779d773745be8714aeb8578f965b6211575667968a0"
+    },
+    "rustls": "0.23.45",
+    "rustls_webpki": "0.103.15",
+    "advisory_url": "https://github.com/rustls/rustls/security/advisories/GHSA-2mjx-qc3c-rqvc",
+    "supply_chain_checks": {
+      "workspace": "passed",
+      "macos_shell": "passed",
+      "windows_shell": "passed"
+    },
+    "lock_order_modes": [
+      "native",
+      "windows_fail_closed"
+    ],
+    "tests": {
+      "ci-workspace-01": {
+        "passed": 1326,
+        "failed": 0,
+        "ignored": 11
+      },
+      "ci-desktop-01": {
+        "passed": 122,
+        "failed": 0,
+        "ignored": 9
+      }
+    },
+    "clippy": "passed",
+    "fmt": "passed",
+    "gateway_sha256": "d7202e4ba694756d8d663cf407db28eab1baa4ff163dd75a817230fcea7396d6",
+    "live_registry_checks": 71,
+    "audit": {
+      "audit.db": {
+        "rows": 27,
+        "sha256": "a40090a36d8d64633c8284b05d9f51c1b11eb29b76d4fa890efa276ed78f6680"
+      },
+      "audit.db.sources.db": {
+        "rows": 5,
+        "sha256": "df122d109f433c35b60a765d1839ef9a61cab98cacc9fb403f71aaf80e84977e"
+      },
+      "audit.db.tools.db": {
+        "rows": 19,
+        "sha256": "62ee96abc4304b7b371566b8b4b44004ce5445662850b83f3909c3631c3c1165"
+      },
+      "browser.db": {
+        "rows": 11,
+        "sha256": "da111840e83abead6fd560d6351725c20a23d0898119d02eb52e84dce17d7fb3"
+      }
+    },
+    "audit_total_rows": 62,
+    "audit_scope": "无签名哈希链一致性；未使用外部头部见证",
+    "independent_files_unchanged": 127,
+    "app_files_unchanged": 90,
+    "app_strict_signature": "passed",
+    "active_project_containers": 0,
+    "runtime_artifact_directory": ".artifacts/m2-registry-2026-09-14/ci-runtime-final/",
+    "documentation_links": {
+      "files": 14,
+      "relative_links_checked": 609,
+      "missing": []
+    }
   }
 }

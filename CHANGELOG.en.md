@@ -12,6 +12,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 - Browser resources run from a frozen copy of verified bytes. Fixed lock ordering between revocation and HTTP dispatch; retained earlier failures.
 - Passed 1,326 workspace tests, 122 desktop tests, and 71 live host checks, plus provenance/content regressions. Verified 62 unsigned audit rows. See the [registration record in Simplified Chinese](docs/agd-016-tool-registry-2026-09-15.zh.md). F13 remains deferred and untested; the 010 app is unchanged. AGD-017 is next.
 
+- After the initial CI run, corrected the Windows concurrency fixture and upgraded rustls to 0.23.45 in all three lockfiles for RUSTSEC-2026-0285. Retained failed and repeated verification separately.
 
 ### Raw, visible, and detection views (2026-09-14)
 

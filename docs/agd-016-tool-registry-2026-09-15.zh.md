@@ -60,7 +60,18 @@
 | 并发复核修正 | 发现控制面持有登记锁等待撤权锁，而 HTTP 派发可能反向取锁；改为串行提交并在撤权前释放登记锁，新增可复现锁顺序回归 |
 | `build-final.log` | 构建命令误用了不存在的 `agentguard` 目标；改用实际 `guard-cli` 目标，最终构建和实操重新核对 |
 
-原始日志与完整私有回执位于 `.artifacts/m2-registry-2026-09-14/`，包含首轮失败、修正后候选和 `runtime-final/`。可共享摘要见[验收结果](evidence/m2-registry-2026-09-15.json)，可复跑脚本为[登记实际验收](../scripts/acceptance/agd-tool-registry.mjs)。本轮 CLI SHA-256：`4873624ce0c07c745775352f582d1fc4e166586b115050825a981fad1eb3575e`。
+原始日志与完整私有回执位于 `.artifacts/m2-registry-2026-09-14/`，包含首轮失败、修正后候选和 `runtime-final/`。可共享摘要见[验收结果](evidence/m2-registry-2026-09-15.json)，可复跑脚本为[登记实际验收](../scripts/acceptance/agd-tool-registry.mjs)。首次交付 CLI SHA-256：`4873624ce0c07c745775352f582d1fc4e166586b115050825a981fad1eb3575e`。
+
+## 首轮 CI 发现与修正（2026-09-15）
+
+首次合并提交 `5264a1f` 的 [CI](https://github.com/gcsagroup/agentguard/actions/runs/34896258866) 暴露两项独立问题，原始失败保留：
+
+1. 并发锁顺序测试使用 `read_file` 取得登记，但 Windows 原有失败关闭模式不发布文件工具。改用两种平台都发布的 `start_session`，并在同一测试中分别运行普通模式与 Windows 模式；不启用 Windows 文件执行，不降低锁顺序断言。
+2. 2026-09-14 公布的 [RUSTSEC-2026-0285 上游公告](https://github.com/rustls/rustls/security/advisories/GHSA-2mjx-qc3c-rqvc) 影响原锁定的 rustls 0.23.43。根工作区及 macOS、Windows 两个独立锁文件均升级至修复版 0.23.45，以及它要求的 rustls-webpki 0.103.15；没有扩大升级范围，也没有忽略漏洞或关闭审计。
+
+修正后重新完成全仓 1326 项、桌面 122 项、严格 Clippy／格式及三个锁文件供应链检查；新 CLI 再次完成 71 项真实宿主验收和 62 条审计验链。当前 CLI SHA-256：`d7202e4ba694756d8d663cf407db28eab1baa4ff163dd75a817230fcea7396d6`。
+
+修正后的本地验证与新构建实操另存 `ci-*`，不覆盖前文首轮回执。源码依赖修复不表示已替换准确 010 App；该 App 仍保持原冻结内容。最新证据以[验收结果](evidence/m2-registry-2026-09-15.json)中的 `ci_correction` 为准。
 
 ## 接续范围
 
