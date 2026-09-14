@@ -1,0 +1,85 @@
+{
+  "recorded_at": "2026-09-14T22:59:58.176782+00:00",
+  "task": "AGD-017",
+  "status": "in_progress",
+  "complete": false,
+  "scope": "完整发现、运行身份与独立复核接到登记组件，完整产品代理未交付",
+  "base_commit": "d369386dce2c61aa63ec09834f08e47e49e2e0af",
+  "source_files": {
+    "crates/guard-schema/src/tool_registry.rs": "ee222472d17ef883c1eb8221108a4429f7139aae7661d775ab5cca84086a3494",
+    "crates/guard-schema/src/tool_registry/mcp_tests.rs": "ec646fecd8caa7c780588c517b963ececd53b233e8b87d0db9cb3e272b688190",
+    "crates/guard-gateway/src/tool_registry.rs": "3e2827ee459a3d4a21f0a5c4365ef34482eb65750c4f7f629adf34b05edbc946",
+    "crates/guard-gateway/src/tool_registry/mcp_tests.rs": "afd56da8c19062caf33fce3601983b6e13bf03c8f0971e4dde25a822a6dce4b0",
+    "crates/guard-gateway/src/mcp_service.rs": "0c1a94c213cc31acbdc386e06d6c46b59301fcb58af6243dac33e49cbec882bc",
+    "crates/guard-gateway/src/mcp_service/tests.rs": "96002cae239a17fdedbf84fed851fbc92977386465bff9bd8d33f0f729e1ba97",
+    "crates/guard-gateway/src/mcp_service/registration_tests.rs": "6251bb5ec8c097cbddcb07d59016883c1d365692a202138bd2211f747b43f515",
+    "crates/guard-gateway/tests/fixtures/mcp_discovery_probe.mjs": "f0b97cb8444be4951cfd634bada992d0bae6c9348e879006560209d01f9ddb7e",
+    "crates/guard-gateway/src/mcp_stdio.rs": "ba712e42765f57ba335605b61474f27af22e9c15a673fbe7fed64fb9dbd1dc4c",
+    "crates/guard-gateway/src/mcp_package.rs": "8916d85a20e1042835b09dfa862f908505d76acd58f790ead25b2875035f1c12",
+    "crates/guard-gateway/src/mcp_launch.py": "9822d927c7f73228cbe66a92ef2d0f45edf752067ec85df9a9dfbe791122ea67",
+    "crates/guard-gateway/src/isolation.rs": "04c27f972883734066938d3c1860650f0b5956be5283b5da77409617d030f273"
+  },
+  "tests": {
+    "new_default_passed": 9,
+    "workspace_passed": 1352,
+    "workspace_default_ignored": 14,
+    "desktop_passed": 122,
+    "desktop_default_ignored": 9,
+    "clippy": "passed",
+    "fmt": "passed",
+    "capability_matrix": "passed"
+  },
+  "runtime": {
+    "passed": true,
+    "checks": [
+      "独立空工作区会话保存完整原始握手与清单，并核实容器清理",
+      "官方服务完整发现 14 个工具，实际包与运行摘要一致，精确容器已不存在",
+      "发现不自动认可，独立复核后 14 个公开别名完整保留元数据，仍不声明产品派发已开放",
+      "重启仅凭摘要不能调用，真实新会话重新发现后恢复同一绑定，旧复核不可重放",
+      "实际启动参数改变运行身份，新发现使旧认可失效并撤下待复核工具",
+      "三条持久登记事件验链通过，日志未保存工具描述原文",
+      "三个发现会话的容器分别核实已删除，没有活动启动槽",
+      "真实服务不支持的执行字段与发现超时均拒绝交付，容器集合未增加，启动槽释放"
+    ],
+    "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+    "tools": 14,
+    "package_sha256": "c127a5f0b42410db5c135fd0e94a08dcd75254cd4ea73eeed0ba3460eb617da9",
+    "manifest_bytes": 21845,
+    "manifest_sha256": "952b52d10574b5179ee9a78d1fccdfc6ce7013382cc3447f9e40fa1a4b5e7a20",
+    "test_binary_sha256": "86000239c246c72f0db43a2ac57fb657189586a62fb9e5b8789ce2d7f7df7adb",
+    "report_path": ".artifacts/m2-proxy-registration-2026-09-15/runtime-04/report.json",
+    "report_sha256": "546a0e6ded9a48f81556dd0f2187b9225ca3d146eb5e2f292e39d5ccca839666",
+    "isolation_regression_checks": 14,
+    "isolation_regression_report_sha256": "4c2306445be73878b6586ec50463295037de7dddfcedfb0c07933fe655b8a85e"
+  },
+  "independent_verification": {
+    "raw_protocol_fields_match": true,
+    "manifest_and_14_descriptor_digests_match": true,
+    "audit_event_rows": 3,
+    "audit_contains_no_raw_tool_metadata": true,
+    "runtime_change_invalidates_approval": true,
+    "negative_probe_source_matches": true,
+    "preserved_files": 127,
+    "accurate_app_files_unchanged": 90,
+    "accurate_app_codesign": "passed"
+  },
+  "retained_failures": [
+    "runtime-01.log",
+    "runtime-02.log",
+    "runtime-03.log",
+    "clippy-01.log"
+  ],
+  "remaining": [
+    "产品运行服务批准、动作授权和暂停撤销停止接线",
+    "持久执行审计和跨重启未知恢复",
+    "参数输出 Schema 校验及 AGD-015 输出来源",
+    "远程 JSON/SSE、令牌受众范围期限与 SSRF",
+    "两类服务经过完整产品代理的联合验收"
+  ],
+  "preservation": {
+    "f13": "deferred_unverified",
+    "whole_plan_complete": false,
+    "accurate_010_app_rebuilt": false,
+    "release": "No-Go"
+  }
+}

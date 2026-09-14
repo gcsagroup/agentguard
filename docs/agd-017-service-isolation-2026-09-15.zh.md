@@ -45,6 +45,8 @@
 
 原始日志在 `.artifacts/m2-proxy-isolation-2026-09-15/`，结构化移交记录见[隔离证据](evidence/m2-proxy-isolation-2026-09-15.json)。结果分层如下：
 
+隔离组件提交 `d369386dce2c61aa63ec09834f08e47e49e2e0af` 已合并到 `main` 并推送 GitHub；其 [CI 运行 34904681058](https://github.com/gcsagroup/agentguard/actions/runs/34904681058) 13/13 通过。该结果对应本节组件，不代替后续代理接线的验证。
+
 - `package-tests-01.log`：首轮出现 macOS 临时目录别名引起的 `Not a directory`，以及递归帧中的 64 KiB 缓冲区导致栈溢出。这次运行失败并中止，不计通过。
 - 修正为私有目录创建后保存实际路径、复制缓冲区移到堆上；保留原限制和断言。`package-tests-02.log` 的 6 项通过。
 - `runtime-01/` 是首轮运行证据；摘要编码统一及清理未知保留补正后的结果另存，不覆盖旧报告。

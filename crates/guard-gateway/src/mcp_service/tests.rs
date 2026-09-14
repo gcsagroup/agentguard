@@ -91,6 +91,28 @@ fn 无效镜像入口参数与挂载在创建进程前拒绝() {
 }
 
 #[test]
+fn 发现取消或无效期限不创建服务() {
+    let fixture = Fixture::new();
+    let service = fixture.isolated_identity();
+    let registration = ServiceRegistration {
+        service_id: "fixture".into(),
+        namespace: "fixture".into(),
+        package_id: "fixture".into(),
+        package_version: "1.0".into(),
+    };
+    assert!(service
+        .discover(&registration, &[], Duration::from_secs(1), &|| true)
+        .is_err());
+    for timeout in [Duration::ZERO, Duration::from_secs(31)] {
+        assert!(service
+            .discover(&registration, &[], timeout, &|| false)
+            .is_err());
+    }
+    assert!(!service.state.active.load(Ordering::SeqCst));
+    assert!(service.healthy());
+}
+
+#[test]
 fn 故障与活动状态拒绝新会话且构造失败释放活动槽() {
     let fixture = Fixture::new();
     let service = fixture.isolated_identity();
@@ -120,7 +142,7 @@ impl Drop for RescueContainer {
     }
 }
 
-fn docker_output(endpoint: &str, args: &[&str]) -> crate::ExecOutput {
+pub(super) fn docker_output(endpoint: &str, args: &[&str]) -> crate::ExecOutput {
     run_command_with_cancel(
         endpoint_command(endpoint, args),
         Duration::from_secs(10),

@@ -23,6 +23,9 @@ fn now() -> i64 {
         .map(|d| d.as_millis().min(i64::MAX as u128) as i64)
         .unwrap_or(-1)
 }
+
+#[cfg(test)]
+mod mcp_tests;
 fn id(prefix: &str) -> ValidatedId {
     ValidatedId::new(format!("{prefix}-{}", crate::browser_bridge::token())).expect("宿主登记标识")
 }
@@ -68,6 +71,8 @@ pub(crate) struct ServiceDigest {
     manifest_sha256: Sha256Digest,
     builtin: bool,
     tools: Vec<ToolDigest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    execution_sha256: Option<Sha256Digest>,
 }
 impl ServiceDigest {
     fn from_manifest(manifest: &ToolServiceManifest, builtin: bool) -> Result<Self> {
@@ -79,6 +84,7 @@ impl ServiceDigest {
             package: manifest.package.clone(),
             manifest_sha256: digest(&manifest.canonical_bytes()),
             builtin,
+            execution_sha256: manifest.mcp.as_ref().map(|m| m.execution_sha256.clone()),
             tools: manifest
                 .tools
                 .iter()
@@ -132,8 +138,10 @@ impl ServiceDigest {
                     description: "摘要记录".into(),
                     input_schema: json!({"type":"object"}),
                     exposure: t.exposure.clone(),
+                    mcp: None,
                 })
                 .collect(),
+            mcp: None,
         }
         .validate()?;
         ensure!(
@@ -400,6 +408,13 @@ impl ToolRegistry {
     pub fn observe(&mut self, manifest: ToolServiceManifest) -> Result<Value> {
         self.observe_inner(manifest, false)
     }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub fn observe_discovery(
+        &mut self,
+        discovery: &crate::mcp_service::ServiceDiscovery,
+    ) -> Result<Value> {
+        self.observe(discovery.manifest().clone())
+    }
     pub(crate) fn refresh(&mut self, service: &str) -> Result<Value> {
         let entry = self
             .entries
@@ -595,7 +610,15 @@ impl ToolRegistry {
         manifest.tools.iter().filter(|t|t.exposure==ToolExposure::Mcp).map(|t| {
             let binding=self.binding(service,&t.name)?;
             let alias=entry.summary.tools.iter().find(|s|s.name==t.name).and_then(|t|t.public_name.as_ref()).expect("已校验公开别名");
-            Ok(json!({"name":alias,"description":t.description,"inputSchema":t.input_schema,"_meta":{"agentguard":{"registration":binding,"instruction_authority":"none"}}}))
+            let mut published = t.mcp.clone().unwrap_or_else(|| json!({"name":t.name,"description":t.description,"inputSchema":t.input_schema}));
+            published["name"] = json!(alias);
+            // 下游元数据不能伪装宿主回执；原始内容仍在独立复核和描述摘要中。
+            let downstream = published.as_object_mut().expect("已验证工具对象").remove("_meta");
+            published["_meta"] = json!({"agentguard":{"registration":binding,"instruction_authority":"none"}});
+            if let Some(metadata) = downstream {
+                published["_meta"]["agentguard"]["downstream_metadata"] = metadata;
+            }
+            Ok(published)
         }).collect()
     }
     pub fn status(&self) -> Value {
@@ -659,6 +682,7 @@ fn builtin_manifest(
                     .ok_or_else(|| anyhow::anyhow!("内建工具没有描述"))?
                     .into(),
                 input_schema: value["inputSchema"].clone(),
+                mcp: None,
             })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -675,6 +699,7 @@ fn builtin_manifest(
         },
         package,
         tools,
+        mcp: None,
     })
 }
 
@@ -697,7 +722,9 @@ mod tests {
                 description: "普通研究工具".into(),
                 input_schema: json!({"type":"object","properties":{"path":{"type":"string"}}}),
                 exposure: ToolExposure::Mcp,
+                mcp: None,
             }],
+            mcp: None,
         }
     }
     fn approve(registry: &mut ToolRegistry) {

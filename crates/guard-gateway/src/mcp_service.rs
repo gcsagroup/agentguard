@@ -5,7 +5,7 @@ use crate::isolation::{endpoint_command, verify_local_endpoint, DockerExecutor};
 use crate::mcp_package::FrozenPackage;
 use crate::mcp_stdio::StdioClient;
 use anyhow::{bail, ensure, Context, Result};
-use guard_schema::Sha256Digest;
+use guard_schema::{Sha256Digest, ToolPackageIdentity, ToolServiceManifest};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -14,7 +14,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const GATE: &str = include_str!("mcp_launch.py");
 const PACKAGE_TARGET: &str = "/run/agentguard-mcp-package";
@@ -47,6 +47,33 @@ pub struct NodeService {
     image: String,
     entrypoint: String,
     state: Arc<State>,
+}
+
+/// 宿主配置的登记名称与展示版本；包摘要始终从实际冻结字节计算。
+pub struct ServiceRegistration {
+    pub service_id: String,
+    pub namespace: String,
+    pub package_id: String,
+    pub package_version: String,
+}
+
+/// 只由真实隔离发现产生，不提供反序列化或外部构造入口。
+/// 发现已清理并不授予服务工作区权限，仍需独立登记和运行批准。
+pub struct ServiceDiscovery {
+    manifest: ToolServiceManifest,
+    receipt: LaunchReceipt,
+    container_name: String,
+}
+impl ServiceDiscovery {
+    pub fn manifest(&self) -> &ToolServiceManifest {
+        &self.manifest
+    }
+    pub fn receipt(&self) -> &LaunchReceipt {
+        &self.receipt
+    }
+    pub fn container_name(&self) -> &str {
+        &self.container_name
+    }
 }
 
 /// 工作区权限来自宿主已有授权副本，不能从工具声明或 MCP 参数自行构造。
@@ -85,6 +112,55 @@ pub struct ServiceProcess {
 }
 
 impl NodeService {
+    /// 只有空只读工作区。完整握手及清单共享总时限；关闭并核实容器后才交付观测。
+    pub fn discover(
+        &self,
+        registration: &ServiceRegistration,
+        arguments: &[String],
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<ServiceDiscovery> {
+        ensure!(
+            !cancelled() && !timeout.is_zero() && timeout <= Duration::from_secs(30),
+            "发现已取消或时限无效"
+        );
+        let deadline = Instant::now() + timeout;
+        let mut process = self.spawn(arguments, ServiceWorkspace::Discovery)?;
+        let observed = (|| -> Result<ServiceDiscovery> {
+            let initialization = process.client().initialize(
+                deadline.saturating_duration_since(Instant::now()),
+                cancelled,
+            )?;
+            let listing = process.client().list_tools(
+                deadline.saturating_duration_since(Instant::now()),
+                cancelled,
+            )?;
+            let manifest = ToolServiceManifest::from_mcp(
+                registration.service_id.clone(),
+                registration.namespace.clone(),
+                ToolPackageIdentity {
+                    package_id: registration.package_id.clone(),
+                    version: registration.package_version.clone(),
+                    sha256: self.package.sha256().clone(),
+                },
+                process.receipt().execution_sha256.clone(),
+                initialization,
+                listing,
+            )?;
+            Ok(ServiceDiscovery {
+                manifest,
+                receipt: process.receipt().clone(),
+                container_name: process.name.clone(),
+            })
+        })();
+        ensure!(
+            process.close().container_removed,
+            "发现服务清理未知，不能交付观测"
+        );
+        ensure!(!cancelled(), "发现已取消，不能交付观测");
+        observed
+    }
+
     pub fn new(image: String, package: Arc<FrozenPackage>, entrypoint: String) -> Result<Self> {
         ensure!(
             package.contains_entrypoint(&entrypoint),
@@ -342,24 +418,34 @@ impl Drop for LaunchLease {
     }
 }
 fn remove_container(endpoint: &str, name: &str) -> bool {
-    let removed = run_command_with_cancel(
+    let _removed = run_command_with_cancel(
         endpoint_command(endpoint, &["rm", "--force", name]),
         Duration::from_secs(10),
         &|| false,
     );
-    if !removed.ok && !removed.detail.contains("No such container") {
-        return false;
+    // --rm 与显式删除可能并行；无论删除命令如何返回，都独立查询最终状态。
+    // 只重复有界只读查询，不再次发送删除，也不重新派发服务请求。
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let remaining = run_command_with_cancel(
+            endpoint_command(
+                endpoint,
+                &["ps", "-aq", "--filter", &format!("name=^/{name}$")],
+            ),
+            deadline.saturating_duration_since(Instant::now()),
+            &|| false,
+        );
+        if !remaining.ok || remaining.truncated {
+            return false;
+        }
+        if remaining.detail.trim().is_empty() {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(40));
     }
-    // 再读引擎状态，删除命令的返回值本身不充当清理完成证据。
-    let remaining = run_command_with_cancel(
-        endpoint_command(
-            endpoint,
-            &["ps", "-aq", "--filter", &format!("name=^/{name}$")],
-        ),
-        Duration::from_secs(10),
-        &|| false,
-    );
-    remaining.ok && !remaining.truncated && remaining.detail.trim().is_empty()
 }
 fn validate_arguments(arguments: &[String]) -> Result<()> {
     ensure!(
@@ -405,3 +491,6 @@ fn mount_argument(source: &Path, target: &Path, writable: bool) -> Result<String
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod registration_tests;
