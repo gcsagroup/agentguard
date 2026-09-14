@@ -16,6 +16,7 @@
 //! 可选 Linux 容器后端约束经本网关执行的工具；原生模式及客户端其它入口仍是合作式边界。
 
 pub mod browser_bridge;
+#[cfg(any(target_os = "macos", test))]
 mod browser_package;
 pub mod confirm;
 mod content;

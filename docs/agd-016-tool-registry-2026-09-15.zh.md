@@ -68,10 +68,11 @@
 
 1. 并发锁顺序测试使用 `read_file` 取得登记，但 Windows 原有失败关闭模式不发布文件工具。改用两种平台都发布的 `start_session`，并在同一测试中分别运行普通模式与 Windows 模式；不启用 Windows 文件执行，不降低锁顺序断言。
 2. 2026-09-14 公布的 [RUSTSEC-2026-0285 上游公告](https://github.com/rustls/rustls/security/advisories/GHSA-2mjx-qc3c-rqvc) 影响原锁定的 rustls 0.23.43。根工作区及 macOS、Windows 两个独立锁文件均升级至修复版 0.23.45，以及它要求的 rustls-webpki 0.103.15；没有扩大升级范围，也没有忽略漏洞或关闭审计。
+3. 后续 Linux 严格 Clippy 发现浏览器包冻结模块在正式库中没有调用者；该运行路径原本只支持 macOS。模块改为仅在 macOS 或测试构建中编译，Linux／Windows 仍运行冻结包单元测试，未添加全局忽略警告。
 
-修正后重新完成全仓 1326 项、桌面 122 项、严格 Clippy／格式及三个锁文件供应链检查；新 CLI 再次完成 71 项真实宿主验收和 62 条审计验链。当前 CLI SHA-256：`d7202e4ba694756d8d663cf407db28eab1baa4ff163dd75a817230fcea7396d6`。
+依赖修正后重新完成全仓 1326 项、桌面 122 项、严格 Clippy／格式及三个锁文件供应链检查；新 CLI 再次完成 71 项真实宿主验收和 62 条审计验链。Linux 构建范围修正后，包冻结 2 项和严格网关 Clippy 通过，并再次完成 71 项实操与 62 条验链。当前 CLI SHA-256：`ad160425d4b0bc382ba068e7522cf4d9d75b41609349f27328c93ff91715214a`。
 
-修正后的本地验证与新构建实操另存 `ci-*`，不覆盖前文首轮回执。源码依赖修复不表示已替换准确 010 App；该 App 仍保持原冻结内容。最新证据以[验收结果](evidence/m2-registry-2026-09-15.json)中的 `ci_correction` 为准。
+修正后的本地验证与新构建实操另存 `ci-*`，不覆盖前文首轮回执。源码依赖修复不表示已替换准确 010 App；该 App 仍保持原冻结内容。最新证据以[验收结果](evidence/m2-registry-2026-09-15.json)中的 `ci_correction`、`platform_correction` 和 `latest_source_files` 为准。
 
 ## 接续范围
 
