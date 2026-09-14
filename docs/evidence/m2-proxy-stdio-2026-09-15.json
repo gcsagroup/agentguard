@@ -1,0 +1,83 @@
+{
+  "recorded_at": "2026-09-14T21:42:29.816752+00:00",
+  "task": "AGD-017",
+  "status": "in_progress",
+  "complete": false,
+  "scope": "限定 Unix stdio 传输组件；产品代理尚未接线，远程服务尚未验收",
+  "base_commit": "ac102f26c66b93a25c59617bd285464286567207",
+  "base_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/34897801267",
+    "passed_jobs": 13,
+    "total_jobs": 13
+  },
+  "protocol": "2025-06-18",
+  "source_files": {
+    "crates/guard-gateway/src/lib.rs": "b86ce899d18f6a5771825d1977ddd768e2febba3b9748955d73314cebf249f82",
+    "crates/guard-gateway/src/mcp_stdio.rs": "ba712e42765f57ba335605b61474f27af22e9c15a673fbe7fed64fb9dbd1dc4c",
+    "crates/guard-gateway/src/mcp_stdio/tests.rs": "9a304a2494cff6fee020b1fa676bf01fb8b110b9ab6c7aa05f9669d2e99d52aa",
+    "crates/guard-gateway/tests/fixtures/mcp_stdio_server.py": "e7708aaaf4f4d100db239f5dafde92e5bfc80c4d0c5516681099ea55d1c023ef"
+  },
+  "component_tests": {
+    "passed": 8,
+    "docker_test_default_ignored": true,
+    "real_process_failure_cases": 12,
+    "blocked_pipe_repeated_runs": 10,
+    "blocked_pipe_repeated_passes": 10
+  },
+  "docker": {
+    "passed": true,
+    "checks": [
+      "实际协商 MCP 2025-06-18",
+      "从容器外核对镜像及网络挂载用户能力与资源限制",
+      "实际发现 14 项工具并保留完整描述与元数据",
+      "读取自有合成输入",
+      "实际写入并从容器外核对文件内容",
+      "保留服务自身的路径拒绝结果",
+      "stdin EOF 后正常退出且自有容器已删除"
+    ],
+    "tool_count": 14,
+    "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+    "container_removed": true,
+    "runtime_source_scope": "实际新 Rust 通道，未经过产品登记批准审计；测试启动参数不是产品启动器",
+    "report_path": ".artifacts/m2-proxy-2026-09-15/rust-stdio-final/report.json",
+    "report_sha256": "7e15aca5fc627d80c9387f7020c8adaf8613f1cb178231ddb792c9ae7eab38f1",
+    "test_binary_sha256": "d8adb93521a5b167e91835dcd7ffee5431f4f38330d034d5cff49f4c862f134f"
+  },
+  "third_party_preparation": {
+    "name": "@modelcontextprotocol/server-filesystem",
+    "version": "2026.8.31",
+    "integrity": "sha512-kKaFkyAh6oipvc9+EAbJ552JafnMnOq5nzmzWkp1jJdBhTAAGpmIpWihUG1+rfNhmEFM98gUZDdCHCDD4v6a7Q==",
+    "package_lock_sha256": "48213f89193e0c960e9c7545e2b351d5bf64eead61242cdd847054a1bfb1c1a5",
+    "known_vulnerabilities": 0,
+    "whole_package_authenticated": false
+  },
+  "validation": {
+    "workspace": "passed",
+    "workspace_passed": 1334,
+    "workspace_failed": 0,
+    "workspace_default_ignored": 12,
+    "workspace_log": "workspace-02.log",
+    "clippy": "passed",
+    "clippy_log": "clippy-final.log",
+    "fmt": "passed",
+    "capability_matrix": "passed"
+  },
+  "preservation": {
+    "f13": "deferred_unverified",
+    "f13_passed": false,
+    "accurate_010_app_rebuilt": false,
+    "original_full_m1_passed": false,
+    "release": "No-Go"
+  },
+  "retained_failures": [
+    "stdio-tests-01.log",
+    "stdio-clippy-01.log",
+    "workspace-01.log"
+  ],
+  "remaining": [
+    "产品隔离启动器与包字节冻结",
+    "登记、批准、撤销与审计、来源接线",
+    "远程 JSON/SSE 服务、令牌受众范围与 SSRF",
+    "两类服务经过代理的完整正常与故障验收"
+  ]
+}

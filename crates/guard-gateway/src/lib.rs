@@ -29,6 +29,8 @@ pub mod gate;
 pub mod isolation;
 pub mod journal;
 pub mod mcp;
+#[cfg(unix)]
+pub mod mcp_stdio;
 pub mod operator;
 pub mod provenance;
 pub mod server;

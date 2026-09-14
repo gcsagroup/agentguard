@@ -81,3 +81,7 @@
 AGD-017 接续一个本地 stdio 服务和一个明确协议版本的远程测试服务，分别完成启动隔离、令牌受众与范围、SSRF、消息大小、超时和断连验证。登记清单本身不能证明第三方代码已经隔离，也不能替代 AGD-020 的独立对抗验收。
 
 源码：[清单契约](../crates/guard-schema/src/tool_registry.rs)、[登记状态与恢复](../crates/guard-gateway/src/tool_registry.rs)、[浏览器包冻结](../crates/guard-gateway/src/browser_package.rs)、[独立控制入口](../crates/guard-gateway/src/operator.rs)、[共享工具清单](../apps/protected-browser/tools.json)。
+
+## 最新合并验证
+
+提交 `ac102f26c66b93a25c59617bd285464286567207` 已合入并推送 `main`，[GitHub CI 13/13 通过](https://github.com/gcsagroup/agentguard/actions/runs/34897801267)。前两轮失败与修正记录保留。随后继续 AGD-017，见[代理接续记录](agd-017-mcp-proxy-2026-09-15.zh.md)，不将单独 stdio 组件计为完整代理验收。
