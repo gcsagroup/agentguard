@@ -38,7 +38,10 @@ const exists=async path=>{try{await access(path);return true;}catch(error){if(er
 function grant(signed){assert.ok(verify(null,bytes('grant',signed.grant),publicKey(publics.authority),Buffer.from(signed.signature,'hex')));assert.equal(signed.key_id,sha(Buffer.from(publics.authority,'hex')).slice(0,16));assert.equal(signed.grant.host_session_id,session.sessionId);report.grants.push(signed);sequences.set(signed.grant.grant_id,1);return signed;}
 async function start(){session=await WorkspaceSession.start({binary,fixture,delegationConfig:configPath,confirmSeconds:8});report.sessions.push({pid:session.child.pid,session_id:session.sessionId,snapshot:session.snapshot,stats:session.statsAtStart});const tools=(await session.rpc('tools/list')).result.tools.map(t=>t.name);assert.deepEqual(tools,['delegation_send']);rootGrant=grant(session.statsAtStart.delegation.root_grant);await save();}
 async function stop(){if(session){report.sessions.at(-1).exit=await session.close({preserveSnapshots:true});session=null;await save();}}
-async function signed(actor,g,command,override={}){const message={version:1,host_session_id:g.grant.host_session_id,session_id:g.grant.session_id,grant_id:g.grant.grant_id,
+async function signed(actor,g,command,override={}){
+ // 签名后保留不可变动作快照；后续阶段改变权限夹具时不能改写已记录消息。
+ command=structuredClone(command);
+ const message={version:1,host_session_id:g.grant.host_session_id,session_id:g.grant.session_id,grant_id:g.grant.grant_id,
  grant_sha256:sha(bytes('grant',g.grant)),actor_id:actor,target_id:g.grant.target_id,sequence:sequences.get(g.grant.grant_id),issued_at_ms:Date.now(),expires_at_ms:Math.min(Date.now()+60000,g.grant.expires_at_ms),operation_sha256:sha(bytes('operation',command)),...override};
  const result=JSON.parse((await run(process.execPath,[signer,keyPaths[actor],bytes('message',message).toString('base64')])).stdout);report.signer_pids.push(result.pid);return {message,command,signature:result.signature};}
 const invoke=envelope=>session.rpc('tools/call',{name:'delegation_send',arguments:envelope});
@@ -61,7 +64,10 @@ function good(response){assert.equal(response.result?.isError,false,JSON.stringi
 function refused(response){assert.equal(response.result?.isError,true,JSON.stringify(response));assert.equal(response.result._meta?.agentguard?.dispatched,false);}
 async function delegate(actor,g,subject,permissions=rootRights,expires=Date.now()+150000){const {response}=await send(actor,g,{operation:'delegate',subject_id:subject,permissions,expires_at_ms:expires});return grant(JSON.parse(good(response)).grant);}
 try{
- if(process.argv.includes('--budget-mode')){
+ if(process.argv.includes('--propagation-mode')){
+  const {runPropagationAcceptance}=await import('./agd-propagation.mjs');
+  await runPropagationAcceptance({get session(){return session;},get rootGrant(){return rootGrant;},config,configPath,rootRights,bRights,cRights,paths,fixture,out,report,start,stop,send,delegate,good,refused,negative,save});
+ }else if(process.argv.includes('--budget-mode')){
   const {runBudgetAcceptance}=await import('./agd-delegation-budget.mjs');
   await runBudgetAcceptance({get session(){return session;},get rootGrant(){return rootGrant;},config,configPath,rootRights,bRights,cRights,paths,fixture,out,report,start,stop,send,delegate,good,refused,negative,save});
  }else{

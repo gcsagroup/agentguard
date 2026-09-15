@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "task": "AGD-025",
+  "date": "2026-09-16",
+  "status": "passed_local_scope",
+  "base_commit": "4e23646d6b78e35c3f7d97fc6d6b65177f897429",
+  "artifact_root": ".artifacts/m3-persistence-propagation-2026-09-16",
+  "candidate": {
+    "binary_sha256": "2d6e2f5602e0c784ef4174fa8f5a579fd3c8a43421676af4a6073cf78e01bd10",
+    "reused_production_inputs": 201,
+    "frozen_inputs": 208,
+    "app": "AgentGuard Local Agent Test",
+    "app_build": 17,
+    "app_rebuilt": false
+  },
+  "results": {
+    "passed": true,
+    "memory_versions": 5,
+    "memory_rows": 6,
+    "memory_gateway_audit_rows": 81,
+    "delegation_audit_rows": 81,
+    "signatures": 33,
+    "deliveries": 2,
+    "follow_up_refusals": 2,
+    "gateway_processes": 6,
+    "model_tasks": 2
+  },
+  "tamper_cases_rejected": 5,
+  "compatibility": {
+    "passed": true,
+    "processes": 2,
+    "signed_grants": 5,
+    "authenticated_messages": 12,
+    "negative_messages": 30,
+    "file_action_bindings": 9,
+    "audit_rows": 98,
+    "signatures": 17,
+    "source_files": 208,
+    "gateway_sha256": "2d6e2f5602e0c784ef4174fa8f5a579fd3c8a43421676af4a6073cf78e01bd10",
+    "scope": "真实隔离文件工具；宿主签名和独立 HTTP 脚本批准；容器私钥不可见另有实际 Docker 测试"
+  },
+  "repository_tests": 23,
+  "boundaries": [
+    "只在本机合成资料和 Docker 隔离文件收件目录验收",
+    "独立批准和主体签名由宿主脚本执行；接收进程读取后由宿主驱动提交后续请求",
+    "两次新模型任务均未执行模型输出，不声明自主复制或注入检测准确率",
+    "记忆使用 plaintext_test 签名存储，本次未重跑 SQLCipher 或全仓回归",
+    "固定 App 017 未重建；其他应用 AX 读取和真机超时恢复仍未证明",
+    "F13 暂缓未验收；AGD-026/027、整个计划及发布未完成"
+  ],
+  "artifacts": [
+    {
+      "path": "frozen-04/build-inputs.json",
+      "sha256": "6618e77c77166f1c6d3b8974472caa459727f650af8bde9f7fd06d023654c293"
+    },
+    {
+      "path": "process-04/report.json",
+      "sha256": "feb0134bf1f5fb2a5825ab3eec00da253c67bc80a879435ac4a7dca9456674b9"
+    },
+    {
+      "path": "process-04/delegation/report.json",
+      "sha256": "ac436bb6335636cdfdeb53a0a26f13b38848d12417bc88d8e48b287dcb3602a8"
+    },
+    {
+      "path": "process-04/persisted-payload.json",
+      "sha256": "857795e00d423b384e74b6ea7c4abcadd4e41956cda6067d67084c9c4cb03857"
+    },
+    {
+      "path": "independent-04.json",
+      "sha256": "301e6227a38c110f21e9f0c882139ad3d83587278c3048241d0fceafd99951f2"
+    },
+    {
+      "path": "compatibility-independent.json",
+      "sha256": "4f4a6b3ece580c647984d2d0ab547f96b4a41c1b2f178174625e4b1166f7ea57"
+    },
+    {
+      "path": "compatibility-01/report.json",
+      "sha256": "73e4136fd25bd60b9136119b224d2de66552eee9b8377dbf85c208042f0e77b9"
+    },
+    {
+      "path": "tamper-01/report.json",
+      "sha256": "33363147f9ec08085b1f452c7e959676e66ab35025e9b581785a4dbb283383ea"
+    },
+    {
+      "path": "app-preservation.json",
+      "sha256": "faf17ad8bab55f83538668f9302d88e73ba77538788e93255074147c60ad2aaa"
+    },
+    {
+      "path": "repository-01.log",
+      "sha256": "9dbb73ad5d38a80e7f07718a523ea83c6c217031c05ede9acb0f326ccdaf1bc0"
+    },
+    {
+      "path": "verification-source/verify-persistence-propagation.py",
+      "sha256": "16f0a05d2e236ff13d0f377ba98fdd8d041af4bfbce935674937da5cc3c5485c"
+    },
+    {
+      "path": "verification-source/verify-memory-store.py",
+      "sha256": "4ba2b29da88d00937a5a723105e04c4faf033e057c66524f23e55c3d72e2682c"
+    },
+    {
+      "path": "repository-final.log",
+      "sha256": "770551fc2490a9ed0b7527d7405a6bcec06a01fa8014c6b6753429bc113049e9"
+    }
+  ]
+}
