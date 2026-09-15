@@ -1760,6 +1760,7 @@ version = "1.0.0-rc.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "ed25519-dalek",
  "guard-audit",
  "guard-core",
  "guard-privacy",
@@ -1769,6 +1770,7 @@ dependencies = [
  "jsonschema",
  "libc",
  "rand",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",

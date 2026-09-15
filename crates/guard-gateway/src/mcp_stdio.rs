@@ -526,14 +526,14 @@ fn nonblocking(fd: RawFd) -> io::Result<()> {
     }
     Ok(())
 }
-fn valid_name(name: &str) -> bool {
+pub(crate) fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 32
         && name
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
 }
-fn valid_initialization(result: &Value) -> bool {
+pub(crate) fn valid_initialization(result: &Value) -> bool {
     let text = |field: &str| {
         result
             .get("serverInfo")
@@ -554,7 +554,7 @@ fn valid_initialization(result: &Value) -> bool {
             .is_none_or(Value::is_boolean)
         && result.get("instructions").is_none_or(Value::is_string)
 }
-fn parse_response(bytes: &[u8], id: u64) -> Result<Reply, FailureKind> {
+pub(crate) fn parse_response(bytes: &[u8], id: u64) -> Result<Reply, FailureKind> {
     let StrictJson(value) =
         serde_json::from_slice::<StrictJson>(bytes).map_err(|_| FailureKind::Protocol)?;
     let object = value.as_object().ok_or(FailureKind::Protocol)?;
@@ -580,7 +580,7 @@ fn parse_response(bytes: &[u8], id: u64) -> Result<Reply, FailureKind> {
         _ => Err(FailureKind::Protocol),
     }
 }
-struct LimitedBuffer(Vec<u8>);
+pub(crate) struct LimitedBuffer(pub(crate) Vec<u8>);
 impl Write for LimitedBuffer {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         if self.0.len().saturating_add(bytes.len()) > MAX_REQUEST_BYTES {
@@ -595,7 +595,7 @@ impl Write for LimitedBuffer {
 }
 
 // 普通 Value 解析会静默覆盖重复键；边界协议必须拒绝这种解释歧义，包括嵌套对象。
-struct StrictJson(Value);
+pub(crate) struct StrictJson(pub(crate) Value);
 impl<'de> Deserialize<'de> for StrictJson {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct StrictVisitor;

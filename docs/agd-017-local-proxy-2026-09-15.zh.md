@@ -83,6 +83,6 @@ node scripts/acceptance/agd-mcp-proxy.mjs \
 - `desktop-01.log`：3 个既有浏览器等待测试在 8 秒内未进入模型请求，诊断仍为 `starting`、无错误、工作线程存在；单独复验 3/3 通过。完整再次复验 122/122 通过，保持原 8 秒门槛，不宣称这次已解决间歇超时根因。
 - `deny-macos.log`、`deny-windows.log`：第一次把 `--config` 放在错误参数位置，检查未执行；改为 CLI 支持的全局参数位置并使用原 `deny.shells.toml` 后执行实际检查。
 
-上一完整发现提交 `6b2da4c` 的 GitHub CI 已确认为 **13/13 通过**；新提交的状态单独记录，不借用上一提交结果。
+完整发现提交 `6b2da4c` 和本地产品路由提交 `5b9fe62` 的 GitHub CI 均已确认为 **13/13 通过**。后续[远程传输组件](agd-017-remote-transport-2026-09-15.zh.md)另行记录，当前远程产品接线尚未完成。
 
 依据：[MCP 工具协议](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)、[jsonschema 校验选项](https://docs.rs/jsonschema/0.51.0/jsonschema/struct.ValidationOptions.html)、[cargo-deny 精确依赖许可证配置](https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html)、[SPDX MIT-0](https://spdx.org/licenses/MIT-0.html)。

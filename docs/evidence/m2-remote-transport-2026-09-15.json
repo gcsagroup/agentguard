@@ -1,0 +1,85 @@
+{
+  "recorded_at": "2026-09-15T00:15:01.991441+00:00",
+  "task": "AGD-017",
+  "status": "in_progress",
+  "whole_plan_complete": false,
+  "scope": "有限远程传输组件与独立实现互通；尚未接入生产 CLI 登记批准来源与持久日志",
+  "base_commit": "5b9fe620b91859d12bde8b6a388c84054fac1b8e",
+  "source_files": {
+    "Cargo.lock": "ac28f73f1fb8e8cadd1978a441cc7278199ed14b2a73637420963308304d8517",
+    "apps/desktop-macos/src-tauri/Cargo.lock": "14eb91c64b8496c977237e9237b61caa7eec713f3c228c52d0466aab57d2ef29",
+    "crates/guard-gateway/Cargo.toml": "7403c47259f1d3105ae44bdf8404a1204b36aab9111829b33f132c3c74d9afa1",
+    "crates/guard-gateway/examples/mcp_remote_probe.rs": "48b9d754e9dee8abf756dbee708ccc791bea6c3f6743f1b704ed8f565a6ecbfe",
+    "crates/guard-gateway/src/lib.rs": "a5ba3e4e52430d837ff1096787e610cc6a7fc33f9dd3c87632524fcab70fa955",
+    "crates/guard-gateway/src/mcp_remote.rs": "038096d3065ecb9f47a683b5067f3c902cd3ce6e4faba0373dc28e34326c795b",
+    "crates/guard-gateway/src/mcp_remote/auth.rs": "f67a291609bc3ee3b69c98a8e7807a6afb48dcd033062f5af3fd16627dfb6cb4",
+    "crates/guard-gateway/src/mcp_remote/http.rs": "4359ae55d48f1f83c4509f64cfc99eae62c5c7bbee8dd2c09c8da8cbdbe0a75b",
+    "crates/guard-gateway/src/mcp_stdio.rs": "8a2563edb52dba874f7d36519ddc2ee92a8b276659905d9de275adf44a41ecaa",
+    "crates/guard-gateway/tests/fixtures/remote-tls/README.zh.md": "1448a5c701de66ed14b40d3a4e7dc05925c81bd495b2ea515cb98763500ff798",
+    "crates/guard-gateway/tests/fixtures/remote-tls/ca.der": "2ac039a4f4d48888f3e18a7ef52059f0c283f5b8cf40c5ec917464fa0729e1ab",
+    "crates/guard-gateway/tests/fixtures/remote-tls/server-key.der": "905b8b485f1708b4b99d3117cf17f4f36d85705bb73c74b082a854e33d469ec4",
+    "crates/guard-gateway/tests/fixtures/remote-tls/server.der": "e366710cb37b4835684585a3aeff4f30e3a815312213aceaffab6cce29d41000",
+    "crates/guard-gateway/tests/fixtures/remote-tls/wrong-name.der": "2322d5b5b0f44b5695b8726a340daf2fcf443d85839194953ebbc138b9a60cc2",
+    "crates/guard-gateway/tests/mcp_remote.rs": "73ba3c63b2ed46fe7208e4f903e5bf3a8ace4e10227aa002eed87b7cbe87e0bc",
+    "scripts/acceptance/agd-mcp-remote-transport.mjs": "404f6a164d5fa00ebfabbe08021fb7f8d6f5f45ddfb9a50aa6a27d6210a87d5b"
+  },
+  "tests": {
+    "new_unit_passed": 7,
+    "new_tcp_tls_integration_passed": 9,
+    "workspace_passed": 1381,
+    "workspace_suites": 60,
+    "workspace_ignored": 14,
+    "desktop_passed": 122,
+    "desktop_ignored": 9,
+    "clippy": "passed",
+    "fmt": "passed",
+    "matrix": "passed",
+    "supply_chain_graphs_passed": 3
+  },
+  "independent_node_runtime": {
+    "checks": [
+      {
+        "name": "独立 Node HTTPS json 握手通知清单工具调用",
+        "passed": true
+      },
+      {
+        "name": "独立 Node HTTPS sse 握手通知清单工具调用",
+        "passed": true
+      },
+      {
+        "name": "八个请求逐个在服务端验签及核对受众范围期限",
+        "passed": true
+      }
+    ],
+    "requests": 8,
+    "protocol": "2025-06-18",
+    "node": "v22.23.2",
+    "binary_sha256": "8a05bf83d62e6c6d661ca5544c1a49e5dd90345c59700df6a522eabe034a51da",
+    "binary_path": ".artifacts/m2-remote-transport-2026-09-15/candidate/mcp_remote_probe",
+    "report_sha256": "74c71f597d10a5b6406acb5b4abd13a42253c0219e064d65547d6ea575df9202",
+    "request_ledger_sha256": "2253db7be610f0d68cd1f676c8903e1009ff50b1b03d5524fa7488cb9a1e3b04",
+    "production_route": false,
+    "network": "仅自有 localhost TLS 测试服务，非物理远端或公网生产验收"
+  },
+  "preserved": {
+    "files": 127,
+    "all_matched": true,
+    "app_files": 90,
+    "app_all_matched": true,
+    "strict_codesign": true
+  },
+  "retained_failures": [
+    "tls-01.log",
+    "tls-diagnostic.log",
+    "clippy-01.log",
+    "probe-build.log"
+  ],
+  "prior_ci": {
+    "run": 34910384220,
+    "commit": "5b9fe620b91859d12bde8b6a388c84054fac1b8e",
+    "passed": 13,
+    "total": 13
+  },
+  "f13": "deferred_unverified",
+  "release": "no_go"
+}
