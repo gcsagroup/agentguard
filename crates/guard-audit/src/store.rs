@@ -639,11 +639,19 @@ impl AuditStore {
     }
 
     fn migrate(&self) -> Result<()> {
+        // 表、索引、兼容列与日志身份一起提交；新库不必为每条 DDL 单独落盘，
+        // 中途失败也不会留下部分迁移。先取得写锁，串行处理并发打开者。
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .context("begin audit schema migration")?;
         self.conn.execute_batch(SCHEMA)?;
         self.ensure_chain_columns()?;
         self.ensure_signature_columns()?;
         self.ensure_attribution_column()?;
         self.ensure_log_id()?;
+        tx.commit().context("commit audit schema migration")?;
         Ok(())
     }
 
@@ -945,12 +953,27 @@ impl AuditStore {
         //
         // `BEGIN IMMEDIATE` 在语句开始时就取写锁,所以两个写者里后到的那个会等(见
         // `busy_timeout`),而不是读到一个即将过期的头。
-        let tx = self
-            .conn
-            .unchecked_transaction()
-            .context("begin audit append transaction")?;
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .context("begin audit append transaction")?;
         self.append_in_tx(record)?;
         tx.commit().context("commit audit append")?;
+        Ok(())
+    }
+
+    /// 两条相邻记录共享一次持久提交；第二条失败时，第一条和链序号也全部回滚。
+    /// 调用方仍须在提交成功后才执行外部动作，不能用此接口延后执行前审计。
+    pub fn append_pair(&self, first: &AuditRecord, second: &AuditRecord) -> Result<()> {
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.conn,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .context("begin paired audit append transaction")?;
+        self.append_in_tx(first)?;
+        self.append_in_tx(second)?;
+        tx.commit().context("commit paired audit append")?;
         Ok(())
     }
 
@@ -2428,6 +2451,55 @@ mod tests {
         AuditRecord::from_event_decision(&event, &decision)
     }
 
+    #[test]
+    fn 成对持久提交保持签名序号且第二条失败全部回滚() {
+        let key = crate::signing::FileDeviceKey::generate();
+        let verify = key.verifying_key();
+        let store = AuditStore::open_in_memory()
+            .unwrap()
+            .with_signer(Box::new(key))
+            .unwrap();
+        // 相同主键让第二次真实 SQL INSERT 失败，不模拟事务的返回值。
+        let first = allow_record(1);
+        assert!(store.append_pair(&first, &first).is_err());
+        assert!(store.list_recent(10).unwrap().is_empty());
+        assert_eq!(store.verify_chain().unwrap().total, 0);
+        assert!(store.session_summary("s").unwrap().is_none());
+        store
+            .append_pair(&allow_record(1), &allow_record(2))
+            .unwrap();
+        let chain = store.verify_chain().unwrap();
+        assert!(chain.ok && chain.total == 2 && chain.verified == 2);
+        assert!(store
+            .verify_record_signatures(&verify)
+            .unwrap()
+            .fully_covered());
+        assert_eq!(store.session_summary("s").unwrap().unwrap().event_count, 2);
+    }
+
+    #[test]
+    fn 迁移末尾失败不留下半套表且重试保留日志身份() {
+        let conn = Connection::open_in_memory().unwrap();
+        // 故障发生在所有建表和索引语句之后的日志身份读取。
+        conn.execute_batch("CREATE TABLE audit_meta (wrong TEXT);")
+            .unwrap();
+        let store = AuditStore { conn, signer: None };
+        assert!(store.migrate().is_err());
+        assert!(store.has_table("audit_meta").unwrap());
+        for table in ["audit_events", "agent_sessions", "decision_receipts"] {
+            assert!(!store.has_table(table).unwrap(), "失败迁移遗留了 {table}");
+        }
+        store.conn.execute_batch("DROP TABLE audit_meta;").unwrap();
+        store.migrate().unwrap();
+        let log_id = store.log_id().unwrap().unwrap();
+        let record = allow_record(1);
+        store.append(&record).unwrap();
+        store.migrate().unwrap();
+        assert_eq!(store.log_id().unwrap().unwrap(), log_id);
+        assert_eq!(store.list_recent(10).unwrap()[0].id, record.id);
+        assert!(store.verify_chain().unwrap().ok);
+    }
+
     /// A database written before the attribution column existed must still verify —
     /// **read-only**, without being migrated first.
     ///
@@ -3044,10 +3116,13 @@ mod b6_并发与见证复核 {
         drop(AuditStore::open(&db).unwrap());
 
         let mut handles = Vec::new();
+        let ready = std::sync::Arc::new(std::sync::Barrier::new(2));
         for w in 0..2 {
             let db = db.clone();
+            let ready = ready.clone();
             handles.push(std::thread::spawn(move || {
                 let store = AuditStore::open(&db).expect("open");
+                ready.wait();
                 let mut errs = 0usize;
                 for i in 0..25 {
                     if store.append(&rec(w * 100 + i)).is_err() {
@@ -3070,6 +3145,8 @@ mod b6_并发与见证复核 {
             )
             .unwrap();
         let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(errs, 0, "正常并发追加不能丢失记录或要求调用方重放");
+        assert_eq!(v.total, 50, "必须保留两个写者的全部 50 条记录");
         assert_eq!(dup, 0, "有 {dup} 个重复的 seq —— 两个写者拿到了同一个位置");
         assert!(
             v.ok,

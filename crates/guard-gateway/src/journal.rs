@@ -249,6 +249,10 @@ impl ExecutionJournal {
 
     /// 判决在批准等待之前持久化；正文与自定义规则标识不能进入审计原文。
     pub fn decided(&self, action: &ActionSnapshot, outcome: &Outcome) -> Result<()> {
+        self.append(&self.decision_record(action, outcome)?)
+    }
+
+    fn decision_record(&self, action: &ActionSnapshot, outcome: &Outcome) -> Result<AuditRecord> {
         let classification = match outcome {
             Outcome::Execute { .. } => "execute",
             Outcome::Refuse { .. } => "refuse",
@@ -270,7 +274,28 @@ impl ExecutionJournal {
         record.action = classification.into();
         record.human_message = "工具网关判决；仅保存分类与规则标识，尚未执行".into();
         record.event_json = serde_json::to_string(&summary)?;
-        self.append(&record)
+        Ok(record)
+    }
+
+    /// 无需等待批准的动作，在最终执行校验后把判决和开始记录一起持久提交。
+    /// 两条记录仍独立存在；任一插入失败均不得执行，并锁定此日志。
+    pub(crate) fn decided_and_started(
+        &self,
+        action: &ActionSnapshot,
+        outcome: &Outcome,
+    ) -> Result<()> {
+        anyhow::ensure!(
+            matches!(outcome, Outcome::Execute { .. }),
+            "待批准判决不能延后持久化"
+        );
+        anyhow::ensure!(self.healthy.get(), "审计写入已失败，禁止新动作");
+        let decision = self.decision_record(action, outcome)?;
+        let started = self.record(action, None, None, None)?;
+        if let Err(error) = self.store.append_pair(&decision, &started) {
+            self.healthy.set(false);
+            return Err(error).context("执行审计不能持久化，禁止继续执行");
+        }
+        Ok(())
     }
 
     /// 获得执行资格后必须先提交开始记录；恢复时只检查真实开始记录。
@@ -504,6 +529,87 @@ mod tests {
             sources: vec![],
         })
         .unwrap()
+    }
+
+    #[test]
+    fn 合并提交可独立读回两条记录且崩溃恢复仅标记一次未知() {
+        let root = temp_dir();
+        let path = root.join("audit.db");
+        let journal = ExecutionJournal::open(&path).unwrap();
+        journal
+            .decided_and_started(&action(), &Outcome::Execute { findings: vec![] })
+            .unwrap();
+        let reader = AuditStore::open(&path).unwrap();
+        let rows = reader.list_recent(10).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().any(|row| row.event_type == "GatewayDecision"));
+        assert_eq!(reader.unfinished_gateway_actions().unwrap().len(), 1);
+        assert!(reader.verify_chain().unwrap().ok);
+        drop(reader);
+        drop(journal);
+        let recovered = ExecutionJournal::open(&path).unwrap();
+        assert_eq!(recovered.recovered_unknown, 1);
+        assert_eq!(recovered.store.list_recent(10).unwrap().len(), 3);
+        assert!(recovered
+            .store
+            .unfinished_gateway_actions()
+            .unwrap()
+            .is_empty());
+        drop(recovered);
+        let reopened = ExecutionJournal::open(&path).unwrap();
+        assert_eq!(reopened.recovered_unknown, 0);
+        drop(reopened);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn 合并提交的第二条真实插入失败会回滚判决并锁定日志() {
+        let root = temp_dir();
+        let path = root.join("audit.db");
+        let journal = ExecutionJournal::open(&path).unwrap();
+        let action = action();
+        // 独立连接注入开始记录主键冲突；不能只模拟 append_pair 的返回值。
+        let writer = AuditStore::open(&path).unwrap();
+        writer
+            .append(&journal.record(&action, None, None, None).unwrap())
+            .unwrap();
+        assert!(journal
+            .decided_and_started(&action, &Outcome::Execute { findings: vec![] })
+            .is_err());
+        let rows = writer.list_recent(10).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert!(rows.iter().all(|row| row.event_type != "GatewayDecision"));
+        assert!(writer.verify_chain().unwrap().ok);
+        assert!(journal
+            .decided(&action, &Outcome::Refuse { findings: vec![] })
+            .is_err());
+        drop(writer);
+        drop(journal);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn 待批准和拒绝判决不能使用合并执行提交() {
+        let root = temp_dir();
+        let journal = ExecutionJournal::open(&root.join("audit.db")).unwrap();
+        for outcome in [
+            Outcome::NeedsConfirmation { findings: vec![] },
+            Outcome::Refuse { findings: vec![] },
+        ] {
+            assert!(journal.decided_and_started(&action(), &outcome).is_err());
+        }
+        assert!(journal.store.list_recent(10).unwrap().is_empty());
+        journal
+            .decided(&action(), &Outcome::NeedsConfirmation { findings: vec![] })
+            .unwrap();
+        assert_eq!(journal.store.list_recent(10).unwrap().len(), 1);
+        assert!(journal
+            .store
+            .unfinished_gateway_actions()
+            .unwrap()
+            .is_empty());
+        drop(journal);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

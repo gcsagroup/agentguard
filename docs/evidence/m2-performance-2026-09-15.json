@@ -1,0 +1,163 @@
+{
+  "task": "AGD-020",
+  "status": "in_progress",
+  "scope": "网关诊断与源码回归；固定012 App未替换",
+  "base_commit": "0f0299d28198e40af1a93e35b5fe0044708efa76",
+  "gateway_sha256": "f8ab1b9241b34585770d2d2f4c39c78fc03efdc2c05929908b17b77f9f124f13",
+  "artifact_root": ".artifacts/m2-performance-2026-09-15",
+  "app_version": "Ver 2.0 (012)",
+  "app_rebuilt": false,
+  "performance": {
+    "passed": false,
+    "budgets_passed": 5,
+    "budgets_total": 6,
+    "checks": [
+      {
+        "name": "native_read_p95_ms",
+        "actual": 16.76916700000004,
+        "max": 10,
+        "passed": false
+      },
+      {
+        "name": "native_startup_ms",
+        "actual": 50.300833999999995,
+        "max": 100,
+        "passed": true
+      },
+      {
+        "name": "native_sampled_gateway_peak_mib",
+        "actual": 17.609375,
+        "max": 32,
+        "passed": true
+      },
+      {
+        "name": "isolated_read_p95_ms",
+        "actual": 266.9799579999999,
+        "max": 500,
+        "passed": true
+      },
+      {
+        "name": "isolated_startup_ms",
+        "actual": 606.2375830000001,
+        "max": 2000,
+        "passed": true
+      },
+      {
+        "name": "isolated_sampled_gateway_peak_mib",
+        "actual": 17.921875,
+        "max": 32,
+        "passed": true
+      }
+    ],
+    "samples_per_route": 30,
+    "startup_scope": "正式计时前同一二进制已经完成故障测试，不是首次落地启动；VM已运行，每路一次启动"
+  },
+  "validation": {
+    "workspace_passed": 1438,
+    "workspace_ignored": 15,
+    "audit_fault_cases": 5,
+    "audit_fault_checks": 27,
+    "workspace_docker_faults": 8,
+    "clippy": true,
+    "supply_root": true,
+    "supply_macos": true,
+    "desktop_passed_on_rerun": 128,
+    "desktop_prior_timeout_failures": 3,
+    "desktop_timeouts_cause": "unconfirmed"
+  },
+  "preservation": {
+    "app": {
+      "files": 91,
+      "unchanged": true,
+      "strict_signature": true
+    },
+    "app_preserved": {
+      "files": 91,
+      "unchanged": true,
+      "strict_signature": true
+    },
+    "preserved_files": 127,
+    "at": "2026-09-15T11:27:37.534290+00:00"
+  },
+  "baseline_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/34959937468",
+    "passed_jobs": 13,
+    "total_jobs": 13
+  },
+  "f13": "deferred_unverified",
+  "f14": "passed_existing_virtual_link_scope",
+  "files": [
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/declaration.json",
+      "sha256": "50f58d6d30e50fc252ca7842c1bda63c11f916fbd709e70b0bef2a27cdb00815"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/original-budget.json",
+      "sha256": "421d9562991a7dd4ea6cd6935655720d922957b1377d7da4ec3dae451b2549cb"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/optimized-hardware-performance-01/result.json",
+      "sha256": "bd7994b9f71c5364b46c0bfcaa3edddc05b91726cc1673533a7be68a1e70aa0e"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/combined-performance-01/result.json",
+      "sha256": "8dec6c3ea10e1b733bf68ef66113be432ed6101b604259bcf467c736a4ca52a1"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/locking-performance-01/result.json",
+      "sha256": "7c7126737ae09a4577c6883691157884f7e538c088ab806c8ea8bc7facd24ea8"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/audit-faults-03/report.json",
+      "sha256": "63530aa2a821a187000711a3dc75258b664c5717fc752156a2de887e38da9a2f"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/workspace-tests-03.log",
+      "sha256": "a55b86ac799839ed27ae9a22d07be673b743e47ea226b1de6940f7f63b50748d"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/clippy.log",
+      "sha256": "75331fa20e735078aab309654e5c84afa62f0bd89768a8e77214f37f482f2e73"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/desktop-tests-02.log",
+      "sha256": "f8d8d027c1a77355c0fb1aae4488a33c04cc3608302111fd780da448402e8bc2"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/desktop-startup-profile-01/test.log",
+      "sha256": "be9cece7bb592544e2675db7db91d29c1b5e4fd8019a687a5c8a87f288d01da9"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/concurrent-before-fix.log",
+      "sha256": "104b04799297da91ebacc13707739ed1226d777bb95c5637d59313575e2592e2"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/audit-concurrency-fixed.log",
+      "sha256": "8f0d9f2bfa418ed98869f77e36e32a9bf4fbb6cb2b3abb365d9b825ce601da4f"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/workspace-faults-02.log",
+      "sha256": "90167ff34c7801eec73c54e844629f14573649f5cef302ced3fe04c8c5d8ebe9"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/supply-root-02.log",
+      "sha256": "b0f6973bad7515570ce7891aa69ccdaba99b078ed7c31efefca6cccd3506991b"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/supply-macos.log",
+      "sha256": "24edf37aa0b33e533374dcbb7dc04e6bb0b3842101af053a25e3aff2e4a01ab1"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/preservation.json",
+      "sha256": "cb9e31a8261108d960116907d9916f3f3103aad3222733e5f38248ea3f290e92"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/independent-verification.json",
+      "sha256": "bdb67bb39261019f1d4da9a9c1e343a6db4cdd19079ece2ea877a950899d5887"
+    },
+    {
+      "path": ".artifacts/m2-performance-2026-09-15/ci-baseline-final.json",
+      "sha256": "3f03fab3f4e3c71d9c3558fd0ac7f8445fa0f04065aeb2f42a4ee1bb702f8a77"
+    }
+  ]
+}

@@ -86,3 +86,7 @@ win-adapter = { path = "adapters/win-adapter" }
 mac-adapter = { path = "adapters/mac-adapter" }
 browser-adapter = { path = "adapters/browser-adapter" }
 android-adapter = { path = "adapters/android-adapter" }
+
+# 开发版也要对完整内建工具包计算摘要；只优化固定算法库，保留业务代码的调试检查。
+[profile.dev.package.sha2]
+opt-level = 3
