@@ -1657,14 +1657,18 @@ mod execution_contract_tests {
     }
 
     #[test]
-    fn 未批准超时的工具回执与审计一致且不写文件() {
+    fn 未批准超时正确回执并在支持的平台核对审计() {
         let root = std::env::temp_dir().join(random_id("ag-timeout-receipt"));
         std::fs::create_dir(&root).unwrap();
         let root = root.canonicalize().unwrap();
-        let database = root.join("audit.db");
         let target = root.join("must-not-write.txt");
-        let mut server =
-            server_without_grants().with_journal(ExecutionJournal::open(&database).unwrap());
+        let mut server = server_without_grants();
+        // Windows 的执行日志锁仍按产品边界拒绝初始化；不为测试绕开该限制。
+        // 所有平台检查 MCP 回执和零副作用，Unix 另核对真实持久审计。
+        #[cfg(unix)]
+        {
+            server = server.with_journal(ExecutionJournal::open(&root.join("audit.db")).unwrap());
+        }
         server.confirm_timeout = Duration::from_millis(40);
         let reply = server.handle_tool_call(
             json!(1),
@@ -1679,19 +1683,21 @@ mod execution_contract_tests {
         assert_eq!(reply["result"]["_meta"]["agentguard"]["dispatched"], false);
         assert!(!target.exists());
         drop(server);
-        let store = guard_audit::AuditStore::open(&database).unwrap();
-        let events = store.list_recent(10).unwrap();
-        let terminal = events
-            .iter()
-            .find(|row| row.event_type == "GatewayExecutionFinished")
-            .unwrap();
-        let body: Value = serde_json::from_str(&terminal.event_json).unwrap();
-        assert_eq!(
-            body["outcome"],
-            reply["result"]["_meta"]["agentguard"]["outcome"]
-        );
-        assert_eq!(body["dispatched"], false);
-        drop(store);
+        #[cfg(unix)]
+        {
+            let store = guard_audit::AuditStore::open(root.join("audit.db")).unwrap();
+            let events = store.list_recent(10).unwrap();
+            let terminal = events
+                .iter()
+                .find(|row| row.event_type == "GatewayExecutionFinished")
+                .unwrap();
+            let body: Value = serde_json::from_str(&terminal.event_json).unwrap();
+            assert_eq!(
+                body["outcome"],
+                reply["result"]["_meta"]["agentguard"]["outcome"]
+            );
+            assert_eq!(body["dispatched"], false);
+        }
         std::fs::remove_dir_all(root).unwrap();
     }
 

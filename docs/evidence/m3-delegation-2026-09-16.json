@@ -193,5 +193,18 @@
       "sha256": "651ab222efa0c3bee25ebfb1589f03e2c6e5dd5c40e90eeb38c9a93ae81cd391"
     }
   ],
-  "next": "AGD-024 分支预算和父撤销，随后按原依赖继续 AGD-025～032"
+  "next": "AGD-024 分支预算和父撤销，随后按原依赖继续 AGD-025～032",
+  "follow_up_ci": {
+    "commit": "7db4adacca21db258a595f5100f7e4f1449e7921",
+    "run_id": 35011194041,
+    "failed_job": "Windows (native adapter + shell)",
+    "failure": "新增测试无条件初始化 Unix 专属执行日志锁",
+    "fix": "所有平台检查 MCP 超时及零副作用；Unix 另核对持久审计，不改变生产平台限制",
+    "scope": "仅测试设置修正；原冻结202输入保持原候选身份",
+    "log": ".artifacts/m3-delegation-2026-09-16/windows-ci-01.log",
+    "log_sha256": "efcfe5adc0aa67efe3a30a52cbd1088816d71776ff1ddfec5618d4df6ea539cc",
+    "replacement_ci": "pending_verification",
+    "local_timeout_test_passed": true,
+    "local_timeout_log_sha256": "6fa5834185e07161993ea64adeda0929b52902b301202b46f8273bb557ac5892"
+  }
 }
