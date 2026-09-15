@@ -40,6 +40,8 @@ mod mcp_recovery;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod mcp_remote;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+mod mcp_remote_service;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod mcp_service;
 #[cfg(unix)]
 pub mod mcp_stdio;

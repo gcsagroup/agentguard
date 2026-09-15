@@ -24,6 +24,9 @@ use std::time::Duration;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 #[path = "proxy_control.rs"]
 mod proxy_control;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[path = "remote_control.rs"]
+mod remote_control;
 #[path = "workspace_control.rs"]
 mod workspace_control;
 
@@ -43,6 +46,8 @@ pub struct Server {
     proxies: Vec<crate::mcp_proxy::ProxyService>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     proxy_recovery: Option<crate::mcp_recovery::RecoveryLog>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    remote_proxies: Vec<crate::mcp_remote_service::RemoteService>,
     /// 仅宿主设置；客户端声明不能选择另一个计划或刷新预算。
     host_profile: Option<String>,
     host_session_id: String,
@@ -136,6 +141,8 @@ impl Server {
             proxies: Vec::new(),
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             proxy_recovery: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            remote_proxies: Vec::new(),
             host_profile: None,
             host_session_id: random_id("mcp-session"),
             session_stopped: false,
@@ -174,6 +181,8 @@ impl Server {
             proxies: Vec::new(),
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             proxy_recovery: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            remote_proxies: Vec::new(),
             host_profile: None,
             host_session_id: random_id("mcp-session"),
             session_stopped: false,
@@ -402,7 +411,12 @@ impl Server {
                     mcp::initialize_result("agentguard-mcp", env!("CARGO_PKG_VERSION"));
                 if self.isolation.is_some() {
                     let instructions = result["instructions"].as_str().unwrap_or_default();
-                    result["instructions"] = json!(format!("{instructions}\n\n本会话工具在断网 Linux 工作区副本中执行；文件变化不会自动回写宿主原目录。使用 gateway/stats 查看实际后端、快照位置及审计状态。客户端自带的其它工具不在此隔离范围内。"));
+                    result["instructions"] = json!(format!("{instructions}\n\n本会话内建文件和命令工具在断网 Linux 工作区副本中执行；文件变化不会自动回写宿主原目录。使用 gateway/stats 查看实际后端、快照位置及审计状态。客户端自带的其它工具不在此隔离范围内。"));
+                }
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                if !self.remote_proxies.is_empty() {
+                    let instructions = result["instructions"].as_str().unwrap_or_default();
+                    result["instructions"] = json!(format!("{instructions}\n已登记的远程 MCP 工具会将经单次批准的参数发送到指定远程服务；远程动作可能产生外部副作用，断连或暂停不能证明其已停止。"));
                 }
                 mcp::result(id, result)
             }
@@ -426,6 +440,22 @@ impl Server {
                                         &proxy.manifest.canonical_bytes()
                                     )))
                             }));
+                        }
+                    }
+                    #[cfg(any(target_os = "linux", target_os = "macos"))]
+                    for proxy in &self.remote_proxies {
+                        if proxy.available() {
+                            tools.extend(
+                                registry
+                                    .published(&proxy.manifest.service_id)?
+                                    .into_iter()
+                                    .filter(|t| {
+                                        t.pointer("/_meta/agentguard/registration/manifest_sha256")
+                                            == Some(&json!(crate::tool_registry::digest(
+                                                &proxy.manifest.canonical_bytes()
+                                            )))
+                                    }),
+                            );
                         }
                     }
                     Ok(tools)

@@ -279,6 +279,25 @@ impl Gate {
         metadata.insert("ui_text".into(), format!("{name} {}", arguments));
         metadata.insert("argv0".into(), "node".into());
         let event = self.event(EventType::ProcessExec, "agentguard-mcp", metadata);
+        self.judge_external_event(event)
+    }
+    /// 远程服务按网络出口扣减预算，并使用可信配置的 URL 核对主机范围。
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn judge_remote(
+        &mut self,
+        name: &str,
+        url: &str,
+        arguments: &serde_json::Value,
+    ) -> Outcome {
+        let mut metadata = HashMap::new();
+        metadata.insert("gateway_tool".into(), name.into());
+        metadata.insert("url".into(), url.into());
+        metadata.insert("ui_text".into(), format!("{name} {arguments}"));
+        let event = self.event(EventType::NetworkFlow, "agentguard-mcp", metadata);
+        self.judge_external_event(event)
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn judge_external_event(&mut self, event: GuardEvent) -> Outcome {
         match self.engine.process(&event) {
             Ok(decision) => {
                 let findings = vec![Finding {
@@ -489,6 +508,58 @@ mod judge_tests {
             .findings()
             .iter()
             .any(|f| f.rule_id == "PLAN-OVER-BUDGET"));
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn 远程代理按网络预算和真实目标主机判决() {
+        for (hosts, budget, expected) in [
+            ("[other.example]", 3, "SCOPE-HOST"),
+            ("[remote.example]", 1, "PLAN-OVER-BUDGET"),
+        ] {
+            let rules =
+                guard_schema::RuleSet::from_yaml_str("version: \"1.0\"\nrules: []").unwrap();
+            let plans=guard_schema::TaskPlanLibrary::from_yaml_str(&format!("plans:\n  - task_profile: remote\n    allow: [network_egress]\n    max: {{network_egress: {budget}}}\n    scope: {{hosts: {hosts}}}\n")).unwrap();
+            let contract = guard_schema::GuardContract {
+                on_plan_drift: guard_schema::EnforcementMode::Block,
+                ..Default::default()
+            };
+            let mut gate = Gate::new(
+                SafeShell::permissive_for_tests(),
+                Engine::new(rules, contract).with_task_plans(plans),
+            );
+            gate.start_session("remote-session", Some("remote"))
+                .unwrap();
+            if expected == "PLAN-OVER-BUDGET" {
+                assert!(matches!(
+                    gate.judge_remote(
+                        "mcp__remote__echo",
+                        "https://remote.example/mcp",
+                        &serde_json::json!({})
+                    ),
+                    Outcome::NeedsConfirmation { .. }
+                ));
+            }
+            let decision = gate.judge_remote(
+                "mcp__remote__echo",
+                "https://remote.example/mcp",
+                &serde_json::json!({}),
+            );
+            assert!(matches!(decision, Outcome::Refuse { .. }));
+            assert!(
+                decision.findings().iter().any(|f| f.rule_id == expected),
+                "{decision:?}"
+            );
+        }
+        let mut gate = gate();
+        assert!(matches!(
+            gate.judge_remote(
+                "mcp__remote__echo",
+                "https://remote.example/mcp",
+                &serde_json::json!({"text":"永久删除"})
+            ),
+            Outcome::Refuse { .. }
+        ));
     }
 
     /// `action: block` 必须是 `Refuse`,即使同一条规则还写了 `require_confirm: true`。

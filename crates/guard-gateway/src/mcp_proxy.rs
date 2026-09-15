@@ -1,6 +1,7 @@
 //! 有限本地 Node MCP 服务：实际发现、完整 Schema 检查及宿主配置。
 use crate::isolation::DockerExecutor;
 use crate::mcp_package::FrozenPackage;
+pub use crate::mcp_remote_service::RemoteConfig;
 use crate::mcp_service::{NodeService, ServiceRegistration};
 use crate::tool_registry::SharedRegistry;
 use anyhow::{ensure, Result};
@@ -26,7 +27,10 @@ pub struct ServiceConfig {
 #[serde(deny_unknown_fields)]
 pub struct ProxyConfig {
     pub version: u16,
+    #[serde(default)]
     pub services: Vec<ServiceConfig>,
+    #[serde(default)]
+    pub remote_services: Vec<RemoteConfig>,
 }
 
 pub(crate) struct ProxyService {
@@ -34,7 +38,7 @@ pub(crate) struct ProxyService {
     pub registration: ServiceRegistration,
     pub arguments: Vec<String>,
     pub manifest: ToolServiceManifest,
-    schemas: BTreeMap<String, (jsonschema::Validator, Option<jsonschema::Validator>)>,
+    schemas: ToolSchemas,
 }
 impl ProxyService {
     pub fn discover(
@@ -59,17 +63,7 @@ impl ProxyService {
         let observed =
             service.discover_tracked(&registration, &config.arguments, snapshot, recovery)?;
         let manifest = observed.manifest().clone();
-        let mut schemas = BTreeMap::new();
-        for tool in &manifest.tools {
-            let input = compile_schema(&tool.input_schema)?;
-            let output = tool
-                .mcp
-                .as_ref()
-                .and_then(|v| v.get("outputSchema"))
-                .map(compile_schema)
-                .transpose()?;
-            schemas.insert(tool.name.clone(), (input, output));
-        }
+        let schemas = ToolSchemas::compile(&manifest)?;
         registry
             .lock()
             .map_err(|_| anyhow::anyhow!("登记锁失效"))?
@@ -90,13 +84,40 @@ impl ProxyService {
             .map(|t| t.name.as_str())
     }
     pub fn validate_input(&self, name: &str, arguments: &Value) -> Result<()> {
+        self.schemas.validate_input(name, arguments)
+    }
+    pub fn validate_output(&self, name: &str, result: &Value) -> Result<()> {
+        self.schemas.validate_output(name, result)
+    }
+}
+
+/// 本地与远程服务共用同一组完整 Schema 验证，传输方式不降低校验。
+pub(crate) struct ToolSchemas(
+    BTreeMap<String, (jsonschema::Validator, Option<jsonschema::Validator>)>,
+);
+impl ToolSchemas {
+    pub fn compile(manifest: &ToolServiceManifest) -> Result<Self> {
+        let mut schemas = BTreeMap::new();
+        for tool in &manifest.tools {
+            let input = compile_schema(&tool.input_schema)?;
+            let output = tool
+                .mcp
+                .as_ref()
+                .and_then(|v| v.get("outputSchema"))
+                .map(compile_schema)
+                .transpose()?;
+            schemas.insert(tool.name.clone(), (input, output));
+        }
+        Ok(Self(schemas))
+    }
+    pub fn validate_input(&self, name: &str, arguments: &Value) -> Result<()> {
         ensure!(
             arguments.is_object() && serde_json::to_vec(arguments)?.len() <= 24 * 1024,
             "工具参数无效或过大"
         );
         bound_value(arguments, 0, &mut 0)?;
         ensure!(
-            self.schemas
+            self.0
                 .get(name)
                 .is_some_and(|(input, _)| input.is_valid(arguments)),
             "工具参数不符合已登记 Schema"
@@ -107,7 +128,7 @@ impl ProxyService {
         bound_value(result, 0, &mut 0)?;
         // 工具错误可以没有成功输出结构；成功响应声明了 outputSchema 就必须提供匹配内容。
         if result.get("isError").and_then(Value::as_bool) != Some(true) {
-            if let Some((_, Some(schema))) = self.schemas.get(name) {
+            if let Some((_, Some(schema))) = self.0.get(name) {
                 ensure!(
                     result
                         .get("structuredContent")

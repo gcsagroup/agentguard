@@ -38,13 +38,14 @@ fn error(code: &'static str) -> RemoteError {
     }
 }
 
-/// 回环测试模式只能连接 localhost/127.0.0.1；不能用于绕过其它私网目的地址限制。
+/// 回环测试模式只接受 localhost 或 mcp.localhost，并固定连接 127.0.0.1；不能用于绕过其它私网目的地址限制。
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum NetworkMode {
     Public,
     LoopbackTest,
 }
 /// 无自动地址解析。TLS 名称、准确地址、端口、路径和信任根均由宿主提供。
+#[derive(Clone)]
 pub struct RemoteEndpoint {
     url: String,
     host: String,
@@ -101,7 +102,9 @@ impl RemoteEndpoint {
             return Err(bad());
         }
         match mode {
-            NetworkMode::LoopbackTest if host == "localhost" && address == Ipv4Addr::LOCALHOST => {}
+            NetworkMode::LoopbackTest
+                if matches!(host, "localhost" | "mcp.localhost")
+                    && address == Ipv4Addr::LOCALHOST => {}
             NetworkMode::Public
                 if public_address(address) && host != "localhost" && host.contains('.') => {}
             _ => return Err(error("MCP_REMOTE_SSRF")),
@@ -158,7 +161,7 @@ enum State {
 /// 单次工具流程客户端。故障后不可再用；不重连、刷新令牌、重发或恢复 SSE 游标。
 pub struct RemoteClient {
     endpoint: RemoteEndpoint,
-    token: AccessToken,
+    token: Arc<AccessToken>,
     state: State,
     next_id: u64,
     tools: HashSet<String>,
@@ -166,6 +169,16 @@ pub struct RemoteClient {
 }
 impl RemoteClient {
     pub fn new(endpoint: RemoteEndpoint, token: AccessToken) -> Self {
+        Self {
+            endpoint,
+            token: Arc::new(token),
+            state: State::New,
+            next_id: 1,
+            tools: HashSet::new(),
+            guard: None,
+        }
+    }
+    pub(crate) fn shared(endpoint: RemoteEndpoint, token: Arc<AccessToken>) -> Self {
         Self {
             endpoint,
             token,
@@ -348,18 +361,29 @@ impl RemoteClient {
         cancelled: &dyn Fn() -> bool,
         dispatched: &mut bool,
     ) -> Result<Option<Reply>, RemoteError> {
-        let check = || -> Result<(), RemoteError> {
-            if cancelled() {
-                return Err(error("MCP_REMOTE_CANCELLED"));
-            }
+        // 上层取消回调可能获取与 DispatchGuard 相同的锁，只能在锁外调用。
+        // 锁内仍检查本地时限和令牌；撤权本身由 DispatchGuard 原子核对。
+        let check_bound = || -> Result<(), RemoteError> {
             if Instant::now() >= end {
                 return Err(error("MCP_REMOTE_TIMEOUT"));
             }
             self.token.authorize(self.endpoint.url(), scope)?;
             Ok(())
         };
+        let check = || -> Result<(), RemoteError> {
+            if cancelled() {
+                return Err(error("MCP_REMOTE_CANCELLED"));
+            }
+            check_bound()
+        };
         check()?;
-        let mut socket = connect(self.endpoint.address, self.guard.as_deref(), &check, end)?;
+        let mut socket = connect(
+            self.endpoint.address,
+            self.guard.as_deref(),
+            &check,
+            &check_bound,
+            end,
+        )?;
         let name = ServerName::try_from(self.endpoint.host.clone())
             .map_err(|_| error("MCP_REMOTE_TLS_CONFIG"))?;
         let mut tls = ClientConnection::new(self.endpoint.tls.clone(), name)
@@ -387,7 +411,7 @@ impl RemoteClient {
             let mut progress = false;
             if tls.wants_write() {
                 let mut write = || {
-                    check().map_err(|_| io::Error::other("许可失效"))?;
+                    check_bound().map_err(|_| io::Error::other("许可失效"))?;
                     tls.write_tls(&mut socket)
                 };
                 let result = permitted(self.guard.as_deref(), &mut write)?;
@@ -517,6 +541,7 @@ fn connect(
     address: SocketAddr,
     guard: Option<&dyn DispatchGuard>,
     check: &dyn Fn() -> Result<(), RemoteError>,
+    check_bound: &dyn Fn() -> Result<(), RemoteError>,
     end: Instant,
 ) -> Result<TcpStream, RemoteError> {
     use std::os::fd::{AsRawFd, FromRawFd};
@@ -544,7 +569,7 @@ fn connect(
         target.sin_len = std::mem::size_of_val(&target) as u8;
     }
     let mut start = || {
-        check().map_err(|_| io::Error::other("许可失效"))?;
+        check_bound().map_err(|_| io::Error::other("许可失效"))?;
         let result = unsafe {
             libc::connect(
                 fd,

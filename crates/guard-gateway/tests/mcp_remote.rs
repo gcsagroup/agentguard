@@ -456,3 +456,35 @@ fn 错误参数和调用前取消均没有新增网络请求() {
     assert!(!e.dispatched);
     assert_eq!(f.count(), 3);
 }
+
+#[test]
+fn 持有派发锁时不会重入上层取消回调() {
+    struct LockedGuard(Arc<Mutex<()>>);
+    impl DispatchGuard for LockedGuard {
+        fn with_permission(
+            &self,
+            write: &mut dyn FnMut() -> io::Result<usize>,
+        ) -> Option<io::Result<usize>> {
+            let _lock = self.0.lock().unwrap();
+            Some(write())
+        }
+    }
+    let fixture = Fixture::new(Mode::Json);
+    let mut client = fixture.client();
+    let lock = Arc::new(Mutex::new(()));
+    let reentered = AtomicBool::new(false);
+    client
+        .set_dispatch_guard(Box::new(LockedGuard(lock.clone())))
+        .unwrap();
+    let cancelled = || {
+        if lock.try_lock().is_err() {
+            reentered.store(true, Ordering::Release);
+        }
+        false
+    };
+    client.initialize(TIME, &cancelled).unwrap();
+    assert!(
+        !reentered.load(Ordering::Acquire),
+        "取消回调可能使用同一许可锁，锁内调用会死锁"
+    );
+}

@@ -11,7 +11,7 @@ const option=key=>process.argv[process.argv.indexOf(key)+1];
 assert.ok(process.argv.includes('--out')&&process.argv.includes('--package'));
 const out=resolve(option('--out')),source=resolve(option('--package'));
 assert.ok(isAbsolute(out));await mkdir(out,{mode:0o700});
-const binary=join(ROOT,'target/debug/agentguard-mcp');
+const binary=process.argv.includes('--binary')?resolve(option('--binary')):join(ROOT,'target/debug/agentguard-mcp');
 const report={scope:'真实网关 CLI、官方 Filesystem 服务与独立合成故障探针；脚本批准，不计原生人工验收',binarySha256:createHash('sha256').update(await readFile(binary)).digest('hex'),image:DEFAULT_IMAGE,checks:[],receipts:[]};
 const check=(name,ok)=>{report.checks.push({name,passed:!!ok});assert.ok(ok,name);};
 const record=value=>{report.receipts.push(value);return value;};

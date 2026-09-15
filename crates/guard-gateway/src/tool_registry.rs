@@ -222,6 +222,7 @@ struct Review {
 pub struct ToolRegistry {
     entries: BTreeMap<String, Entry>,
     proxy_manifests: BTreeMap<String, Sha256Digest>,
+    remote_connections: BTreeMap<String, Value>,
     reviews: HashMap<String, Review>,
     journal: Option<ExecutionJournal>,
     events: usize,
@@ -491,7 +492,7 @@ impl ToolRegistry {
         let result = json!({"review_id":review.id,"review_nonce":review.nonce,"expires_at_ms":review.expires_at_ms,"registration_id":review.registration_id,
             "manifest_sha256":entry.summary.manifest_sha256,"manifest":manifest,"summary":entry.summary,
             "scan":{"boundary_marker":scan.breakout.is_some(),"text_anomaly":!scan.anomalies.is_empty(),"verified_sensitive":scan.confidentiality().is_some(),"approval_authority":"none"},
-            "instruction_authority":"none","dispatch_supported":self.dispatch_supported(entry)});
+            "instruction_authority":"none","dispatch_supported":self.dispatch_supported(entry),"remote_connection":self.remote_connection(entry)});
         self.reviews.insert(service.into(), review);
         Ok(result)
     }
@@ -616,6 +617,7 @@ impl ToolRegistry {
             // 下游元数据不能伪装宿主回执；原始内容仍在独立复核和描述摘要中。
             let downstream = published.as_object_mut().expect("已验证工具对象").remove("_meta");
             published["_meta"] = json!({"agentguard":{"registration":binding,"instruction_authority":"none"}});
+            if let Some(connection) = self.remote_connection(entry) { published["_meta"]["agentguard"]["remote_connection"] = connection.clone(); }
             if let Some(metadata) = downstream {
                 published["_meta"]["agentguard"]["downstream_metadata"] = metadata;
             }
@@ -638,6 +640,35 @@ impl ToolRegistry {
             .insert(manifest.service_id.clone(), hash);
         Ok(())
     }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn attach_remote_proxy(
+        &mut self,
+        manifest: &ToolServiceManifest,
+        connection: Value,
+    ) -> Result<()> {
+        let hash = digest(&guard_schema::registry_canonical_bytes(
+            "remote-connection",
+            connection.clone(),
+        ));
+        ensure!(
+            manifest
+                .mcp
+                .as_ref()
+                .is_some_and(|m| m.execution_sha256 == hash)
+                && manifest.package.sha256 == hash
+                && manifest.package.package_id == "agentguard-remote-connection-config",
+            "远程连接原文与实际登记身份不一致"
+        );
+        self.attach_proxy(manifest)?;
+        self.remote_connections
+            .insert(manifest.service_id.clone(), connection);
+        Ok(())
+    }
+    fn remote_connection(&self, entry: &Entry) -> Option<&Value> {
+        self.dispatch_supported(entry)
+            .then(|| self.remote_connections.get(&entry.summary.service_id))
+            .flatten()
+    }
     fn dispatch_supported(&self, entry: &Entry) -> bool {
         entry.summary.builtin
             || self.proxy_manifests.get(&entry.summary.service_id)
@@ -646,7 +677,7 @@ impl ToolRegistry {
     pub fn status(&self) -> Value {
         json!({"persistent":self.journal.is_some(),"healthy":self.healthy(),"events":self.events,"max_events":MAX_EVENTS,
             "services":self.entries.iter().map(|(service,e)|json!({"service_id":service,"namespace":e.summary.namespace,"state":e.state,"registration_id":e.registration_id,
-                "manifest_sha256":e.summary.manifest_sha256,"observed_in_process":e.manifest.is_some(),"builtin":e.summary.builtin,"dispatch_supported":self.dispatch_supported(e)})).collect::<Vec<_>>()})
+                "manifest_sha256":e.summary.manifest_sha256,"observed_in_process":e.manifest.is_some(),"builtin":e.summary.builtin,"dispatch_supported":self.dispatch_supported(e),"remote_connection":self.remote_connection(e)})).collect::<Vec<_>>()})
     }
 }
 

@@ -12,10 +12,14 @@ use std::time::Instant;
 impl Server {
     pub fn with_mcp_services(mut self, config: ProxyConfig, recovery_path: &Path) -> Result<Self> {
         ensure!(
-            config.version == 1 && !config.services.is_empty() && config.services.len() <= 4,
+            config.version == 1
+                && (1..=4).contains(&(config.services.len() + config.remote_services.len())),
             "服务配置版本或数量无效"
         );
-        ensure!(self.proxies.is_empty(), "不能重复配置服务");
+        ensure!(
+            self.proxies.is_empty() && self.remote_proxies.is_empty(),
+            "不能重复配置服务"
+        );
         ensure!(
             self.journal.as_ref().is_some_and(ExecutionJournal::healthy),
             "第三方服务需要持久执行审计"
@@ -32,12 +36,29 @@ impl Server {
         self.proxy_recovery = Some(RecoveryLog::open(recovery_path)?);
         let mut ids = std::collections::HashSet::new();
         let mut namespaces = std::collections::HashSet::new();
-        for service in config.services {
+        for (id, namespace) in config
+            .services
+            .iter()
+            .map(|s| (&s.service_id, &s.namespace))
+            .chain(
+                config
+                    .remote_services
+                    .iter()
+                    .map(|s| (&s.service_id, &s.namespace)),
+            )
+        {
             ensure!(
-                ids.insert(service.service_id.clone())
-                    && namespaces.insert(service.namespace.clone()),
+                ids.insert(id.clone()) && namespaces.insert(namespace.clone()),
                 "服务标识或命名空间重复"
             );
+        }
+        // 凭据和网络配置全部先验，不让后面的坏配置触发前面服务的部分发现。
+        let remotes = config
+            .remote_services
+            .into_iter()
+            .map(|s| crate::mcp_remote_service::RemoteSource::load(s, self.gate.shell()))
+            .collect::<Result<Vec<_>>>()?;
+        for service in config.services {
             let proxy = ProxyService::discover(
                 service,
                 &image,
@@ -51,11 +72,21 @@ impl Server {
                 .attach_proxy(&proxy.manifest)?;
             self.proxies.push(proxy);
         }
+        for source in remotes {
+            self.remote_proxies.push(source.discover(&self.registry)?);
+        }
         Ok(self)
     }
     pub(super) fn proxy_call(&mut self, name: &str, args: &Value) -> Value {
         if self.host_session_state() != "active" {
             return refusal("宿主会话未激活，第三方服务未启动");
+        }
+        if let Some(index) = self
+            .remote_proxies
+            .iter()
+            .position(|p| p.original_name(name).is_some())
+        {
+            return self.remote_proxy_call(index, name, args);
         }
         let Some((proxy, original)) = self
             .proxies
@@ -98,7 +129,7 @@ impl Server {
         result
     }
 }
-fn refusal(message: &str) -> Value {
+pub(super) fn refusal(message: &str) -> Value {
     let mut result = mcp::tool_error(message);
     result["_meta"] = json!({"agentguard":{"outcome":"refused","dispatched":false,"instruction_authority":"none"}});
     result
@@ -334,6 +365,39 @@ impl ProxyHost<'_> {
                 result = refusal(&format!("服务启动未获批准：{}", resolution.source));
             }
         }
+        ProxyCompletion {
+            pending: self.pending,
+            sources: self.sources,
+            journal: self.journal,
+            journal_failed: self.journal_failed,
+        }
+        .finish(
+            &action,
+            approval_id.as_deref(),
+            output,
+            result,
+            "process",
+            serde_json::to_value(receipt)?,
+        )
+    }
+}
+
+pub(super) struct ProxyCompletion<'a> {
+    pub pending: &'a PendingConfirm,
+    pub sources: &'a SharedSources,
+    pub journal: &'a ExecutionJournal,
+    pub journal_failed: &'a mut bool,
+}
+impl ProxyCompletion<'_> {
+    pub fn finish(
+        &mut self,
+        action: &ActionSnapshot,
+        approval_id: Option<&str>,
+        mut output: ExecOutput,
+        mut result: Value,
+        runtime_field: &str,
+        receipt: Value,
+    ) -> Result<Value> {
         // 整个下游 JSON（含结构化内容和元数据）先进入来源检测，再添加宿主回执。
         output.detail = serde_json::to_string(&result)?;
         let source = if output.dispatched {
@@ -370,12 +434,7 @@ impl ProxyHost<'_> {
         if !*self.journal_failed
             && self
                 .journal
-                .finished(
-                    &action,
-                    approval_id.as_deref(),
-                    output.outcome,
-                    Some(&output),
-                )
+                .finished(action, approval_id, output.outcome, Some(&output))
                 .is_err()
         {
             *self.journal_failed = true;
@@ -388,8 +447,9 @@ impl ProxyHost<'_> {
             .context("工具返回不是对象")?
             .remove("_meta");
         result["_meta"] = json!({"agentguard":{"outcome":output.outcome,"dispatched":output.dispatched,
-            "process":receipt,"action_sha256":crate::tool_registry::digest(&action.canonical_bytes()),
+            "action_sha256":crate::tool_registry::digest(&action.canonical_bytes()),
             "source":source,"instruction_authority":"none","downstream_metadata":metadata}});
+        result["_meta"]["agentguard"][runtime_field] = receipt;
         Ok(result)
     }
 }

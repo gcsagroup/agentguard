@@ -1,0 +1,344 @@
+{
+  "recorded_at": "2026-09-15T00:47:36.933851+00:00",
+  "task": "AGD-017",
+  "status": "completed",
+  "scope": "限定 MCP 2025-06-18 的本地 stdio 与预配签名令牌远程 HTTPS 生产 CLI 代理；自有回环服务联合实操",
+  "base_commit": "91ff26e5fa40aaa412dc5c32edd64c1fba2d2d30",
+  "source_files": {
+    "crates/guard-gateway/src/gate.rs": "2f2584e9461babff4337b871065a57f2a82b6210ae1d6138c77608f02b3c4202",
+    "crates/guard-gateway/src/lib.rs": "dce2ae52a353c1c2b150b4f3e1cbd0322ba8a75ce79ea690a7ed5a761ddc233c",
+    "crates/guard-gateway/src/mcp_proxy.rs": "5a896aa4ac52dbd76e586f5e8320d2f61a9c254d4c9c35a014244a56476da1c0",
+    "crates/guard-gateway/src/mcp_remote.rs": "8e1f794c3cd398408af3961dbe9d54d2e25f9640d91f05b06aea1080f48e740d",
+    "crates/guard-gateway/src/mcp_remote/auth.rs": "6ebd1a206e0f14a3def72b9ad27c4ff594ef8a8d44afc5e0c3ccbfc99ac9eb21",
+    "crates/guard-gateway/src/mcp_remote_service.rs": "63d2f20bda9053aab71a0e67aa3902d09c028ca8098b12b8e054a2731576c048",
+    "crates/guard-gateway/src/proxy_control.rs": "fbc6776869e7faf5de00ae64dd438b348e42667a8540a5dbe1dfac766353b81a",
+    "crates/guard-gateway/src/remote_control.rs": "9939967604b5d53b76f5cb6f8df3d264f64d5a6f0aff9d98c18a0be9334c467e",
+    "crates/guard-gateway/src/server.rs": "b905e059442e944e0109317531a222752a5b1e176ccd39ba0d093dbea36c6aa6",
+    "crates/guard-gateway/src/tool_registry.rs": "6278d5abd1a1b1ee57436a6471bb9b4a63039d41179189cce2a20e72d01217f7",
+    "crates/guard-gateway/tests/fixtures/remote-tls/README.zh.md": "c2639d58c0e862ead38c53fec2288c63c05721b5b6908f1646bb50fa70ad1ad8",
+    "crates/guard-gateway/tests/fixtures/remote-tls/server.der": "d2468ff6fae3dca98a5210e7dc508cfd8ac776e1c1b935a226ee1d7db713b776",
+    "crates/guard-gateway/tests/mcp_remote.rs": "c76fe42867199f25604d1a8451a9a6fa07257a833b745010991b062de0247c62",
+    "scripts/acceptance/agd-mcp-proxy.mjs": "aee531ccd4547a392eaa3d44b06e363c183dffe07802f6509662ca4258337601",
+    "scripts/acceptance/agd-mcp-remote-fixture.mjs": "c3f9f5f469d865d1854bf056f5a6dfc40ab17f7838eeef7443be2296581a1e9c",
+    "scripts/acceptance/agd-mcp-remote-product.mjs": "a9ec033ead374b95eb12ef179bedc56bee5ad8cb6142d2efc02609b4814697eb"
+  },
+  "tests": {
+    "workspace_passed": 1385,
+    "workspace_suites": 60,
+    "workspace_ignored": 14,
+    "desktop_passed": 122,
+    "desktop_ignored": 9,
+    "real_tls_passed": 10,
+    "clippy": "passed",
+    "fmt": "passed",
+    "matrix": "passed",
+    "supply_chain_graphs_passed": 3
+  },
+  "runtime": {
+    "checks": [
+      {
+        "name": "错误受众配置在零远程请求时拒绝",
+        "passed": true
+      },
+      {
+        "name": "错误签发者配置在零远程请求时拒绝",
+        "passed": true
+      },
+      {
+        "name": "过期令牌配置在零远程请求时拒绝",
+        "passed": true
+      },
+      {
+        "name": "缺少调用范围配置在零远程请求时拒绝",
+        "passed": true
+      },
+      {
+        "name": "额外范围配置在零远程请求时拒绝",
+        "passed": true
+      },
+      {
+        "name": "实际发现只发送发现令牌且没有工具调用",
+        "passed": true
+      },
+      {
+        "name": "未认可本地及远程工具均不公开",
+        "passed": true
+      },
+      {
+        "name": "未认可远程调用没有新增连接请求",
+        "passed": true
+      },
+      {
+        "name": "复核显示与实际观测绑定的端点和非代码证明",
+        "passed": true
+      },
+      {
+        "name": "两类服务同会话公开14个官方和3个远程工具",
+        "passed": true
+      },
+      {
+        "name": "参数不能新增网络目标且Schema错误零请求",
+        "passed": true
+      },
+      {
+        "name": "批准展示端点完整参数及凭据摘要但不含令牌",
+        "passed": true
+      },
+      {
+        "name": "独立拒绝留下未派发回执及零远端副作用",
+        "passed": true
+      },
+      {
+        "name": "本地实际读取带来源",
+        "passed": true
+      },
+      {
+        "name": "经过批准的本地资料在远端实际写入并由服务端读回",
+        "passed": true
+      },
+      {
+        "name": "远端返回来源与宿主回执不被自报元数据覆盖",
+        "passed": true
+      },
+      {
+        "name": "生产路径经SSE握手清单和工具返回读取同一远端内容",
+        "passed": true
+      },
+      {
+        "name": "远端结果写入本地隔离副本但原件未自动变化",
+        "passed": true
+      },
+      {
+        "name": "独立预览批准后完整往返结果在宿主原件读回",
+        "passed": true
+      },
+      {
+        "name": "远端已写入却断连时保持未知并暂停",
+        "passed": true
+      },
+      {
+        "name": "未知状态没有自动重发且暂停后的新调用被拒",
+        "passed": true
+      },
+      {
+        "name": "新批准的独立读回确认原未知动作真实效果",
+        "passed": true
+      },
+      {
+        "name": "错误输出Schema保留未知并暂停",
+        "passed": true
+      },
+      {
+        "name": "远端重定向被拒且不访问元数据目标",
+        "passed": true
+      },
+      {
+        "name": "运行中暂停撤销本地通道但结果仍为未知",
+        "passed": true
+      },
+      {
+        "name": "实证远端可能在本地暂停后继续，不能伪称停止成功",
+        "passed": true
+      },
+      {
+        "name": "登记撤销和迟到批准均不产生远程请求",
+        "passed": true
+      },
+      {
+        "name": "网关真实崩溃重启没有重放远端动作",
+        "passed": true
+      },
+      {
+        "name": "持久日志将崩溃前未结束远端动作恢复为未知",
+        "passed": true
+      },
+      {
+        "name": "运行前实际清单变化撤销旧认可且工具调用未发出",
+        "passed": true
+      },
+      {
+        "name": "生产总时限到达后未知暂停且没有重发",
+        "passed": true
+      },
+      {
+        "name": "实际开始审计失败时零远程请求并锁存故障",
+        "passed": true
+      },
+      {
+        "name": "最终两端账目与既有输入一致且所有服务端验签无错",
+        "passed": true
+      }
+    ],
+    "local_regression_checks": [
+      {
+        "name": "首次发现只挂空目录，没有初始化写入副本",
+        "passed": true
+      },
+      {
+        "name": "待登记第三方工具不公开",
+        "passed": true
+      },
+      {
+        "name": "未登记调用不启动服务",
+        "passed": true
+      },
+      {
+        "name": "批准后公开官方全部14项和2项探针",
+        "passed": true
+      },
+      {
+        "name": "不符合Schema的请求在服务启动前拒绝",
+        "passed": true
+      },
+      {
+        "name": "批准前副本与宿主均无目标文件",
+        "passed": true
+      },
+      {
+        "name": "独立拒绝成功",
+        "passed": true
+      },
+      {
+        "name": "拒绝产生明确未派发终态",
+        "passed": true
+      },
+      {
+        "name": "官方工具经过产品入口真实写入副本",
+        "passed": true
+      },
+      {
+        "name": "写入未自动回写原件",
+        "passed": true
+      },
+      {
+        "name": "官方读取返回实际内容和来源",
+        "passed": true
+      },
+      {
+        "name": "初始化副作用受同次批准覆盖且凭据和外连被隔离",
+        "passed": true
+      },
+      {
+        "name": "下游自报元数据不能覆盖宿主回执",
+        "passed": true
+      },
+      {
+        "name": "错误输出Schema在派发后保留未知而不冒充成功",
+        "passed": true
+      },
+      {
+        "name": "独立预览并批准后原件实际读回服务写入",
+        "passed": true
+      },
+      {
+        "name": "撤销待批准动作无副作用且旧批准失效",
+        "passed": true
+      },
+      {
+        "name": "已派发的暂停记为未知并清理全部后代",
+        "passed": true
+      },
+      {
+        "name": "实际重启按精确身份清理旧容器并记录未知",
+        "passed": true
+      },
+      {
+        "name": "原动作没有重放，新副本没有悬挂副作用",
+        "passed": true
+      },
+      {
+        "name": "实际清单改变使旧认可失效且不发送工具调用",
+        "passed": true
+      },
+      {
+        "name": "真实开始审计写入失败时服务不启动且会话禁止新动作",
+        "passed": true
+      }
+    ],
+    "binary_sha256": "0e0a33d77ea01c90f499b0a5d672b91e1218b612879d81b7a735b6c72ecf6d28",
+    "binary_path": ".artifacts/m2-remote-product-2026-09-15/candidate-03/agentguard-mcp",
+    "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+    "report_sha256": "58f6fd66de8afafe5947ae1acc6dc24d14287e385aa3b6878d04a7457bd7801c",
+    "local_regression_report_sha256": "4dc92665c32ddd1dbae244052db1056a545eed698c8eaf5f44889a9ba3e43cb0",
+    "manifest_sha256": {
+      "filesystem": "9c2e74b28ae9d0504e9dece5e44211981b4b9c4c3fc61ac82e0c3bb037de8d4a",
+      "remote": "71527685cd2af3701c08e830b4b126cd992be6a276a1d6afde008d26a6222bac"
+    },
+    "all_17_descriptors_independently_verified": true,
+    "connection_sha256": "ba27db9e12675693377535b00c4816ea6b0a24010c88e017f7e69ea4e4b74751",
+    "remote_code_attested": false,
+    "requests": 51,
+    "effect_count": 8,
+    "actual_timeout_ms": 30067,
+    "real_file_roundtrip": true,
+    "independent_source_hashes_verified": true,
+    "crash_recovery_no_replay": true,
+    "scope": "脚本仅批准自有合成任务；非原生人工、模型自主或公网生产验收"
+  },
+  "audit": {
+    "joint_execution": {
+      "rows": 65,
+      "chain_verified": true,
+      "head": "d38b36c9ddc9f00d50023f851e6173faa582e0d813fa78f265d25ecae739cf7f",
+      "copy_sha256": "939cb7340fd741d6129147544254d598a89542c9be05918bfa1434ab32a11b24",
+      "raw_tool_contents_and_tokens_absent": true
+    },
+    "joint_registry": {
+      "rows": 12,
+      "chain_verified": true,
+      "head": "b82efa4ce7e28fbd56cd27a16c81bbce3cc9dfba90ef0f3d1ca820bc2750d7f8",
+      "copy_sha256": "cf0fc4985ac46dcedcf3f41491831c05b65f8db4cd63008e19e90b928b8822a1",
+      "raw_tool_contents_and_tokens_absent": true
+    },
+    "joint_sources": {
+      "rows": 11,
+      "chain_verified": true,
+      "head": "3a0a88e8fede5e750ab5d47446b2639fb49b67c12588c06bf46698e0485cbf3c",
+      "copy_sha256": "cc636070748e09e7b78eed7b661aac4b0000a8099b25ed5c092c2332e8c895ce",
+      "raw_tool_contents_and_tokens_absent": true
+    },
+    "local_execution": {
+      "rows": 38,
+      "chain_verified": true,
+      "head": "14373ebafaeb22dea99646bd443863a3709462781ffc376e0a5ff627050fb199",
+      "copy_sha256": "21d4b71ecac105131af9607eebb7f6a313aa95460596ec038d7512f513b26c99",
+      "raw_tool_contents_and_tokens_absent": true
+    },
+    "local_registry": {
+      "rows": 11,
+      "chain_verified": true,
+      "head": "55973f33939e9a65984d25c3a02dff728b7b5e8d7f4ec1b254f1ebb35ac7ec7e",
+      "copy_sha256": "69bcd02fffb9f895fd3315a16944c551cf0956aa004332f78548726e91c32b11",
+      "raw_tool_contents_and_tokens_absent": true
+    },
+    "local_sources": {
+      "rows": 6,
+      "chain_verified": true,
+      "head": "53b014eb96dda96e5053c31b6a3a59587cf6e72b9e56f24eab623b029a4ea3e2",
+      "copy_sha256": "45f130a342ff53dec3932000e488ceee08c8979c86199581007bd3dbdbd25244",
+      "raw_tool_contents_and_tokens_absent": true
+    }
+  },
+  "preserved": {
+    "files": 127,
+    "all_matched": true,
+    "app_files": 90,
+    "app_all_matched": true,
+    "strict_codesign": true
+  },
+  "retained_failures": [
+    "gateway-02.log",
+    "runtime-01/report.json",
+    "runtime-02/report.json",
+    "lock-regression-before.log"
+  ],
+  "prior_ci": {
+    "run": 34912428557,
+    "commit": "91ff26e5fa40aaa412dc5c32edd64c1fba2d2d30",
+    "passed": 13,
+    "total": 13
+  },
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go"
+}

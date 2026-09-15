@@ -118,7 +118,7 @@ impl AccessToken {
             not_before,
         })
     }
-    pub(super) fn authorize(&self, audience: &str, scope: &str) -> Result<&str, RemoteError> {
+    pub(crate) fn authorize(&self, audience: &str, scope: &str) -> Result<&str, RemoteError> {
         let now = now()?;
         if self.audience != audience
             || now < self.issued
