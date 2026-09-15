@@ -347,9 +347,11 @@ export const workspaceMessages = {
   unavailable: ["尚未就绪", "尚未就緒", "Not ready"],
   checking: ["正在检查…", "正在檢查…", "Checking…"],
   permissionHelp: ["授权后仍没生效？", "授權後仍未生效？", "Permission still not working?"],
+  permissionsReady: ["权限已就绪", "權限已就緒", "Permissions ready"],
+  permissionsReadyHint: ["当前应用的辅助功能和屏幕录制权限均已检测到：", "已偵測到目前應用程式的輔助使用和螢幕錄製權限：", "Accessibility and Screen Recording access detected for the current app:"],
   currentAppHint: ["请确认系统设置中添加的是当前应用：", "請確認系統設定中加入的是目前應用程式：", "Make sure System Settings lists this exact app:"],
   openSystem: ["前往系统设置", "前往系統設定", "Open System Settings"],
-  recheck: ["我已授权，重新检测", "我已授權，重新偵測", "I've granted access — recheck"],
+  recheck: ["重新检测权限", "重新偵測權限", "Recheck permissions"],
   diagnosticsLink: ["查看诊断详情 →", "查看診斷詳情 →", "View diagnostics →"],
   desktopObservation: ["桌面观察", "桌面觀察", "Desktop observation"],
   browserProtection: ["浏览器防护", "瀏覽器防護", "Browser protection"],
@@ -451,7 +453,7 @@ export const workspaceMessages = {
   statusFailed: ["暂时无法获取防护状态，已禁用开始与恢复。请刷新后重试。", "暫時無法取得防護狀態，已停用開始與恢復。請重新整理後再試。", "Protection status is unavailable. Start and resume are disabled; refresh to retry."],
   recheckMissing: ["仍未检测到辅助功能权限。核对当前应用；若系统要求，请退出后重新打开。", "仍未偵測到輔助使用權限。請核對目前應用程式；若系統要求，請結束後重新開啟。", "Accessibility is still missing. Check the exact app and relaunch if requested by macOS."],
   recheckReady: ["必需权限已检测到；是否可开始还取决于加密记录和观察器状态。", "已偵測到必要權限；能否開始仍取決於加密記錄與觀察器狀態。", "Required permission detected. Encrypted records and observer readiness are checked separately."],
-  localTest: ["本地验收版 · Ver 2.0 (014)", "本機驗收版 · Ver 2.0 (014)", "Local acceptance build · Ver 2.0 (014)"],
+  localTest: ["本地验收版 · Ver 2.0 (015)", "本機驗收版 · Ver 2.0 (015)", "Local acceptance build · Ver 2.0 (015)"],
   productionBuild: ["正式数据环境", "正式資料環境", "Production data profile"],
 };
 

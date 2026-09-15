@@ -1,6 +1,7 @@
 """从冻结资料、原始审计、实际文件及 HTTP 账本交叉核对 DOM 和本地模型验收。"""
 import argparse
 import collections
+import contextlib
 import datetime
 import hashlib
 import json
@@ -57,8 +58,37 @@ def load_run(path, kind, denominator):
     for name in names:
         rows[name] = audit_rows(path / name)
         assert rows[name] == audit_rows(fixture / 'operator' / name), name
-        proof[name] = {'rows': len(rows[name]), 'sha256': sha(path / name), 'head': rows[name][-1]['record_hash']}
-    sources = {s['source']['source_id']: s['source'] for s in [json.loads(r['event_json']) for r in rows['audit.db.sources.db']]}
+        proof[name] = {'rows': len(rows[name]), 'sha256': sha(path / name), 'head': rows[name][-1]['record_hash'] if rows[name] else 'AGENTGUARD-AUDIT-GENESIS-v1'}
+    execution_types = {'GatewayDecision', 'GatewayExecutionStarted', 'GatewayExecutionFinished'}
+    main = rows['audit.db']
+    assert all(r['event_type'] in execution_types | {'GatewaySourceObserved', 'GatewaySourceStorageBinding'} for r in main), '主日志存在未核对的事件类型'
+    bindings = [r for r in main if r['event_type'] == 'GatewaySourceStorageBinding']
+    migrated = [r for r in main if r['event_type'] == 'GatewaySourceObserved']
+    legacy = rows['audit.db.sources.db']
+    assert all(r['event_type'] == 'GatewaySourceObserved' for r in legacy)
+    if bindings:
+        # 新来源与执行共用日志；仍须完整验证只读旧库的身份、链头和导入前缀。
+        assert len(bindings) == 1 and bindings[0]['id'] == 'gateway-source-storage/v1'
+        binding = json.loads(bindings[0]['event_json'])
+        assert set(binding) == {'schema', 'legacy_head_sha256', 'legacy_log_id_sha256', 'legacy_records'}
+        assert binding['schema'] == 'gateway_source_storage_v1'
+        assert type(binding['legacy_records']) is int and binding['legacy_records'] == len(legacy)
+        assert binding['legacy_head_sha256'] == proof['audit.db.sources.db']['head'], '旧来源链头绑定不一致'
+        with contextlib.closing(sqlite3.connect((path / 'audit.db.sources.db').as_uri() + '?mode=ro', uri=True)) as db:
+            log_id = db.execute("SELECT value FROM audit_meta WHERE key='log_id'").fetchone()
+        assert log_id and binding['legacy_log_id_sha256'] == digest(log_id[0]), '旧来源日志身份绑定不一致'
+        payload_fields = fields + ['attributed_agent', 'user_decision']
+        assert len(migrated) >= len(legacy)
+        assert [[r.get(k) for k in payload_fields] for r in migrated[:len(legacy)]] == [[r.get(k) for k in payload_fields] for r in legacy], '迁移来源前缀不一致'
+        source_rows = migrated
+    else:
+        assert not migrated, '主日志来源缺少迁移绑定'
+        source_rows = legacy
+    source_events = [json.loads(r['event_json']) for r in source_rows]
+    assert all(e['source_event_version'] == 1 and e['observed_at_ms'] == r['timestamp_ms'] and r['id'] == 'source/' + digest(e['source']['source_id']) for r, e in zip(source_rows, source_events))
+    sources = {s['source']['source_id']: s['source'] for s in source_events}
+    assert len(sources) == len(source_rows), '来源 ID 重复'
+    rows['audit.db'] = [r for r in main if r['event_type'] in execution_types]
     previous = []
     for source in sources.values():
         assert source['observation']['parent_source_ids'] == previous
@@ -106,7 +136,8 @@ for case in dom['cases']:
     source = dom_sources[case['evidence']['source_id']]
     receipt = next(r for r in dom['receipts'] if r.get('result', {}).get('_meta', {}).get('agentguard', {}).get('source', {}).get('source_id') == source['source_id'])
     guard = receipt['result']['_meta']['agentguard']
-    assert guard['source'] == source and guard['instruction_authority'] == 'none'
+    assert guard['source'] == source, 'DOM 来源回执与实际日志不一致'
+    assert guard['instruction_authority'] == 'none'
     assert not re.search('M2_PRIVATE_(PASSWORD|HIDDEN|TEXTAREA)|raw_base64|_agentguard_capture', compact(receipt))
     content = receipt['result']['content']
     visible = json.loads(content[0]['text'])
@@ -156,7 +187,7 @@ for case, original in zip(model['cases'], manifest['cases']):
     assert case['request'] == expected_request == read(args.model / f"{case['id']}-request.json")
     assert case['boundaryStatus'] == 'passed'
     advice = (args.model / f"{case['id']}-advice.txt").read_text()
-    assert advice == case['response']['content'] == (model_fixture / 'workspace' / f"{case['id']}-advice.txt").read_text()
+    assert advice == case['response']['content'] == (model_fixture / 'workspace' / f"{case['id']}-advice.txt").read_text(), '模型回答与冻结文件不一致'
     assert case['response']['model'] == model['model'] and case['response']['finishReason'] == 'stop'
     assert re.fullmatch('[a-f0-9]{64}', case['response']['rawResponseSha256'])
     verdict = json.loads(advice)

@@ -101,6 +101,9 @@ export function renderWorkspace(st) {
     el.textContent = uiText(key);
     el.dataset.state = ready ? "ready" : el.dataset.readiness === "screen" ? "optional" : "missing";
   });
+  const permissionsReady = !!st.accessibility && !!st.screen_capture;
+  byId("permission-card-title").textContent = uiText(permissionsReady ? "permissionsReady" : "permissionHelp");
+  byId("permission-card-hint").textContent = uiText(permissionsReady ? "permissionsReadyHint" : "currentAppHint");
   const state = st.protection_state;
   byId("overview-title").textContent = uiText(state === "active" ? "activeDesktopTitle" : !st.audit_ready || st.session_active ? "checkTitle" : st.accessibility ? "readyTitle" : "welcome");
   byId("overview-summary").textContent = !st.accessibility ? uiText("permissionSummary") : st.session_active || !st.audit_ready ? byId("watching").textContent : uiText("readySummary");

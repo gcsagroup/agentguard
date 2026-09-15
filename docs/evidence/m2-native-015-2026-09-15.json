@@ -1,0 +1,269 @@
+{
+  "recorded_at": "2026-09-15T15:33:36.916062+00:00",
+  "task": "AGD-020",
+  "status": "in_progress",
+  "app": {
+    "path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "version": "2.0.0-dev.15",
+    "build_number": "15",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "bundle_files": 91,
+    "signing_identity_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "strict_signature_verified": true,
+    "gatekeeper_exit": 3
+  },
+  "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+  "gateway_rebuilt": false,
+  "gateway_production_inputs_unchanged": 229,
+  "ui_checks": 129,
+  "permissions": {
+    "recorded_at": "2026-09-15T15:33:36.909320+00:00",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "quit_proof": "/Users/lazy/Projects/agent-guard/.artifacts/m2-acceptance-close-2026-09-15/quit-before-restart-15.json",
+    "both_permissions_after_same_package_restart": true,
+    "overview_state": "未在守护",
+    "ready_card": "权限已就绪",
+    "version": "Ver 2.0 (015)",
+    "system_authorization_actions": 0
+  },
+  "native": {
+    "verified_at": "2026-09-15T15:29:51.478798+00:00",
+    "run_id": "44710bc2-309b-491d-985c-e541b2fc52b9",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+    "host_tests_passed": 4,
+    "initial_tests_failed": 2,
+    "writeback_applied": true,
+    "changed_files": {
+      "CHANGE.md": "a2ad12b0c8161b1f4578ef0561b23843768c76fe0bfce7dafa2dcfbcf7f63342",
+      "numbers.py": "6ba848ff26f6126e8777f88ab585d68ab4e856dd9f3a67fc33f6fadbcfbfcfe9"
+    },
+    "tests_readme_unchanged": true,
+    "recovery_original_verified": true,
+    "control_removed": true,
+    "owned_gateway_exited": true,
+    "channels": {
+      "audit.db": {
+        "rows": 35,
+        "head": "67f38d7011ab674bb22541d015efb622e37c825fe13ab4f4973061c8217bc893",
+        "events": {
+          "GatewaySourceStorageBinding": 1,
+          "GatewayDecision": 9,
+          "GatewayExecutionStarted": 9,
+          "GatewaySourceObserved": 7,
+          "GatewayExecutionFinished": 9
+        },
+        "copy_sha256": "ffec3ae265d9c3bfc9f0f4ce0ee1abbd9dd42d1fb68d48c63de303174734a09c"
+      },
+      "audit.db.sources.db": {
+        "rows": 0,
+        "head": null,
+        "events": {},
+        "copy_sha256": "62c916b86084b5c4bc9ab705ab66028b24950e683a00b99cd39433da028c3d60"
+      },
+      "audit.db.tools.db": {
+        "rows": 3,
+        "head": "513de9152cdb2a476c98147c9b3e6609ca888d44d4db74fd12a5f93802d640fb",
+        "events": {
+          "GatewayToolRegistration": 3
+        },
+        "copy_sha256": "e8e5085e15fe61fb3cb8ea52c08758adb9afd862430e4335b825392619310545"
+      },
+      "model-egress.db": {
+        "rows": 16,
+        "head": "9b933bfdf9198140c5fb8c8fbe57a979ee2bb134a6eb63d76aba4432ca64b77e",
+        "events": {
+          "EgressDispatchStarted": 8,
+          "EgressDispatchFinished": 8
+        },
+        "copy_sha256": "4075e62622c8de5a6a710dcde1142c148f7a7aa76530d5b39af898536de1e6a8"
+      }
+    },
+    "history_runs_unchanged": 29,
+    "history_rows_unchanged": 1027,
+    "scope": "本机合成项目的一次真实模型修复、两次命令批准、全文预览和回写；非完整 M1 或发布验收"
+  },
+  "workspace": {
+    "tasks": 50,
+    "cycles": 100,
+    "passed": true
+  },
+  "dom_model": {
+    "recorded_at": "2026-09-15T15:01:43.859260+00:00",
+    "task": "AGD-020",
+    "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+    "dom": {
+      "cases": 21,
+      "groups": {
+        "normal": 6,
+        "known_attack": 7,
+        "unseen_variant": 7,
+        "truncation": 1
+      },
+      "outside_refusals": 21,
+      "approved_posts": 21,
+      "unapproved_posts": 0,
+      "audit": {
+        "audit.db": {
+          "rows": 211,
+          "sha256": "9b3ee5f8853c492d00e9b691a64a9e573fc85f1e7b7436a6e0733487a18deaa0",
+          "head": "c7243a7f9ec471230595d845b6592b852580a0afb3e09591402c759de8653f1b"
+        },
+        "audit.db.sources.db": {
+          "rows": 0,
+          "sha256": "6924ea83692a7d24bbfea9fa6d61aa88f768746398dd370ead57ec28dbb25738",
+          "head": "AGENTGUARD-AUDIT-GENESIS-v1"
+        },
+        "audit.db.tools.db": {
+          "rows": 3,
+          "sha256": "4a6dca7b304948ac43c1bb242c14206b8d48d7d751a2aa67e973b1ccb2fd171b",
+          "head": "d6f95c8ca1c40d7561cbc11c7abfe3f1c70adee40b8a9b89ed02e9b2cb8289db"
+        },
+        "browser.db": {
+          "rows": 672,
+          "sha256": "28c6c0869a1272b0748d3ee1ace59b5e90e4f4b7435c63e61be9870bf43c939c",
+          "head": "8c044e94fd71be2618fc34ceacdc2bd893e05d682fb3f028c54f88dd0ff0ab77"
+        }
+      }
+    },
+    "model": {
+      "model": "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-4bit",
+      "cases": 9,
+      "correct_by_group": {
+        "normal": 3,
+        "known_attack": 3,
+        "unseen_variant": 3
+      },
+      "boundaries_passed": 9,
+      "outside_refusals": 6,
+      "audit": {
+        "audit.db": {
+          "rows": 61,
+          "sha256": "9f0632d44b74e5a58e13411f3b2a60c670e52bee5140e58ad648bb7422e5e63f",
+          "head": "387344cf8416d66263efde0860eb3ced7b48b06b3b46c3cc0db30d12c6551bc5"
+        },
+        "audit.db.sources.db": {
+          "rows": 0,
+          "sha256": "df62a50832800049815e8bf72ce2392919a14a8598be3de332768522cd8f318a",
+          "head": "AGENTGUARD-AUDIT-GENESIS-v1"
+        },
+        "audit.db.tools.db": {
+          "rows": 3,
+          "sha256": "597c05ddc0b7aa5a9b426e68103675ff67f6e8902d5fad7d34c2daa66c059848",
+          "head": "77c5d4dba6e64e24ad66fd051254397f88e22683212cdd580470e6afde793f9b"
+        }
+      },
+      "scope": "单次已加载模型建议与网关资料边界；不等于原生自主 Agent 或通用抗注入证明"
+    },
+    "f13": "deferred_unverified",
+    "whole_plan_complete": false,
+    "release": "no_go"
+  },
+  "verifier_negative_checks": {
+    "passed": true,
+    "checks": [
+      {
+        "case": "binding",
+        "rejected": true,
+        "reason": "旧来源日志身份绑定不一致",
+        "rehash_main_chain": true
+      },
+      {
+        "case": "dom_source",
+        "rejected": true,
+        "reason": "DOM 来源回执与实际日志不一致",
+        "rehash_main_chain": true
+      },
+      {
+        "case": "model_advice",
+        "rejected": true,
+        "reason": "模型回答与冻结文件不一致",
+        "rehash_main_chain": false
+      }
+    ],
+    "verifier_sha256": "25dcbe02c78bff299a5566c729b960bffb9140b0fb7ede2ac35b4dba16f5c566"
+  },
+  "ci": {
+    "commit": "b21b73534b91afb4184ad41d4ccd75f609c3cf47",
+    "run": 34985241161,
+    "passed": 13,
+    "total": 13
+  },
+  "artifacts": {
+    "build": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/candidate-15/build-report.json",
+      "sha256": "646ffd7dd26e710a75b0794dbc5f4481b0308807a805241543c08e28e95e8b7b"
+    },
+    "source_manifest": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/candidate-15/source-manifest.json",
+      "sha256": "4bdd00e3180e545fef3b95697bb9d88d8f196f04d51be6c1c9881fc591dd178c"
+    },
+    "gateway_reuse": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/candidate-15/gateway-reuse.json",
+      "sha256": "463e3efd04492a91042fdfde950e20fbac312d137c1aa963bbb4923733f4906d"
+    },
+    "ui": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/ui-permissions-source.log",
+      "sha256": "c315401c97466562ec1471fdbfcce0bc58c4fcfa238a36004e291962425e7aea"
+    },
+    "permissions": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/permissions-15.json",
+      "sha256": "686b0439b256a99c786b4dc5dec61a2ba5a1e19966ac925cd375d5d6647c89d1"
+    },
+    "permissions_restart": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/permissions-restart-15.json",
+      "sha256": "e9d2a955ad87c664640a432b5d1c2a797cc6fec8b0dccad1c5fc716fbaac787c"
+    },
+    "native": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/native-verification-15.json",
+      "sha256": "89c5895cdd953e4a7e38dafcb42181b32dcad5cdb123c42edc30b9782e6babf3"
+    },
+    "native_verifier": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/verify-native-15.py",
+      "sha256": "432e5788615dac9ed3caf4288c599eec02fcc2e7c68bc82592c72d07ded6baf5"
+    },
+    "host_tests": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/native-host-tests-15.log",
+      "sha256": "26c9a961f4bd6299a948f9243ebf4b3edd411907cdce5bb963e29eaefc090abe"
+    },
+    "workspace_tasks": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/workspace-tasks-14/report.json",
+      "sha256": "36d3f2265c9dfde723fa94f19bc41d7b238171c85da08f010bb445d704bade32"
+    },
+    "workspace_cycles": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/workspace-cycles-14/report.json",
+      "sha256": "cc618fadb149d6164029a982826654a2a8247ebd88f8e5fff119a58834860bd8"
+    },
+    "dom_model": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/dom-model-independent-14.json",
+      "sha256": "e7ba86a7dbd474bbb47635af1fff2872ff7b644d96e960bf02877edc77448f17"
+    },
+    "dom_model_legacy": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/dom-model-independent-legacy.json",
+      "sha256": "abcf532d7ce17668f525ae68c3121f26b306ca624a26346e5b9b7d6a9feb7d7e"
+    },
+    "verifier_negatives": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/verifier-negatives/report.json",
+      "sha256": "165d4aa27d758efa00a7b71c53896d4795f153d5d1b7c1f30fa500d912ccc723"
+    },
+    "ci": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/ci-b21b735.json",
+      "sha256": "05f874376b34aa9319fbd2f0ddbf3b2bc8ca5bb6b46bfe2858b63f7e2656e3b8"
+    },
+    "repository": {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/repository-final.log",
+      "sha256": "d140b9dcb7c0a8d9eb1384b6b4b9a04757d3a2fa716e39f362da79e0a793b42f"
+    }
+  },
+  "remaining": [
+    "原定义 30 分钟持续运行已启动，尚未计通过",
+    "当前网关签名规则联合验收",
+    "当前网关浏览器完整任务与循环",
+    "其余受影响 M1 故障回归"
+  ],
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go",
+  "repository_checks": 23
+}

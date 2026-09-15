@@ -325,7 +325,9 @@ async function loadStatus() {
   const sckPart = st.sck_streaming
     ? `SCK=streaming(native=${st.sck_native_ok}${st.sck_auto_poll ? ",auto" : ""})`
     : "SCK=idle";
-  const sckMsg = st.sck_message ? ` · ${st.sck_message}` : "";
+  const sckMsg = st.sck_message
+    ? ` · ${st.sck_streaming ? st.sck_message : t("status.sckLastResult", { message: st.sck_message })}`
+    : "";
   const axMsg = st.ax_message ? ` · AX: ${st.ax_message}` : "";
   const folded = st.suppressed_events > 0 ? ` · ${t("status.folded", { n: st.suppressed_events })}` : "";
   // P1-4:超时/遗留的确认不是悄悄消失的——状态行说出来。

@@ -199,6 +199,17 @@ try {
   await page.evaluate(() => { window.__agTest.patchStatus({ accessibility: true, screen_capture: false }); window.__agTest.patchTcc({ accessibility: true, screen_capture: false }); });
   await page.click("#btn-refresh");
   check("只有必需权限即可准备开始，不强制可选录屏", await page.isEnabled("#btn-start"));
+  check("可选录屏未开启时保留权限帮助", (await page.locator("#permission-card-title").textContent()).includes("授权后仍没生效"));
+  await page.evaluate(() => {
+    window.__agTest.patchStatus({ screen_capture: true, sck_streaming: false, sck_message: "ScreenCaptureKit stream started" });
+    window.__agTest.patchTcc({ screen_capture: true });
+  });
+  await page.click("#btn-refresh");
+  check("两项权限就绪后不再展示授权失败标题", (await page.locator("#permission-card-title").textContent()) === "权限已就绪" && (await page.locator("#permission-card-hint").textContent()).includes("均已检测到"));
+  check("采集停止后将旧启动消息标为历史结果", (await page.locator("#caps").textContent()).includes("SCK=idle · 上次采集结果：ScreenCaptureKit stream started"));
+  await page.evaluate(() => window.__agTest.patchStatus({ sck_message: "native stop failed: synthetic" }));
+  await page.click("#btn-refresh");
+  check("采集空闲时仍保留原始失败信息", (await page.locator("#caps").textContent()).includes("native stop failed: synthetic"));
   await page.evaluate(() => {
     window.__agTest.patchStatus({ accessibility: false });
     window.__agTest.patchTcc({ accessibility: false });
@@ -206,6 +217,7 @@ try {
   });
   await page.waitForFunction(() => document.getElementById("btn-start").disabled);
   check("返回前台自动核对撤回权限并禁用启动", await page.isDisabled("#btn-start"));
+  check("撤回辅助功能后恢复权限帮助", (await page.locator("#permission-card-title").textContent()).includes("授权后仍没生效"));
   await page.evaluate(() => { window.__statusFail = true; window.dispatchEvent(new Event("focus")); });
   await page.waitForFunction(() => document.getElementById("workspace-feedback").textContent.includes("无法获取"));
   check("连接失败不保留守护中状态", /尚未就绪/.test(await page.locator("#status-pill").innerText()) && /无法获取/.test(await page.locator("#overview-summary").innerText()));
