@@ -1,0 +1,185 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "a7bc3bb285dd1f980daf1d516f19af3c6406ff66",
+  "app": {
+    "path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "version": "2.0.0-dev.18",
+    "build": 18,
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "resources_unchanged": 88,
+    "strict_signature": true
+  },
+  "binary_sha256": "126f4c05428af82e4ae32553cf85e22d0f6771db665afb3701415889877027e8",
+  "checks": {
+    "core": 268,
+    "desktop": 129,
+    "desktop_ignored": 11,
+    "ui": 133,
+    "a11y": "passed",
+    "repository": 23,
+    "clippy": "passed",
+    "native": {
+      "old_rows_preserved": 628,
+      "new_records": [
+        [
+          629,
+          1789507980761,
+          "app:sha256:0615570f9ea136946c5dc08a25001032",
+          "SESSION-START",
+          "LogOnly"
+        ],
+        [
+          630,
+          1789507980780,
+          "app:sha256:50a4122943273ad2f00ea92bff9c7cb6",
+          "ALLOW",
+          "Allow"
+        ],
+        [
+          631,
+          1789507980876,
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly"
+        ],
+        [
+          632,
+          1789508010938,
+          "app:sha256:50a4122943273ad2f00ea92bff9c7cb6",
+          "ALLOW",
+          "Allow"
+        ],
+        [
+          633,
+          1789508011406,
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly"
+        ],
+        [
+          634,
+          1789508038935,
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly"
+        ],
+        [
+          635,
+          1789508040986,
+          "app:sha256:50a4122943273ad2f00ea92bff9c7cb6",
+          "ALLOW",
+          "Allow"
+        ],
+        [
+          636,
+          1789508068484,
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly"
+        ],
+        [
+          637,
+          1789508072006,
+          "app:sha256:50a4122943273ad2f00ea92bff9c7cb6",
+          "ALLOW",
+          "Allow"
+        ],
+        [
+          638,
+          1789508098527,
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly"
+        ],
+        [
+          639,
+          1789508102782,
+          "app:sha256:50a4122943273ad2f00ea92bff9c7cb6",
+          "ALLOW",
+          "Allow"
+        ],
+        [
+          640,
+          1789508128575,
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly"
+        ],
+        [
+          641,
+          1789508133045,
+          "app:sha256:50a4122943273ad2f00ea92bff9c7cb6",
+          "ALLOW",
+          "Allow"
+        ],
+        [
+          642,
+          1789508157828,
+          "app:sha256:0615570f9ea136946c5dc08a25001032",
+          "SESSION-END",
+          "LogOnly"
+        ]
+      ],
+      "ovl007_new_logonly": 6,
+      "crit005_new_events": 0,
+      "native_timeline_time_visible": true,
+      "app_version_visible": "018",
+      "accessibility_granted": true,
+      "screen_capture_granted": true,
+      "native_safari_fixture_visible": true,
+      "native_crit005_reproduction_proven": false,
+      "final_guard_state": "stopped_as_before_update"
+    }
+  },
+  "boundaries": [
+    "未修改旧审计判决",
+    "只对可信桌面被动观察中的基础 CRIT-005/OVL-007 判决调整；实际执行、明确注入、其他独立风险和更严格策略保持原控制",
+    "Safari 测试页已显示，但本批新审计没有 CRIT-005，不把无弹窗当作已读取该页面",
+    "跨应用 AX 与真机超时恢复缺口保留",
+    "未重建包内旧网关，AGD-026 变更未进入此 App"
+  ],
+  "artifact_root": ".artifacts/timeline-observation-018-2026-09-16",
+  "artifacts": [
+    {
+      "path": "app-018.json",
+      "sha256": "1d0aed9854d75a6e378344b6c259b3cac15a9b7e297544ba91ef17dd6f2d6ee6"
+    },
+    {
+      "path": "build-inputs.json",
+      "sha256": "d01efc7d83e9ddf1693ae858f4cf5dbccd0dc0c8159e69fd66a6bba262f2872b"
+    },
+    {
+      "path": "native-final.json",
+      "sha256": "db2ef723b3644370645862e884767a17899aecbbdcf656b0e9eb71902200b18c"
+    },
+    {
+      "path": "ui-02.log",
+      "sha256": "80515123d3d14c47a6caec913c4b612617d46afd7585c1fedd01a22e2c211164"
+    },
+    {
+      "path": "core-tests.log",
+      "sha256": "ca23e8718d782b8fd993b0b690085c95569ad9a46207e7ea0f9dfb5f1795f7c8"
+    },
+    {
+      "path": "desktop-tests-02.log",
+      "sha256": "d28df63f2e60534c36c095e7a37207d1dde9532c9611dda083077dec5a32d7e7"
+    },
+    {
+      "path": "clippy-core.log",
+      "sha256": "7f9a23e79b8d934d92c7fba1a2c827843a6dd17e890767f125c8e160f6969f62"
+    },
+    {
+      "path": "clippy-desktop.log",
+      "sha256": "206416639c8859f9e702a904645c735662c494d9e83c21b4c4b9010a1424d5ec"
+    },
+    {
+      "path": "a11y.log",
+      "sha256": "1131f8f2379ff52def96a09fa0f62fa86f06b990a10094725fa771648edca46f"
+    },
+    {
+      "path": "repository-02.log",
+      "sha256": "334c4c5ebc69a4145197ee989a3cfdc30817f6cb00708e41aeec4049650b344e"
+    }
+  ]
+}

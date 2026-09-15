@@ -825,7 +825,21 @@ impl Engine {
     }
 
     pub fn process(&mut self, event: &GuardEvent) -> Result<Decision> {
-        self.process_with_memory_backend(event, None)
+        self.process_with_memory_backend(event, None, false)
+    }
+
+    /// 可信桌面宿主的被动观察入口。仅看到文字或纹理，不代表准备执行安装动作。
+    /// 该上下文由调用路径选择，不能通过事件中的自报字段打开。
+    pub fn process_desktop_observation(&mut self, event: &GuardEvent) -> Result<Decision> {
+        anyhow::ensure!(
+            matches!(event.platform.as_str(), "macos" | "windows")
+                && matches!(
+                    event.event_type,
+                    EventType::UiTreeDelta | EventType::ScreenFrame
+                ),
+            "桌面观察入口只接受窗口或屏幕事件"
+        );
+        self.process_with_memory_backend(event, None, true)
     }
 
     /// 仅供已核对持久存储的可信宿主使用；普通事件中的字段不能选择此路径。
@@ -850,7 +864,7 @@ impl Engine {
                 && (!matches!(event.event_type, EventType::MemoryWrite) || keys.len() == 1),
             "持久记忆必须绑定实际条目，空检索允许没有条目"
         );
-        self.process_with_memory_backend(event, Some(keys))
+        self.process_with_memory_backend(event, Some(keys), false)
     }
 
     /// 可信宿主在检索前过滤数据范围；最终判决仍须核对返回的全部条目。
@@ -866,6 +880,7 @@ impl Engine {
         &mut self,
         event: &GuardEvent,
         persistent_keys: Option<&[String]>,
+        desktop_observation: bool,
     ) -> Result<Decision> {
         let persistent = persistent_keys.is_some();
         if self.paused
@@ -948,6 +963,30 @@ impl Engine {
 
         let scope_finding = self.check_agent_session_scope(event);
         let decision = self.decide_with_memory_backend(event, persistent)?;
+        // 在合并其它风险、受控规则包和企业策略之前限定基础文字规则的含义。
+        // 不能在最终判决上降级，否则会一并抹去身份冒充、明确注入等独立发现。
+        let decision = if desktop_observation {
+            match decision.rule_id.as_str() {
+                "CRIT-005" => Decision {
+                    action: DecisionAction::LogOnly,
+                    severity: Severity::Info,
+                    rule_id: decision.rule_id,
+                    human_message: "页面包含安装相关文字；仅观察到内容，未确认存在待执行的安装操作"
+                        .into(),
+                    require_confirm: false,
+                },
+                "OVL-007" => Decision {
+                    action: DecisionAction::LogOnly,
+                    severity: Severity::Info,
+                    rule_id: decision.rule_id,
+                    human_message: "观察到低对比度画面纹理；未确认存在隐藏文字或攻击".into(),
+                    require_confirm: false,
+                },
+                _ => decision,
+            }
+        } else {
+            decision
+        };
         let decision = match self.rule_package.as_mut() {
             Some(package) => constrain_with_package(
                 decision,

@@ -74,6 +74,8 @@ button.danger { background: #b52b36; color: #fff; }
 .timeline { max-height: none; }
 .timeline .item, .log li { background: transparent; border-color: var(--line); padding: 14px; }
 .timeline .item strong { color: var(--ink); }
+.audit-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.audit-time { margin-left: auto; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .meta, .muted { color: var(--muted); }
 .empty-state { text-align: center; padding: 27px 15px; color: var(--muted); }
 .recent-row { padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); color: var(--muted); }

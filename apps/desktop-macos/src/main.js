@@ -382,6 +382,7 @@ function auditRow(r) {
   el.className = `item ${actionClass(r.action)}`;
 
   const head = document.createElement("div");
+  head.className = "audit-heading";
   const strong = document.createElement("strong");
   // E18:第一眼是人话效果词(检测到风险/提醒/无需干预/记录),不是引擎枚举。
   // 桌面端拿到的是已经呈现在 AX/SCK 里的状态,因此后端的策略动作 `Block`
@@ -390,11 +391,23 @@ function auditRow(r) {
   strong.textContent = t(`action.${actionClass(r.action)}`);
   head.appendChild(strong);
   head.appendChild(Object.assign(document.createElement("span"), { className: "badge outcome-badge", textContent: uiText(`outcome_${observedRecordOutcome(r)}`) }));
+  const time = document.createElement("time");
+  time.className = "audit-time";
+  const date = Number.isSafeInteger(r.timestamp_ms) && r.timestamp_ms > 0 ? new Date(r.timestamp_ms) : null;
+  if (date && Number.isFinite(date.getTime())) {
+    time.dateTime = date.toISOString();
+    time.textContent = date.toLocaleString(currentLocale(), { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZoneName: "short" });
+    time.title = time.dateTime;
+  } else {
+    time.textContent = uiText("executionTimeUnknown");
+  }
+  head.appendChild(time);
 
   const msg = document.createElement("div");
   const rawMessage = r.human_message ?? "";
   const summaryOnly = /^rule=\S+ action=\S+ severity=\S+ detail_omitted=true$/.test(rawMessage);
-  msg.textContent = summaryOnly ? uiText("summaryOnly") : rawMessage;
+  const explanation = { "OVL-007": "lowContrastObservation", "CRIT-005": "installationTextObservation" }[r.rule_id];
+  msg.textContent = summaryOnly ? [explanation ? uiText(explanation) : "", uiText("summaryOnly")].filter(Boolean).join(" ") : rawMessage;
 
   const meta = document.createElement("div");
   meta.className = "meta";

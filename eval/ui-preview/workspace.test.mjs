@@ -148,6 +148,7 @@ try {
       }
       if (cmd === "get_status" && window.__statusFail) throw new Error("测试连接断开");
       if (cmd === "list_audit" && window.__auditFail) throw new Error("测试记录不可读");
+      if (cmd === "list_audit" && window.__timelineFixture) return window.__timelineFixture;
       if (cmd === "list_audit" && window.__privateAudit) return [{ action: "Block", rule_id: "CRIT-001", source_app: "app:sha256:5f0330392292a13a29ae269a1efe6f7c", human_message: "rule=CRIT-001 action=Block severity=Critical detail_omitted=true" }];
       if (cmd === "get_installation_info") return { app_name: "AgentGuard-UI-Test.app", app_path: "/Applications/AgentGuard-UI-Test.app" };
       if (cmd === "check_gateway_setup") {
@@ -184,6 +185,20 @@ try {
   const privateText = await page.locator("#timeline").innerText();
   check("真实加密摘要显示人话并折叠内部字段", privateText.includes("仅保留风险摘要") && privateText.includes("匿名来源") && !/detail_omitted|app:sha256/.test(privateText));
   check("技术详情保留原始记录供诊断", (await page.locator("#timeline details pre").textContent()).includes("detail_omitted=true"));
+  await page.evaluate(() => { window.__timelineFixture = [
+    { timestamp_ms: 1789507307792, action: "Block", rule_id: "CRIT-005", source_app: "Safari", human_message: "rule=CRIT-005 action=Block severity=Critical detail_omitted=true" },
+    { timestamp_ms: 1789507307082, action: "Alert", rule_id: "OVL-007", source_app: "ScreenCapture", human_message: "rule=OVL-007 action=Alert severity=Medium detail_omitted=true" },
+    { timestamp_ms: null, action: "LogOnly", rule_id: "OLD", source_app: "Legacy", human_message: "旧记录缺少时间" },
+  ]; });
+  await page.click("#btn-refresh");
+  await page.waitForFunction(() => document.querySelectorAll("#timeline time").length === 3);
+  check("时间线使用记录发生时间并保留可核对的 UTC 值", await page.locator("#timeline time").first().getAttribute("datetime") === "2026-09-15T21:21:47.792Z" && /2026/.test(await page.locator("#timeline time").first().innerText()));
+  check("缺少时间不伪造为当前时间", !await page.locator("#timeline time").last().getAttribute("datetime") && /时间未知/.test(await page.locator("#timeline time").last().innerText()));
+  check("安装文字和低对比线索显示证据边界", /不证明实际发起了安装/.test(await page.locator("#timeline").innerText()) && /不能据此确认隐藏文字或攻击/.test(await page.locator("#timeline").innerText()));
+  await page.setViewportSize({ width: 720, height: 900 });
+  check("窄窗口时间线无横向溢出", await page.evaluate(() => document.getElementById("timeline").scrollWidth <= document.getElementById("timeline").clientWidth));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => { window.__timelineFixture = null; });
   await page.evaluate(() => { window.__privateAudit = false; });
   await page.click("#btn-refresh");
   await go("settings");

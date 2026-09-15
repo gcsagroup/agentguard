@@ -3254,14 +3254,22 @@ fn process_one(
     // 此入口收到的是桌面事后观察，没有待执行动作或绑定到动作的授权快照。
     // 普通 OCR/窗口文字变化不能冒充 TOCTOU。真实执行路径继续使用引擎的
     // process_with_revalidate，以该动作的决策快照和执行前快照做比较。
-    if approve {
+    let observed = matches!(
+        event.event_type,
+        EventType::UiTreeDelta | EventType::ScreenFrame
+    );
+    if approve && !observed {
         let d = engine
             .process_gated(event, &AutoApprove)
             .map_err(|e| e.to_string())?;
         return Ok(to_dto(&d));
     }
-
-    let d = engine.process(event).map_err(|e| e.to_string())?;
+    let d = if observed {
+        engine.process_desktop_observation(event)
+    } else {
+        engine.process(event)
+    }
+    .map_err(|e| e.to_string())?;
     if d.require_confirm && matches!(d.action, DecisionAction::Block | DecisionAction::Alert) {
         let req = ConfirmRequest::from_decision(
             &d,
@@ -4786,6 +4794,7 @@ mod 桌面被动观察回归 {
                 "设置 页面 2",
                 "[AG_SUBLIMINAL_TEXT] 设置 页面 3",
                 "[AG_SUBLIMINAL_TEXT] 设置 页面 4",
+                "GitHub CI: Install Chromium 安装步骤说明",
             ]
             .into_iter()
             .enumerate()
@@ -4795,6 +4804,12 @@ mod 桌面被动观察回归 {
                 assert!(!decisions[0].require_confirm);
                 assert_ne!(decisions[0].rule_id, "UI-REVALIDATE");
                 assert!(state.pending.lock().unwrap().is_empty());
+                if text.contains("AG_SUBLIMINAL_TEXT") || text.contains("Install") {
+                    assert_eq!(decisions[0].action, "LogOnly");
+                    let engine = state.engine.lock().unwrap();
+                    let rows = engine.audit().unwrap().list_recent(1).unwrap();
+                    assert_eq!(rows[0].action, "LogOnly");
+                }
             }
         }
     }

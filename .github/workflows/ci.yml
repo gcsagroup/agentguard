@@ -263,7 +263,9 @@ jobs:
         run: cargo build -p mac-adapter --all-targets
       - name: Test the desktop shell
         working-directory: apps/desktop-macos/src-tauri
-        run: cargo test
+        # 多个合成网关同时启动会争用托管机器，耗尽各场景原有的 8 秒门槛。
+        # 场景之间串行；各场景内部的并发、取消和超时验证保持不变。
+        run: cargo test -- --test-threads=1
       - name: 真实网关确认的文件副作用回归
         run: |
           set -euo pipefail
