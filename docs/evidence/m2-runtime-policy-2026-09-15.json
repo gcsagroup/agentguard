@@ -1,0 +1,165 @@
+{
+  "recorded_at": "2026-09-15T06:32:47.288412+00:00",
+  "task": "AGD-018",
+  "status": "completed_cli_scope",
+  "base_commit": "7c3179eb52bdd906de62d92eff028dff571d9151",
+  "source_files": {
+    "Cargo.lock": "fcac6a40793b09947b28041fe29c924bee4e0be49164fedf8faf553fa2c50544",
+    "apps/desktop-macos/src-tauri/Cargo.lock": "da5e09dc65d711e87c42321bb9a12b04a407a3bce7b5913ea7878e6e29a016d5",
+    "apps/desktop-macos/src-tauri/src/local_agent_tests.rs": "49f1bf2f01516973d00c11c665b988d2f1cb8983b444608a0e2a3d5ecd775509",
+    "apps/desktop-macos/src-tauri/src/managed_gateway.rs": "407ae7859951bcc2ed52937e2cb85f27608f5e1e254cd3d26bd15db26766aed7",
+    "apps/protected-browser/host-test-support.mjs": "71a11f618739c1c0f0e4af82c5a2fd94a2976fc30c1c3762d0f56a5d7b6f9f80",
+    "crates/guard-core/src/lib.rs": "b2c0e6d3f56ffb85c021463bb5dc98ea6838d0ad6c435b33bc76eaa1bc33ab25",
+    "crates/guard-core/src/rule_package_tests.rs": "ea39c0c141b97fb8275a7c7d3d98e309f6d52ee8778234ea32a9b5d28de6770c",
+    "crates/guard-gateway/Cargo.toml": "2a337aa1ee7ea996c94f6cda632d479fbf43c3d986f465e67032ac38aeb8b1e7",
+    "crates/guard-gateway/src/bin/agentguard_mcp.rs": "2cec7c607ab4853d8d17829b85d912e0e0c4543fd3f28754de8466f6644800a3",
+    "crates/guard-gateway/src/browser_bridge.rs": "f06482200479aa5c22140cc774e7e7941f7072314365ab8cd0f76cc899eed2ea",
+    "crates/guard-gateway/src/gate.rs": "6293a971b02de4c0ccdaa1cc87e2866f99ad0b713d5d99365356c9ad773f4c35",
+    "crates/guard-gateway/src/journal.rs": "b1e0b1c9bf90a2c65911be1104eded6d00cc096b94d46744e5c2b70045e623aa",
+    "crates/guard-gateway/src/lib.rs": "84b15283c6b9a65dba8f210c4cb551f4b8545491f83765dafd358e01e2b7ce25",
+    "crates/guard-gateway/src/mcp_stdio/tests.rs": "0f13436412e52551da1f0da804d8ad2a3fdb1f937e8694588bdaf46154fc4ada",
+    "crates/guard-gateway/src/proxy_control.rs": "efddb4a5a5ceb36a56827f87887b5ed59f01930859d07f07083956812d712eff",
+    "crates/guard-gateway/src/remote_control.rs": "56f03ffab9d5fdfe9d3fdf3846bdcb0f5fc07bf88996389814d6b5e65ed9516a",
+    "crates/guard-gateway/src/rule_policy.rs": "929479e423d8056f185c7351dd916aed7c8bd81a9628ad5eb8d9c36e5da12cae",
+    "crates/guard-gateway/src/server.rs": "cbedf3972055ce11c1c7dd7d8fe98de4df471eaafdba638ee603064df6a366c2",
+    "crates/guard-gateway/src/workspace_control.rs": "83e5643f7dd524ae9732cde8c3936bee50ac19f3ba4f60138bb5801395060a6c",
+    "crates/guard-intel/src/package/store.rs": "5aeac04349d2cac0300a70cdddd8ac6a6517788cd78d8ddf8913b9f8d988e21d",
+    "crates/guard-intel/src/package/store/runtime.rs": "59e3ca58e12e23c535d8d3166be86b401a0c682af4bb16bed5c81503f3f0414c",
+    "crates/guard-intel/tests/package_runtime.rs": "275bebc4108099b3f508692ffbf7f120829ef3c716c730cfbb223de732ff45dd",
+    "scripts/acceptance/agd-browser-rule-policy.mjs": "3f30779c9c6e9b27f08b8954f24a28c118aa626e9f06234c43f656eb5a8b54dd",
+    "scripts/acceptance/agd-rule-package-fixture.mjs": "f2ac4289b936c48b1c96a0917018371bb34b712e1cdc51a394a01348a11e7105",
+    "scripts/acceptance/agd-runtime-rule-policy.mjs": "cab3c9eff7e8cc1ee8b06cf6e9b563d3e1d3322eb8af0d0ec351130267573621",
+    "scripts/acceptance/agd-workspace-session.mjs": "197fcd0e4c17f9d5cab596abbe8fe1e76d1dfd403f98f7647d7343e376e09acf"
+  },
+  "candidate": {
+    "guard-cli": "340719473e4f3103300d17323810bd3a0e4ddc9ccd8225df13a847d686aeb810",
+    "agentguard-mcp": "c79ec73e063c96f3095722412713f2ccd33e1469a06a2dab11bc2229cb8b9d97"
+  },
+  "tests": {
+    "new_components": 8,
+    "workspace_suites": 63,
+    "workspace_passed": 1423,
+    "workspace_ignored": 14,
+    "desktop_passed": 122,
+    "desktop_ignored": 9,
+    "browser_regression_passed": 2,
+    "strict_checks": "passed",
+    "dependency_graphs": 3
+  },
+  "runtime": {
+    "runtime-04": {
+      "checks": 17,
+      "passed": 17,
+      "report_sha256": "5a0dd55cebdf2709d6597e7de842368164f17ebb5cf7cc93cae2fc519c9696df"
+    },
+    "browser-03": {
+      "checks": 8,
+      "passed": 8,
+      "report_sha256": "32a41e5f78fc11dddbaaa7f65a6f0339a5ad9fe797959534e19e912a93641afc"
+    },
+    "local-regression-final": {
+      "checks": 21,
+      "passed": 21,
+      "report_sha256": "05cb19e8fc445ecbd8ad8e3b95dac91f590640196dbe596520066a8c3a872653"
+    },
+    "remote-regression-final": {
+      "checks": 33,
+      "passed": 33,
+      "report_sha256": "e7846837ba1161eee95641dd63e600ca7b87134b9e1d656f165af16e010a0bab"
+    }
+  },
+  "packages": {
+    "runtime-04": {
+      "accepted_releases": 10,
+      "sequences": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "final_content": "5205fb6797cd40b4b78ef021839d22e78b94dab17e673265ccc63f14838e8e96",
+      "file_sha256": "f21c8b1ea257e33b8868db7d663a5bb17c90b95918017749d0ebe9b961a25518"
+    },
+    "browser-03": {
+      "accepted_releases": 6,
+      "sequences": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "final_content": "8384eeb655274cdab2841b6a89f6c09ddcc7cf7cc2a5564d22cd17c3e50244a1",
+      "file_sha256": "f767d433952f7fa08aaaa1c4742865dc3da80b5ad7c7b90237918cc77d44f51d"
+    }
+  },
+  "independently_verified_signatures": 16,
+  "audits": {
+    "runtime-04-audit.db": {
+      "rows": 30,
+      "chain_verified": true,
+      "head": "c6bccc6d98b18d4d46156ff4b437b56bc899985656fd746569692e6b4fe3d785",
+      "sha256": "cc13b5d9fccf3063ab4ded3a10847f95878ae588901a09446829e6c7e030270e"
+    },
+    "runtime-04-audit.db.tools.db": {
+      "rows": 7,
+      "chain_verified": true,
+      "head": "5e24525f70cf6a9fad1bf87f1ad9e31c6515632f2d0702f8021f8c4a01523f56",
+      "sha256": "721384b630a46d0aba2204d3860b85325a27e01b7817b5f50da6ebcfc006026c"
+    },
+    "runtime-04-audit.db.sources.db": {
+      "rows": 6,
+      "chain_verified": true,
+      "head": "ca5c46880bafb16221cba2ef20a4cf4021b28c1852a3ee0a57486fd593fc0972",
+      "sha256": "945a9b86dbe16083488011a8fad0dcf72f470678d3b1b13f55eff26047575b5e"
+    },
+    "browser-03-audit.db": {
+      "rows": 0,
+      "chain_verified": true,
+      "head": "AGENTGUARD-AUDIT-GENESIS-v1",
+      "sha256": "0dd851c467aa557b1b0eb277ec0d49009aa3973ed22d7c1b2125b03097748191"
+    },
+    "browser-03-audit.db.tools.db": {
+      "rows": 3,
+      "chain_verified": true,
+      "head": "8627793b951640548e3582ca241581ef94f6ff84b7c60d4d6dc68582cde7e8b2",
+      "sha256": "11524c7f31dce0f873fcf8f890de89728a67de434c5bd427e0ca1839c9aaaf15"
+    },
+    "browser-03-audit.db.sources.db": {
+      "rows": 12,
+      "chain_verified": true,
+      "head": "7392e01af7f564af523af3f17e56dc17aea6e0ea017f976188c9a96d0d655644",
+      "sha256": "4b4d9ec4baf3f14bacc05ee96cff354a077fa01c4d879eb6e3fc34412190d32a"
+    },
+    "browser-03-browser.db": {
+      "rows": 50,
+      "chain_verified": true,
+      "head": "ab4f8ab29322c9ff678f85231e5dd320cbc161ca4954c905bdf9b651bd2161a3",
+      "sha256": "32432cda7cf405bf0c6827e7f69bf6f674c2488f054929bcffbb0472031e76f8"
+    }
+  },
+  "policy_bindings_independently_verified": 80,
+  "preserved": {
+    "files": 127,
+    "all_matched": true,
+    "app_files": 90,
+    "app_all_matched": true,
+    "strict_codesign": true
+  },
+  "limitations": [
+    "010_App_not_rebuilt",
+    "startup_discovery_uses_existing_host_authorization",
+    "no_admin_disk_snapshot_rollback_defence",
+    "remote_side_effects_not_revocable"
+  ],
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go"
+}

@@ -11,7 +11,15 @@ impl Fixture {
         let root =
             std::env::temp_dir().join(format!("agd-stdio-{}", crate::browser_bridge::token()));
         std::fs::create_dir(&root).unwrap();
-        let child = Command::new("/usr/bin/python3")
+        let mut command = Command::new("/usr/bin/python3");
+        command.env_clear();
+        // macOS 的 /usr/bin/python3 是开发工具代理。保留调用方显式选择的 SDK，
+        // 避免测试进程清空环境后误切到另一套尚未就绪的 Xcode；Linux 仍为空环境。
+        #[cfg(target_os = "macos")]
+        if let Some(directory) = std::env::var_os("DEVELOPER_DIR") {
+            command.env("DEVELOPER_DIR", directory);
+        }
+        let child = command
             .args(["-I", "-u"])
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -19,7 +27,6 @@ impl Fixture {
             ))
             .arg(mode)
             .arg(root.join("calls.jsonl"))
-            .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

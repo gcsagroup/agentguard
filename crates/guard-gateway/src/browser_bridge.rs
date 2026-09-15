@@ -4,7 +4,7 @@ use crate::gate::Outcome;
 use crate::journal::ExecutionJournal;
 use crate::provenance::{SharedSources, SourceCollector};
 use crate::{Answer, ConfirmRequest, ExecOutput, PendingConfirm};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use guard_schema::{
     ActionSnapshot, ActionSpec, ApprovalBinding, ExecutionOutcome, ToolIdentity, ValidatedId,
     EXECUTION_CONTRACT_VERSION,
@@ -68,6 +68,7 @@ pub struct BrowserHost {
     origins: Vec<String>,
     ports: HashSet<u16>,
     session: Mutex<Session>,
+    rule_policy: Mutex<Option<crate::rule_policy::RuntimePolicy>>,
     journal: Mutex<ExecutionJournal>,
     sources: SharedSources,
     registry: crate::tool_registry::SharedRegistry,
@@ -197,6 +198,7 @@ impl BrowserHost {
                 id: session,
                 policy,
             }),
+            rule_policy: Mutex::new(None),
             journal: Mutex::new(journal),
             sources,
             registry,
@@ -220,6 +222,32 @@ impl BrowserHost {
     }
     pub fn execution_url(&self) -> String {
         format!("http://127.0.0.1:{}", self.execution_port)
+    }
+    pub(crate) fn set_rule_policy(
+        &self,
+        policy: Option<crate::rule_policy::RuntimePolicy>,
+    ) -> Result<()> {
+        let mut current = self
+            .rule_policy
+            .lock()
+            .map_err(|_| anyhow::anyhow!("浏览器策略锁失效"))?;
+        ensure!(current.is_none(), "浏览器规则仓库不能重复配置");
+        *current = policy;
+        Ok(())
+    }
+    fn policy_context(
+        &self,
+    ) -> Result<(
+        Option<crate::rule_policy::RuntimePolicy>,
+        Option<crate::rule_policy::PolicyContext>,
+    )> {
+        let policy = self
+            .rule_policy
+            .lock()
+            .map_err(|_| anyhow::anyhow!("浏览器策略锁失效"))?
+            .clone();
+        let context = policy.as_ref().map(|p| p.context()).transpose()?;
+        Ok((policy, context))
     }
     pub fn sources(&self) -> SharedSources {
         self.sources.clone()
@@ -455,7 +483,14 @@ impl BrowserHost {
         confirmation: &str,
         cancelled: &AtomicBool,
     ) -> Value {
-        let state = self.session.lock().expect("浏览器会话").clone();
+        let mut state = self.session.lock().expect("浏览器会话").clone();
+        let (rule_policy, policy_context) = match self.policy_context() {
+            Ok(pair) => pair,
+            Err(_) => return error("BROWSER_RULE_PACKAGE_UNAVAILABLE"),
+        };
+        if let Some(context) = &policy_context {
+            state.policy = context.version.clone();
+        }
         let issued = now();
         let sources = match self.action_sources() {
             Ok(sources) => sources,
@@ -475,7 +510,7 @@ impl BrowserHost {
                 Err(_) => return error("BROWSER_TOOL_REGISTRY"),
             },
             target: request.url.clone(),
-            parameters: json!({"method":request.method,"headers":headers,"body":request.body,"page_id":request.page_id,"page_epoch":request.page_epoch,"epoch":request.epoch}),
+            parameters: json!({"method":request.method,"headers":headers,"body":request.body,"page_id":request.page_id,"page_epoch":request.page_epoch,"epoch":request.epoch,"rule_package":policy_context.as_ref().map(|p| p.receipt())}),
             issued_at_ms: issued,
             expires_at_ms: issued
                 .saturating_add(self.timeout.as_millis().min(i64::MAX as u128) as i64),
@@ -486,6 +521,27 @@ impl BrowserHost {
             Err(_) => return error("BROWSER_ACTION"),
         };
         let action_sha = digest(&snapshot.canonical_bytes());
+        let policy_decision = match policy_context
+            .as_ref()
+            .map(|context| context.judge(&snapshot, guard_schema::EventType::NetworkFlow))
+            .transpose()
+        {
+            Ok(Some(decision)) => decision,
+            Ok(None) => Outcome::Execute { findings: vec![] },
+            Err(_) => return error("BROWSER_RULE_PACKAGE_INVALID"),
+        };
+        if matches!(policy_decision, Outcome::Refuse { .. }) {
+            let journal = self.journal.lock().expect("浏览器审计");
+            if journal
+                .decided(&snapshot, &policy_decision)
+                .and_then(|_| journal.finished(&snapshot, None, ExecutionOutcome::Refused, None))
+                .is_err()
+            {
+                drop(journal);
+                self.fault();
+            }
+            return error("BROWSER_RULE_PACKAGE_BLOCKED");
+        }
         let binding = match ApprovalBinding::new(
             ValidatedId::new(confirmation).expect("批准ID"),
             snapshot.clone(),
@@ -500,7 +556,12 @@ impl BrowserHost {
             .journal
             .lock()
             .expect("浏览器审计")
-            .decided(&snapshot, &Outcome::NeedsConfirmation { findings: vec![] })
+            .decided(
+                &snapshot,
+                &Outcome::NeedsConfirmation {
+                    findings: policy_decision.findings().to_vec(),
+                },
+            )
             .is_err()
         {
             self.fault();
@@ -508,7 +569,7 @@ impl BrowserHost {
         }
         let decision=self.pending.wait(ConfirmRequest{id:confirmation.into(),
             what:format!("浏览器 {} {}\n请求正文（JSON转义）：{}\n发送请求头：{}\n此批准只对应这一条HTTP请求；HTTP状态不代表业务成功。\n动作 SHA-256：{}",request.method,request.url,json!(request.body),json!(headers),action_sha),
-            findings:vec![],binding:Some(binding.clone()),action_sha256:Some(action_sha.clone())},self.timeout);
+            findings:policy_decision.findings().to_vec(),binding:Some(binding.clone()),action_sha256:Some(action_sha.clone())},self.timeout);
         let finish = |outcome,
                       dispatched,
                       status: Option<u16>,
@@ -587,9 +648,25 @@ impl BrowserHost {
                 "BROWSER_STALE",
             );
         }
+        let _policy_lease = match crate::rule_policy::acquire(
+            rule_policy.as_ref(),
+            snapshot.spec().policy_version.as_str(),
+        ) {
+            Ok(lease) => lease,
+            Err(_) => {
+                return finish(
+                    ExecutionOutcome::Refused,
+                    false,
+                    None,
+                    None,
+                    "BROWSER_RULE_PACKAGE_CHANGED",
+                )
+            }
+        };
         // 派发与暂停在线性化锁内排序；开始记录失败不连接。连接及首次完整写入有界，响应等待不持锁。
         let dispatched = self.pending.with_active_epoch(request.epoch, || {
             if cancelled.load(Ordering::SeqCst)
+                || snapshot.validate_at(now()).is_err()
                 || self.faulted()
                 || self
                     .cancelled
@@ -1154,7 +1231,14 @@ impl BrowserActor {
                 return refusal("来源日志不可用，浏览器工具未执行");
             }
         };
-        let session = self.host.session.lock().expect("浏览器会话").clone();
+        let mut session = self.host.session.lock().expect("浏览器会话").clone();
+        let (rule_policy, policy_context) = match self.host.policy_context() {
+            Ok(pair) => pair,
+            Err(_) => return refusal("规则包不可用，浏览器工具未执行"),
+        };
+        if let Some(context) = &policy_context {
+            session.policy = context.version.clone();
+        }
         let epoch = self.host.pending.cancellation_epoch();
         let issued = now();
         let name = params["name"].as_str().unwrap_or("invalid");
@@ -1173,7 +1257,13 @@ impl BrowserActor {
                 .and_then(Value::as_str)
                 .unwrap_or("browser-session")
                 .into(),
-            parameters: params.clone(),
+            parameters: {
+                let mut frozen = params.clone();
+                if let Some(context) = &policy_context {
+                    frozen["rule_package"] = context.receipt();
+                }
+                frozen
+            },
             issued_at_ms: issued,
             expires_at_ms: issued.saturating_add(
                 (self.timeout + Duration::from_secs(30))
@@ -1206,11 +1296,93 @@ impl BrowserActor {
                 "已有HTTP请求尚未结束，本次页面操作未执行；请等待确认及请求终态，不要重复提交",
             );
         }
+        let policy_decision = match policy_context
+            .as_ref()
+            .map(|context| context.judge(&action, guard_schema::EventType::UiTreeDelta))
+            .transpose()
+        {
+            Ok(Some(decision)) => decision,
+            Ok(None) => Outcome::Execute { findings: vec![] },
+            Err(_) => return refusal("规则包无法判决，浏览器工具未执行"),
+        };
+        if self
+            .host
+            .journal
+            .lock()
+            .expect("浏览器审计")
+            .decided(&action, &policy_decision)
+            .is_err()
+        {
+            self.host.fault();
+            return refusal("DOM判决审计失败，未执行");
+        }
+        let mut approval_id = None;
+        let authorised = match &policy_decision {
+            Outcome::Refuse { .. } => false,
+            Outcome::Execute { .. } => true,
+            Outcome::NeedsConfirmation { findings } => {
+                let approval = match ApprovalBinding::new(
+                    id("browser-dom-confirm"),
+                    action.clone(),
+                    token(),
+                    issued,
+                    action.spec().expires_at_ms,
+                ) {
+                    Ok(binding) => binding,
+                    Err(_) => return refusal("DOM批准绑定无效，未执行"),
+                };
+                approval_id = Some(approval.approval_id().to_string());
+                self.host
+                    .pending
+                    .wait(
+                        ConfirmRequest {
+                            id: approval.approval_id().to_string(),
+                            what: format!("规则包要求确认浏览器动作：{}", action.spec().parameters),
+                            findings: findings.clone(),
+                            binding: Some(approval.clone()),
+                            action_sha256: Some(digest(&action.canonical_bytes())),
+                        },
+                        self.timeout,
+                    )
+                    .answer
+                    == Answer::Approved
+                    && approval.validate_for_action(&action, now()).is_ok()
+            }
+        };
+        let policy_lease = if authorised {
+            crate::rule_policy::acquire(rule_policy.as_ref(), action.spec().policy_version.as_str())
+        } else {
+            Err(anyhow::anyhow!("规则拒绝或未取得批准"))
+        };
+        let _policy_lease = match policy_lease {
+            Ok(lease) => lease,
+            Err(_) => {
+                if self
+                    .host
+                    .journal
+                    .lock()
+                    .expect("浏览器审计")
+                    .finished(
+                        &action,
+                        approval_id.as_deref(),
+                        ExecutionOutcome::Refused,
+                        None,
+                    )
+                    .is_err()
+                {
+                    self.host.fault();
+                }
+                return refusal("规则包拒绝、已变化或未取得批准，浏览器工具未执行");
+            }
+        };
         let beginning = self.host.pending.with_active_epoch(epoch, || {
+            if action.validate_at(now()).is_err()
+                || self.host.verify_tool(&action.spec().tool).is_err()
+            {
+                return Err(anyhow::anyhow!("等待策略许可期间动作或登记已失效"));
+            }
             let journal = self.host.journal.lock().expect("浏览器审计");
-            journal
-                .decided(&action, &Outcome::Execute { findings: vec![] })
-                .and_then(|_| journal.started(&action, None))
+            journal.started(&action, approval_id.as_deref())
         });
         match beginning {
             None => return refusal("宿主已撤权，浏览器工具未执行"),
@@ -1314,7 +1486,7 @@ impl BrowserActor {
             .journal
             .lock()
             .expect("浏览器审计")
-            .finished(&action, None, outcome, Some(&output))
+            .finished(&action, approval_id.as_deref(), outcome, Some(&output))
             .is_err()
         {
             self.host.fault();

@@ -17,7 +17,7 @@ export function toolValue(response) {
   assert.notEqual(response.result?.isError, true, JSON.stringify(response));
   return JSON.parse(response.result.content[0].text);
 }
-export async function startHostFixture(origins, { timeout = 8, rpcTimeout = 45000, binary = process.env.AGD_BROWSER_GATEWAY || join(ROOT, 'target/debug/agentguard-mcp'), runtime = join(ROOT, 'apps/protected-browser/cli.mjs'), seed = { 'read.txt': 'SYNTHETIC_WORKSPACE' }, fixture: existingFixture } = {}) {
+export async function startHostFixture(origins, { timeout = 8, rpcTimeout = 45000, binary = process.env.AGD_BROWSER_GATEWAY || join(ROOT, 'target/debug/agentguard-mcp'), runtime = join(ROOT, 'apps/protected-browser/cli.mjs'), seed = { 'read.txt': 'SYNTHETIC_WORKSPACE' }, fixture: existingFixture, rulePackageConfig } = {}) {
   const fixture = existingFixture ?? await createWorkspaceFixture({ name: 'browser-host', seed });
   const controlFile = join(fixture.control, 'connection.json'), executorFile = join(fixture.control, 'browser.json');
   const args = ['--rules', fixture.rules, '--shell-policy', fixture.shellPolicy, '--plans', fixture.plans, '--task', fixture.taskProfile,
@@ -25,6 +25,7 @@ export async function startHostFixture(origins, { timeout = 8, rpcTimeout = 4500
     '--audit-db', fixture.auditDb, '--control-file', controlFile, '--browser-runtime', runtime,
     '--browser-node', process.execPath, '--browser-playwright', join(execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim(), 'playwright'), '--browser-browsers', join(process.env.HOME, 'Library/Caches/ms-playwright'), '--browser-audit-db', join(fixture.control, 'browser.db'), '--browser-file', executorFile,
     '--browser-headless', ...origins.flatMap(origin => ['--browser-origin', origin])];
+  if (rulePackageConfig) args.push("--rule-package-config", rulePackageConfig);
   const child = spawn(binary, args, { cwd: ROOT, env: { ...process.env, AGD_HOST_ONLY_TEST_TOKEN: 'SYNTHETIC_BROWSER_MUST_NOT_INHERIT' }, stdio: ['pipe', 'pipe', 'pipe'] });
   let stderr = '', exited = false, sequence = 0; const waiting = new Map();
   child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-32000); });

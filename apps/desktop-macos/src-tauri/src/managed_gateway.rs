@@ -533,6 +533,19 @@ fn supervise(
 }
 
 #[cfg(all(test, unix))]
+pub(crate) fn test_python() -> PathBuf {
+    // 合成端点使用实际解释器；产品对子进程环境的过滤保持原样。
+    #[cfg(target_os = "macos")]
+    if let Some(directory) = std::env::var_os("DEVELOPER_DIR") {
+        let python = PathBuf::from(directory).join("usr/bin/python3");
+        if python.is_file() {
+            return python;
+        }
+    }
+    PathBuf::from("/usr/bin/python3")
+}
+
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::fs;
@@ -545,7 +558,7 @@ mod tests {
         fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
         let script = root.join("fixture.py");
         fs::write(&script, body).unwrap();
-        let mut command = Command::new("/usr/bin/python3");
+        let mut command = Command::new(test_python());
         command
             .arg("-I")
             .arg(&script)

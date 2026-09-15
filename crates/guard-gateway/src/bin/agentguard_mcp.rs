@@ -104,6 +104,17 @@ fn main() -> anyhow::Result<()> {
     let audit_path = arg("--audit-db").map(PathBuf::from);
     let control_path = arg("--control-file").map(PathBuf::from);
     let mcp_config = arg("--mcp-service-config").map(PathBuf::from);
+    let rule_config_path = arg("--rule-package-config").map(PathBuf::from);
+    let rule_config = rule_config_path
+        .as_deref()
+        .map(guard_gateway::rule_policy::RulePackageConfig::read)
+        .transpose()?;
+    let rule_store_path = rule_config.as_ref().map(|config| config.store.clone());
+    if rule_config.is_some()
+        && (isolation_image.is_none() || audit_path.is_none() || control_path.is_none())
+    {
+        anyhow::bail!("动态规则包必须同时配置隔离镜像、审计和宿主控制文件");
+    }
     let mcp_recovery_path = mcp_config
         .as_ref()
         .and(audit_path.as_ref())
@@ -226,6 +237,8 @@ fn main() -> anyhow::Result<()> {
         &registry_path,
         &mcp_config,
         &mcp_recovery_path,
+        &rule_config_path,
+        &rule_store_path,
     ]
     .into_iter()
     .flatten()
@@ -332,6 +345,9 @@ fn main() -> anyhow::Result<()> {
     }
     if let Some(journal) = journal {
         server = server.with_journal(journal);
+    }
+    if let Some(config) = rule_config {
+        server = server.with_rule_packages(config.open()?)?;
     }
 
     if let Some(path) = mcp_config {

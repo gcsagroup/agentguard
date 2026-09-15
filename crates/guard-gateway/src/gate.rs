@@ -180,6 +180,14 @@ impl Gate {
     /// "拦住了"这件事可以被测试：测试可以断言返回了 `Refuse`，也可以断言那条命令**确实没有
     /// 副作用**——两件不同的事，而只断言前者是这个项目反复抓到的那种缺陷。
     pub fn judge(&mut self, action: &ShellAction) -> Outcome {
+        self.judge_with_content(action, None)
+    }
+
+    pub(crate) fn judge_with_content(
+        &mut self,
+        action: &ShellAction,
+        content: Option<&serde_json::Value>,
+    ) -> Outcome {
         let mut findings = Vec::new();
 
         // ---- 第一道：路径与 shell（B0） ----
@@ -219,7 +227,15 @@ impl Gate {
         });
 
         // ---- 第二道：规则引擎 ----
-        let event = self.tool_event(action);
+        let mut event = self.tool_event(action);
+        if let Some(content) = content
+            .and_then(|value| value.get("contents"))
+            .and_then(serde_json::Value::as_str)
+        {
+            let text = event.metadata.entry("ui_text".into()).or_default();
+            text.push(' ');
+            text.push_str(content);
+        }
         let decision = match self.engine.process(&event) {
             Ok(d) => d,
             // 引擎出错时**拒绝**，不放行。一个判不出来的守卫必须表现得像判了"不行"，
@@ -268,6 +284,10 @@ impl Gate {
                 }
             }
         }
+    }
+
+    pub(crate) fn set_rule_package(&mut self, package: guard_intel::package::RulePayload) {
+        self.engine.set_rule_package(Some(package));
     }
 
     /// 第三方服务按一次程序执行扣减预算。任意工具参数不能当成可信路径声明；

@@ -118,6 +118,18 @@ impl Server {
         instance_id: &str,
         cancellation_epoch: u64,
     ) -> OperatorReply {
+        if matches!(
+            command,
+            OperatorCommand::Preview { .. } | OperatorCommand::Apply { .. }
+        ) {
+            if let Err(error) = self.refresh_rule_policy() {
+                return failure(
+                    "WORKSPACE_POLICY",
+                    &format!("规则包不可用，未回写：{error}"),
+                    409,
+                );
+            }
+        }
         match command {
             OperatorCommand::Preview { workspace_id } => {
                 self.workspace_preview(workspace_id, instance_id, cancellation_epoch)
@@ -158,8 +170,14 @@ impl Server {
         &self,
         name: &str,
         target: String,
-        parameters: Value,
+        mut parameters: Value,
     ) -> anyhow::Result<ActionSnapshot> {
+        if let Some(policy) = &self.rule_policy {
+            // 暂停／停止是安全控制，即使包被撤销仍须可调用。
+            if name == "workspace_apply" {
+                parameters["rule_package"] = policy.receipt(&self.policy_version)?;
+            }
+        }
         let issued_at_ms = now_ms();
         // 同一配置控制复核有效期，避免等待超时被一个更长的回写窗口悄悄延长。
         let lifetime = self.confirm_timeout.as_millis().min(i64::MAX as u128) as i64;
@@ -298,7 +316,7 @@ impl Server {
                 413,
             );
         }
-        let outcome = if let Some(finding) = self.writeback_denial(&preview) {
+        let mut outcome = if let Some(finding) = self.writeback_denial(&preview) {
             Outcome::Refuse {
                 findings: vec![finding],
             }
@@ -312,6 +330,43 @@ impl Server {
                 }],
             }
         };
+        if let Some(policy) = &self.rule_policy {
+            let checked = (|| -> anyhow::Result<Vec<crate::gate::Finding>> {
+                let context = policy.context()?;
+                anyhow::ensure!(
+                    context.version == self.policy_version,
+                    "预览期间规则包已变化"
+                );
+                for event_type in [
+                    guard_schema::EventType::FileWrite,
+                    guard_schema::EventType::FileDelete,
+                ] {
+                    let applicable = preview.changes.iter().any(|change| {
+                        matches!(change.kind, crate::writeback::ChangeKind::Delete)
+                            == (event_type == guard_schema::EventType::FileDelete)
+                    });
+                    if applicable {
+                        if let Outcome::Refuse { findings } =
+                            context.judge(binding.action(), event_type)?
+                        {
+                            return Ok(findings);
+                        }
+                    }
+                }
+                Ok(vec![])
+            })();
+            match checked {
+                Ok(findings) if !findings.is_empty() => outcome = Outcome::Refuse { findings },
+                Ok(_) => {}
+                Err(error) => {
+                    return failure(
+                        "WORKSPACE_POLICY",
+                        &format!("规则包未允许本次预览：{error}"),
+                        409,
+                    )
+                }
+            }
+        }
         if let Err(error) = self
             .journal
             .as_ref()
@@ -394,6 +449,7 @@ impl Server {
                     && review.digest == digest
                     && review.binding.nonce() == nonce
                     && review.binding.action().spec().session_id.as_str() == self.host_session_id
+                    && review.binding.action().spec().policy_version.as_str() == self.policy_version
                     && review.cancellation_epoch == cancellation_epoch
                     && self
                         .verify_tool(&review.binding.action().spec().tool)
@@ -447,6 +503,33 @@ impl Server {
         if review.preview.changes.is_empty() {
             return failure("WORKSPACE_STALE", "没有需要回写的文件变化", 409);
         }
+        let _policy_lease = match crate::rule_policy::acquire(
+            self.rule_policy.as_ref(),
+            review.binding.action().spec().policy_version.as_str(),
+        ) {
+            Ok(lease) => lease,
+            Err(error) => {
+                if self
+                    .journal
+                    .as_ref()
+                    .unwrap()
+                    .finished(
+                        review.binding.action(),
+                        Some(id),
+                        ExecutionOutcome::Refused,
+                        None,
+                    )
+                    .is_err()
+                {
+                    self.journal_failed = true;
+                }
+                return failure(
+                    "WORKSPACE_POLICY",
+                    &format!("规则包已变化，未回写：{error}"),
+                    409,
+                );
+            }
+        };
         if let Err(error) = self
             .journal
             .as_ref()

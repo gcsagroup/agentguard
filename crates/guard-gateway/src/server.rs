@@ -53,6 +53,7 @@ pub struct Server {
     host_session_id: String,
     session_stopped: bool,
     policy_version: String,
+    rule_policy: Option<crate::rule_policy::RuntimePolicy>,
     workspace_review: Option<workspace_control::PendingWorkspaceReview>,
     last_workspace_result: Option<crate::writeback::ApplyReport>,
     workspace_faulted: bool,
@@ -147,6 +148,7 @@ impl Server {
             host_session_id: random_id("mcp-session"),
             session_stopped: false,
             policy_version: random_id("policy-epoch"),
+            rule_policy: None,
             workspace_review: None,
             last_workspace_result: None,
             workspace_faulted: false,
@@ -187,6 +189,7 @@ impl Server {
             host_session_id: random_id("mcp-session"),
             session_stopped: false,
             policy_version: random_id("policy-epoch"),
+            rule_policy: None,
             workspace_review: None,
             last_workspace_result: None,
             workspace_faulted: false,
@@ -222,6 +225,7 @@ impl Server {
             Arc::ptr_eq(&self.registry, &browser.host().registry()),
             "浏览器和文件工具的宿主登记表不一致"
         );
+        browser.host().set_rule_policy(self.rule_policy.clone())?;
         self.browser = Some(browser);
         Ok(self)
     }
@@ -285,8 +289,44 @@ impl Server {
 
     /// 由宿主绑定实际加载的规则、shell 策略和计划内容摘要；客户端没有此入口。
     pub fn with_policy_version(mut self, version: String) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            self.rule_policy.is_none(),
+            "加载规则包后不能重定义启动策略摘要"
+        );
         self.policy_version = ValidatedId::new(version)?.to_string();
         Ok(self)
+    }
+
+    pub fn with_rule_packages(
+        mut self,
+        store: guard_intel::package::store::RuntimeStore,
+    ) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            self.rule_policy.is_none() && self.browser.is_none(),
+            "规则包必须在浏览器启用前配置一次"
+        );
+        anyhow::ensure!(
+            self.isolation.is_some()
+                && self.journal.as_ref().is_some_and(ExecutionJournal::healthy),
+            "动态规则包需要隔离后端及持久审计"
+        );
+        self.rule_policy = Some(crate::rule_policy::RuntimePolicy::new(
+            store,
+            self.policy_version.clone(),
+        )?);
+        self.refresh_rule_policy()?;
+        Ok(self)
+    }
+
+    fn refresh_rule_policy(&mut self) -> anyhow::Result<()> {
+        if let Some(policy) = &self.rule_policy {
+            let context = policy.context()?;
+            if self.policy_version != context.version {
+                self.gate.set_rule_package(context.payload()?);
+                self.policy_version = context.version;
+            }
+        }
+        Ok(())
     }
 
     /// 宿主开始一次新的授权会话。MCP 的 `start_session` 只连接到这个会话。
@@ -665,6 +705,12 @@ impl Server {
     /// 只断言前者，就还是那种"机制存在、被直接测过、什么都没接上"的缺陷。
     pub fn gate_and_run(&mut self, call: ToolCall, action: ShellAction) -> Handled {
         self.last_output_source = None;
+        if let Err(error) = self.refresh_rule_policy() {
+            self.refused += 1;
+            return Handled::Refused {
+                reason: format!("规则包不可用，未执行：{error}"),
+            };
+        }
         if let Some(reason) = call.platform_denial(self.execution_mode) {
             self.refused += 1;
             return Handled::Refused { reason };
@@ -749,7 +795,12 @@ impl Server {
             self.refused += 1;
             return Handled::Refused { reason };
         }
-        let outcome = self.gate.judge(&action);
+        let outcome = self.gate.judge_with_content(
+            &action,
+            self.rule_policy
+                .as_ref()
+                .map(|_| &snapshot.spec().parameters),
+        );
         if let Some(journal) = &self.journal {
             if let Err(error) = journal.decided(snapshot, &outcome) {
                 self.journal_failed = true;
@@ -898,6 +949,24 @@ impl Server {
                 reason: "执行前工具登记已失效，旧动作或批准不能派发".into(),
             };
         }
+        let _policy_lease = match crate::rule_policy::acquire(
+            self.rule_policy.as_ref(),
+            snapshot.spec().policy_version.as_str(),
+        ) {
+            Ok(lease) => lease,
+            Err(error) => {
+                self.refused += 1;
+                return Handled::Refused {
+                    reason: format!("派发前规则包已变化或不可用，未执行：{error}"),
+                };
+            }
+        };
+        if snapshot.validate_at(now_ms()).is_err() || self.pending.is_cancelled() {
+            self.refused += 1;
+            return Handled::Refused {
+                reason: "等待策略许可期间动作已过期或会话已撤权，未执行".into(),
+            };
+        }
         if let Some(journal) = &self.journal {
             if let Err(error) = journal.started(snapshot, approval_id.as_deref()) {
                 self.journal_failed = true;
@@ -1001,6 +1070,9 @@ impl Server {
             .as_ref()
             .map(DockerExecutor::status)
             .unwrap_or_else(|| json!({ "mode": "native_cooperative" }));
+        if let Some(policy) = &self.rule_policy {
+            parameters["rule_package"] = policy.receipt(&self.policy_version)?;
+        }
         let issued_at_ms = now_ms();
         // 批准窗口之后仍留执行前复核窗口；真正执行有独立的超时，批准不覆盖后续新动作。
         let lifetime = self.confirm_timeout.as_millis().min(i64::MAX as u128) as i64;

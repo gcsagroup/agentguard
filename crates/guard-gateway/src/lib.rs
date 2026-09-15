@@ -47,6 +47,7 @@ pub mod mcp_service;
 pub mod mcp_stdio;
 pub mod operator;
 pub mod provenance;
+pub mod rule_policy;
 pub mod server;
 pub mod tool_registry;
 pub mod writeback;

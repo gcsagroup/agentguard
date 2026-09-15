@@ -256,7 +256,7 @@ impl ExecutionJournal {
         };
         let findings: Vec<_> = outcome.findings().iter().map(|finding| {
             json!({"rule_id": audit_rule_id(&finding.rule_id),
-                "layer":match finding.layer.as_str() { "path" => "path", "engine" => "engine", _ => "unknown" }})
+                "layer":match finding.layer.as_str() { "path" => "path", "engine" => "engine", "signed-rule-package" => "signed-rule-package", _ => "unknown" }})
         }).collect();
         let mut record = self.record(action, None, None, None)?;
         let mut summary: Value = serde_json::from_str(&record.event_json)?;
@@ -346,7 +346,7 @@ impl ExecutionJournal {
                 value
             })
             .collect();
-        let summary = json!({"schema":"gateway_execution_v1", "action_sha256":action_hash,
+        let mut summary = json!({"schema":"gateway_execution_v1", "action_sha256":action_hash,
             "source_metadata_version":1, "sources":sources,
             "source_coverage":if spec.sources.is_empty() { "missing" } else { "attached" },
             "request_id_sha256":sha256(spec.request_id.as_str().as_bytes()),
@@ -361,6 +361,39 @@ impl ExecutionJournal {
             "dispatched":if outcome.is_some() { Some(output.is_some_and(|o|o.dispatched)) } else { None },
             // 命令退出码不能证明所有业务副作用；实际快照差异/业务核对单独验收。
             "side_effects": if outcome.is_some() && !output.is_some_and(|o|o.dispatched) { "not_dispatched" } else { "unknown" }});
+        if let Some(receipt) = spec
+            .parameters
+            .get("rule_package")
+            .filter(|value| !value.is_null())
+        {
+            let binding = receipt
+                .get("binding_sha256")
+                .and_then(Value::as_str)
+                .context("规则包绑定摘要缺失")?;
+            let content = receipt
+                .pointer("/status/active_sha256")
+                .and_then(Value::as_str)
+                .context("规则包内容摘要缺失")?;
+            for hash in [binding, content] {
+                anyhow::ensure!(
+                    hash.len() == 64
+                        && hash
+                            .bytes()
+                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+                    "规则包审计只接受准确SHA-256摘要"
+                );
+            }
+            let sequence = receipt
+                .pointer("/status/last_sequence")
+                .and_then(Value::as_u64)
+                .context("规则包发布序号缺失")?;
+            let floor = receipt
+                .pointer("/status/security_floor")
+                .and_then(Value::as_u64)
+                .context("规则包安全下限缺失")?;
+            // 只摘取固定摘要和数值，流名、正文、自定义描述和宿主路径不进入日志。
+            summary["rule_package"] = json!({"binding_sha256":binding,"content_sha256":content,"sequence":sequence,"security_floor":floor,"instruction_authority":"none"});
+        }
         Ok(AuditRecord {
             id: if outcome.is_some() {
                 format!("{}/result", sha256(spec.action_id.as_str().as_bytes()))
@@ -415,6 +448,32 @@ mod tests {
     use super::*;
     use guard_schema::{ActionSpec, ToolIdentity, ValidatedId, EXECUTION_CONTRACT_VERSION};
     use rand::RngCore;
+
+    #[test]
+    fn 规则包来源只落盘摘要且畸形摘要不能混入正文() {
+        let root = temp_dir();
+        let journal = ExecutionJournal::open(&root.join("audit.db")).unwrap();
+        let mut spec = action().spec().clone();
+        spec.parameters["rule_package"] = json!({"binding_sha256":"ab".repeat(32), "private":"MUST_NOT_STORE_PACKAGE_BODY", "status":{"active_sha256":"cd".repeat(32),"last_sequence":7,"security_floor":2,"stream":"MUST_NOT_STORE_PACKAGE_STREAM"}});
+        let bound = ActionSnapshot::new(spec.clone()).unwrap();
+        journal
+            .decided(&bound, &Outcome::Execute { findings: vec![] })
+            .unwrap();
+        let record = journal.record(&bound, None, None, None).unwrap();
+        let value: Value = serde_json::from_str(&record.event_json).unwrap();
+        assert_eq!(
+            value["rule_package"],
+            json!({"binding_sha256":"ab".repeat(32),"content_sha256":"cd".repeat(32),"sequence":7,"security_floor":2,"instruction_authority":"none"})
+        );
+        assert!(!record.event_json.contains("MUST_NOT_STORE"));
+        spec.parameters["rule_package"]["binding_sha256"] = json!("MUST_NOT_STORE_PACKAGE_BODY");
+        assert!(journal
+            .started(&ActionSnapshot::new(spec).unwrap(), None)
+            .is_err());
+        assert!(journal.store.verify_chain().unwrap().ok);
+        drop(journal);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     fn temp_dir() -> std::path::PathBuf {
         let mut bytes = [0u8; 16];

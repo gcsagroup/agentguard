@@ -58,6 +58,8 @@ pub struct Engine {
     pub privacy: PrivacySession,
     audit: Option<AuditStore>,
     intel: ThreatBundle,
+    /// 已验证规则包只增加约束；主引擎的会话、预算和来源状态保持独立且不随更新重置。
+    rule_package: Option<Box<Engine>>,
     last_audit_id: Option<String>,
     /// P0-3:最近一次审计写入失败的错误。`Some` = 审计当前不可写,防护状态机据此判 Degraded。
     /// 下一次写成功即清空——它描述的是「现在能不能写」,不是历史。
@@ -450,6 +452,22 @@ enum LookalikeStrength {
     Advisory,
 }
 
+fn constrain_with_package(primary: Decision, extra: Decision) -> Decision {
+    if extra.action == DecisionAction::Allow && !extra.require_confirm {
+        return primary;
+    }
+    let hard_block = [&primary, &extra]
+        .iter()
+        .any(|d| d.action == DecisionAction::Block && !d.require_confirm);
+    let needs_confirmation = primary.require_confirm || extra.require_confirm;
+    let mut merged = merge_keeping_reason(primary, extra);
+    merged.require_confirm = !hard_block && needs_confirmation;
+    merged
+}
+
+#[cfg(test)]
+mod rule_package_tests;
+
 fn merge_keeping_reason(primary: Decision, extra: Decision) -> Decision {
     // **Both** reasons survive, whichever wins.
     //
@@ -523,6 +541,7 @@ impl Engine {
             privacy: PrivacySession::new(contract),
             audit: None,
             intel: ThreatBundle::default(),
+            rule_package: None,
             last_audit_id: None,
             audit_error: None,
             device_policy: None,
@@ -620,6 +639,25 @@ impl Engine {
 
     pub fn reload_intel(&mut self, intel: ThreatBundle) {
         self.intel = intel;
+    }
+
+    /// 仅可信宿主在核对签名仓库后调用；替换内容检测层，不重建主会话引擎。
+    pub fn set_rule_package(&mut self, package: Option<guard_intel::package::RulePayload>) {
+        self.rule_package = package.map(|package| {
+            Box::new(
+                Self::new(package.rules, GuardContract::default()).with_intel(package.indicators),
+            )
+        });
+    }
+
+    /// 浏览器等宿主入口的附加内容判据。不能用它替代该入口已有的会话／路径／网络控制。
+    pub fn rule_content_decision(
+        package: guard_intel::package::RulePayload,
+        event: &GuardEvent,
+    ) -> Result<Decision> {
+        Self::new(package.rules, GuardContract::default())
+            .with_intel(package.indicators)
+            .decide(event)
     }
 
     pub fn intel(&self) -> &ThreatBundle {
@@ -861,6 +899,10 @@ impl Engine {
 
         let scope_finding = self.check_agent_session_scope(event);
         let decision = self.decide(event)?;
+        let decision = match self.rule_package.as_mut() {
+            Some(package) => constrain_with_package(decision, package.decide(event)?),
+            None => decision,
+        };
         // Trajectory alignment runs here, once per event, rather than inside
         // `with_transition_guard`: that helper is only reached from three event arms,
         // so the trajectory would have missed every `data_flow`, `memory_write` and
@@ -3926,6 +3968,30 @@ impl Engine {
     /// `ui_text` here would be a second, weaker copy of `p0_rules.yaml` that drifts
     /// away from the first.
     fn step_kind_of(&self, event: &GuardEvent, decision: &Decision) -> Option<StepKind> {
+        let base = self.base_step_kind_of(event, decision);
+        let extra = self.rule_package.as_ref().and_then(|package| {
+            let text = event.metadata.get("ui_text")?;
+            package
+                .rules
+                .rules
+                .iter()
+                .filter(|r| r.event_types.is_empty() || r.event_types.contains(&event.event_type))
+                .filter(|r| {
+                    r.platforms.is_empty()
+                        || r.platforms
+                            .iter()
+                            .any(|p| p.eq_ignore_ascii_case(&event.platform))
+                })
+                .filter_map(|r| r.step_kind.filter(|_| rule_text_matches(r, text)))
+                .max_by_key(|k| step_gravity(*k))
+        });
+        // 包中更弱的 Observe 声明不能把真实 RunShell、网络外送或付款移出原预算。
+        base.into_iter()
+            .chain(extra)
+            .max_by_key(|k| step_gravity(*k))
+    }
+
+    fn base_step_kind_of(&self, event: &GuardEvent, decision: &Decision) -> Option<StepKind> {
         // Every rule that *matches*, not just the one that won. Rule precedence is
         // longest-matched-pattern, so appending a marker whose pattern is longer than
         // `确认支付` moved the win to another rule and the payment fell through to

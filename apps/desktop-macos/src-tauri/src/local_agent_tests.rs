@@ -23,6 +23,12 @@ impl TestDirectory {
     fn paths(&self, mode: &str) -> RuntimePaths {
         let binary = self.0.join("fixture-gateway.py");
         let source = GATEWAY_FIXTURE.replace("\"__MODE__\"", &serde_json::to_string(mode).unwrap());
+        #[cfg(unix)]
+        let source = source.replacen(
+            "#!/usr/bin/python3",
+            &format!("#!{}", crate::managed_gateway::test_python().display()),
+            1,
+        );
         std::fs::write(&binary, source).unwrap();
         #[cfg(unix)]
         {

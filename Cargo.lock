@@ -786,6 +786,7 @@ dependencies = [
  "ed25519-dalek",
  "guard-audit",
  "guard-core",
+ "guard-intel",
  "guard-privacy",
  "guard-schema",
  "guard-shell",

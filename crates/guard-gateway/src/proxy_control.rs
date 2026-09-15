@@ -78,6 +78,9 @@ impl Server {
         Ok(self)
     }
     pub(super) fn proxy_call(&mut self, name: &str, args: &Value) -> Value {
+        if let Err(error) = self.refresh_rule_policy() {
+            return refusal(&format!("规则包不可用，未启动服务：{error}"));
+        }
         if self.host_session_state() != "active" {
             return refusal("宿主会话未激活，第三方服务未启动");
         }
@@ -116,6 +119,7 @@ impl Server {
             confirm_timeout: self.confirm_timeout,
             session: &self.host_session_id,
             policy: &self.policy_version,
+            rule_policy: self.rule_policy.as_ref(),
         };
         let result = match host.invoke(proxy, original, args) {
             Ok(result) => result,
@@ -146,6 +150,7 @@ struct ProxyHost<'a> {
     confirm_timeout: Duration,
     session: &'a str,
     policy: &'a str,
+    rule_policy: Option<&'a crate::rule_policy::RuntimePolicy>,
 }
 impl ProxyHost<'_> {
     fn invoke(&mut self, proxy: &ProxyService, name: &str, args: &Value) -> Result<Value> {
@@ -177,7 +182,7 @@ impl ProxyHost<'_> {
             tool,
             target: format!("mcp__{}__{name}", proxy.manifest.namespace),
             parameters: json!({"arguments":args,"process":receipt,"container_name":container_name,
-                "execution_backend":self.isolation.status()}),
+                "execution_backend":self.isolation.status(), "rule_package":self.rule_policy.map(|p| p.receipt(self.policy)).transpose()?}),
             policy_version: validated_id(self.policy.into()),
             issued_at_ms: issued,
             expires_at_ms: expires,
@@ -202,6 +207,7 @@ impl ProxyHost<'_> {
             capture: None,
         };
         let mut approval_id = None;
+        let mut _policy_lease = None;
         let mut result = refusal("动作被规则拒绝");
         if !matches!(decision, Outcome::Refuse { .. }) {
             let approval = ApprovalBinding::new(
@@ -220,6 +226,25 @@ impl ProxyHost<'_> {
                 findings:decision.findings().to_vec(),binding:Some(approval.clone()),action_sha256:Some(hash.as_str().to_owned()),
             },self.confirm_timeout.min(Duration::from_secs(120)));
             if resolution.answer == Answer::Approved {
+                match crate::rule_policy::acquire(self.rule_policy, self.policy) {
+                    Ok(lease) => _policy_lease = lease,
+                    Err(error) => {
+                        return ProxyCompletion {
+                            pending: self.pending,
+                            sources: self.sources,
+                            journal: self.journal,
+                            journal_failed: self.journal_failed,
+                        }
+                        .finish(
+                            &action,
+                            approval_id.as_deref(),
+                            output,
+                            refusal(&format!("规则包已变化，未启动服务：{error}")),
+                            "process",
+                            serde_json::to_value(receipt)?,
+                        )
+                    }
+                }
                 let permit = DispatchPermit {
                     pending: self.pending.clone(),
                     epoch,

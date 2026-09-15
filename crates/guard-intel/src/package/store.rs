@@ -16,6 +16,9 @@ use std::{
     time::Duration,
 };
 
+mod runtime;
+pub use runtime::{PolicyLease, RuntimeSnapshot, RuntimeStore};
+
 const MAX_UPDATES: usize = 256;
 const MAX_HISTORY_BYTES: usize = 64 * 1024 * 1024;
 
@@ -247,7 +250,12 @@ impl PackageStore {
         let mut db = Connection::open_with_flags(path, flags)?;
         db.busy_timeout(Duration::from_secs(5))?;
         db.execute_batch("PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;")?;
-        let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let tx = db.transaction_with_behavior(if initialize {
+            TransactionBehavior::Immediate
+        } else {
+            // 只验证已有身份不写入，动作持有执行许可时仍可读取当前状态。
+            TransactionBehavior::Deferred
+        })?;
         if initialize {
             tx.execute_batch("CREATE TABLE IF NOT EXISTS package_identity (
                 singleton INTEGER PRIMARY KEY CHECK(singleton=1), schema_version INTEGER NOT NULL,

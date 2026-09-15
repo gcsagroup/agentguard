@@ -118,19 +118,20 @@ export class WorkspaceSession {
   #token; #origin; #sequence = 0; #waiting = new Map(); #secrets = new Set(); #reviews = new Map();
   #stderr = []; #output; #logs; #exit; #exited = false; #closed = false; #ownedSnapshots = new Set();
 
-  static async start({ binary, image = DEFAULT_IMAGE, fixture, confirmSeconds = 5, requireWorkspaceProtocol = true, onSession, mcpServiceConfig, startupTimeoutMs = 20000 }) {
+  static async start({ binary, image = DEFAULT_IMAGE, fixture, confirmSeconds = 5, requireWorkspaceProtocol = true, onSession, mcpServiceConfig, rulePackageConfig, startupTimeoutMs = 20000 }) {
     assert.match(image, /^sha256:[a-f0-9]{64}$/, '验收必须使用已存在的固定镜像摘要');
     assert.ok(isAbsolute(binary), '候选二进制必须使用冻结的绝对路径');
     assert.ok(!within(fixture.work, fixture.control), '批准凭据目录不能在任务工作区内');
     assert.equal(await docker(['image', 'inspect', '--format', '{{.Id}}', image]), image, '不下载缺失镜像');
     const session = new WorkspaceSession();
-    session.fixture = fixture; session.binary = binary; session.image = image;
+    session.fixture = fixture; session.binary = binary; session.image = image; session.rulePackageEnabled = !!rulePackageConfig;
     session.binarySha256 = digest(await readFile(binary));
     session.controlFile = join(fixture.control, `connection-${randomUUID()}.json`);
     const args = ['--rules', fixture.rules, '--shell-policy', fixture.shellPolicy, '--plans', fixture.plans,
       '--task', fixture.taskProfile, '--confirm-port', '0', '--confirm-timeout-secs', String(confirmSeconds),
       '--isolation-image', image, '--audit-db', fixture.auditDb, '--control-file', session.controlFile];
     if (mcpServiceConfig) args.push("--mcp-service-config", mcpServiceConfig);
+    if (rulePackageConfig) args.push("--rule-package-config", rulePackageConfig);
     session.child = spawn(binary, args, { cwd: ROOT, env: { ...process.env, PATH: `${RUST_BIN}:${process.env.PATH}`,
       RUSTC: join(RUST_BIN, 'rustc'), RUSTDOC: join(RUST_BIN, 'rustdoc'), AGD_HOST_ONLY_TEST_TOKEN: 'AGD_M1_SYNTHETIC_ENV_SECRET' },
       stdio: ['pipe', 'pipe', 'pipe'] });
@@ -269,7 +270,15 @@ export class WorkspaceSession {
     assert.equal(action.contract_version, 1); assert.equal(action.target, review.preview.workspace_root);
     assert.equal(action.tool.service, 'agentguard-host-control'); assert.equal(action.tool.name, 'workspace_apply');
     assert.equal(action.tool.version, this.serverVersion);
-    assert.deepEqual(action.parameters, { workspace_id: workspaceId, preview: review.preview });
+    const expectedParameters = { workspace_id: workspaceId, preview: review.preview };
+    if (this.rulePackageEnabled) {
+      const receipt = action.parameters.rule_package;
+      assert.equal(receipt.instruction_authority, 'none'); assert.equal(receipt.status.kind, 'rules');
+      assert.match(receipt.binding_sha256, /^[a-f0-9]{64}$/); assert.match(receipt.status.active_sha256, /^[a-f0-9]{64}$/);
+      assert.ok(Number.isSafeInteger(receipt.status.last_sequence) && receipt.status.last_sequence > 0);
+      expectedParameters.rule_package = receipt;
+    }
+    assert.deepEqual(action.parameters, expectedParameters);
     assert.equal(actionSha256(action), review.review_sha256, '回写批准必须绑定完整预览与会话');
     assert.ok(typeof review.preview.recovery_directory === 'string' && isAbsolute(review.preview.recovery_directory));
     assert.ok(!within(this.fixture.work, resolve(review.preview.recovery_directory)), '恢复目录不能落入任务授权工作区');

@@ -25,6 +25,7 @@ impl Server {
             confirm_timeout: self.confirm_timeout,
             session: &self.host_session_id,
             policy: &self.policy_version,
+            rule_policy: self.rule_policy.as_ref(),
         };
         let result = host
             .invoke(proxy, original, args)
@@ -47,6 +48,7 @@ struct RemoteHost<'a> {
     confirm_timeout: Duration,
     session: &'a str,
     policy: &'a str,
+    rule_policy: Option<&'a crate::rule_policy::RuntimePolicy>,
 }
 impl RemoteHost<'_> {
     fn invoke(&mut self, proxy: &RemoteService, name: &str, args: &Value) -> Result<Value> {
@@ -74,7 +76,7 @@ impl RemoteHost<'_> {
             request_id: validated_id(random_id("request")),
             tool,
             target: format!("mcp__{}__{name}", proxy.manifest.namespace),
-            parameters: json!({"arguments":args,"remote":receipt}),
+            parameters: json!({"arguments":args,"remote":receipt,"rule_package":self.rule_policy.map(|p| p.receipt(self.policy)).transpose()?}),
             policy_version: validated_id(self.policy.into()),
             issued_at_ms: issued,
             expires_at_ms: expires,
@@ -102,6 +104,7 @@ impl RemoteHost<'_> {
         };
         let mut result = refusal("远程动作被规则拒绝");
         let mut approval_id = None;
+        let mut _policy_lease = None;
         if !matches!(decision, Outcome::Refuse { .. }) {
             let approval = ApprovalBinding::new(
                 validated_id(random_id("confirm")),
@@ -116,6 +119,25 @@ impl RemoteHost<'_> {
                 what:format!("向远程服务发送并调用 {}\n目标：{}\n参数（JSON 转义）：{}\n连接身份：{}\n动作 SHA-256：{}\n批准包括远程初始化及调用；参数将发送到该服务。远端可能产生外部副作用，断连或暂停不能保证远端动作停止，未知结果不得自动重发。",action.spec().target,proxy.endpoint(),args,receipt,hash.as_str()),
                 findings:decision.findings().to_vec(),binding:Some(approval.clone()),action_sha256:Some(hash.as_str().into())},timeout);
             if resolution.answer == Answer::Approved {
+                match crate::rule_policy::acquire(self.rule_policy, self.policy) {
+                    Ok(lease) => _policy_lease = lease,
+                    Err(error) => {
+                        return ProxyCompletion {
+                            pending: self.pending,
+                            sources: self.sources,
+                            journal: self.journal,
+                            journal_failed: self.journal_failed,
+                        }
+                        .finish(
+                            &action,
+                            approval_id.as_deref(),
+                            output,
+                            refusal(&format!("规则包已变化，未发送远程请求：{error}")),
+                            "remote",
+                            receipt,
+                        )
+                    }
+                }
                 let permit = DispatchPermit {
                     pending: self.pending.clone(),
                     epoch,
