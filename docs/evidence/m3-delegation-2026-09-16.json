@@ -206,5 +206,12 @@
     "replacement_ci": "pending_verification",
     "local_timeout_test_passed": true,
     "local_timeout_log_sha256": "6fa5834185e07161993ea64adeda0929b52902b301202b46f8273bb557ac5892"
+  },
+  "ci_fix_verification": {
+    "commit": "2782d9de10e58d50235bb8c965c5ed8839f2c815",
+    "conclusion": "success",
+    "successful_jobs": 13,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35012604381",
+    "scope": "CI 测试修正；原 7db4ada Windows 首败保留"
   }
 }

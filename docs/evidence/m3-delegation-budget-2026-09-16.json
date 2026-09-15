@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "task": "AGD-024",
+  "status": "completed_for_declared_scope",
+  "date": "2026-09-16",
+  "base_commit": "2782d9de10e58d50235bb8c965c5ed8839f2c815",
+  "scope": "本机网关与已有 Linux Docker 后端的结构化文件委托；宿主脚本签名和独立 HTTP 脚本批准",
+  "f13": "deferred_not_passed",
+  "full_m1_passed": false,
+  "release_passed": false,
+  "frozen": ".artifacts/m3-delegation-budget-2026-09-16/frozen-02",
+  "independent": {
+    "passed": true,
+    "processes": 6,
+    "phases": 6,
+    "signed_grants": 13,
+    "authenticated_messages": 15,
+    "signatures": 33,
+    "reservations": 16,
+    "finished": 15,
+    "unconfirmed_charged_in_full": 1,
+    "audit_rows": 113,
+    "source_files": 206,
+    "gateway_sha256": "2d6e2f5602e0c784ef4174fa8f5a579fd3c8a43421676af4a6073cf78e01bd10",
+    "scope": "本机隔离文件工具与独立 HTTP 脚本批准；金额不可测；输出审计是准备公开记录，不是客户端接收确认"
+  },
+  "compatibility": {
+    "passed": true,
+    "processes": 2,
+    "signed_grants": 5,
+    "authenticated_messages": 12,
+    "negative_messages": 30,
+    "file_action_bindings": 9,
+    "audit_rows": 98,
+    "signatures": 17,
+    "source_files": 206,
+    "gateway_sha256": "2d6e2f5602e0c784ef4174fa8f5a579fd3c8a43421676af4a6073cf78e01bd10",
+    "scope": "真实隔离文件工具；宿主签名和独立 HTTP 脚本批准；容器私钥不可见另有实际 Docker 测试"
+  },
+  "tamper": {
+    "passed": true,
+    "cases": [
+      {
+        "case": "shared-calls",
+        "rejected": true,
+        "reason": ""
+      },
+      {
+        "case": "encoded-output",
+        "rejected": true,
+        "reason": "'5b5cdc77b631922976c07aa97dc87aef56836eaff62941088605005d1466b7dc'"
+      },
+      {
+        "case": "host-budget-policy",
+        "rejected": true,
+        "reason": "预算配置必须绑定真实策略"
+      },
+      {
+        "case": "signature-command",
+        "rejected": true,
+        "reason": ""
+      }
+    ],
+    "original_unchanged": true
+  },
+  "tests": {
+    "workspace_passed": 1506,
+    "workspace_failed": 0,
+    "workspace_ignored": 17,
+    "delegation_and_budget_passed": 16,
+    "docker_private_keys_passed": 1,
+    "sqlcipher_passed": 13,
+    "clippy_workspace_all_targets": true,
+    "fmt": true,
+    "capability_matrix": true,
+    "repository_after_docs_passed": 23
+  },
+  "preservation": {
+    "preserved_files": 127,
+    "all_unchanged": true,
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_version": "2.0.0-dev.15",
+    "app_build": "15",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "codesign_strict": true,
+    "app_rebuilt": false,
+    "baseline_sha256": "59bcb17b9e75409e0b91264c71ce09997a2c33b627754aad62431a2f3338183c",
+    "packaged_gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+    "signing_cert_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "codesign_output": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app: valid on disk\n/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app: satisfies its Designated Requirement\n"
+  },
+  "verifier": {
+    "path": "scripts/acceptance/verify-delegation-budget.py",
+    "sha256": "a51664686a429bf431b10f29dbfb67e1d8f69afcf6170ab0ac45f798d66bf7e2"
+  },
+  "failures_preserved": [
+    "process-01: 脚本错误状态接口；已改 gateway/stats",
+    "workspace-01: 新测试计数未同步矩阵；重新生成后全仓通过"
+  ],
+  "baseline_ci": {
+    "conclusion": "success",
+    "headSha": "2782d9de10e58d50235bb8c965c5ed8839f2c815",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "Windows (native adapter + shell)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Android companion (Kotlin)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Shell front ends parse",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (macos-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "内核约束（guard-jail）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS shell (native AX + SCK)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (ubuntu-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "部署自检",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "MSRV 1.87",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35012604381"
+  },
+  "artifacts": [
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/frozen-02/build-inputs.json",
+      "sha256": "827bd20819fe0a54ba32878b2314a10d6d1c540c665339aa62ce4f64256249b9",
+      "bytes": 31327
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/process-01/report.json",
+      "sha256": "d78aefed4d7836fabdeab29983b973dbcd50be60ec965067d26a664c2ac061a9",
+      "bytes": 35941
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/process-01.log",
+      "sha256": "6ad9ec9145e270829d906139eb62f00ff7f8d12fbb87fd121977ce70ae323485",
+      "bytes": 722
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/process-02/report.json",
+      "sha256": "dfc403c23189bc6c01832c6d04ed7608ad661a22229a5d2bf8cd39fa80a8529f",
+      "bytes": 223301
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/process-02.log",
+      "sha256": "1d9c0d862a8a85df6feac8ae9c28b3f9aae9f6dbbf22d4142bf5b9531ee0ad8a",
+      "bytes": 251
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/independent-01.json",
+      "sha256": "4c74bf6d90b3853ebc36a326ce1636fd2e0ea98b282ad132a73f45ee550d8367",
+      "bytes": 487
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/compatibility-01/report.json",
+      "sha256": "74af2c71ed2b49cfcecb19ac3f76a563de640b7eb41c6e67f9ccee55aaabf941",
+      "bytes": 171089
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/compatibility-independent-01.json",
+      "sha256": "6776993d7c7bce4da574f3693a92fa405e3d4affde86fd6d3776c852730a7f78",
+      "bytes": 431
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/tamper-01/report.json",
+      "sha256": "8b472d1de0761b08bcc6e12e2afe6d0d48a6006b36535d1f1eff2033ef819e1b",
+      "bytes": 527
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/tests-03.log",
+      "sha256": "2c45b934b639e43f8e779cd8d98fac94744480fb9983139ccfd7c41d75032931",
+      "bytes": 3926
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/build-02.log",
+      "sha256": "f25340993efde27b5df77f6978c6d735b9e6dafe8948c53d0ff59180d7cbc106",
+      "bytes": 324
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/workspace-01.log",
+      "sha256": "53b3455566b377b10b14c679f9ee4900fdf352a9fcaef87ad3d546fbe40cdea5",
+      "bytes": 21194
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/workspace-02.log",
+      "sha256": "a810eb7feb5e0f8a7f940769095e063be63ac7802bd408f6193343a946ee74be",
+      "bytes": 124034
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/clippy-workspace-01.log",
+      "sha256": "2cc15e273e5ad732b0f6b9b7bb96498b22dd56b53c0ea361db0f14303686cf55",
+      "bytes": 3256
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/sqlcipher-01.log",
+      "sha256": "b1270137dff71e65340e793d0dda390c3d3bf80ecbe30b56c79fb0c2dbda85f4",
+      "bytes": 2964
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/sqlcipher-config-01.log",
+      "sha256": "af2b41e72eca1e654cb49c61fba2d98b2db29e646c9f1a12a8526d7623dab157",
+      "bytes": 2315
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/docker-private-key-01.log",
+      "sha256": "7b2068aa306f23600b00cab201a88d0d1d4d64eb4ddb2c09f54cb68b969237e2",
+      "bytes": 409
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/preservation.json",
+      "sha256": "ee52cbf2dfa728e582a5244b7b66793e8e7d07b065b1437effbdf41441511670",
+      "bytes": 1015
+    },
+    {
+      "path": ".artifacts/m3-delegation-budget-2026-09-16/repository-final-01.log",
+      "bytes": 4461,
+      "sha256": "79ce358afc396b161d654a651ffb0a9ec9d1d3039e944697a00a1448cd017012"
+    }
+  ],
+  "delivery": ".artifacts/m3-delegation-budget-2026-09-16/delivery.json"
+}

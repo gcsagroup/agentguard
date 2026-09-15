@@ -44,7 +44,7 @@ async function signed(actor,g,command,override={}){const message={version:1,host
 const invoke=envelope=>session.rpc('tools/call',{name:'delegation_send',arguments:envelope});
 async function negative(envelope){const response=await invoke(envelope);report.negative_messages.push({envelope,response});await save();refused(response);}
 
-async function send(actor,g,command,{approval=null,consume=true,override={}}={}){
+async function send(actor,g,command,{approval=null,consume=true,override={},onPending=null}={}){
  const envelope=await signed(actor,g,command,override),pendingCall=invoke(envelope);
  let approvalError;
  try { if(approval){const pending=await session.waitForPending();const action=pending.binding.action;assert.equal(actionSha256(action),pending.action_sha256);assert.equal(action.tool.service,'agentguard-gateway');assert.equal(action.tool.name,command.operation);assert.equal(action.parameters.path,command.path);if('contents'in command)assert.equal(action.parameters.contents,command.contents);
@@ -52,7 +52,7 @@ async function send(actor,g,command,{approval=null,consume=true,override={}}={})
  assert.equal((await session.operatorRequest('/approve',{id:pending.id,action_sha256:pending.action_sha256,approval_nonce:pending.binding.nonce},{omitAuthorization:true})).status,403);
  if(approval==='expire')await delay(900);
  report.approvals.push({choice:approval,envelope,pending});await save();
- const response=await session.operatorRequest(approval==='deny'?'/deny':'/approve',{id:pending.id,action_sha256:pending.action_sha256,approval_nonce:pending.binding.nonce});assert.equal(response.status===200,approval!=='expire');
+ if(onPending){await onPending(pending,envelope);}else{const response=await session.operatorRequest(approval==='deny'?'/deny':'/approve',{id:pending.id,action_sha256:pending.action_sha256,approval_nonce:pending.binding.nonce});assert.equal(response.status===200,approval!=='expire');}
  }} catch(error){approvalError=error;}
  const response=await pendingCall;if(consume)sequences.set(g.grant.grant_id,envelope.message.sequence+1);
  report.messages.push({envelope,response,authenticated_expected:consume});await save();if(approvalError)throw new Error(`${approvalError.message}；真实工具回执：${JSON.stringify(response)}`);return {envelope,response};
@@ -61,6 +61,10 @@ function good(response){assert.equal(response.result?.isError,false,JSON.stringi
 function refused(response){assert.equal(response.result?.isError,true,JSON.stringify(response));assert.equal(response.result._meta?.agentguard?.dispatched,false);}
 async function delegate(actor,g,subject,permissions=rootRights,expires=Date.now()+150000){const {response}=await send(actor,g,{operation:'delegate',subject_id:subject,permissions,expires_at_ms:expires});return grant(JSON.parse(good(response)).grant);}
 try{
+ if(process.argv.includes('--budget-mode')){
+  const {runBudgetAcceptance}=await import('./agd-delegation-budget.mjs');
+  await runBudgetAcceptance({get session(){return session;},get rootGrant(){return rootGrant;},config,configPath,rootRights,bRights,cRights,paths,fixture,out,report,start,stop,send,delegate,good,refused,negative,save});
+ }else{
  await start();assert.deepEqual(rootGrant.grant.permissions,rootRights);
  // 同一连接上的公开宿主会话 ID 不能让子主体绕回普通工具。
  for(const name of ['read_file','write_file','run_shell','start_session','memory_write','browser_read_page']){const response=await session.rpc('tools/call',{name,arguments:{path:paths.private,contents:'不应写入',argv:['id']},_meta:{agentguard_session_id:session.sessionId}});assert.equal(response.result.isError,true);}
@@ -100,5 +104,6 @@ try{
  assert.equal(report.sessions.length,2);assert.ok(report.sessions.every(s=>s.exit.code===0));assert.equal(new Set(report.signer_pids).size,report.signer_pids.length);
  const body=JSON.stringify(report);for(const secret of Object.values(secrets))assert.ok(!body.includes(secret),'私钥不能进入验收报告或任务参数');
  report.checks.push('两次真实网关进程旧授权失效；宿主签名进程独立，私钥未进入任务或报告');report.passed=true;
+ }
 }catch(error){report.error=session?session.redact(error.stack):String(error.stack);process.exitCode=1;}
 finally{await stop().catch(error=>{report.cleanup_error=String(error);process.exitCode=1;});await save();console.log(JSON.stringify({passed:report.passed,checks:report.checks,error:report.error,out}));}

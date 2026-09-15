@@ -56,6 +56,7 @@ impl Fixture {
         })
         .collect();
         let config = DelegationConfig {
+            budgets: BudgetLimits::default(),
             version: 1,
             authority_id: ValidatedId::new("host").unwrap(),
             signing_key: signing_path,

@@ -495,6 +495,8 @@ fn main() -> anyhow::Result<()> {
     let (operator, operator_requests) =
         guard_gateway::operator::OperatorEndpoint::new(pending.clone());
     let operator = operator.with_registry(server.registry());
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    let operator = operator.with_delegation(server.delegation_operator());
     server.start_host_session(task.as_deref())?;
     operator.publish(server.operator_status(&instance_id));
     let mut _control_http = None;
@@ -583,7 +585,7 @@ fn main() -> anyhow::Result<()> {
                     return ControlResponse::json(403,serde_json::json!({"error":"bad host"}));
                 }
                 if let Some(why)=reject_confirm_request(&req,&token) {return ControlResponse::json(403,serde_json::json!({"error":why}));}
-                if req.url().starts_with("/workspace/") || req.url().starts_with("/registry/") {let (status,body)=operator.serve_authenticated(&req);return ControlResponse::json(status,body);}
+                if req.url().starts_with("/workspace/") || req.url().starts_with("/registry/") || req.url().starts_with("/delegation/") {let (status,body)=operator.serve_authenticated(&req);return ControlResponse::json(status,body);}
                 if req.body().len()>4096 {return ControlResponse::json(413,serde_json::json!({"error":"confirmation body too large"}));}
                 let body=match std::str::from_utf8(req.body()){Ok(body)=>body,Err(_)=>return ControlResponse::json(400,serde_json::json!({"error":"invalid UTF-8"}))};
                 let (status,body)=match (req.method(),req.url()) {

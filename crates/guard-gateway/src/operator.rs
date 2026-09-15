@@ -130,6 +130,8 @@ pub struct OperatorEndpoint {
     workers: Arc<AtomicUsize>,
     last_client_message_ms: Arc<AtomicU64>,
     registry: Option<crate::tool_registry::SharedRegistry>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    delegation: Option<crate::delegation_governance::DelegationOperator>,
 }
 impl OperatorEndpoint {
     pub fn new(pending: PendingConfirm) -> (Self, mpsc::Receiver<OperatorJob>) {
@@ -144,6 +146,8 @@ impl OperatorEndpoint {
                 workers: Arc::new(AtomicUsize::new(0)),
                 last_client_message_ms: Arc::new(AtomicU64::new(0)),
                 registry: None,
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                delegation: None,
             },
             receiver,
         )
@@ -154,6 +158,14 @@ impl OperatorEndpoint {
     }
     pub fn with_registry(mut self, registry: crate::tool_registry::SharedRegistry) -> Self {
         self.registry = Some(registry);
+        self
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub fn with_delegation(
+        mut self,
+        delegation: Option<crate::delegation_governance::DelegationOperator>,
+    ) -> Self {
+        self.delegation = delegation;
         self
     }
     pub fn advance_epoch(&self) {
@@ -259,6 +271,13 @@ impl OperatorEndpoint {
         &self,
         request: &crate::control_http::ControlRequest,
     ) -> OperatorReply {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if request.url().starts_with("/delegation/") {
+            return match &self.delegation {
+                Some(operator) => operator.serve(request),
+                None => failure("DELEGATION_UNAVAILABLE", "委托控制未启用", 404),
+            };
+        }
         if request.url().starts_with("/registry/") {
             return self.serve_registry(request);
         }

@@ -39,7 +39,7 @@
 
 文件列表为具体 POSIX 绝对路径，总计最多 64 项；拒绝 `..`、重复分隔符、反斜线、控制字符和重复项。不同操作独立，写入不隐含读取或删除。macOS 的 `/private/var` 会在现有执行器中映射为 `/var`；配置和签名消息建议统一使用执行器的规范路径。授权器还会按真正父工作区目录过滤文件上限。
 
-`agentguard/stats` 返回宿主公钥及当前 `root_grant`。客户端先验签，再由隔离任务外、持有对应主体私钥的宿主代理签署每条 `delegation_send` 消息。消息由 `message`、`command`、`signature` 组成；头部包含版本、宿主／子会话、授权 ID／摘要、主体、目标、从 1 开始的严格连续序号、签发／过期时间及操作摘要。单条消息最多有效 120 秒，且不得超过授权期限。序列化使用递归 UTF-8 键排序 JSON；授权、操作、消息分别使用 `agentguard.delegation.grant.v1\0`、`agentguard.delegation.operation.v1\0`、`agentguard.delegation.message.v1\0` 域前缀。
+`gateway/stats` 返回宿主公钥及当前 `root_grant`。客户端先验签，再由隔离任务外、持有对应主体私钥的宿主代理签署每条 `delegation_send` 消息。消息由 `message`、`command`、`signature` 组成；头部包含版本、宿主／子会话、授权 ID／摘要、主体、目标、从 1 开始的严格连续序号、签发／过期时间及操作摘要。单条消息最多有效 120 秒，且不得超过授权期限。序列化使用递归 UTF-8 键排序 JSON；授权、操作、消息分别使用 `agentguard.delegation.grant.v1\0`、`agentguard.delegation.operation.v1\0`、`agentguard.delegation.message.v1\0` 域前缀。
 
 `command.operation` 支持 `delegate`、`read_file`、`write_file`、`delete_file`。委托命令列出接收主体、请求权限和期限；其它命令列出具体文件，写入另含最多 64 KiB 正文。子授权回执包含宿主签名，但调用时仍需子主体自己的消息签名。端到端可运行示例见[验收程序](../scripts/acceptance/agd-delegation.mjs)，它为每条消息启动独立宿主签名进程，不向任务传入私钥。
 
@@ -79,4 +79,4 @@
 
 `7db4ada` 已合并并推送 main。其 CI `35011194041` 的 Windows 任务发现新增超时测试无条件打开 Unix 专属执行日志锁，命中现有“当前网关执行日志锁尚未验证该宿主平台”拒绝；其它已完成的 Linux／macOS 测试、MSRV、Clippy 和前端检查通过，不能把整个 CI 写成成功。
 
-修复只调整该测试的平台设置：所有平台均检查真实 MCP 超时回执及零文件副作用，Unix 额外核对持久审计；Windows 日志锁原有拒绝行为保持原样。失败日志保存在 `windows-ci-01.log`，本地修正时漏传路径引用的编译失败另保留 `timeout-receipt-02.log`。修正后本地超时专项及格式检查通过；后续 Windows CI 尚待实际结果，未完成的远端检查不计通过。该修正不改生产执行代码，原冻结候选与实操证据保留原源码身份。
+修复只调整该测试的平台设置：所有平台均检查真实 MCP 超时回执及零文件副作用，Unix 额外核对持久审计；Windows 日志锁原有拒绝行为保持原样。失败日志保存在 `windows-ci-01.log`，本地修正时漏传路径引用的编译失败另保留 `timeout-receipt-02.log`。修正后本地超时专项及格式检查通过；修正提交 `2782d9d` 的 GitHub CI [35012604381](https://github.com/gcsagroup/agentguard/actions/runs/35012604381) 已完成，13 项全部成功，包含真实 Windows 任务。该修正不改生产执行代码，原冻结候选与实操证据保留原源码身份。

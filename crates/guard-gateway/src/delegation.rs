@@ -1,4 +1,6 @@
 //! 宿主持有签名密钥的委托授权器；每条消息都认证，授权对象不是 Bearer 凭据。
+use crate::delegation_budget::BudgetLimits;
+use crate::delegation_governance::BudgetManager;
 use anyhow::{ensure, Context, Result};
 use ed25519_dalek::{Signature, VerifyingKey};
 use guard_audit::{AuditSigner, FileDeviceKey};
@@ -77,6 +79,8 @@ pub struct DelegationConfig {
     pub target_id: ValidatedId,
     pub lifetime_ms: i64,
     pub principals: Vec<DelegationPrincipal>,
+    #[serde(default)]
+    pub budgets: BudgetLimits,
 }
 impl DelegationConfig {
     pub fn read(path: &Path) -> Result<Self> {
@@ -99,6 +103,7 @@ impl DelegationConfig {
         Ok(config)
     }
     fn validate(&self) -> Result<()> {
+        self.budgets.validate()?;
         ensure!(
             self.version == DELEGATION_VERSION
                 && (1..=DELEGATION_MAX_TTL_MS).contains(&self.lifetime_ms),
@@ -174,6 +179,8 @@ impl DelegationConfig {
             grants: HashMap::new(),
             root: None,
             host_session: None,
+            budget: BudgetManager::default(),
+            budgets: self.budgets,
         })
     }
 }
@@ -183,6 +190,8 @@ struct GrantState {
     last_sequence: u64,
 }
 pub struct DelegationAuthority {
+    pub(crate) budget: BudgetManager,
+    pub(crate) budgets: BudgetLimits,
     authority_id: ValidatedId,
     signing: FileDeviceKey,
     public_key: String,
@@ -245,6 +254,10 @@ impl DelegationAuthority {
             issued_at_ms: now,
             expires_at_ms: now.checked_add(self.lifetime_ms).context("授权时钟溢出")?,
         })?;
+        let mut limits = self.budgets.clone();
+        limits.max_elapsed_ms = limits.max_elapsed_ms.min(self.lifetime_ms as u64);
+        self.budget
+            .start(host.as_str(), signed.grant.grant_id.as_str(), limits)?;
         self.root = Some(signed.grant.grant_id.to_string());
         self.host_session = Some(host);
         self.grants.insert(
@@ -259,7 +272,8 @@ impl DelegationAuthority {
     pub(crate) fn status(&self) -> Value {
         json!({"enabled":true,"protocol_version":1,"authority_id":self.authority_id,"authority_public_key":self.public_key,
             "root_grant":self.root.as_ref().and_then(|id|self.grants.get(id).map(|state|&state.signed)),"active_grants":self.grants.len(),
-            "supported_tools":["read_file","write_file","delete_file"],"scope":"经本协议认证的隔离文件工具；客户端其它入口未覆盖","restart":"old_grants_invalid_no_replay"})
+            "supported_tools":["read_file","write_file","delete_file"],"scope":"经本协议认证的隔离文件工具；客户端其它入口未覆盖","restart":"old_grants_invalid_no_replay",
+            "budgets":self.budget.status().unwrap_or_else(|_|json!({"unavailable":true}))})
     }
     pub(crate) fn authenticate(
         &self,

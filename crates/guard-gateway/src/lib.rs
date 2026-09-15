@@ -24,6 +24,10 @@ pub mod control_file;
 pub mod control_http;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod delegation;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod delegation_budget;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod delegation_governance;
 pub mod egress;
 pub mod egress_journal;
 pub mod exec;

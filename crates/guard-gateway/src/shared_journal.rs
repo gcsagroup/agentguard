@@ -18,6 +18,35 @@ impl From<ExecutionJournal> for SharedJournal {
 }
 
 impl SharedJournal {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn delegation_budget_event(
+        &self,
+        host: &str,
+        kind: &str,
+        body: Value,
+    ) -> Result<()> {
+        let id = format!("delegation-budget/{:032x}", rand::random::<u128>());
+        self.access(|journal| {
+            journal.append(&AuditRecord {
+                id,
+                timestamp_ms: now_ms(),
+                platform: "gateway".into(),
+                event_type: "GatewayDelegationBudget".into(),
+                source_app: "agentguard-mcp".into(),
+                agent_session_id: Some(host.into()),
+                rule_id: "DELEGATION-BUDGET".into(),
+                severity: "Info".into(),
+                action: kind.into(),
+                human_message: "宿主委托预算与撤销状态；不包含私钥或工具正文".into(),
+                event_json: serde_json::to_string(
+                    &json!({"schema":"gateway_delegation_budget_v1","kind":kind,"body":body}),
+                )?,
+                evidence_ref: None,
+                user_decision: None,
+                attributed_agent: None,
+            })
+        })
+    }
     fn access<T>(&self, action: impl FnOnce(&ExecutionJournal) -> Result<T>) -> Result<T> {
         let journal = self
             .0

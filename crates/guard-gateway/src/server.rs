@@ -57,6 +57,8 @@ pub struct Server {
     delegation: Option<crate::delegation::DelegationAuthority>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     active_delegation: Option<crate::delegation::VerifiedDelegation>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    active_budget: Option<crate::delegation_budget::BudgetPermit>,
     browser: Option<crate::browser_bridge::BrowserActor>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     proxies: Vec<crate::mcp_proxy::ProxyService>,
@@ -162,6 +164,8 @@ impl Server {
             delegation: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             active_delegation: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            active_budget: None,
             browser: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             proxies: Vec::new(),
@@ -212,6 +216,8 @@ impl Server {
             delegation: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             active_delegation: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            active_budget: None,
             browser: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             proxies: Vec::new(),
@@ -323,9 +329,24 @@ impl Server {
     fn delegation_deadline(&self) -> Option<i64> {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if let Some(verified) = &self.active_delegation {
-            return Some(verified.deadline());
+            let mut deadline = verified.deadline();
+            if let Some(budget) = &self.active_budget {
+                let remaining = budget
+                    .remaining(std::time::Instant::now())
+                    .map(|d| d.as_millis().min(i64::MAX as u128) as i64)
+                    .unwrap_or(0);
+                deadline = deadline.min(now_ms().saturating_add(remaining));
+            }
+            return Some(deadline);
         }
         None
+    }
+    fn delegation_budget_cancelled(&self) -> bool {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(budget) = &self.active_budget {
+            return budget.check(std::time::Instant::now()).is_err();
+        }
+        false
     }
     pub fn browser_faulted(&self) -> bool {
         self.browser.as_ref().is_some_and(|b| b.host().faulted())
@@ -631,7 +652,7 @@ impl Server {
         let args = params.get("arguments").cloned().unwrap_or(json!({}));
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if name == "delegation_send" {
-            return mcp::result(id, self.delegation_call(&args));
+            return self.delegation_call(id, &args);
         }
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if self.delegation.is_some() {
@@ -1015,6 +1036,7 @@ impl Server {
                     *refused_outcome = match res.source {
                         "timeout" => ExecutionOutcome::TimedOut,
                         "disconnected" | "paused" => ExecutionOutcome::Cancelled,
+                        _ if self.delegation_budget_cancelled() => ExecutionOutcome::Cancelled,
                         _ => ExecutionOutcome::Refused,
                     };
                     self.refused += 1;
@@ -1128,6 +1150,16 @@ impl Server {
                 reason: "等待策略许可期间动作已过期或会话已撤权，未执行".into(),
             };
         }
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(budget) = &mut self.active_budget {
+            if let Err(error) = budget.mark_started(std::time::Instant::now()) {
+                self.refused += 1;
+                *refused_outcome = ExecutionOutcome::Cancelled;
+                return Handled::Refused {
+                    reason: format!("委托预算在派发前失效，未执行：{error}"),
+                };
+            }
+        }
         if let Some(journal) = &self.journal {
             let recorded = match deferred_decision.take() {
                 Some(outcome) => journal.decided_and_started(snapshot, &outcome),
@@ -1147,6 +1179,7 @@ impl Server {
                 &call,
                 &|| {
                     self.pending.is_cancelled()
+                        || self.delegation_budget_cancelled()
                         || strict_file_scope.is_some_and(|deadline| now_ms() >= deadline)
                 },
                 strict_file_scope.is_some(),
@@ -1279,6 +1312,11 @@ impl Server {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if let Some(delegation) = &self.active_delegation {
             parameters["delegation"] = delegation.receipt();
+        }
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(budget) = &self.active_budget {
+            parameters["delegation_budget"] =
+                json!({"ticket":budget.ticket(),"output_limit":budget.output_limit()});
         }
         let issued_at_ms = now_ms();
         // 批准窗口之后仍留执行前复核窗口；真正执行有独立的超时，批准不覆盖后续新动作。
