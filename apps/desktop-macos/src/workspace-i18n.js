@@ -451,7 +451,7 @@ export const workspaceMessages = {
   statusFailed: ["暂时无法获取防护状态，已禁用开始与恢复。请刷新后重试。", "暫時無法取得防護狀態，已停用開始與恢復。請重新整理後再試。", "Protection status is unavailable. Start and resume are disabled; refresh to retry."],
   recheckMissing: ["仍未检测到辅助功能权限。核对当前应用；若系统要求，请退出后重新打开。", "仍未偵測到輔助使用權限。請核對目前應用程式；若系統要求，請結束後重新開啟。", "Accessibility is still missing. Check the exact app and relaunch if requested by macOS."],
   recheckReady: ["必需权限已检测到；是否可开始还取决于加密记录和观察器状态。", "已偵測到必要權限；能否開始仍取決於加密記錄與觀察器狀態。", "Required permission detected. Encrypted records and observer readiness are checked separately."],
-  localTest: ["本地验收版 · Ver 2.0 (012)", "本機驗收版 · Ver 2.0 (012)", "Local acceptance build · Ver 2.0 (012)"],
+  localTest: ["本地验收版 · Ver 2.0 (014)", "本機驗收版 · Ver 2.0 (014)", "Local acceptance build · Ver 2.0 (014)"],
   productionBuild: ["正式数据环境", "正式資料環境", "Production data profile"],
 };
 

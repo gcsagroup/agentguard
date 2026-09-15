@@ -1,5 +1,5 @@
 """从冻结用例、三份原始审计和实际文件独立核对，不以运行器的 passed 为唯一依据。"""
-import argparse, collections, datetime, hashlib, json, re, sqlite3, sys
+import argparse, collections, contextlib, datetime, hashlib, json, re, sqlite3, sys
 from pathlib import Path
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--run', required=True, type=Path)
@@ -41,12 +41,45 @@ assert len(report['cases']) == 52 and all((c['status'] == 'passed' for c in repo
 assert len(report['evidenceBackups']) == 3
 fixture = Path(report['fixture'])
 audit = {}
+audit_rows = {}
 for name in ['audit.db', 'audit.db.sources.db', 'audit.db.tools.db']:
     raw = rows(run / name)
     assert raw == rows(fixture / 'operator' / name)
-    audit[name] = {'rows': len(raw), 'head': raw[-1]['record_hash'], 'sha256': sha(run / name)}
-events = [json.loads(r['event_json']) for r in rows(run / 'audit.db')]
-sources = {s['source']['source_id']: s['source'] for s in [json.loads(r['event_json']) for r in rows(run / 'audit.db.sources.db')]}
+    audit_rows[name] = raw
+    audit[name] = {'rows': len(raw), 'head': raw[-1]['record_hash'] if raw else 'AGENTGUARD-AUDIT-GENESIS-v1', 'sha256': sha(run / name)}
+execution_types = {'GatewayDecision', 'GatewayExecutionStarted', 'GatewayExecutionFinished'}
+main_rows = audit_rows['audit.db']
+assert all(r['event_type'] in execution_types | {'GatewaySourceObserved', 'GatewaySourceStorageBinding'} for r in main_rows), '主日志存在未核对的事件类型'
+execution_rows = [r for r in main_rows if r['event_type'] in execution_types]
+events = [json.loads(r['event_json']) for r in execution_rows]
+bindings = [r for r in main_rows if r['event_type'] == 'GatewaySourceStorageBinding']
+main_sources = [r for r in main_rows if r['event_type'] == 'GatewaySourceObserved']
+legacy_sources = audit_rows['audit.db.sources.db']
+assert all(r['event_type'] == 'GatewaySourceObserved' for r in legacy_sources)
+if bindings:
+    # 新版主日志须证明旧库身份、完整链头与导入前缀；空旧库也不能绕过绑定核对。
+    assert len(bindings) == 1 and bindings[0]['id'] == 'gateway-source-storage/v1'
+    binding = json.loads(bindings[0]['event_json'])
+    assert set(binding) == {'schema', 'legacy_head_sha256', 'legacy_log_id_sha256', 'legacy_records'}
+    assert binding['schema'] == 'gateway_source_storage_v1'
+    assert type(binding['legacy_records']) is int and binding['legacy_records'] == len(legacy_sources)
+    assert binding['legacy_head_sha256'] == audit['audit.db.sources.db']['head'], '旧来源链头绑定不一致'
+    with contextlib.closing(sqlite3.connect((run / 'audit.db.sources.db').as_uri() + '?mode=ro', uri=True)) as db:
+        legacy_id = db.execute("SELECT value FROM audit_meta WHERE key='log_id'").fetchone()
+    assert legacy_id and binding['legacy_log_id_sha256'] == digest(legacy_id[0]), '旧来源日志身份绑定不一致'
+    payload_fields = fields + ['attributed_agent', 'user_decision']
+    assert len(main_sources) >= len(legacy_sources)
+    assert [[r.get(k) for k in payload_fields] for r in main_sources[:len(legacy_sources)]] == [[r.get(k) for k in payload_fields] for r in legacy_sources], '迁移来源前缀不一致'
+    source_rows = main_sources
+    source_storage = 'main_journal_with_verified_legacy_binding'
+else:
+    assert not main_sources, '主日志来源缺少迁移绑定'
+    source_rows = legacy_sources
+    source_storage = 'legacy_separate_journal'
+source_events = [json.loads(r['event_json']) for r in source_rows]
+assert all(e['source_event_version'] == 1 and e['observed_at_ms'] == r['timestamp_ms'] and r['id'] == 'source/' + digest(e['source']['source_id']) for r, e in zip(source_rows, source_events))
+sources = {s['source']['source_id']: s['source'] for s in source_events}
+assert len(sources) == len(source_rows), '来源 ID 重复'
 previous_source = []
 for source in sources.values():
     assert source['observation']['parent_source_ids'] == previous_source
@@ -65,7 +98,7 @@ for case in report['cases']:
     assert source['observation'] == evidence['source_observation']
     assert sha(fixture / 'workspace' / f"{sample['id']}.txt") == evidence['input_sha256'] == digest(sample['text'])
     receipt = next((r for r in report['receipts'] if r.get('result', {}).get('_meta', {}).get('agentguard', {}).get('source', {}).get('source_id') == source['source_id']))
-    assert receipt['result']['_meta']['agentguard']['source'] == source
+    assert receipt['result']['_meta']['agentguard']['source'] == source, '来源回执与实际日志不一致'
     assert receipt['result']['_meta']['agentguard']['instruction_authority'] == 'none'
     if case['entry'] in ['local_mcp', 'remote_mcp']:
         assert receipt['result']['structuredContent']['value'] == sample['text']
@@ -108,13 +141,14 @@ remote_versions = [e for e in registration if e['change'] == 'observed' and e['s
 assert len(remote_versions) == 2 and remote_versions[0]['registration_id'] != remote_versions[1]['registration_id']
 recovery = next((c['evidence'] for c in report['cases'] if c['id'] == 'C07'))
 assert recovery['previous_session'] != recovery['new_session']
-after_restart = [r for r in rows(run / 'audit.db') if r['agent_session_id'] == digest(recovery['new_session'])]
+after_restart = [r for r in execution_rows if r['agent_session_id'] == digest(recovery['new_session'])]
 assert [r['action'] for r in after_restart] == ['needs_confirmation', 'started', 'success']
 after_events = [json.loads(r['event_json']) for r in after_restart]
 assert len({e['action_sha256'] for e in after_events}) == 1
 assert all((e['sources'][0]['source_id_sha256'] == digest(list(sources)[-2]) for e in after_events))
 assert list(sources.values())[-1]['observation']['content_sha256'] == list(sources.values())[-2]['observation']['content_sha256']
 proof = {'recorded_at': datetime.datetime.now(datetime.timezone.utc).isoformat(), 'task': 'AGD-020', 'status': 'in_progress', 'gateway_sha256': report['binarySha256'], 'manifest_sha256': report['manifestSha256'], 'case_groups': dict(groups), 'total_cases': 52, 'audit': audit, 'total_audit_rows': sum((x['rows'] for x in audit.values())), 'independently_bound_refusals': 90, 'remote_read_calls': 9, 'remote_write_effects': 0, 'authorized_host_result_verified': True, 'remaining_acceptance': manifest['remaining_acceptance'], 'f13': 'deferred_unverified', 'whole_plan_complete': False, 'release': 'no_go'}
+proof.update(source_storage=source_storage, source_rows=len(source_rows), execution_rows=len(execution_rows))
 with args.output.open('x') as output:
     output.write(json.dumps(proof, ensure_ascii=False, indent=2) + '\n')
 print(json.dumps(proof, ensure_ascii=False, indent=2))

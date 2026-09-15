@@ -1,0 +1,240 @@
+{
+  "recorded_at": "2026-09-15T14:56:14.737637+00:00",
+  "task": "AGD-020",
+  "status": "in_progress",
+  "candidate_version": "2.0.0-dev.14",
+  "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+  "app_sha256": "553b1f067b26ded4d06ca2e878fddf77426e58ae6fba8200b71e04640d6aa20a",
+  "performance": {
+    "at": "2026-09-15T13:05:39.101269+00:00",
+    "exit_code": 0,
+    "functional_reads_passed": true,
+    "passing_budgets": 6,
+    "total_budgets": 6,
+    "checks": [
+      {
+        "name": "native_read_p95_ms",
+        "actual": 8.464374999999961,
+        "max": 10,
+        "passed": true
+      },
+      {
+        "name": "native_startup_ms",
+        "actual": 41.12174999999999,
+        "max": 100,
+        "passed": true
+      },
+      {
+        "name": "native_sampled_gateway_peak_mib",
+        "actual": 13.203125,
+        "max": 32,
+        "passed": true
+      },
+      {
+        "name": "isolated_read_p95_ms",
+        "actual": 255.20408399999997,
+        "max": 500,
+        "passed": true
+      },
+      {
+        "name": "isolated_startup_ms",
+        "actual": 566.198583,
+        "max": 2000,
+        "passed": true
+      },
+      {
+        "name": "isolated_sampled_gateway_peak_mib",
+        "actual": 13.640625,
+        "max": 32,
+        "passed": true
+      }
+    ],
+    "original_report": "/Users/lazy/Projects/agent-guard/eval/out/AGD-002/20260915T130529826Z-94777-benchmark/report.json",
+    "original_report_sha256": "645c96c121431fbe5e62d0a5e2815bcf7d3ca35275239f7bf2e0a402018844c8",
+    "original_budget": "/Users/lazy/Projects/agent-guard/.artifacts/m2-performance-2026-09-15/original-budget.json",
+    "running_containers_after": [],
+    "environment": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "release": "25.6.0",
+      "cpus": 18,
+      "cpuModel": "Apple M5 Max",
+      "totalMemoryMiB": 131072,
+      "node": "v22.23.2",
+      "loadAverageAtStart": [
+        3.310546875,
+        4.06591796875,
+        5.1123046875
+      ],
+      "docker": "\"29.5.3\"",
+      "loadAverageAtEnd": [
+        4.546875,
+        4.30908203125,
+        5.18603515625
+      ]
+    },
+    "this_candidate_attempt": 1,
+    "vm_after_benchmark": {
+      "at": "2026-09-15T13:05:39.289613+00:00",
+      "preparation_elapsed_ms": 175.67187501117587,
+      "boot_id": "d9fa4f3c-4227-4097-b62f-eaaf32e6a3f6",
+      "uptime_seconds": 11.41
+    },
+    "same_vm_boot_across_benchmark": true,
+    "scope": "014 候选实际打包网关复验，已核对 014 App 包内相同字节，尚未运行原生流程；使用原预算与已运行 VM 比较",
+    "passed": true
+  },
+  "permission_repair": {
+    "recorded_at": "2026-09-15T14:56:14.737637+00:00",
+    "fixed_app": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_sha256": "553b1f067b26ded4d06ca2e878fddf77426e58ae6fba8200b71e04640d6aa20a",
+    "app_files_verified": 91,
+    "app_and_archive_unchanged": true,
+    "legacy_127_files_unchanged": true,
+    "native_history_tasks": 29,
+    "native_history_audit_rows": 1027,
+    "native_history_complete_logical_rows_unchanged": true,
+    "session": "bacb0242-41f0-4c1d-b417-bb10fbc7bd7a",
+    "ui_evidence_source": "本轮 Computer Use 返回的准确 App 界面与系统设置，人工整理；不是后台模拟状态",
+    "accessibility_before": "系统开关 on，AXIsProcessTrusted false；tccd code requirement mismatch",
+    "accessibility_repair": "用户移除失配旧条目后，执行器经系统选择器从固定路径重加当前 014",
+    "screen_before": "系统录屏列表缺当前 App，App 未开启，系统 Unknown (None)",
+    "screen_after": "系统列表当前 App on；系统 Allowed (System Set)；App 已授权；用户也在系统设置操作，未将变化独归自动请求",
+    "restarted_same_app": true,
+    "both_permissions_after_restart": true,
+    "actual_observation": {
+      "fixture": "TextEdit 合成文稿 permission-window-014.rtf",
+      "ax_status": "live AX ingested · 0 decision(s) · 1 duplicate(s) folded",
+      "sck_status": "SCK=streaming(native=true,auto)",
+      "sck_callback": "ScreenCaptureKit stream started (stats-only callbacks)",
+      "real_frame_analysis_rule": "OVL-007",
+      "demo_injection_used": false
+    },
+    "stopped": {
+      "session_end_observed": true,
+      "sck": "idle",
+      "duplicate_counter": 114,
+      "counter_after_fixture_change": 114,
+      "scope": "有限 UI 停止观察；没有全时序 trace，不代表完整 macOS 清单或 F13"
+    },
+    "remaining_ui_text_issues": [
+      "帮助页把失败笼统归为 ad-hoc",
+      "开发状态保留上一次 stream started 说明"
+    ],
+    "native_model_task_started": false,
+    "f13": "deferred_unverified",
+    "full_plan_complete": false
+  },
+  "old_apps_archive": {
+    "at": "2026-09-15T14:53:01.205584+00:00",
+    "archived_apps": 8,
+    "archived_entries": 171,
+    "active_app": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "active_app_unchanged": true,
+    "all_archive_contents_modes_links_unchanged": true,
+    "daily_debug_app_count": 1,
+    "user_applications_old_app_count": 0,
+    "restore": "先关闭相关进程；按 manifest-before.json 把 .app.archive 原样移回 original_path，目标已存在时停止，不覆盖。历史权限需单独核对。"
+  },
+  "artifacts": [
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/candidate-13/rejected-build-report.json",
+      "sha256": "14948fed31dda919b36da0d9148c7eabd9d99bc3eeb6e755b93bdb31130e3e0c"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/candidate-14/build-report.json",
+      "sha256": "19fb99f9c35e3cf88113f26ccfd667f7f9a8bedf009ffb835380193a8d647e10"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/candidate-14/source-manifest.json",
+      "sha256": "435cf0a7d090f22b47eade8a21d62648af314a3f365f11178452b8c23769b251"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/performance-14/result.json",
+      "sha256": "04c3bd1b58e637748ad3d48567b46e73858d33f8fcb77305982fa1ca1dd1450c"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/content-equivalence-14/report.json",
+      "sha256": "2459bc4ce832c62fe190b4b13166862a04759941e9f8051366f14b967d2b28a6"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/audit-faults-14/report.json",
+      "sha256": "d744ffd6bfc94aa2470a6cf25d2d6477267d4cd1eed3850dce8d3c95dce3f0af"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/inputs-14/report.json",
+      "sha256": "0ec5d1509ba6a38157c5bb939d168eff829edda7211372d29c4d4349e5c2da9e"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/inputs-14-independent-03.json",
+      "sha256": "601bd3f275d4418830b1cb7ae4ff28c28334e8292ff96062986bcabc49d6b586"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/inputs-legacy-independent-01.json",
+      "sha256": "5a91bad6cb9ac62837d894a70aa56b7dcdd53118f49a9f0251803cbc56b64ca8"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/inputs-verifier-negative-14/report.json",
+      "sha256": "b3ff06fc46b98f6a327484688850ffd5365711f252c92e11645d463b0a854d83"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/dom-14/report.json",
+      "sha256": "3265abefc0da9125a16d0c24dc48e1915f04261fb94359e52e71182b366c241d"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/desktop-14.log",
+      "sha256": "8b9c28285e380c14548ab96df500ef656467d32db2f9860fd21a5a00a41f25f0"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/permissions-14/diagnosis-before-repair.json",
+      "sha256": "251124e9f1c08b081597b6d4d56d3068b36c2196cc491abf84e46385dcbbb43e"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/permissions-14/signing-requirements.json",
+      "sha256": "72acf30d2738fc80aa41ef68814b0fcaa8da4942123fe0bdc02bfec5d91b005b"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/permissions-14/tccd.log",
+      "sha256": "63712afd0138c5ddc832e472af7cdea0133338ade60abf3401cb9eb92bf463ad"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/permissions-14/tccd-after-repair.log",
+      "sha256": "5490394286d6a86dc9395cbaa0d32c4f9ca109fde6b0f0dc48258687cc4e02dd"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/permissions-14/repair-and-native-check.json",
+      "sha256": "5595b6fbb5d9d9f396ac68b58bad192b52fbbd9e7a5b4e26b8240afd8c49e7be"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/permissions-14/permission-window-014.rtf",
+      "sha256": "bd4b8e4d5abfc56f98d51d47e5f690f98186b903935b136354f22d4dbdff120d"
+    },
+    {
+      "path": ".artifacts/m2-native-performance-2026-09-15/ci-baseline-02.json",
+      "sha256": "0ecc4127a33fb7d41ddbf554e3e57660de83e7702b1007e77fdbf70f85848949"
+    }
+  ],
+  "verifier_sha256": "ff5a5842e22679db11cd0cba13e74d742705365be7072d7064452d79652e3a7f",
+  "archive_manifest_sha256": "7ea7e93e6ef2473e187b5ed8c3f824deb1a555e9c80c380b4da280113e20073b",
+  "ci_baseline": {
+    "commit": "0f3f41f1c3061a00077844d524a7a7e9e60c2b6c",
+    "successful_jobs": 13,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/34971822039"
+  },
+  "remaining": [
+    "当前候选 DOM/模型独立联合核对及其余受影响回归",
+    "014 原生本地模型任务",
+    "帮助和开发状态的两处说明修正",
+    "AGD-021 至 AGD-032"
+  ],
+  "f13": "deferred_unverified",
+  "release": "no_go",
+  "whole_plan_complete": false,
+  "repository_checks": {
+    "passed": 23,
+    "failed": 0,
+    "log": ".artifacts/m2-native-performance-2026-09-15/repository-final-02.log",
+    "sha256": "854135edfeb7a828411db94ce594ef16e8d07df06e5727d1438c4afea06dd589",
+    "first_invocation": "首次误选 guard-core 包，未运行测试；修正为 guard-cli 后通过，失败调用日志保留。"
+  }
+}
