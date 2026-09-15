@@ -2,6 +2,7 @@
 
 mod crypto;
 pub mod knowledge;
+pub mod package;
 mod update;
 
 pub use crypto::{generate_keypair, sign_digest, verify_digest, KeyPair, PublicKeyBytes};

@@ -1,0 +1,224 @@
+{
+  "recorded_at": "2026-09-15T01:16:07.911324+00:00",
+  "task": "AGD-018",
+  "status": "in_progress",
+  "scope": "签名包格式、持久仓库及实际管理CLI；生产网关热更新与旧批准失效尚待接线",
+  "base_commit": "96b7285ec884dcc51a9f9528f12339c3aa0fe984",
+  "source_files": {
+    "Cargo.lock": "7002b9a750b7a35e8d6ff22d1cb9ab9e4c6db42fb8fd82639d0f4b4587fd36c2",
+    "apps/desktop-macos/src-tauri/Cargo.lock": "2b669d38e5b7e4d9b63998d875b39803d9b87d031e430ffee06c2f15305c9fa3",
+    "apps/desktop-windows/src-tauri/Cargo.lock": "5a61fa9ae0b94017d9fc5e36f92daef173e872e445d6cea8922dbb0cc69699d5",
+    "crates/guard-intel/Cargo.toml": "6f762b8293a33402f3478bbefe79eab082002756fc1ca8d2acbab2138a9d18ef",
+    "crates/guard-intel/src/lib.rs": "19332617a3f9dd7b3d1e2dd6fb60c8dec6871178616735d0d908f9b3cfa7c72c",
+    "crates/guard-intel/src/package.rs": "f7d6b66b5a6eec066a5b5f09e60a7e264b009ced6b882a3410736495f426a733",
+    "crates/guard-intel/src/package/json.rs": "56831fd01f00d4f8cb1aafdf8a907400f638b189221117e3204bfbf0b2b61dc4",
+    "crates/guard-intel/src/package/store.rs": "b68e973d38b212cc6c053ab808d4a881d6d0ce7aba9bdcb26951e15f315d20e5",
+    "crates/guard-intel/tests/package_release.rs": "69c7b83cd9a0893da6525755445ecfdbd0dc097c81c1925f9d29246107299524",
+    "crates/guard-intel/tests/package_store.rs": "8dae1274e992cb61a11aa59dfca6988fdf9c87c4134353e36ecca7d23696467b",
+    "crates/guard-cli/src/main.rs": "06c65c1608aeabf94e3930e61ee9bfc579d571bdf3af14340ab2b9df13923dde",
+    "crates/guard-cli/src/packages.rs": "ebccd16bd6c702a396368fad2e30b0a99ae2f349cbacb100a356a6498051ead4",
+    "scripts/acceptance/agd-package-lifecycle.mjs": "f8279e09e7992948919cc78186026e72993d04cbe090a5c7efd0aba1bf31721d"
+  },
+  "tests": {
+    "new_package_tests": 14,
+    "new_store_tests": 16,
+    "workspace_suites": 62,
+    "workspace_passed": 1415,
+    "workspace_ignored": 14,
+    "desktop_passed": 122,
+    "desktop_ignored": 9,
+    "clippy": "passed",
+    "fmt": "passed",
+    "matrix": "passed",
+    "supply_chain_graphs_passed": 3
+  },
+  "runtime": {
+    "checks": [
+      {
+        "name": "Node独立签发被Rust验证且内容摘要一致",
+        "passed": true
+      },
+      {
+        "name": "Rust签发由Node独立验签并绑定完整控制正文",
+        "passed": true
+      },
+      {
+        "name": "签发输出不能覆盖既有文件",
+        "passed": true
+      },
+      {
+        "name": "全新仓库为空且以私有权限创建",
+        "passed": true
+      },
+      {
+        "name": "已有仓库不能重新初始化",
+        "passed": true
+      },
+      {
+        "name": "多个独立CLI进程实际读取同一有效规则并改变引擎判决",
+        "passed": true
+      },
+      {
+        "name": "篡改签名正文不能替换当前有效包",
+        "passed": true
+      },
+      {
+        "name": "跨进程重放旧更新被持久序号拒绝",
+        "passed": true
+      },
+      {
+        "name": "不兼容过期及错误更新流不消费序号",
+        "passed": true
+      },
+      {
+        "name": "灰度未入选保持旧包和安全下限但记住新序号",
+        "passed": true
+      },
+      {
+        "name": "扩大推广后的新版本真实进入引擎且保留支付硬拒绝",
+        "passed": true
+      },
+      {
+        "name": "较高发布序号不能把普通安装变成版本降级",
+        "passed": true
+      },
+      {
+        "name": "真实数据库写入失败后原版本仍在且无半提交",
+        "passed": true
+      },
+      {
+        "name": "撤销后新进程停止使用旧包而不是隐式回退",
+        "passed": true
+      },
+      {
+        "name": "独立签名恢复准确的非撤销已接受包",
+        "passed": true
+      },
+      {
+        "name": "已撤销和从未接受的恢复目标均被拒绝",
+        "passed": true
+      },
+      {
+        "name": "安全下限跨进程保留且受控恢复也不能降低",
+        "passed": true
+      },
+      {
+        "name": "真实知识库独立存储且验签成功仍不能执行规则",
+        "passed": true
+      },
+      {
+        "name": "知识包不能覆盖规则仓库",
+        "passed": true
+      },
+      {
+        "name": "独立SQLite核账六条已接受流水均签名正确且无拒绝项混入",
+        "passed": true
+      }
+    ],
+    "binary_sha256": "b8f18b055cc43094ac88e9a97b24cbd382e38ef695d805e30f2551b7a6e7a540",
+    "binary_path": ".artifacts/m2-package-lifecycle-2026-09-15/candidate-02/guard-cli",
+    "report_sha256": "075957f59f1cd84389488906fb7b0d60781c3a6606bbcf7f7dcb7a8d42ca67a6",
+    "commands": 77,
+    "successful_engine_evaluations": 10,
+    "accepted_updates": [
+      {
+        "kind": "rules",
+        "sequence": 1,
+        "release_sha256": "9554762a88c780bde6568aaa28e0047754e471fb974ed846eb31ed765a514ccd",
+        "signed_bytes_sha256": "d94f259ebdd878262c74f63d3bffcbb036a4783b4b809fa38ea1b9d04b570259",
+        "accepted_at_ms": 1789434857010
+      },
+      {
+        "kind": "rules",
+        "sequence": 2,
+        "release_sha256": "f0c2f321009187d3407a29ae8e4957278b8c87abd2c0292c89c91c51242848a6",
+        "signed_bytes_sha256": "19b40d1b4b391fc804bfea017e38bd063a5a19b0dc4d207856764e8b6fdc650f",
+        "accepted_at_ms": 1789434857165
+      },
+      {
+        "kind": "rules",
+        "sequence": 3,
+        "release_sha256": "a4d191656e2fc1ed9d9679043004804959f676fd08e0d5dd8f98148dfd53a567",
+        "signed_bytes_sha256": "898011b72bb6519086b56a8b58a3f7f1daf1390acf1c298c77d512d24fbeb4a4",
+        "accepted_at_ms": 1789434857204
+      },
+      {
+        "kind": "rules",
+        "sequence": 4,
+        "release_sha256": "5f8a3e82896ec00775be388e358212cc4766d1c2a87c38bc79f2c6976a582d2e",
+        "signed_bytes_sha256": "8f6916d3ad0734bce9b22752c6c9272aaab1de2998ee509cf8a7d4cccfd9419c",
+        "accepted_at_ms": 1789434857379
+      },
+      {
+        "kind": "rules",
+        "sequence": 5,
+        "release_sha256": "c077794fb97ce540a1355541c7949771186849e2f2872ed9b0cb3316d0ec91b3",
+        "signed_bytes_sha256": "9eb2efecaedd4388f82ca4680d443e6fc7ef5d85bf7afe70b41d0f260479cbaa",
+        "accepted_at_ms": 1789434857408
+      },
+      {
+        "kind": "rules",
+        "sequence": 6,
+        "release_sha256": "c629257a17fee550bc63452492ca499a061bedbbbeb27edc068131526cfb3ee3",
+        "signed_bytes_sha256": "6ff51e0cf0c271074efdc52d3bcf85a7c22e0b433871f4a5e56c663599a8aa69",
+        "accepted_at_ms": 1789434857529
+      },
+      {
+        "kind": "knowledge",
+        "sequence": 1,
+        "release_sha256": "1ee876e47483bebbe4e1f6dcd41b3b9fe493886235968e8f6aad161cd4266b2d",
+        "signed_bytes_sha256": "c170d1433df7d67915326d908d811efa9182d1c2d1999e1196386c47dbfc6c92",
+        "accepted_at_ms": 1789434857624
+      }
+    ],
+    "all_seven_signatures_independently_verified": true,
+    "final_status": {
+      "stream": "agentguard.rules.acceptance",
+      "kind": "rules",
+      "last_sequence": 6,
+      "security_floor": 2,
+      "active_sha256": "de0b7d4b442d3434d79db08728f6f35040a1d592985403a6757805d81b8d5c14",
+      "active_version": "3.0.0",
+      "highest_installed_version": "3.0.0",
+      "revoked": [
+        "029c8d955d420df4ad21be73d44722f04efced0904f1ea513d09d78f1bb4b269"
+      ],
+      "verified_updates": 6,
+      "instruction_authority": "none"
+    },
+    "knowledge_status": {
+      "stream": "agentguard.knowledge.acceptance",
+      "kind": "knowledge",
+      "last_sequence": 1,
+      "security_floor": 1,
+      "active_sha256": "a673dc648781335a977dcff625ade24c1c34c60e7988d83c16eceb54039933c1",
+      "active_version": "0.1.0",
+      "highest_installed_version": "0.1.0",
+      "revoked": [],
+      "verified_updates": 1,
+      "instruction_authority": "none"
+    },
+    "production_gateway_integrated": false,
+    "native_app_acceptance": false
+  },
+  "preserved": {
+    "files": 127,
+    "all_matched": true,
+    "app_files": 90,
+    "app_all_matched": true,
+    "strict_codesign": true
+  },
+  "retained_failures": [
+    "clippy-01.log",
+    "clippy-02.log"
+  ],
+  "prior_ci": {
+    "run": 34914883370,
+    "commit": "96b7285ec884dcc51a9f9528f12339c3aa0fe984",
+    "passed": 13,
+    "total": 13
+  },
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go"
+}

@@ -29,7 +29,7 @@
 | crates/guard-eval | 43 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-ffi | 1 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-gateway | 274 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-intel | 26 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-intel | 56 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-localapi | 17 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-netmon | 2 | Rust `#[test]` / `#[tokio::test]` |
@@ -47,7 +47,7 @@
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-macos/src-tauri | 132 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合計** | **1581** | |
+| **Rust 合計** | **1611** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari 延伸功能 node `test(` |
 | eval/e2e-extension/run.mjs | 39 | 真瀏覽器 E2E 判據 `record(` |

@@ -1,6 +1,7 @@
 //! AgentGuard CLI: rules, scoring, eval, replay, audit export.
 
 mod evidence;
+mod packages;
 mod preflight;
 
 use std::path::PathBuf;
@@ -58,6 +59,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// 宿主签名包的检查、持久更新与受控规则评估。
+    Package {
+        #[command(subcommand)]
+        command: packages::PackageCommand,
+    },
     /// Validate and list rules from a YAML file.
     TestRule {
         #[arg(long)]
@@ -903,6 +909,7 @@ fn main() -> Result<()> {
 fn run_cli() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Commands::Package { command } => packages::run(command)?,
         Commands::TestRule { rules, rule_id } => {
             let set = RuleSet::from_path(&rules)
                 .with_context(|| format!("load rules from {}", rules.display()))?;

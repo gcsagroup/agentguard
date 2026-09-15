@@ -12,6 +12,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
+guard-schema = { workspace = true }
+# 与宿主审计使用同一 SQLite/SQLCipher 链接模式，不额外强制 bundled 特性。
+rusqlite = { workspace = true }
 sha2 = "0.10"
 hex = "0.4"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
