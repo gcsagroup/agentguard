@@ -13,6 +13,10 @@ use crate::types::{AuditRecord, SessionSummary, UserDecision};
 #[path = "recovery.rs"]
 pub mod recovery;
 
+#[cfg(test)]
+#[path = "verified_snapshot_tests.rs"]
+mod verified_snapshot_tests;
+
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS audit_events (
   id TEXT PRIMARY KEY,
@@ -433,16 +437,58 @@ impl AuditStore {
     /// ran migrations on open, which meant blanking `record_hash` made the
     /// verifier rebuild — and persist — a valid chain over forged content.
     pub fn open_read_only(path: impl AsRef<std::path::Path>) -> Result<Self> {
+        Self::open_read_only_with_key(path, resolve_passphrase(None).as_deref())
+    }
+
+    /// 显式只读密钥；None 明确不使用环境口令，供清空环境的宿主子进程日志读取。
+    pub fn open_read_only_with_key(
+        path: impl AsRef<std::path::Path>,
+        passphrase: Option<&str>,
+    ) -> Result<Self> {
         use rusqlite::OpenFlags;
         let conn = Connection::open_with_flags(
             path.as_ref(),
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .with_context(|| format!("open audit db read-only {}", path.as_ref().display()))?;
-        apply_key(&conn, resolve_passphrase(None).as_deref())?;
+        apply_key(&conn, passphrase)?;
         // Belt and braces: reject writes even if a code path tries.
         conn.pragma_update(None, "query_only", true).ok();
         Ok(Self { conn, signer: None })
+    }
+
+    /// 同一只读事务中核对完整链并返回追加顺序的全部记录。超限不返回截断的证明。
+    /// 哈希链只证明此快照内部一致；不证明签名归属，也不防管理员重写全链或截去尾部。
+    pub fn verified_snapshot(&self) -> Result<crate::VerifiedAuditSnapshot> {
+        const MAX_ROWS: i64 = 8192;
+        const MAX_BYTES: i64 = 16 * 1024 * 1024;
+        let transaction = self.conn.unchecked_transaction()?;
+        let cols = self.record_cols()?;
+        let sizes = cols
+            .split(',')
+            .map(|column| format!("coalesce(length(cast({} as blob)),0)", column.trim()))
+            .collect::<Vec<_>>()
+            .join("+");
+        let (count, bytes): (i64, i64) = self.conn.query_row(
+            &format!("SELECT count(*),coalesce(sum({sizes}),0) FROM audit_events"),
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        if count > MAX_ROWS || bytes > MAX_BYTES {
+            bail!("执行证据快照超过读取上限，不能用截断记录证明完整性");
+        }
+        let chain = self.verify_chain()?;
+        if !chain.ok || chain.total != count as usize || chain.verified != count as usize {
+            bail!("执行证据哈希链不完整");
+        }
+        let mut records = self.list_recent(count as usize)?;
+        records.reverse();
+        let head_sha256 = self.last_hash()?;
+        transaction.commit()?;
+        Ok(crate::VerifiedAuditSnapshot {
+            records,
+            head_sha256,
+        })
     }
 
     pub fn open_in_memory() -> Result<Self> {

@@ -25,6 +25,7 @@ pub mod control_http;
 pub mod egress;
 pub mod egress_journal;
 pub mod exec;
+pub mod execution_view;
 pub mod gate;
 pub mod isolation;
 pub mod journal;

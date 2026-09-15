@@ -171,3 +171,16 @@ textarea { resize: vertical; }
 #local-agent-run h4 { margin-bottom: 10px; }
 #local-agent-followup-form { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 4px; }
 @media (max-width: 760px) { .local-agent-entry, .local-agent-folder, .local-agent-model-row { flex-wrap: wrap; } .local-agent-entry > button { width: 100%; } .local-agent-options { gap: 0; } }
+/* 实际执行阶段与知识关联分开呈现；成功回执不使用业务成功的绿色徽标。 */
+.execution-action { border-top: 1px solid var(--line); padding: 18px 0; overflow-wrap: anywhere; }
+.execution-action > strong { display: inline; }
+.execution-action[data-classification="blocked"] > .badge { color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, var(--surface)); }
+.execution-action details { margin-top: 12px; }
+.execution-action summary { cursor: pointer; }
+.execution-action h3 { font-size: 13px; margin: 18px 0 10px; color: var(--muted); }
+.execution-action code, .execution-action pre { font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.execution-action .text-button { display: block; }
+.execution-stages { display: grid; gap: 12px; padding-left: 22px; margin-top: 20px; }
+.execution-stages li { padding-left: 5px; }
+.execution-stages span, .execution-stages small { display: block; margin-top: 7px; color: var(--muted); }
+#execution-session { max-width: 70%; }

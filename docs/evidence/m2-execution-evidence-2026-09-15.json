@@ -1,0 +1,145 @@
+{
+  "recorded_at": "2026-09-15T07:56:42.037304+00:00",
+  "task": "AGD-019",
+  "status": "in_progress_native_acceptance_remaining",
+  "base_commit": "81ad48d43fa66a4c010b767d227fd4dd477a8ef2",
+  "base_ci": {
+    "run_id": 34940384574,
+    "passed_jobs": 13
+  },
+  "source_files": {
+    "apps/desktop-macos/src-tauri/src/execution_records.rs": "a738d99cf79022974c6f0cff6f02354bafd36620876fc4325f5e276c0e2d2d26",
+    "apps/desktop-macos/src-tauri/src/lib.rs": "a3e0748a8dd35a3dfef5c1508101653ed7194a142ea3707f2aab3cef8c6f62f7",
+    "apps/desktop-macos/src/execution-records.js": "bf3ce4ccc496d0f0e46c7fcf182b2b27a771d4dcf1b4c26f39711318180be55c",
+    "apps/desktop-macos/src/index.html": "5a1e5b7d1f41f54e98f92f8ef2ab9a74654959626e01447dc9ed2ee7e4bc7d78",
+    "apps/desktop-macos/src/workspace-i18n.js": "8f2ad2e3253cce197c7b6864d7568de6176d99562d3f92d48f2b170892ee8b5f",
+    "apps/desktop-macos/src/workspace.css": "681b8a7ef4f92175700cb7d3b6218cee8de07efcb4345e424510baf0735dd599",
+    "apps/desktop-macos/src/workspace.js": "3c0874be5405b4bf51d4f5e8f9db747361c384987e63f0bb6b2015611ee13bcf",
+    "crates/guard-audit/src/store.rs": "19ca2f82a7463656291fae0e4e22f1da99cd52e5666cea0da172c52ef44b14e5",
+    "crates/guard-audit/src/types.rs": "08e064fd82ef8d5ea6bac4bb17e6ba1d9d03a16fe6781276b51112ffcde4601d",
+    "crates/guard-audit/src/verified_snapshot_tests.rs": "b782be7a569985f9715148c670d602dd86d57b5be88fa294aeff0d2d1152fb6d",
+    "crates/guard-cli/tests/仓库不变量.rs": "12d47a9cced17b397cfb69f9b90dbb2d766e3f720812c31ecbd019b9caf61fa3",
+    "crates/guard-gateway/src/execution_view.rs": "2e343b6507a0f6a429823192c20008701a0bb7544ef9edb9d4a195903bf161d1",
+    "crates/guard-gateway/src/execution_view/tests.rs": "d0404b2d5bb1db1e8b8a81989139e7fcdfb1fb04e5981b51e146fa27a24fd467",
+    "crates/guard-gateway/src/lib.rs": "b9bb0f2442ea2f61f6350af20dcf5cde25dd593c6a114fae8cb792e3a2550354",
+    "eval/ui-preview/execution-records.test.mjs": "95c996e8ba824027c8050b3e6dab002aff7bb14142d14be8110a66c85d399dd9",
+    "scripts/acceptance/agd-execution-evidence.mjs": "cc4e7f1e2cd550d479ddece07cbde05879862a532ca1804c301a7448a3bcc060"
+  },
+  "producer": {
+    "source": "prior_frozen_candidate_03_new_live_processes",
+    "mcp_sha256": "c79ec73e063c96f3095722412713f2ccd33e1469a06a2dab11bc2229cb8b9d97",
+    "cli_sha256": "340719473e4f3103300d17323810bd3a0e4ddc9ccd8225df13a847d686aeb810",
+    "docker_image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490"
+  },
+  "tests": {
+    "workspace_suites": 63,
+    "workspace_passed": 1433,
+    "workspace_ignored": 15,
+    "desktop_passed": 128,
+    "desktop_ignored": 11,
+    "new_reader_unit_passed": 14,
+    "explicit_exports_passed": 2,
+    "execution_ui_passed": 17,
+    "knowledge_ui_passed": 21,
+    "workspace_ui_passed": 124,
+    "strict_checks": "passed"
+  },
+  "live": {
+    "runtime-live-01": {
+      "checks": 17,
+      "passed": 17,
+      "report_sha256": "e0738e2ea6587ae733063e7f3d095a2c9f91dd0a52632deee5014a22f93d0439"
+    },
+    "browser-live-01": {
+      "checks": 8,
+      "passed": 8,
+      "report_sha256": "fb86e656c5c9eb195a7a1753dc15334d36c26e3153c0a6e3d5de3dd760719837"
+    },
+    "fault-live-03": {
+      "checks": 6,
+      "passed": 6,
+      "report_sha256": "49be7ddffa440b8d43299f8d43b5fccd39b1b1463070a8bff11bbc32450f2cb6"
+    }
+  },
+  "audits": {
+    "gateway": {
+      "rows": 30,
+      "actions": 12,
+      "head_sha256": "0dd3e8e55f201779ed90b7f56a819e60e43203326bc6a02be13636957938b63b",
+      "classifications": {
+        "record": 7,
+        "blocked": 4,
+        "alert": 1
+      },
+      "snapshot_sha256": "0d572fa4bf0322764ae365b62f6dc74d1c1b675b774af0cb5607ab00243a5797"
+    },
+    "browser": {
+      "rows": 50,
+      "actions": 18,
+      "head_sha256": "6ebb208d4ee4c1ee0e072ab47edd192eb6f493e8843488e0793203e03e35cfe1",
+      "classifications": {
+        "record": 14,
+        "blocked": 4
+      },
+      "snapshot_sha256": "bd739c1db1657274c0dc7d983bb8b28ef1f9fe813bb87cab618d946c0c09620c"
+    },
+    "fault": {
+      "rows": 4,
+      "actions": 2,
+      "head_sha256": "b400ddd79e3ed064082f7d552d3cae612f998b2dadfbd68b16a12bf6f10dedb8",
+      "classifications": {
+        "unknown": 1,
+        "alert": 1
+      }
+    }
+  },
+  "independent_projected_rows": 84,
+  "independent_projected_actions": 32,
+  "fault_snapshots": {
+    "waiting": 1,
+    "started": 3,
+    "crashed": 3,
+    "recovered": 4,
+    "read_did_not_append": true,
+    "real_restart_appended_unknown_only": true
+  },
+  "preserved": {
+    "files": 127,
+    "all_matched": true,
+    "app_files": 90,
+    "app_all_matched": true,
+    "strict_codesign": true
+  },
+  "artifacts": {
+    "host-receipt.json": "41841ac5f007e7ada874782d904fe8fd6ef6b995aece659199b24fd3a7f3ac3a",
+    "fault-host-receipt.json": "385b4eec68fc93b5659144c9f2ac5e86eff7f338a81d1762da77896dcd45c754",
+    "execution-ui-report.json": "71f140f2c4b90243a39cf4209110784fd29083538a30b16f2ad4cbbfb8ed5e75",
+    "execution-blocked.png": "bf8a10f162f42c0fd2de7d3fbe255c7d4bcd97fbea507cd1f7927e4b6d5b2b7a",
+    "execution-unknown.png": "16d65806f84784d2c46dcc55d8409a1a40a786c20cf56190d765c5e414610693",
+    "execution-narrow.png": "3dac5cf8c794a5b68c0ec714bc7fd471cd20d95226cc410a896ac2da82396408",
+    "knowledge-regression/ui-report.json": "da93a9b0f2fe94346cd3dd662256d443f93349f7acdd22d66074bb129a87d662"
+  },
+  "limits": {
+    "max_log_rows": 8192,
+    "max_log_record_bytes": 16777216,
+    "max_session_entries_scanned": 4096,
+    "max_sessions_listed": 256,
+    "ui_actions_per_page": 50
+  },
+  "limitations": [
+    "IPC_test_bridge_not_native_App_acceptance",
+    "010_App_not_rebuilt",
+    "hash_chain_not_signature_attribution_or_admin_rewrite_proof",
+    "tool_receipt_not_business_success",
+    "rule_id_reference_not_verified_policy_version_match",
+    "knowledge_attack_stages_remain_unknown",
+    "oversized_logs_unavailable_not_truncated_proof"
+  ],
+  "preserved_failures": [
+    "fault-live-01_wrong_harness_method",
+    "fault-live-02_confirmation_marker_wrong_fixture_field"
+  ],
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go"
+}

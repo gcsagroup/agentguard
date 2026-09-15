@@ -1,3 +1,4 @@
+import { initializeExecutionRecords } from "./execution-records.js";
 import { initializeKnowledge } from "./knowledge.js";
 import { uiText, translateWorkspace } from "./workspace-i18n.js";
 import { initializeGatewayConfirmation } from "./gateway-confirmation.js";
@@ -15,6 +16,7 @@ let setupGeneration = 0;
 let setupOpener = null;
 let invoke;
 let knowledge;
+let execution;
 
 export function showFeedback(message, error = false) {
   const el = byId("workspace-feedback");
@@ -31,6 +33,7 @@ export function showPage(next, focus = true) {
   }
   route = next;
   if (route === "knowledge" && knowledge) knowledge.load();
+  if (route === "activity" && byId("activity-mode").value === "execution" && execution) execution.load();
   document.querySelectorAll("[data-page]").forEach((el) => { el.hidden = el.dataset.page !== route; });
   document.querySelectorAll("[data-route]").forEach((el) => {
     el.ariaCurrent = el.dataset.route === route ? "page" : null;
@@ -208,6 +211,16 @@ export function initializeWorkspace(backendInvoke) {
   initializeLocalAgent(invoke, gateway, () => showPage("active"));
   initializeCodexSetup(invoke);
   knowledge = initializeKnowledge(invoke);
+  execution = initializeExecutionRecords(invoke, (id) => {
+    byId("knowledge-search").value = id;
+    showPage("knowledge");
+  });
+  byId("activity-mode").onchange = () => {
+    const controlled = byId("activity-mode").value === "execution";
+    byId("activity-observation").hidden = controlled;
+    byId("activity-execution").hidden = !controlled;
+    if (controlled) execution.load();
+  };
   setTab("observation");
   renderRecent([]);
   document.querySelectorAll("[data-route]").forEach((btn) => { btn.onclick = () => showPage(btn.dataset.route); });

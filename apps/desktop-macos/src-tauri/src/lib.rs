@@ -3302,6 +3302,7 @@ fn process_observed_events(
 
 mod desktop_setup;
 mod knowledge_view;
+mod execution_records;
 mod gateway_confirm;
 mod local_agent;
 mod local_model;
@@ -3498,6 +3499,8 @@ pub fn run() {
             resolve_confirm,
             list_audit,
             knowledge_view::get_knowledge_catalog,
+            execution_records::list_execution_sessions,
+            execution_records::read_execution_session,
             export_session_report,
             set_auto_approve,
             security_status,

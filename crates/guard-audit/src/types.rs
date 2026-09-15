@@ -34,6 +34,22 @@ pub struct AuditRecord {
     pub attributed_agent: Option<String>,
 }
 
+/// 由 AuditStore 在单个读事务中完整验链的记录。未包含独立签名归属证明。
+pub struct VerifiedAuditSnapshot {
+    pub(crate) records: Vec<AuditRecord>,
+    pub(crate) head_sha256: String,
+}
+
+impl VerifiedAuditSnapshot {
+    pub fn records(&self) -> &[AuditRecord] {
+        &self.records
+    }
+
+    pub fn head_sha256(&self) -> &str {
+        &self.head_sha256
+    }
+}
+
 /// Marker that used to *be* the attribution, and is now only a display convenience.
 pub(crate) const AGENT_TAG_OPEN: &str = "[agent: ";
 
