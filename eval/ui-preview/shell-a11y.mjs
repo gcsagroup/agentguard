@@ -465,6 +465,23 @@ for (const shell of ["macos", "windows"]) {
   await page.click("#btn-refresh");
   await page.waitForTimeout(400);
 
+  if (shell === "macos") {
+    for (const sample of [
+      { status: { ax_auto_poll: false, ax_recovering: false }, text: /Accessibility is granted, but window observation has stopped/ },
+      { status: { ax_auto_poll: true, ax_recovering: true }, text: /retrying automatically.*incomplete/ },
+    ]) {
+      await page.evaluate((patch) => window.__agTest.patchStatus({ ...patch, protection_state: "degraded" }), sample.status);
+      await page.click("#btn-refresh");
+      await page.waitForTimeout(150);
+      const line = await page.locator("#watching").innerText();
+      check("macOS 已授权但观察失败时区分停止与自动恢复，不再要求重复授权", sample.text.test(line) && !/needs the Accessibility permission/.test(line), line);
+    }
+    await page.evaluate(() => window.__agTest.patchStatus({ ax_auto_poll: true, ax_recovering: false, protection_state: "active" }));
+    await page.click("#btn-refresh");
+    await page.waitForTimeout(150);
+    check("macOS 窗口读取恢复后才重新显示完整观察", /window content.*screen pixels/i.test(await page.locator("#watching").innerText()));
+  }
+
   // W11:Windows 的 start_guard_session 会先返回 observer_starting,首个 native-poll
   // 才证明观察器已经工作。页面必须靠这个事件自行收敛到 active/Watching,不能要求用户
   // 再点一次刷新。这里先把 Starting 真实渲染出来,随后只改后端桩并发事件。

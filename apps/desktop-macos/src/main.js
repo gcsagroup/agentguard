@@ -265,9 +265,12 @@ function renderWatching(st) {
   } else if (!st.session_active) {
     el.textContent = t("watching.none") + suffix;
   } else {
-    const ax = !!st.ax_auto_poll;
+    const ax = !!st.ax_auto_poll && !st.ax_recovering;
     const cap = !!(st.sck_streaming && st.sck_auto_poll);
-    const key = ax && cap ? "watching.full" : ax ? "watching.axOnly" : cap ? "watching.captureOnly" : "watching.simOnly";
+    const key = st.ax_recovering ? "watching.axRecovering"
+      : ax && cap ? "watching.full" : ax ? (st.screen_capture ? "watching.axOnlyUnavailable" : "watching.axOnly")
+      : st.accessibility ? (cap ? "watching.captureOnlyUnavailable" : "watching.observationUnavailable")
+      : cap ? "watching.captureOnly" : "watching.simOnly";
     el.textContent = t(key) + suffix;
   }
   setChip("chip-session", st.session_active ? "on" : "off");

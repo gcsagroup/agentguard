@@ -1490,7 +1490,8 @@ mod tests {
             session_id: id("workspace-session"),
             action_id: id("workspace-action"),
             request_id: id("workspace-request"),
-            tool: ToolIdentity { registration: None,
+            tool: ToolIdentity {
+                registration: None,
                 service: "agentguard-host-control".into(),
                 name: "workspace_apply".into(),
                 version: "fixture".into(),

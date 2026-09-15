@@ -110,6 +110,8 @@ struct AppState {
     /// 串行化完整的异步会话转换；Tokio mutex 可跨 await，且不会阻塞 Tauri UI 线程。
     session_control: tauri::async_runtime::Mutex<()>,
     ax_message: Mutex<String>,
+    /// 原生窗口读取已返回超时，观察循环等待重试；此时不得显示完整守护。
+    ax_recovering: AtomicBool,
     /// P0-3:最近一次**成功**观察的时刻(ms since epoch,0 = 没有)。SCK/AX 轮询成功时更新。
     heartbeat_ms: AtomicU64,
     /// P0-3:观察器最近一次启动的时刻(0 = 没启动过),给状态机判「启动宽限」。
@@ -371,6 +373,7 @@ struct StatusDto {
     sck_auto_poll: bool,
     ax_message: String,
     ax_auto_poll: bool,
+    ax_recovering: bool,
     /// sim | partial | full — honest coverage level from TCC.
     protection_mode: String,
     protection_summary: String,
@@ -1148,6 +1151,8 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let (protection_mode, protection_summary, _) =
         protection_coverage(caps.accessibility, caps.screen_capture);
     let ax_auto_poll = state.ax_lifecycle.active().is_some();
+    let ax_recovering = state.ax_recovering.load(Ordering::Acquire);
+    let ax_ready = ax_auto_poll && !ax_recovering;
     let observer_error = state
         .observer_error
         .lock()
@@ -1162,9 +1167,9 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
     let hb = state.heartbeat_ms.load(Ordering::Relaxed);
     let started = state.observer_started_ms.load(Ordering::Relaxed);
     let observers_available = caps.accessibility as u32 + caps.screen_capture as u32;
-    let observers_running = ax_auto_poll as u32 + (sck_streaming && sck_auto_poll) as u32;
+    let observers_running = ax_ready as u32 + (sck_streaming && sck_auto_poll) as u32;
     let (required_observation_permission, required_capability_unavailable) =
-        mac_required_observation_state(caps.accessibility, ax_auto_poll);
+        mac_required_observation_state(caps.accessibility, ax_ready);
     let derived = observe_state::derive(
         &StateInputs {
             session_active,
@@ -1228,6 +1233,7 @@ fn get_status(state: State<'_, AppState>) -> Result<StatusDto, String> {
         sck_auto_poll,
         ax_message,
         ax_auto_poll,
+        ax_recovering,
         protection_mode,
         protection_summary,
         protection_state: derived.state.as_str().to_string(),
@@ -2415,6 +2421,25 @@ async fn ax_poll_cmd(app: AppHandle) -> Result<AxPollDto, String> {
 const AX_SELF_SKIP_MESSAGE: &str =
     "frontmost app is AgentGuard itself — skipped (the guard does not observe its own window)";
 
+const AX_RECOVERY_DELAY: Duration = Duration::from_secs(3);
+const AX_RECOVERY_MESSAGE: &str = "窗口读取暂时超时，3 秒后自动重试；当前桌面观察不完整";
+
+/// 只重试原生桥已经返回的窗口快照超时。外层超时、仍占用单飞槽、权限或审计故障
+/// 必须继续停止代际，不能把尚未退出的系统调用当作普通失败并堆积新线程。
+fn ax_snapshot_can_retry(error: &str, native_busy: bool) -> bool {
+    !native_busy && error == "ax error: AX snapshot timed out"
+}
+
+fn note_ax_recovery(state: &AppState) {
+    state.ax_recovering.store(true, Ordering::Release);
+    if let Ok(mut message) = state.ax_message.lock() {
+        *message = AX_RECOVERY_MESSAGE.into();
+    }
+    if let Ok(mut error) = state.observer_error.lock() {
+        *error = Some(AX_RECOVERY_MESSAGE.into());
+    }
+}
+
 fn poll_ax_once(state: &AppState) -> Result<AxPollDto, String> {
     let snapshot = match state.ax_native_gate.call(
         None,
@@ -2603,6 +2628,7 @@ fn poll_ax_push_once(
             match capture {
                 AxCapture::NotDue => Ok(None),
                 AxCapture::SkippedSelf => {
+                    state.ax_recovering.store(false, Ordering::Release);
                     state.heartbeat_ms.store(now_epoch_ms(), Ordering::Relaxed);
                     if let Ok(mut slot) = state.observer_error.lock() {
                         *slot = None;
@@ -2614,6 +2640,7 @@ fn poll_ax_push_once(
                 AxCapture::Captured => {
                     let (decisions, suppressed, summaries) =
                         process_observed_events(state, events)?;
+                    state.ax_recovering.store(false, Ordering::Release);
                     let msg = if suppressed > 0 {
                         format!(
                             "live AX ingested · {} decision(s) · {suppressed} duplicate(s) folded",
@@ -2669,6 +2696,7 @@ async fn arm_ax_observer(
         let generation = state.ax_lifecycle.begin_if_drained().map_err(|remaining| {
             format!("AX cannot start while {remaining} old worker(s) are still draining")
         })?;
+        state.ax_recovering.store(false, Ordering::Release);
         *state.ax_stop_error.lock().map_err(|e| e.to_string())? = None;
         state
             .adapter
@@ -2704,14 +2732,18 @@ async fn arm_ax_observer(
             .map_err(|e| e.to_string())?
             .note_ax_observer_refreshed(generation, now_ms())?;
         if let Err(error) = poll_ax_push_once(state.inner(), generation) {
-            if let Ok(mut slot) = state.observer_error.lock() {
-                *slot = Some(format!("AX observer start poll failed: {error}"));
+            if ax_snapshot_can_retry(&error, state.ax_native_gate.is_busy()) {
+                note_ax_recovery(state.inner());
+            } else {
+                if let Ok(mut slot) = state.observer_error.lock() {
+                    *slot = Some(format!("AX observer start poll failed: {error}"));
+                }
+                let cleanup = stop_ax_locked(state.inner());
+                return Err(match cleanup {
+                    Ok(outcome) => format!("{error}; AX cleanup: {outcome:?}"),
+                    Err(cleanup_error) => format!("{error}; AX cleanup failed: {cleanup_error}"),
+                });
             }
-            let cleanup = stop_ax_locked(state.inner());
-            return Err(match cleanup {
-                Ok(outcome) => format!("{error}; AX cleanup: {outcome:?}"),
-                Err(cleanup_error) => format!("{error}; AX cleanup failed: {cleanup_error}"),
-            });
         }
         if !session_generation_matches(state.inner(), session_generation) {
             let _ = stop_ax_locked(state.inner());
@@ -2721,9 +2753,15 @@ async fn arm_ax_observer(
             let _ = stop_ax_locked(state.inner());
             return Err(error);
         }
-        let message = match &push_result {
-            Ok(()) => "AXObserver push on (150ms debounce, 800ms ceiling, 3s fallback)".to_string(),
-            Err(e) => format!("AXObserver unavailable ({e}); 3s fallback polling on"),
+        let message = if state.ax_recovering.load(Ordering::Acquire) {
+            AX_RECOVERY_MESSAGE.into()
+        } else {
+            match &push_result {
+                Ok(()) => {
+                    "AXObserver push on (150ms debounce, 800ms ceiling, 3s fallback)".to_string()
+                }
+                Err(e) => format!("AXObserver unavailable ({e}); 3s fallback polling on"),
+            }
         };
         *state.ax_message.lock().map_err(|e| e.to_string())? = message.clone();
         Ok(message)
@@ -3037,11 +3075,19 @@ fn start_ax_auto_poller(
                 .map(|_| ())
         },
         move || {
+            let mut retry_after = app
+                .try_state::<AppState>()
+                .filter(|state| state.ax_recovering.load(Ordering::Acquire))
+                .map(|_| std::time::Instant::now() + AX_RECOVERY_DELAY);
             while thread_lifecycle.is_current(generation) {
                 std::thread::park_timeout(Duration::from_millis(50));
                 if !thread_lifecycle.is_current(generation) {
                     break;
                 }
+                if retry_after.is_some_and(|until| std::time::Instant::now() < until) {
+                    continue;
+                }
+                retry_after = None;
                 let Some(st) = app.try_state::<AppState>() else {
                     break;
                 };
@@ -3057,6 +3103,17 @@ fn start_ax_auto_poller(
                     }
                     Ok(None) => {}
                     Err(e) => {
+                        if ax_snapshot_can_retry(&e, st.ax_native_gate.is_busy()) {
+                            let _ = thread_lifecycle.commit(generation, || {
+                                note_ax_recovery(st.inner());
+                                let _ = app.emit(
+                                    "ax-poll-error",
+                                    serde_json::json!({"error": AX_RECOVERY_MESSAGE}),
+                                );
+                            });
+                            retry_after = Some(std::time::Instant::now() + AX_RECOVERY_DELAY);
+                            continue;
+                        }
                         let _ = thread_lifecycle.commit(generation, || {
                             let _ = app
                                 .emit("ax-poll-error", serde_json::json!({ "error": e.clone() }));
@@ -3300,15 +3357,15 @@ fn process_observed_events(
     Ok((out, suppressed, summaries))
 }
 
+mod browser_setup;
 mod desktop_setup;
-mod knowledge_view;
 mod execution_records;
 mod gateway_confirm;
+mod knowledge_view;
 mod local_agent;
 mod local_model;
-mod browser_setup;
-mod model_egress;
 mod managed_gateway;
+mod model_egress;
 
 fn app_state(engine: Engine, policy_status: PolicyStatusDto) -> AppState {
     AppState {
@@ -3336,6 +3393,7 @@ fn app_state(engine: Engine, policy_status: PolicyStatusDto) -> AppState {
         session_generation: AtomicU64::new(0),
         session_control: tauri::async_runtime::Mutex::new(()),
         ax_message: Mutex::new(String::new()),
+        ax_recovering: AtomicBool::new(false),
         heartbeat_ms: AtomicU64::new(0),
         observer_started_ms: AtomicU64::new(0),
         observer_error: Mutex::new(None),
@@ -4264,9 +4322,9 @@ mod packaging_tests {
 #[cfg(test)]
 mod session_observer_tests {
     use super::{
-        cleanup_failed_ax_poller_start_with, mac_required_observation_state, observers_for_session,
-        privacy_pane_anchor, require_confirmed_ax_stop, require_confirmed_sck_stop,
-        spawn_ax_worker_with, with_manual_session_control,
+        ax_snapshot_can_retry, cleanup_failed_ax_poller_start_with, mac_required_observation_state,
+        observers_for_session, privacy_pane_anchor, require_confirmed_ax_stop,
+        require_confirmed_sck_stop, spawn_ax_worker_with, with_manual_session_control,
     };
     use guard_core::observe_state::{derive, ProtectionState, Reason, StateInputs, Thresholds};
     use mac_adapter::{
@@ -4276,6 +4334,35 @@ mod session_observer_tests {
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::Duration;
+
+    #[test]
+    fn 窗口超时已返回才允许重试且其它错误保持停止() {
+        let gate = AxNativeGate::new();
+        let error = gate
+            .call::<(), _>(None, None, "snapshot", Duration::from_secs(1), || {
+                Err("ax error: AX snapshot timed out".into())
+            })
+            .unwrap_err();
+        assert!(ax_snapshot_can_retry(&error.to_string(), gate.is_busy()));
+        // 原生桥已返回，下一次真实单飞调用能够完成；不创建重叠 worker。
+        assert_eq!(
+            gate.call(None, None, "snapshot", Duration::from_secs(1), || Ok(7))
+                .unwrap(),
+            7
+        );
+        for error in [
+            "ax denied: Accessibility permission not granted",
+            "audit failed",
+            "AX native snapshot timed out",
+            "ax error: Failed to walk AX tree",
+        ] {
+            assert!(!ax_snapshot_can_retry(error, false));
+        }
+        assert!(!ax_snapshot_can_retry(
+            "ax error: AX snapshot timed out",
+            true
+        ));
+    }
 
     /// 确定性复现 end/start 在 native stop 后尚未完成 adapter 提交时，手动 enable 试图
     /// 穿过转换锁的竞态。手动操作只有在转换释放 session_control 后才允许开始。
@@ -4523,7 +4610,8 @@ mod session_observer_tests {
             .unwrap_or(source.len());
         let body = &source[start..end];
         assert!(
-            body.contains("mac_required_observation_state(caps.accessibility, ax_auto_poll)"),
+            body.contains("mac_required_observation_state(caps.accessibility, ax_ready)")
+                && body.contains("ax_auto_poll && !ax_recovering"),
             "get_status 没有按 AX 授权与实际运行状态分类 macOS 必需能力"
         );
         assert!(

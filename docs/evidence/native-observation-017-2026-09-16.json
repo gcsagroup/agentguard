@@ -1,0 +1,130 @@
+{
+  "schema": "native_observation_repair_v1",
+  "created_at": "2026-09-15T20:42:34.165315+00:00",
+  "base_commit": "773593a13da399598da9f0845e76e9c3b9032a79",
+  "app": {
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "version": "2.0.0-dev.17",
+    "build": "17",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "signing_cert_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "codesign_strict": true,
+    "resources_equal_015": true
+  },
+  "app_sha256": "004146c40f30ccb9b219ab3d7b4518c7ce970e2af4e5085d41f0071828786135",
+  "packaged_gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+  "native_observations": {
+    "source": "Computer Use actual UI and app-generated trace",
+    "permissions_after_update": {
+      "accessibility": true,
+      "screen_capture": true
+    },
+    "permissions_after_restart": {
+      "accessibility": true,
+      "screen_capture": true
+    },
+    "final_overview": "守护中；窗口内容 + 屏幕画面",
+    "sck_ticks": 141,
+    "ax_foreign_ticks": 0,
+    "native_foreign_window_acceptance": "not_proven",
+    "native_timeout_recovery_acceptance": "not_reproduced_this_candidate",
+    "original_audit_rows_unchanged": 98,
+    "current_audit_rows": 149,
+    "storage_migrated": false,
+    "temporary_trace_launch_environment_cleared": true,
+    "temporary_trace_process_exited": true,
+    "normal_app_reopened_guard_running": true
+  },
+  "tests": {
+    "desktop_sqlite": {
+      "passed": 129,
+      "ignored": 11
+    },
+    "desktop_sqlcipher": {
+      "passed": 129,
+      "ignored": 11
+    },
+    "ui_assertions": 94,
+    "clippy": "passed",
+    "repository_invariants": 23,
+    "capability_registry": 1,
+    "format_and_matrix": "passed"
+  },
+  "failures_preserved": [
+    "016 storage feature mismatch and package resources",
+    "initial source assertion expected old AX state expression",
+    "cross-window trace did not contain AX foreign capture"
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/desktop-tests-01.log",
+      "sha256": "b3395d173f3ed102d69a4ce1675facf5e1af702876cc81286f1099a0daa6fe55"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/desktop-tests-02.log",
+      "sha256": "2f0a5b96bd8abffd62c9007428eb0e94f89f1ea72201c20dd55d338bfb341c03"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/desktop-tests-017.log",
+      "sha256": "0cfa3672817c976c55f57fb681d63c74d00d1439d297402fcd65989ad2454551"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/clippy-01.log",
+      "sha256": "9b31e474db927a0c557df80a6a8a24a04c0b54a4618cc78f32fefab360bf392a"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/ui-01.log",
+      "sha256": "1131f8f2379ff52def96a09fa0f62fa86f06b990a10094725fa771648edca46f"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/ui-017.log",
+      "sha256": "1131f8f2379ff52def96a09fa0f62fa86f06b990a10094725fa771648edca46f"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/build-016.log",
+      "sha256": "7f26a9348e4af9d8982d5e1029f281dfccd3ff280815d5fc44742f93fa3b2943"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/build-017.log",
+      "sha256": "cbdfacab644bc61b29aea3427e2a00e8ffd90506564b0949a6d4cbbadfc30c20"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/app-015-before.zip",
+      "sha256": "f451dc5c0a1150d833e95e78816697939d71726b8e7084a4a3bbdbff3543e5e8"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/app-016-packaging-failure.zip",
+      "sha256": "af9d67f68c3b7f4b21c1382a6b7a92a193562d77a7e4b2e966156623f50da13b"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/source-017.json",
+      "sha256": "91f0a49c34c844745ba37463f595f2c1bbe7c18a4825415d2b39bf76606f53be"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/app-017-verified.json",
+      "sha256": "2cdf0b25adff607243004e1bd1813fc28053b77e30cd678f3d3b96069d04e0e5"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/native-017-trace.jsonl",
+      "sha256": "21b54df52c7036e389d8003047a54a306abf7aff3e4fbbcf26c94909c95a45bc"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/native-017-trace-summary.json",
+      "sha256": "02e3c81a48037eec92fc8aca9614d56838a8c7359834c53609178c82343bf431"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/user-report.png",
+      "sha256": "d1b82ad1b74b0c58c1e2dd46e75902c3d0bb71feb1153612607a0f0c8c8b17d6"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/repository-final.log",
+      "sha256": "9217cfb60642c11c09efe8e89e337b9393ba81542720865355cb42ab763590b4"
+    },
+    {
+      "path": ".artifacts/ax-recovery-016-2026-09-16/repository-invariants.log",
+      "sha256": "56ab619a927c7e214d76464e63488d218a4eb6efd67ab3dbe4940b6c5f71dc23"
+    }
+  ],
+  "full_plan_passed": false,
+  "f13": "deferred_not_accepted"
+}
