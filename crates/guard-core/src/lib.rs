@@ -21,6 +21,9 @@ use guard_intel::ThreatBundle;
 use guard_privacy::{
     AccessEvent, FieldNecessity, FormFillEvent, ObservedField, PrivacySession, ProbeType,
 };
+
+#[cfg(test)]
+mod persistent_memory_tests;
 use guard_schema::{
     Decision, DecisionAction, EventType, GuardContract, GuardEvent, KnownAppsPolicy, RuleSet,
     Severity, StepKind,
@@ -822,6 +825,49 @@ impl Engine {
     }
 
     pub fn process(&mut self, event: &GuardEvent) -> Result<Decision> {
+        self.process_with_memory_backend(event, None)
+    }
+
+    /// 仅供已核对持久存储的可信宿主使用；普通事件中的字段不能选择此路径。
+    /// 这里判决提案，不提前把观察器内存表标为已保存，实际保存由宿主事务完成。
+    pub fn process_persistent_memory(
+        &mut self,
+        event: &GuardEvent,
+        keys: &[String],
+    ) -> Result<Decision> {
+        anyhow::ensure!(
+            matches!(
+                event.event_type,
+                EventType::MemoryRead | EventType::MemoryWrite
+            ),
+            "持久记忆入口不接受其它事件"
+        );
+        anyhow::ensure!(
+            keys.len() <= 4
+                && keys
+                    .iter()
+                    .all(|key| !key.trim().is_empty() && key.len() <= 128)
+                && (!matches!(event.event_type, EventType::MemoryWrite) || keys.len() == 1),
+            "持久记忆必须绑定实际条目，空检索允许没有条目"
+        );
+        self.process_with_memory_backend(event, Some(keys))
+    }
+
+    /// 可信宿主在检索前过滤数据范围；最终判决仍须核对返回的全部条目。
+    pub fn persistent_memory_key_allowed(&self, key: &str) -> bool {
+        self.granted_scope.data_keys.as_ref().is_none_or(|allowed| {
+            allowed
+                .iter()
+                .any(|a| a.trim().eq_ignore_ascii_case(key.trim()))
+        })
+    }
+
+    fn process_with_memory_backend(
+        &mut self,
+        event: &GuardEvent,
+        persistent_keys: Option<&[String]>,
+    ) -> Result<Decision> {
+        let persistent = persistent_keys.is_some();
         if self.paused
             && !matches!(
                 event.event_type,
@@ -893,14 +939,20 @@ impl Engine {
         // Aura §4.4 resource grant. Checked on every event, before the event's own handler, and
         // merged rather than short-circuited — the same discipline the identity findings follow.
         let scope_app_finding = self.check_scope_app(event);
-        let scope_data_finding = self.check_scope_data_key(event);
+        let scope_data_finding = match persistent_keys {
+            Some(keys) => keys.iter().find_map(|key| self.check_scope_key_value(key)),
+            None => self.check_scope_data_key(event),
+        };
         let scope_host_finding = self.check_scope_host(event);
         let fs_finding = self.check_filesystem_scope(event);
 
         let scope_finding = self.check_agent_session_scope(event);
-        let decision = self.decide(event)?;
+        let decision = self.decide_with_memory_backend(event, persistent)?;
         let decision = match self.rule_package.as_mut() {
-            Some(package) => constrain_with_package(decision, package.decide(event)?),
+            Some(package) => constrain_with_package(
+                decision,
+                package.decide_with_memory_backend(event, persistent)?,
+            ),
             None => decision,
         };
         // Trajectory alignment runs here, once per event, rather than inside
@@ -1269,6 +1321,14 @@ impl Engine {
     }
 
     fn decide(&mut self, event: &GuardEvent) -> Result<Decision> {
+        self.decide_with_memory_backend(event, false)
+    }
+
+    fn decide_with_memory_backend(
+        &mut self,
+        event: &GuardEvent,
+        persistent: bool,
+    ) -> Result<Decision> {
         // Ingest point for untrusted provenance. Done before rule matching
         // because those arms return early: an event that trips an injection rule
         // is *precisely* the one whose text must be labelled tainted, so
@@ -1751,6 +1811,17 @@ impl Engine {
                 }
             }
             EventType::MemoryRead => {
+                if persistent {
+                    return Ok(Decision {
+                        action: DecisionAction::Allow,
+                        severity: Severity::Info,
+                        rule_id: "MEMORY-VERIFIED-READ".into(),
+                        human_message:
+                            "可信宿主按持久版本、来源、期限与撤销状态读取；不使用观察器内存表"
+                                .into(),
+                        require_confirm: false,
+                    });
+                }
                 let key = event
                     .metadata
                     .get("item_key")
@@ -1844,6 +1915,28 @@ impl Engine {
             }
             EventType::MemoryWrite => {
                 use guard_schema::EnforcementMode;
+                if persistent {
+                    let deny = matches!(
+                        self.privacy.contract.on_memory_write,
+                        EnforcementMode::Deny | EnforcementMode::Block
+                    );
+                    return Ok(Decision {
+                        action: if deny {
+                            DecisionAction::Block
+                        } else {
+                            DecisionAction::Alert
+                        },
+                        severity: Severity::Medium,
+                        rule_id: "PRIV-004".into(),
+                        human_message: if deny {
+                            "宿主契约禁止持久记忆变更"
+                        } else {
+                            "持久记忆变更须绑定完整内容并独立批准"
+                        }
+                        .into(),
+                        require_confirm: !deny,
+                    });
+                }
                 let (action, require_confirm) = match self.privacy.contract.on_memory_write {
                     EnforcementMode::Allow => (DecisionAction::Allow, false),
                     EnforcementMode::Deny | EnforcementMode::Block => (DecisionAction::Block, true),
@@ -3200,9 +3293,13 @@ impl Engine {
     /// case-insensitive, and declaring `ORDER_FOOD` passed the capability check while finding no
     /// plan, which switched the trajectory check off for that session.
     fn check_scope_data_key(&self, event: &GuardEvent) -> Option<Decision> {
-        let allowed = self.granted_scope.data_keys.as_ref()?;
         let key = Self::event_data_key(event)?;
-        if allowed.iter().any(|a| a.trim().eq_ignore_ascii_case(&key)) {
+        self.check_scope_key_value(&key)
+    }
+
+    fn check_scope_key_value(&self, key: &str) -> Option<Decision> {
+        let allowed = self.granted_scope.data_keys.as_ref()?;
+        if self.persistent_memory_key_allowed(key) {
             return None;
         }
         Some(Decision {

@@ -48,6 +48,7 @@ fn builtin_namespace(service: &str) -> Option<&'static str> {
         "agentguard-gateway" => Some("agentguard_gateway"),
         "agentguard-protected-browser" => Some("agentguard_browser"),
         "agentguard-host-control" => Some("agentguard_host"),
+        "agentguard-memory" => Some("agentguard_memory"),
         _ => None,
     }
 }
@@ -274,6 +275,17 @@ impl ToolRegistry {
         )?)?;
         Ok(())
     }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn enable_memory(&mut self) -> Result<()> {
+        self.declare_builtin(builtin_manifest(
+            "agentguard-memory",
+            crate::memory::tools(),
+            &[],
+            builtin_package()?,
+        )?)
+        .map(|_| ())
+    }
+
     pub(crate) fn identity(&self, service: &str, name: &str) -> Result<guard_schema::ToolIdentity> {
         let registration = self.binding(service, name)?;
         Ok(guard_schema::ToolIdentity {
@@ -745,7 +757,10 @@ fn builtin_manifest(
         namespace: builtin_namespace(service)
             .ok_or_else(|| anyhow::anyhow!("内建服务未定义"))?
             .into(),
-        service_version: if service == "agentguard-protected-browser" {
+        service_version: if matches!(
+            service,
+            "agentguard-protected-browser" | "agentguard-memory"
+        ) {
             "1".into()
         } else {
             env!("CARGO_PKG_VERSION").into()

@@ -301,6 +301,62 @@ impl Gate {
         let event = self.event(EventType::ProcessExec, "agentguard-mcp", metadata);
         self.judge_external_event(event)
     }
+    /// 持久记忆与观察器状态分开；仍经过完整规则、会话和轨迹预算判决。
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn judge_memory(
+        &mut self,
+        name: &str,
+        keys: &[String],
+        content: &serde_json::Value,
+        write: bool,
+    ) -> Outcome {
+        let mut metadata = HashMap::new();
+        metadata.insert("gateway_tool".into(), name.into());
+        if let Some(key) = keys.first() {
+            metadata.insert("item_key".into(), key.clone());
+        }
+        metadata.insert("ui_text".into(), content.to_string());
+        let event = self.event(
+            if write {
+                EventType::MemoryWrite
+            } else {
+                EventType::MemoryRead
+            },
+            "agentguard-mcp",
+            metadata,
+        );
+        match self.engine.process_persistent_memory(&event, keys) {
+            Ok(decision) => {
+                let findings = vec![Finding {
+                    rule_id: decision.rule_id,
+                    layer: "engine".into(),
+                    severity: format!("{:?}", decision.severity).to_lowercase(),
+                    message: decision.human_message,
+                }];
+                if decision.action == DecisionAction::Block {
+                    Outcome::Refuse { findings }
+                } else if write || decision.require_confirm {
+                    Outcome::NeedsConfirmation { findings }
+                } else {
+                    Outcome::Execute { findings }
+                }
+            }
+            Err(_) => Outcome::Refuse {
+                findings: vec![Finding {
+                    rule_id: "GATEWAY-ENGINE-ERROR".into(),
+                    layer: "engine".into(),
+                    severity: "high".into(),
+                    message: "记忆判决失败，未执行".into(),
+                }],
+            },
+        }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn memory_key_allowed(&self, key: &str) -> bool {
+        self.engine.persistent_memory_key_allowed(key)
+    }
+
     /// 远程服务按网络出口扣减预算，并使用可信配置的 URL 核对主机范围。
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(crate) fn judge_remote(

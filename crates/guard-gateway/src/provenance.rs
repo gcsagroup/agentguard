@@ -22,6 +22,9 @@ const PARSERS: &[&str] = &[
     "dom/1",
     "tool-output/1",
     "source-views/1",
+    "memory-note/1",
+    "memory-entry/1",
+    "memory-result/1",
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -221,6 +224,94 @@ impl SourceCollector {
 
     pub fn resolve(&self, id: &ValidatedId) -> Option<SourceObject> {
         self.sources.get(id).cloned()
+    }
+
+    /// 保留完整父图；超过持久存储上限直接拒绝，不只留下最后一个父 ID。
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn memory_sources(&self) -> Result<Vec<SourceObject>> {
+        ensure!(self.healthy(), "来源采集器不可用");
+        let mut todo = self.latest.iter().cloned().collect::<Vec<_>>();
+        let mut result = std::collections::BTreeMap::new();
+        while let Some(id) = todo.pop() {
+            if result.contains_key(id.as_str()) {
+                continue;
+            }
+            let source = self
+                .sources
+                .get(&id)
+                .ok_or_else(|| anyhow::anyhow!("记忆来源父图缺失"))?;
+            if let SourceObservation::Observed {
+                parent_source_ids, ..
+            } = &source.observation
+            {
+                todo.extend(parent_source_ids.iter().cloned());
+            }
+            result.insert(id.to_string(), source.clone());
+            ensure!(
+                result.len() <= guard_privacy::MEMORY_SOURCES_MAX,
+                "完整记忆来源图超过上限"
+            );
+        }
+        ensure!(!result.is_empty(), "记忆来源缺失");
+        Ok(result.into_values().collect())
+    }
+
+    /// entries 仅能来自宿主已验签的 MemoryStore，不接收 MCP 自报来源。
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn memory_output(
+        &mut self,
+        content: &[u8],
+        entries: &[guard_audit::MemoryEntry],
+    ) -> Result<SourceObject> {
+        let mut result_parents = self.latest.iter().cloned().collect::<Vec<_>>();
+        for entry in entries {
+            let mut pending = entry.draft.sources.clone();
+            while !pending.is_empty() {
+                let before = pending.len();
+                let mut remaining = Vec::new();
+                for source in pending {
+                    if let Some(existing) = self.sources.get(&source.source_id) {
+                        ensure!(existing == &source, "持久记忆中的同名来源与当前记录冲突");
+                        continue;
+                    }
+                    let ready = match &source.observation {
+                        SourceObservation::Observed {
+                            parent_source_ids, ..
+                        } => parent_source_ids
+                            .iter()
+                            .all(|id| self.sources.contains_key(id)),
+                        SourceObservation::Unknown { .. } => true,
+                    };
+                    if ready {
+                        self.record(source)?;
+                    } else {
+                        remaining.push(source);
+                    }
+                }
+                ensure!(remaining.len() < before, "持久记忆来源图缺失或循环");
+                pending = remaining;
+            }
+            let source = self.observe(
+                &serde_json::to_vec(entry)?,
+                SourceEntryPoint::ToolOutput,
+                "memory-entry/1",
+                SourceSensitivity::Unknown,
+                &entry
+                    .draft
+                    .sources
+                    .iter()
+                    .map(|s| s.source_id.clone())
+                    .collect::<Vec<_>>(),
+            )?;
+            result_parents.push(source.source_id);
+        }
+        self.observe(
+            content,
+            SourceEntryPoint::ToolOutput,
+            "memory-result/1",
+            SourceSensitivity::Unknown,
+            &result_parents,
+        )
     }
 
     fn validate_source(&self, source: &SourceObject) -> Result<()> {

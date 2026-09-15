@@ -11,6 +11,9 @@ description = "协作式工具网关：智能体调它而不是调原始工具�
 name = "agentguard-mcp"
 path = "src/bin/agentguard_mcp.rs"
 
+[features]
+memory-sqlcipher = ["guard-audit/sqlcipher"]
+
 [dependencies]
 guard-trust = { workspace = true }
 guard-schema = { workspace = true }

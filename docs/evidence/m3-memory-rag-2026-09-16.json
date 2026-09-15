@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "task": "AGD-022",
+  "status": "completed_for_declared_scope",
+  "date": "2026-09-16",
+  "base_commit": "23d6d43daeef7e24c7a5fb77f04c207d0150ea4f",
+  "scope": "当前 macOS 宿主及既有 Linux Docker 工作区，合成资料、脚本独立批准；CLI 明文模式、SQLCipher 真密文测试分开记录",
+  "f13": "deferred_not_passed",
+  "full_m1_passed": false,
+  "release_passed": false,
+  "gateway_sha256": "2439f184b3adf363b9203ad718b0e72342fa374d35db4af70693164665b8928a",
+  "frozen": ".artifacts/m3-memory-rag-2026-09-16/frozen-05",
+  "source_files": 198,
+  "actual_process_report": ".artifacts/m3-memory-rag-2026-09-16/process-05/report.json",
+  "independent": {
+    "passed": true,
+    "processes": 4,
+    "signed_memory_rows": 5,
+    "approved_versions": 4,
+    "execution_audit_rows": 89,
+    "model_tasks": 3,
+    "source_files": 198,
+    "gateway_sha256": "2439f184b3adf363b9203ad718b0e72342fa374d35db4af70693164665b8928a",
+    "scope": "合成文档的真实网关与模型消费；脚本独立批准，CLI 为显式明文测试，加密另见 SQLCipher 测试"
+  },
+  "negative_tamper": {
+    "passed": true,
+    "tampered_copy": "/Users/lazy/Projects/agent-guard/.artifacts/m3-memory-rag-2026-09-16/tamper-01/memory.db",
+    "changed_last_state": "active -> revoked",
+    "record_id_and_chain_and_external_witness_recomputed": true,
+    "ed25519_signature_refused": true,
+    "original_database_unchanged": true
+  },
+  "tests": {
+    "core": 4,
+    "gateway": 13,
+    "sqlcipher": 13,
+    "workspace_passed": 1486,
+    "workspace_ignored": 16,
+    "clippy_workspace_all_targets": true
+  },
+  "preservation": {
+    "preserved_files": 127,
+    "all_unchanged": true,
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_version": "2.0.0-dev.15",
+    "app_build": "15",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "codesign_strict": true
+  },
+  "model_tasks": [
+    {
+      "phase": "有效文档新任务",
+      "passed": true,
+      "request_sha256": "bab527d50f1d23f0c6f6e57f5795baf005dc86ff6d733abf74049114d710d41a"
+    },
+    {
+      "phase": "撤销后新进程新任务",
+      "passed": true,
+      "request_sha256": "660a9b2a30c02cb7a9cfc59a4096c94bc301bf9012d52da705ff47c026b6ce96"
+    },
+    {
+      "phase": "过期后新进程新任务",
+      "passed": true,
+      "request_sha256": "fa0bb3fa847b7eb7908057fcf05cfb45a57d56357e97b142376a823c4959cb6b"
+    }
+  ],
+  "base_ci": {
+    "commit": "23d6d43daeef7e24c7a5fb77f04c207d0150ea4f",
+    "run_id": 35000562267,
+    "jobs_passed": 13,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35000562267"
+  },
+  "current_commit_ci": "not_observed_before_push",
+  "evidence": [
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/baseline.json",
+      "bytes": 28517,
+      "sha256": "daaf82e12d5063283fb31ba077c2a4b4d1e58327875398733e9de9c22ad1628a",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/base-ci-snapshot.json",
+      "bytes": 1230,
+      "sha256": "1b0278d92f772de014919987564201a66270aa74160bfc8e23a5a425728443c8",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/core-tests-04.log",
+      "bytes": 977,
+      "sha256": "fa34da30e9c5005ac8be2487d7f34efcc90829366c7e308348f2c884fc8705aa",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/tests-04.log",
+      "bytes": 1893,
+      "sha256": "d0f7d0f42e3d6095783602236c17ce739cd3e710604aa5aae7a7c2ad5f7786c6",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/sqlcipher-01.log",
+      "bytes": 2195,
+      "sha256": "d7c57255f334f6542703c7dc7e5983b256ff39c0765ce2246b527dd083861481",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/build-final.log",
+      "bytes": 382,
+      "sha256": "9625558d1cf997ef8ba88efded4e6628f2942bddd23374ecf213b36b17b631b4",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/workspace-01.log",
+      "bytes": 123128,
+      "sha256": "6e6a6f10b9733d055b331348266759c460fc8c21685634e60e6d7b50de972d72",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/clippy-02.log",
+      "bytes": 1762,
+      "sha256": "95a1ad991e2006ff9e8c3fc5db91fb9955176bd914e26631f8fe413233becf70",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/frozen-05/build-inputs.json",
+      "bytes": 30061,
+      "sha256": "8469edc7df32e6eadcd6a4890a85076a66ab479605b6235a59ab03f386b933e7",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/process-05/report.json",
+      "bytes": 44948,
+      "sha256": "28ef554561ec373d2a280c62bc5643e4ebbf1146ffce8896c3348660773f29a8",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/process-05.log",
+      "bytes": 549,
+      "sha256": "dbba53986a6f4e29e8c0a8761f121087f486a63d8160e78986e9e7e2cfdc5e68",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/independent-02.json",
+      "bytes": 391,
+      "sha256": "0f1003fc36389c15d91032e60853416b86e3c39a2b69b91610e30a62f312ea64",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/preservation-01.json",
+      "bytes": 418,
+      "sha256": "b5d60cc15ee31a23d70266c0617c99f6269f99a05e522c22665f7011cac0d086",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/tamper-01.json",
+      "bytes": 316,
+      "sha256": "0e289f000c607e53a5cde2a7115a777e2ced845a10f2e4f8f6dd87428d7f2257",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/tamper-01/verification.stderr",
+      "bytes": 737,
+      "sha256": "f4c0b9a9fff2ebfeb4f1dbbce01f8ade47c3f03feb49bf3e07032fb0b6e214ff",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/freeze.py",
+      "bytes": 1294,
+      "sha256": "2cb6ce84c7ac636f3cc582016afbdc6958ed3864bce12e896f870a5288977810",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/check-tamper.py",
+      "bytes": 2585,
+      "sha256": "632235b0087844f1583f471c31ff64e156bc94deab6e55a7634781d5b658261a",
+      "historical_failure": false
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/check-01.log",
+      "bytes": 4816,
+      "sha256": "b1ed79602b80bd3d694579929674f4978f3e5b4bb265eabc3fe63ce0e1d8e56e",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/check-02.log",
+      "bytes": 2976,
+      "sha256": "e4d0bc11f7f4ae7a92a2423cfba2e54fcb41b8697db2f6ef5982d7deb7d6c5fa",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/core-tests-01.log",
+      "bytes": 1256,
+      "sha256": "2264b752907738f9fbe788d65ebdf58bf98ef36c66658eae888119acd5739700",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/core-tests-02.log",
+      "bytes": 1413,
+      "sha256": "6be22f24ee1738881987cb6a9bf2a77708d8821a9308660faf74c41d54677a19",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/tests-03.log",
+      "bytes": 1091,
+      "sha256": "f5c832d2c29aef7894512bb37abfe259dd888c7e1c416940780184a7b1dbf71a",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/clippy-01.log",
+      "bytes": 3454,
+      "sha256": "17b09e058f7f4ea5bac8bb397f59cd0781f31eb59e846c85d5192260bc288b26",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/process-01/report.json",
+      "bytes": 7213,
+      "sha256": "8a2d41cac6ce7124a5f89d1bbafb0f54cf59598ffaeee995fb7cd7331659b174",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/process-02/report.json",
+      "bytes": 8137,
+      "sha256": "908bba5ee6f34c14bbff18f25e02cfd01fcde7bd16c8eb9a66c2d88aa65e763c",
+      "historical_failure": true
+    },
+    {
+      "path": ".artifacts/m3-memory-rag-2026-09-16/process-03/report.json",
+      "bytes": 14195,
+      "sha256": "459078a1afe4785dd3adb4db47808f9dd294b94093941a97a6e995204b77b9b3",
+      "historical_failure": true
+    }
+  ]
+}

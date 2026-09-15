@@ -105,6 +105,39 @@ fn main() -> anyhow::Result<()> {
     let control_path = arg("--control-file").map(PathBuf::from);
     let mcp_config = arg("--mcp-service-config").map(PathBuf::from);
     let rule_config_path = arg("--rule-package-config").map(PathBuf::from);
+    let memory_config_path = arg("--memory-config").map(PathBuf::from);
+    let initialize_memory = std::env::args().any(|arg| arg == "--initialize-memory");
+    anyhow::ensure!(
+        !initialize_memory || memory_config_path.is_some(),
+        "初始化记忆需要 --memory-config"
+    );
+    if memory_config_path.is_some()
+        && (isolation_image.is_none() || audit_path.is_none() || control_path.is_none())
+    {
+        anyhow::bail!("受控记忆必须同时配置隔离镜像、审计和独立宿主控制文件");
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    let memory_config = memory_config_path
+        .as_deref()
+        .map(guard_gateway::memory_config::MemoryConfig::read)
+        .transpose()?;
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    if memory_config_path.is_some() {
+        anyhow::bail!("本平台尚未提供受控记忆接口");
+    }
+    let memory_paths: Vec<PathBuf> = {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            memory_config
+                .as_ref()
+                .map(|c| c.paths())
+                .unwrap_or_default()
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            Vec::new()
+        }
+    };
     let rule_config = rule_config_path
         .as_deref()
         .map(guard_gateway::rule_policy::RulePackageConfig::read)
@@ -228,6 +261,7 @@ fn main() -> anyhow::Result<()> {
         name.push(".tools.db");
         std::path::PathBuf::from(name)
     });
+    let mut protected_paths = std::collections::HashSet::new();
     for path in [
         &audit_path,
         &control_path,
@@ -239,9 +273,11 @@ fn main() -> anyhow::Result<()> {
         &mcp_recovery_path,
         &rule_config_path,
         &rule_store_path,
+        &memory_config_path,
     ]
     .into_iter()
     .flatten()
+    .chain(memory_paths.iter())
     {
         if !path.is_absolute()
             || path
@@ -258,6 +294,12 @@ fn main() -> anyhow::Result<()> {
         }
         let resolved = ancestor.canonicalize()?.join(path.strip_prefix(ancestor)?);
         let resolved = guard_schema::paths::dealias_platform_volumes(&resolved);
+        if memory_config_path.is_some() {
+            anyhow::ensure!(
+                protected_paths.insert(resolved.clone()),
+                "启用记忆时，记忆、审计、工具登记及宿主控制路径必须独立"
+            );
+        }
         let lexical = guard_schema::paths::dealias_platform_volumes(path);
         if shell
             .workspace()
@@ -335,6 +377,11 @@ fn main() -> anyhow::Result<()> {
             policy_hash.update(origin.as_bytes());
         }
     }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if let Some(config) = &memory_config {
+        policy_hash.update(b"agentguard.memory.configuration.v1\0");
+        policy_hash.update(serde_json::to_vec(config)?);
+    }
     let policy_version = format!("sha256-{:x}", policy_hash.finalize());
     let mut engine = guard_core::Engine::new(
         guard_schema::RuleSet::from_yaml_str(&rules_text)?,
@@ -354,6 +401,10 @@ fn main() -> anyhow::Result<()> {
     }
     if let Some(journal) = journal {
         server = server.with_shared_journal(journal);
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if let Some(config) = memory_config {
+        server = server.with_memory(config.open(initialize_memory)?)?;
     }
     if let Some(config) = rule_config {
         server = server.with_rule_packages(config.open()?)?;

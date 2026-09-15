@@ -46,6 +46,10 @@ mod mcp_remote_service;
 pub mod mcp_service;
 #[cfg(unix)]
 pub mod mcp_stdio;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub mod memory;
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub mod memory_config;
 pub mod operator;
 pub mod provenance;
 pub mod rule_policy;
