@@ -169,10 +169,13 @@
     "summary_sha256": "6e586701a4f6a093f5e53febdaa7284ab0352214dbf520c8c988a2b44ecf52e8"
   },
   "soak": {
-    "status": "running",
+    "status": "completed_passed",
     "required_seconds": 1800,
     "artifact": ".artifacts/m2-dom-model-2026-09-15/soak-01",
-    "progress_snapshot": {
+    "measured_seconds": 1801.119416666,
+    "completed_tasks": 30,
+    "heartbeats": 121,
+    "initial_progress_snapshot": {
       "elapsedMs": 482189.778791,
       "completedTasks": 8,
       "heartbeats": 33
@@ -205,9 +208,9 @@
     "url": "https://github.com/gcsagroup/agentguard/actions/runs/34952470200"
   },
   "remaining_acceptance": [
-    "收齐原定义 1800 秒持续运行的实际终态",
-    "剩余 M1 故障、隔离与原预算性能回归",
-    "逐项候选及原生范围核对，F13 例外仍单独保留"
+    "修复原预算下本机读取 p95 和启动耗时退化",
+    "冻结新候选并复验受影响范围；F13 例外保持未验收",
+    "核对新提交 CI，保留旧提交桌面启动等待超时"
   ],
   "artifact_root": ".artifacts/m2-dom-model-2026-09-15",
   "repository_checks": {
@@ -217,5 +220,11 @@
     "python_syntax_files": 1,
     "local_document_links": 65,
     "git_diff_check": true
+  },
+  "follow_up": {
+    "document": "docs/agd-020-m1-regression-2026-09-15.zh.md",
+    "soak": "completed_passed_1801_seconds_30_tasks",
+    "performance": "4_of_6_failed_gate",
+    "agd020": "in_progress"
   }
 }

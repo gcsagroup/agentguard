@@ -1,0 +1,181 @@
+{
+  "evidence_verified": true,
+  "regression_passed": false,
+  "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+  "soak_tasks": 30,
+  "soak_heartbeats": 121,
+  "soak_duration_ms": 1801119.416666,
+  "fault_checks": 50,
+  "isolation_checks": 78,
+  "operator_checks": 8,
+  "egress_attempts": 24,
+  "native_audit_rows": 27,
+  "performance_passed": 4,
+  "performance_total": 6,
+  "performance_checks": [
+    {
+      "name": "native_read_p95_ms",
+      "actual": 19.98570800000016,
+      "max": 10,
+      "passed": false
+    },
+    {
+      "name": "native_startup_ms",
+      "actual": 1316.537916,
+      "max": 100,
+      "passed": false
+    },
+    {
+      "name": "native_sampled_gateway_peak_mib",
+      "actual": 17.34375,
+      "max": 32,
+      "passed": true
+    },
+    {
+      "name": "isolated_read_p95_ms",
+      "actual": 295.06795799999963,
+      "max": 500,
+      "passed": true
+    },
+    {
+      "name": "isolated_startup_ms",
+      "actual": 1896.133291,
+      "max": 2000,
+      "passed": true
+    },
+    {
+      "name": "isolated_sampled_gateway_peak_mib",
+      "actual": 17.875,
+      "max": 32,
+      "passed": true
+    }
+  ],
+  "limitations": "回收后的合成服务和临时文件采用运行时记录；不将报告复核冒充再次实测。",
+  "recorded_at": "2026-09-15T10:45:19.927909+00:00",
+  "task": "AGD-020",
+  "status": "in_progress_performance_regression",
+  "candidate": "Ver 2.0 (012)",
+  "native_model": "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-4bit",
+  "native_original_tests": 3,
+  "native_host_tests_passed": 3,
+  "native_original_tests_unchanged": true,
+  "historical_sessions_unchanged": 28,
+  "historical_audit_rows_unchanged": 993,
+  "egress_control_tests": 42,
+  "browser_fault_tests": 2,
+  "desktop_tests": 128,
+  "desktop_dispatch_tests": 20,
+  "preservation": {
+    "012_fixed": {
+      "files": 91,
+      "unchanged": true,
+      "strict_signature": true
+    },
+    "012_archive": {
+      "files": 91,
+      "unchanged": true,
+      "strict_signature": true
+    },
+    "preserved_files": 127,
+    "checked_at": "2026-09-15T10:42:44.374851+00:00"
+  },
+  "verifier_negative_cases": [
+    {
+      "kind": "budget",
+      "returncode": 1,
+      "rejected": true
+    },
+    {
+      "kind": "audit",
+      "returncode": 1,
+      "rejected": true
+    }
+  ],
+  "f13": "deferred_unverified",
+  "f14": "already_passed_docker_virtual_link",
+  "release": "No-Go",
+  "base_ci": {
+    "run_id": 34955811655,
+    "head": "1663dc90a3d289f682811236f71a5dbc14b79734",
+    "successful_jobs": 12,
+    "total_jobs": 13,
+    "failed_desktop_tests": 3,
+    "local_reproduction": "not_reproduced",
+    "cause": "unconfirmed",
+    "rerun": "denied_missing_admin_rights"
+  },
+  "profile_scope": "独立诊断采样，不计正式性能",
+  "profile_findings": [
+    "启动时内建工具包对完整可执行文件进行软件 SHA-256",
+    "读取过程中多次审计及来源 SQLite FULLFSYNC 提交"
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/declaration.json",
+      "sha256": "2151eba3bbba9c66976b0a7fe575971c8a6d26dbb3a3c8b257d527097cc80482"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/workspace-faults-01/report.json",
+      "sha256": "0bf89ac6395ebfca035a3e2531b807bbe6ee8fde0bd8871808a083a7967f8a5c"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/container-egress-02/report.json",
+      "sha256": "70d006cda8d1d72cb29648e473a23ffcb507b88c9fba1cc32641024ea705412c"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/browser-f08.json",
+      "sha256": "04ca22fe35d04b8a60ebd24cfc9f3dacfa93041f92a3c14598d9c60e80ea9b7b"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/browser-resolver.json",
+      "sha256": "6ef93827605989bcf18b433aa09e3e5e73a9b4a46d9b7c12b2fb846d16484bcf"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/native-verification.json",
+      "sha256": "9220b4cfcbb8c396ac1bef4dba95178bbb94b139c85d2caebb20ac415582f0bc"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/performance-01/result.json",
+      "sha256": "4960583d35bb87bd8567ac9e3ca9342561cee8c87ec6341cd11c48a7d779ecd9"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/independent-verification-01.json",
+      "sha256": "6d346e8300e107f81fe95b0613b36eed18e9c1da873016526468fc064daafee3"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/native-profile-01/startup.sample.txt",
+      "sha256": "0eba5d657ad42309ccc198478cc2bab8870c682b0bb464c605d1cb17b9433605"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/native-profile-01/reads.sample.txt",
+      "sha256": "77dbdf28252b8b3fd503a58922c672c678191fcac6594182a78c5bcfeaba5eb3"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/egress-control.log",
+      "sha256": "e0a5a11537098e1d41a1fddea32766a99f787341dc4f6894b8e20822d8bcdeac"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/workspace-control-01.log",
+      "sha256": "1c791da335e4e682bf89c1ab0f5cd8dabbe8c00dfd21ddd3f181ae709e634c7e"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/desktop-full-01.log",
+      "sha256": "1281016dba892d029bb97962eae238d68e2666a1837e8780df6b65b6c53c1371"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/repo-check-01.log",
+      "sha256": "ac474f16530f838bb10d32a6e0df331cbef8377b547885c05078f195171db44d"
+    },
+    {
+      "path": ".artifacts/m2-regression-2026-09-15/repo-invariants-01.log",
+      "sha256": "9e36415febf7bb767526a7a66124c6697d26106c49b32027fe06f1aa1bbacb7a"
+    }
+  ],
+  "capability_claim_checks": 1,
+  "repository_invariants": 23,
+  "local_document_links_checked": 38,
+  "syntax_checks": {
+    "node": 1,
+    "python": 1
+  }
+}
