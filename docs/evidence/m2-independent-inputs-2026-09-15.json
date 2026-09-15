@@ -1,0 +1,114 @@
+{
+  "recorded_at": "2026-09-15T09:12:52.230468+00:00",
+  "task": "AGD-020",
+  "status": "in_progress",
+  "source_base": "73ed6cfbe498d38e48e5b76a5a4989e62707b500",
+  "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+  "manifest_sha256": "f96378e884f2f430f0f9a97682be496db433ac8ec4c857b2b0b5eee2ae1596c5",
+  "case_groups": {
+    "normal": 17,
+    "known_attack": 18,
+    "unseen_variant": 16,
+    "recovery": 1
+  },
+  "total_cases": 52,
+  "audit": {
+    "audit.db": {
+      "rows": 335,
+      "head": "929c2e021e7a46877548e98e68015498499364a07437192973e9dbd3c352227c",
+      "sha256": "edb8678ea8e8b9fa6e4139c3f779d8c71658d580903a40caa1b2384925bc94a8"
+    },
+    "audit.db.sources.db": {
+      "rows": 49,
+      "head": "b9ee2c742b8c06609d36e4854aa92a57c125881e3618ccfd6458a3f61c6096da",
+      "sha256": "39135a69feb1d0b3c9bd728694f53cee46322372e77b27a82522f0c597039fb9"
+    },
+    "audit.db.tools.db": {
+      "rows": 8,
+      "head": "3ddc438482997d2da14306e6a0d272b2b048fe2e4a7b140780d2cfe3538783a5",
+      "sha256": "18ea899e52f81d95d54147812f0467a1d350e3389f9c1a7bd9275ce9548f5a53"
+    }
+  },
+  "total_audit_rows": 392,
+  "independently_bound_refusals": 90,
+  "remote_read_calls": 9,
+  "remote_write_effects": 0,
+  "authorized_host_result_verified": true,
+  "preserved_files": 127,
+  "fixed_012_app_files_unchanged": 91,
+  "remaining_acceptance": [
+    "DOM 可见与隐藏内容",
+    "真实模型裁判操纵",
+    "签名规则包联合负例",
+    "M1 浏览器、30 分钟持续运行与性能回归；工作区 T01～T50 及 100 次循环已通过，F13 仍暂缓"
+  ],
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go",
+  "m1_workspace_regression": {
+    "passed": 50,
+    "declared": 50,
+    "matrix_sha256": "c5936069ec1dc2000136d3c1c1858fcf6933f2b4fd0210554d40e58fd13a435b",
+    "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+    "harness_sha256": "197fcd0e4c17f9d5cab596abbe8fe1e76d1dfd403f98f7647d7343e376e09acf",
+    "scope": "预先声明的合成本地完整用户任务，包含宿主批准回写与实际成果"
+  },
+  "m1_cycles": {
+    "status": "passed",
+    "passed": 100,
+    "declared": 100,
+    "matrix_sha256": "c5936069ec1dc2000136d3c1c1858fcf6933f2b4fd0210554d40e58fd13a435b",
+    "harness_sha256": "197fcd0e4c17f9d5cab596abbe8fe1e76d1dfd403f98f7647d7343e376e09acf",
+    "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+    "flows": {
+      "正常交付": 10,
+      "拒绝后新交付": 10,
+      "暂停待批准": 10,
+      "暂停运行任务": 10,
+      "永久停止后新实例": 10,
+      "stdio断连重建": 10,
+      "预览变化后新批准": 10,
+      "宿主冲突后重建": 10,
+      "只读检查后明确授予新会话写权限": 10,
+      "两次独立提交": 10
+    },
+    "unique_connections": 140,
+    "not_a_30_minute_soak": true
+  },
+  "repository_invariants_passed": 23,
+  "base_ci": {
+    "head": "73ed6cfbe498d38e48e5b76a5a4989e62707b500",
+    "run_id": 34949188577,
+    "passed_jobs": 13
+  },
+  "evidence_runtime": {
+    "python": "/opt/homebrew/bin/python3",
+    "versions": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]\n3.53.4"
+  },
+  "preserved_failures": [
+    "inputs-01_system_python_xcode_license_export_incomplete",
+    "inputs-02_and_03_CLT_SQLite_3.51.0_backup_failed",
+    "verifier-01_private_path_alias_mismatch",
+    "verifier-02_wrong_registration_event_name"
+  ],
+  "artifacts": {
+    "inputs-04/report.json": "a0ff4b63e2d9c657924a25afb83a13783ba6f779d79aaabc62d7f9e1ac676764",
+    "inputs-04/declared-cases.json": "edca3be0e699f4b9971173ffb7ff372c598f6f14e62158ff55c264fc576f235a",
+    "inputs-04/inputs.json": "f96378e884f2f430f0f9a97682be496db433ac8ec4c857b2b0b5eee2ae1596c5",
+    "inputs-04/harness-source.mjs": "5f1053bf91111e032d67d13d9732f6fdc09c98c6e2f1539021cd2fc58dbc122c",
+    "inputs-04/local-source-fixture.mjs": "4f81e0d3274c4e91b416c936b5c78c9ff7df3d3173a5771a809441e86c465c2c",
+    "independent-input-verification.json": "5393d9875c6bb6b1dad9b7001212a1d17677689154b577f97fb208e83f7c5b0f",
+    "m1-workspace-01/report.json": "1c78f9e11b28659082f884655df8e65d6443c8159733485dae58b7351952dd19",
+    "invariants.log": "73711a6da4a698a8ca5d75124ac4d9cf1481d38c1a91dc3f0bd4a429b7a8b04d",
+    "inputs-04/independent-verification-reviewed.json": "d769e50214c66b5013e18170a496357acbd2911154a33cfd375769a91170a091",
+    "independent-verifier-negative-reviewed.log": "78b8baaa68ae7516700cb214988e27b427d842523be4f4487166cacdffe416e2",
+    "m1-cycles-01/report.json": "7d048a628af0c61f827bcecfd669cf7c80c32e940be2de7a4b35cc66d3dda7fe",
+    "invariants-final.log": "e267c211830bf3943f69fb0a1659b0f48d67cab84cc4375c6ab988193cb91e05"
+  },
+  "independent_verifier": {
+    "script": "scripts/acceptance/verify-m2-input-boundaries.py",
+    "sha256": "46fca300fefe5bfb0a5c45918cedbfd4984cc52ba86ea7a890812ddc6fa309a9",
+    "normal_passed": true,
+    "tampered_copy_rejected": true
+  }
+}
