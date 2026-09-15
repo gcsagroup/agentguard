@@ -131,6 +131,17 @@ impl Server {
             }
         }
         match command {
+            OperatorCommand::Memory { route, body } => {
+                #[cfg(any(target_os = "linux", target_os = "macos"))]
+                {
+                    self.memory_governance(&route, body, instance_id, cancellation_epoch)
+                }
+                #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+                {
+                    let _ = (route, body);
+                    failure("MEMORY_UNAVAILABLE", "当前平台未启用记忆治理", 404)
+                }
+            }
             OperatorCommand::Preview { workspace_id } => {
                 self.workspace_preview(workspace_id, instance_id, cancellation_epoch)
             }

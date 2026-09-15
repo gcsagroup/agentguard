@@ -1,3 +1,4 @@
+import { initializeGatewayGovernance } from "./gateway-governance.js";
 import { uiText } from "./workspace-i18n.js";
 const el = (id) => document.getElementById(id);
 const setText = (id, value) => { if (el(id).textContent !== value) el(id).textContent = value; };
@@ -15,7 +16,8 @@ export function formatGatewayAction(request) {
 export function initializeGatewayConfirmation(invoke) {
   let connection = null;
   let managed = false;
-  const workspace = initializeGatewayWorkspace(invoke, () => connection);
+  const governance = initializeGatewayGovernance(invoke, () => connection);
+  const workspace = initializeGatewayWorkspace(invoke, () => connection, governance);
   let pending = null;
   let deadline = 0;
   let checkedAt = 0;
@@ -69,6 +71,7 @@ export function initializeGatewayConfirmation(invoke) {
     managed = adoptedManaged ?? (connection?.connection_id === view.connection_id ? managed : !!view.managed);
     connection = { ...view, managed };
     workspace.connectionChanged();
+    governance.connectionChanged();
     const next = view.pending;
     if (JSON.stringify(next) !== JSON.stringify(pending)) {
       clearPending();
@@ -94,7 +97,7 @@ export function initializeGatewayConfirmation(invoke) {
     generation++;
     connection = null;
     managed = false;
-    workspace.reset();
+    workspace.reset(); governance.reset();
     clearPending();
     statusKey = key;
     render();
@@ -195,7 +198,7 @@ export function initializeGatewayConfirmation(invoke) {
     isConnecting: () => busy,
     forgetManaged(connectionId) {
       if (!managed || connection?.connection_id !== connectionId) return;
-      generation++; connection = null; managed = false; clearPending(); workspace.reset();
+      generation++; connection = null; managed = false; clearPending(); workspace.reset(); governance.reset();
       statusKey = "gatewayDisconnected"; feedbackKey = ""; render();
     },
     // 宿主只提供安全视图。相同连接由自身轮询刷新，不能用 Agent 状态覆盖已核对的预览。
@@ -218,7 +221,7 @@ export function initializeGatewayConfirmation(invoke) {
   };
 }
 
-function initializeGatewayWorkspace(invoke, getConnection) {
+function initializeGatewayWorkspace(invoke, getConnection, governance) {
   let owner = "";
   let state = null;
   let review = null;
@@ -395,6 +398,7 @@ function initializeGatewayWorkspace(invoke, getConnection) {
     const id = getConnection().connection_id; const current = ++revision;
     controlling = true; working = false; clearReview(); feedback = "workspaceWorking"; render();
     try {
+      governance.invalidate();
       const next = await invoke("control_gateway_workspace", { connectionId: id, action });
       if (current === revision) { applyState(next); feedback = "workspaceControlDone"; }
     } catch (error) { if (current === revision) feedback = errorKey(error); }

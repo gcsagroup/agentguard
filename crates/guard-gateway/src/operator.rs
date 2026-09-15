@@ -15,6 +15,10 @@ pub type OperatorReply = (u16, Value);
 
 #[derive(Debug, Clone)]
 pub enum OperatorCommand {
+    Memory {
+        route: String,
+        body: Value,
+    },
     Preview {
         workspace_id: String,
     },
@@ -56,6 +60,17 @@ pub fn failure(code: &str, detail: &str, status: u16) -> OperatorReply {
 fn parse_command(path: &str, body: &str) -> Result<OperatorCommand, OperatorReply> {
     let invalid = || failure("WORKSPACE_ARGUMENTS", "操作者请求格式无效", 400);
     match path {
+        "/memory/list" | "/memory/history" | "/memory/preview" | "/memory/apply"
+        | "/memory/discard" => {
+            let body: Value = serde_json::from_str(body).map_err(|_| invalid())?;
+            if !body.is_object() {
+                return Err(invalid());
+            }
+            Ok(OperatorCommand::Memory {
+                route: path.to_owned(),
+                body,
+            })
+        }
         "/workspace/preview" => {
             let b: PreviewBody = serde_json::from_str(body).map_err(|_| invalid())?;
             if b.workspace_id.len() > 128 {

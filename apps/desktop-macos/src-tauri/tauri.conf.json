@@ -48,7 +48,7 @@
       "../../protected-browser/demo.mjs": "agentguard/protected-browser/demo.mjs"
     },
     "macOS": {
-      "bundleVersion": "18",
+      "bundleVersion": "20",
       "minimumSystemVersion": "12.3",
       "entitlements": "./entitlements.plist",
       "hardenedRuntime": true

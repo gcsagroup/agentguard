@@ -54,6 +54,10 @@ pub struct Server {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     memory: Option<crate::memory::MemoryRuntime>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
+    memory_review: Option<memory_control::MemoryReview>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    last_memory_result: Option<Value>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     delegation: Option<crate::delegation::DelegationAuthority>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     active_delegation: Option<crate::delegation::VerifiedDelegation>,
@@ -161,6 +165,10 @@ impl Server {
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             memory: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
+            memory_review: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            last_memory_result: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             delegation: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             active_delegation: None,
@@ -212,6 +220,10 @@ impl Server {
             last_read_content: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             memory: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            memory_review: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            last_memory_result: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             delegation: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -664,7 +676,13 @@ impl Server {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if matches!(
             name,
-            "memory_write" | "memory_read" | "memory_revoke" | "rag_import" | "rag_search"
+            "memory_write"
+                | "memory_read"
+                | "memory_revoke"
+                | "memory_quarantine"
+                | "memory_restore"
+                | "rag_import"
+                | "rag_search"
         ) {
             if params
                 .pointer("/_meta/agentguard_session_id")

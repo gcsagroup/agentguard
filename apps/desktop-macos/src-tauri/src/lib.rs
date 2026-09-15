@@ -3552,6 +3552,7 @@ pub fn run() {
             gateway_confirm::poll_gateway_confirmation,
             gateway_confirm::disconnect_gateway_confirmation,
             gateway_confirm::answer_gateway_confirmation,
+            gateway_confirm::governance::govern_gateway,
             gateway_confirm::poll_gateway_workspace,
             gateway_confirm::preview_gateway_workspace,
             gateway_confirm::apply_gateway_workspace,

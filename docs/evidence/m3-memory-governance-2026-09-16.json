@@ -1,0 +1,509 @@
+{
+  "schema_version": 1,
+  "task": "AGD-026",
+  "date": "2026-09-16",
+  "status": "passed_local_scope",
+  "base_commit": "7ba965efa53c624c7665153d9de458b26f5c3438",
+  "artifact_root": ".artifacts/m3-memory-governance-2026-09-16",
+  "candidate": {
+    "app_version": "2.1.0-dev.20",
+    "app_build": 20,
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_executable_sha256": "f20827a43849e9847b9234a751dcb5e70a8cc78dab5378c9426f5e32b3d7f0dc",
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "app_files": 91,
+    "resources": 88,
+    "gateway_binary_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
+    "gateway_frozen_inputs": 211,
+    "native_frozen_inputs": 36
+  },
+  "cli_results": {
+    "passed": true,
+    "processes": 3,
+    "signed_memory_rows": 8,
+    "versions": 7,
+    "operator_mutations": 3,
+    "execution_audit_rows": 63,
+    "http_requests": 24,
+    "binary_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
+    "scope": "宿主脚本经真实认证通道批准；原生治理入口尚未验收"
+  },
+  "native_020_results": {
+    "passed": true,
+    "signatures": 12,
+    "memory_versions": 5,
+    "memory_audit_rows": 6,
+    "execution_audit_rows": 48,
+    "native_memory_mutations": 3,
+    "stopped_branches": 2,
+    "pending_dispatched": false,
+    "binary_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761"
+  },
+  "tests": {
+    "workspace_passed": 1515,
+    "workspace_ignored": 17,
+    "desktop_passed": 133,
+    "desktop_ignored": 11,
+    "governance_operator": 16,
+    "sqlcipher": 16,
+    "workspace_ui": 133,
+    "governance_ui": 16,
+    "tamper_cli": 4,
+    "tamper_native": 4,
+    "repository_final_passed": 23
+  },
+  "boundaries": [
+    "合成本地 CLI / Docker；独立脚本种入资料，治理由准确 App 原生操作",
+    "内置模型任务表单未自动启用记忆或委托",
+    "浏览器桩与原生操作分开统计；原生无障碍树部分控件漏报仍保留",
+    "020 包资源含原有网关；治理使用独立冻结 CLI 接入",
+    "F13 暂缓未验收，完整原 M1、AGD-027 和发布未通过"
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/app-018-before.zip",
+      "sha256": "367dd72b2cfae2051facaa768070011b79c0ef6d798d63f34052b144a9afb829",
+      "bytes": 22632765
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/app-019-before.zip",
+      "sha256": "9d3c89b67af19d2138756b23239e3c38a33cd45922f1c17d6273fe2c3fe8f358",
+      "bytes": 22865010
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/app-019.json",
+      "sha256": "87748fc15f7b84da6627340edee8a871c47bca7018b114b2be27d76f0b5d9fd5",
+      "bytes": 16847
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/app-020.json",
+      "sha256": "9094052f8618bfc90b8c6e6f65f7fbcc38489cbe623a0a8752caad54cf2c4adc",
+      "bytes": 16847
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/app-before-019.json",
+      "sha256": "cbb5d547fed42ac5bf8d916510af034ea6594dc6eb0cbb91594135d0dfb6a683",
+      "bytes": 16585
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/build-019-config-failure.log",
+      "sha256": "01e4c30b57c0801def3cdf0b968994c25facc86a9b575569768a54b1735d4835",
+      "bytes": 551
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/build-019.conf.json",
+      "sha256": "2d85b90c4ba6f93baa808a89c1c78c6c5f3450396601bbe703c120c2c40ffdcf",
+      "bytes": 18070
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/build-019.log",
+      "sha256": "64554c6d231d2d9eb97cee1d1ef2dd5925c145c4ea773cdbc6bb6a3c3b589d48",
+      "bytes": 3500
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/build-020.conf.json",
+      "sha256": "9a4b11910438b4a405d2459d930f962a205cd9bd5b3d9cd0058a2fd6c12b8454",
+      "bytes": 18070
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/build-020.log",
+      "sha256": "3084664ac999989121243a7c8a4ca2f104704ddcc2bff78732f9a8c7f4780358",
+      "bytes": 3500
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/build-gateway.log",
+      "sha256": "2349751b44c06d25d5e83e5c582385a3d624fee656e0a89930a1c7e8972e6321",
+      "bytes": 477
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/clippy-01.log",
+      "sha256": "bbd3d0e3f2ce009bf90a8bcc5bf440d065b7bd8ba41f5029ab0405830a000cbb",
+      "bytes": 509
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/clippy-native-01.log",
+      "sha256": "55b4da041366123a2700f04d3f0e592587c889577bc8bf0d0b8ebfe3488ed81e",
+      "bytes": 1691
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/final-package-check.json",
+      "sha256": "1d846b79076b737b9ec681ea55360a723d85061e215b740301504598a2d0ca8a",
+      "bytes": 453
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/frozen-03/build-inputs.json",
+      "sha256": "59083e73cad709892a55045209133dc86926aa22c80a5c223bcc36004d21fac8",
+      "bytes": 32240
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/governance-ui-01.log",
+      "sha256": "8adf63f0d7fced10d2235d54e82f53e8b7dcc90dc7b013e5c6cf1c679077134c",
+      "bytes": 860
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/governance-ui-02.log",
+      "sha256": "0adc2c41907e33af612881782e1dcfd360633d2895a57e7c14c22c13d20f74b3",
+      "bytes": 918
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/independent-01.json",
+      "sha256": "1bf7fbb7c5257b6c66c534369787199f772b9afd86cf8bfc3e8a76d3b0766cd4",
+      "bytes": 337
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/independent-02.json",
+      "sha256": "1bf7fbb7c5257b6c66c534369787199f772b9afd86cf8bfc3e8a76d3b0766cd4",
+      "bytes": 337
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/matrix.log",
+      "sha256": "a5116022a3d62f13ff78db80b395d76ceb05c5da84cbc9e30f5b1f854b2ba323",
+      "bytes": 2139
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-019-home.png",
+      "sha256": "2a34c246aca10ef2ea9f61d1e4fb3fddcc6bffd07b891dadb46b03df400ce443",
+      "bytes": 96629
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-019-home.txt",
+      "sha256": "78b1b0083a891a7a309681e426f6e8eed07b58cc255bf972e3fb077569cee98b",
+      "bytes": 833
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-delegation-pending.txt",
+      "sha256": "38d00367cb7f41253c7f81a10d62a41a10e49e8845221f4bbac603cdf36b1ef5",
+      "bytes": 9100
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-delegation-stopped.png",
+      "sha256": "6246595493f2a7ea1da2cb5ec28f02eb9b014ba80de61971f95464324057a9d1",
+      "bytes": 86248
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-home.png",
+      "sha256": "e4af456ec53695174192bd46b7d5e5fa3562b911c3b51d609d7b6952b4e57c4a",
+      "bytes": 96634
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-home.txt",
+      "sha256": "eb58cf0d392ea4cda1327e7e81e0154ec178b5a89ae35ab54cafe282756c1937",
+      "bytes": 833
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-quarantine-preview.txt",
+      "sha256": "70ec56112f3ec1f90e78abfc55daa9b5b0ebbd8ff842c31d71dbc0c61769a13d",
+      "bytes": 533
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-reconnect-clean.txt",
+      "sha256": "f01a2b8a0bc3b626e447a4e172f08efd9bcf63f39468c00fa92e45b30cf48e99",
+      "bytes": 6978
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-restart.txt",
+      "sha256": "eb58cf0d392ea4cda1327e7e81e0154ec178b5a89ae35ab54cafe282756c1937",
+      "bytes": 833
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-restore-preview.png",
+      "sha256": "ae604ad501f4c7d86d7fd185b347e57f055e25d3e13f0f007512385a3a0753e0",
+      "bytes": 87164
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-restore-preview.txt",
+      "sha256": "5db8d615ceb6c451865a646f6b79e2d5eb9a719c9023021c3e8742fdce48dbb5",
+      "bytes": 533
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-restored.txt",
+      "sha256": "74e3cd3e5b2e97bb98e9f564da5f840a8599be5e5d2bfe2ec51597781e24958d",
+      "bytes": 10713
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-020-revoked.txt",
+      "sha256": "9b95367ba54df8b400974a524a15c19ea18c1ccd8ee75a219684b1fc1b42656e",
+      "bytes": 7346
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-bridge-tests-01.log",
+      "sha256": "7ecec407530118913cf8f2b0d6036fe6a3616bacf065407246c9bf94787c8d57",
+      "bytes": 5093
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-bridge-tests-02.log",
+      "sha256": "6fb9812e1336169e223f107c67560f4c56136a6082a3c4515d1a6aae0e7828c3",
+      "bytes": 3528
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-build-inputs-019.json",
+      "sha256": "ff8e05964d15500a7872eaa7929e385022bea2fcd8509ad3c2520d9386aae1bb",
+      "bytes": 5464
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-build-inputs-020.json",
+      "sha256": "c5f53a9d6c3b66bc03741307218aeb17b38d8076afce78be69643a635d14bba7",
+      "bytes": 5773
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-delegation-01/report.json",
+      "sha256": "0a2a7b1fc987f2b28d7388f71d02b93c1256566cf103ac9b4ea381d86d545bb5",
+      "bytes": 28491
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-delegation-020/report.json",
+      "sha256": "530810c3d3e1d6fa86394dec4317a00c05c76a806d12efa5c488daba15157940",
+      "bytes": 28491
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-delegation-pending.txt",
+      "sha256": "470795dffbdc71cde99b019f488945c64b78743c1c4f898a7eff6c668d5b074b",
+      "bytes": 486
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-delegation-stopped.png",
+      "sha256": "a69630cb9a31c5725ec3d48a54029ab9e23b839eb71f528b7b57bf486eea5c51",
+      "bytes": 86065
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-delegation-stopped.txt",
+      "sha256": "6920e8c4fe0fc64855fdac43f95221fdb26732c2b680dd811c05dee4696d0cec",
+      "bytes": 188
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-full-tests-01.log",
+      "sha256": "b8d3751d5efd95397f1e77db78722b1f9c4f1a339b9ad045cd165b697a8f9d25",
+      "bytes": 17470
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-governance-tests-01.log",
+      "sha256": "a24039230db880b7a77378f559000ba2291b9dde4cb814cb70bb1049d1f19dc7",
+      "bytes": 2183
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-independent-01.err",
+      "sha256": "8d99c41369c33908cff06b814cc4e9a3e70d6cae0b4813d43d620fade1ed6bae",
+      "bytes": 632
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-independent-01.json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-independent-02.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-independent-02.json",
+      "sha256": "a644befcb3d6c792f69c3442c0c12a56e09e9943462c3a47ae1785a6c8031752",
+      "bytes": 296
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-independent-020.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-independent-020.json",
+      "sha256": "a644befcb3d6c792f69c3442c0c12a56e09e9943462c3a47ae1785a6c8031752",
+      "bytes": 296
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-01/report.json",
+      "sha256": "d463c80f85d0fa7aa9ce325913dd997c94a868f2195231e49a0f86ca3df0670b",
+      "bytes": 47085
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-020/report.json",
+      "sha256": "0f9222b211b654fc616c1339a5a54dd5ae191c64439e8e186ec3709cb61bb236",
+      "bytes": 47085
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-history.txt",
+      "sha256": "3a02c103f2e7f981055c145572e608ce28639594667daae290e01d6aa30ae61c",
+      "bytes": 414
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-quarantine-preview.png",
+      "sha256": "1af98a7a76a5697de0857f3794fca28dd1224160c4cb99aa10540d46fd57062c",
+      "bytes": 117788
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-quarantine-preview.txt",
+      "sha256": "4c3e670377e275eaa0787e7a42160d656101d913bf30069122b0797b7f2be84a",
+      "bytes": 501
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-restore-preview.txt",
+      "sha256": "41ef25d0f9939b73b938e57485a110f3f92f2c0ee0b31ac74c3a7d87faf9b079",
+      "bytes": 533
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-memory-restored.txt",
+      "sha256": "8cc8d3d2cbe4b250e625415559c80365bcdc55d98a4c8f941ecef00b94a6f9e7",
+      "bytes": 437
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/native-tamper-results.json",
+      "sha256": "9c41b28cfc7bbfbbc2c2e411193fda7ec782eaa50d39b4ecd54ef733d4dd0536",
+      "bytes": 242
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/operator-tests-04.log",
+      "sha256": "9850cd900cc9c83d1a20219ea5d71de010ebdd6375e1be5c6de0dd1fa8cadd81",
+      "bytes": 3130
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/operator-tests-05.log",
+      "sha256": "51312d422d72ab3fb6c818e2fc5235c2bcb0aa0eb4967764d41de27f59e2b617",
+      "bytes": 2357
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/pagination-diagnosis.log",
+      "sha256": "d7c6c4ae22935d3673cd29201615f086288a8289e8f94132c9bdc00f584637d7",
+      "bytes": 1693
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/process-01/report.json",
+      "sha256": "5e473362645f71792f8c9b22fd1a8a1f1ac1acd200940f54cfc8a31374fc4f31",
+      "bytes": 302059
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/process-01.log",
+      "sha256": "98892016e39c9fa1c95c8cf4c344b9f3e71e96a67200ea06176a0bb0a90550a3",
+      "bytes": 550
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/process-02/report.json",
+      "sha256": "b1528d58105bec49fc7c2a8d1353fa70e7117e75e433c20d91ed4f7d2a068a1a",
+      "bytes": 403072
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/process-02.log",
+      "sha256": "0265c797de7a75f0e281c2e4345846281d775848afbac0956b4f8cdc0e3b1552",
+      "bytes": 473
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/process-03/report.json",
+      "sha256": "f37c26b4f65a7951c476a8bdbb705712b282b5aab71ab1f91ba8e20673b79f41",
+      "bytes": 403072
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/process-03.log",
+      "sha256": "45c8bcc78e99f8f88132aa57c7d78870aaf3c9e61dceb42bb30632aa1037d2c0",
+      "bytes": 473
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/sqlcipher-tests.log",
+      "sha256": "e73a34576bb39190ebcd590250447df4add79ce8c2421fe84b48d782c101a385",
+      "bytes": 3877
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-changed_draft/report.json",
+      "sha256": "a47dff6664ab98c3a880521b9795402c4fb84de9f3a99699241c3be1c4675674",
+      "bytes": 403072
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-changed_nonce/report.json",
+      "sha256": "14b664fe122f4a25c2f69192916776a8c19e91e54812a694891e070b79449bdc",
+      "bytes": 403072
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-missing_apply/report.json",
+      "sha256": "5983311b5b1ed712f56f1e5144d06dd9853ec8d574a075cd85f3cb304f7fdf12",
+      "bytes": 400677
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-missing_source/report.json",
+      "sha256": "61818ba618dc4521cae004e2b740d446da23052aa5d045026688817ef6892b47",
+      "bytes": 402635
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_branch/delegation/report.json",
+      "sha256": "26a5bcae1334180ac28b100595f4683ffac972461676a1d049bf4fd2ab541b0a",
+      "bytes": 28492
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_branch/memory/report.json",
+      "sha256": "d463c80f85d0fa7aa9ce325913dd997c94a868f2195231e49a0f86ca3df0670b",
+      "bytes": 47085
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_branch/rejected.log",
+      "sha256": "f8ec8671bb6a454ea41be9d3b4bd98ebeb2243f3d2b9aacd555c44383c9dfe48",
+      "bytes": 653
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_effect/delegation/report.json",
+      "sha256": "2e6b23a94474d666328a0f4b8d994541be53c877790dd8b9a851bdce617b3735",
+      "bytes": 28490
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_effect/memory/report.json",
+      "sha256": "d463c80f85d0fa7aa9ce325913dd997c94a868f2195231e49a0f86ca3df0670b",
+      "bytes": 47085
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_effect/rejected.log",
+      "sha256": "c3a3ec6bba567ac71ebb095e009b97e103367e57b5486b9d970d1efebb250aa2",
+      "bytes": 621
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_signature/delegation/report.json",
+      "sha256": "4132cebb000f5284f38200187db2f0c725b1f09a14eb9685224cef2c2afe2b0a",
+      "bytes": 28491
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_signature/memory/report.json",
+      "sha256": "d463c80f85d0fa7aa9ce325913dd997c94a868f2195231e49a0f86ca3df0670b",
+      "bytes": 47085
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_signature/rejected.log",
+      "sha256": "e3d225a0ffe086271a49e270b591f8cd74de7a1d663d66874a785cafb45c7f39",
+      "bytes": 717
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_source/delegation/report.json",
+      "sha256": "0a2a7b1fc987f2b28d7388f71d02b93c1256566cf103ac9b4ea381d86d545bb5",
+      "bytes": 28491
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_source/memory/report.json",
+      "sha256": "64e70cfd3d6750f953dcc78513efcbcbef42808c8c52fa9f42f2e18ad140ee90",
+      "bytes": 46455
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-native_source/rejected.log",
+      "sha256": "fa4f942e8ba060fb8b0e4eaa732410745d4ba041074ca6bc1231291d5cb8d2ec",
+      "bytes": 639
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/tamper-results.json",
+      "sha256": "1e30ea568649a1c38d6dfe4db59c23f5c1682bbadef2b6cbdf253834ee65ffe1",
+      "bytes": 240
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/workspace-tests.log",
+      "sha256": "d7438f3dd187022e114e1c3842cd0518c5f1fd525ae38b17c665dd4a41236214",
+      "bytes": 125807
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/workspace-ui-01.log",
+      "sha256": "df73a45c2b2000a6059fe6bc82203cfda8b52898ef3a599f10587f005deeb4c0",
+      "bytes": 6858
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/repository-tests-final.log",
+      "sha256": "5718566b94fa332d21ff4e7cd8358d6838b7b4acb02a08bd2d2430602a2b62ec",
+      "bytes": 4943
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/repository-tests-final-02.log",
+      "sha256": "55f4fadc551830ef4dc76027f47fad4aec79521c99f878eb54adde30af86199d",
+      "bytes": 2970
+    }
+  ]
+}

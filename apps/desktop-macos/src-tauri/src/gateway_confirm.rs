@@ -1,4 +1,7 @@
 //! 网关确认通道：只连 IPv4 环回，不使用代理、重定向或持久化令牌。
+#[path = "gateway_governance.rs"]
+pub(crate) mod governance;
+
 use guard_schema::ApprovalBinding;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -230,6 +233,7 @@ struct Connection {
     workspace: Option<WorkspaceStatus>,
     review: Option<RemoteReview>,
     workspace_epoch: u64,
+    governance: governance::GovernanceState,
 }
 #[derive(Clone, Default)]
 pub struct GatewayConfirm(Arc<Mutex<Option<Connection>>>);
@@ -819,6 +823,7 @@ impl GatewayConfirm {
             workspace: None,
             review: None,
             workspace_epoch: 0,
+            governance: governance::GovernanceState::default(),
         };
         let view = status(&mut connection)?;
         *slot = Some(connection);
@@ -840,6 +845,7 @@ impl GatewayConfirm {
             workspace: None,
             review: None,
             workspace_epoch: 0,
+            governance: governance::GovernanceState::default(),
         };
         let view = status(&mut connection)?;
         *slot = Some(connection);
@@ -931,6 +937,7 @@ impl GatewayConfirm {
             .ok_or("WORKSPACE_UNAVAILABLE")?;
         if mutate {
             current.workspace_epoch = current.workspace_epoch.wrapping_add(1);
+            current.governance.invalidate();
         }
         let snapshot = current.clone();
         if mutate {
@@ -1557,6 +1564,7 @@ mod tests {
             workspace: Some(status.clone()),
             review: Some(review.clone()),
             workspace_epoch: 0,
+            governance: governance::GovernanceState::default(),
         };
         (connection, status, review)
     }
@@ -2061,6 +2069,7 @@ mod tests {
             workspace: None,
             review: None,
             workspace_epoch: 0,
+            governance: governance::GovernanceState::default(),
         });
         assert!(state.answer("old", "confirm-1", true).is_err());
         assert!(state.poll("old").is_err());

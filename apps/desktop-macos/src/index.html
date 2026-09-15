@@ -140,6 +140,27 @@
               <button id="local-agent-return" class="text-button" data-ui="localAgentReturn" hidden></button>
             </section>
           </section>
+          <section class="card" id="governance-panel" hidden aria-labelledby="governance-title">
+            <h2 id="governance-title" data-ui="governanceTitle"></h2><p data-ui="governanceScope"></p>
+            <p class="boundary" data-ui="governanceBoundary"></p>
+            <div class="btn-row wrap"><button id="governance-load-memory" data-ui="governanceLoadMemory"></button><button id="governance-load-tree" class="secondary" data-ui="governanceLoadTree"></button></div>
+            <p id="governance-feedback" role="status"></p><p id="governance-entry-count"></p><div id="governance-entries"></div>
+            <button id="governance-more-memory" class="secondary" data-ui="governanceMore" hidden></button>
+            <div id="governance-history"></div><button id="governance-more-history" class="secondary" data-ui="governanceMore" hidden></button>
+            <section id="governance-memory-actions" hidden>
+              <h3 id="governance-current"></h3>
+              <div class="btn-row wrap"><button id="governance-quarantine" class="secondary" data-ui="governanceQuarantine"></button><button id="governance-revoke" class="secondary" data-ui="governanceRevoke"></button></div>
+              <label class="setting-row"><strong data-ui="governanceChooseVersion"></strong><select id="governance-version"></select></label>
+              <label class="setting-row"><strong data-ui="governanceRestoreExpiry"></strong><input id="governance-expiry" type="datetime-local"></label>
+              <button id="governance-restore" class="secondary" data-ui="governanceRestore"></button>
+            </section>
+            <section id="governance-review" hidden>
+              <h3 data-ui="governanceReviewTitle"></h3><p id="governance-review-expiry"></p><div id="governance-review-body"></div>
+              <label class="gateway-review-check"><input id="governance-reviewed" type="checkbox"><span data-ui="governanceReviewed"></span></label>
+              <div class="btn-row wrap"><button id="governance-discard" class="secondary" data-ui="governanceDiscard"></button><button id="governance-apply" data-ui="governanceApply" disabled></button></div>
+            </section>
+            <h3 data-ui="governanceTreeTitle"></h3><p class="muted" data-ui="governanceTreeHelp"></p><div id="governance-tree"></div><div id="governance-result"></div>
+          </section>
           <p class="boundary" data-ui="activeBoundary"></p>
         </section>
         <section data-page="activity" aria-labelledby="activity-title" hidden>

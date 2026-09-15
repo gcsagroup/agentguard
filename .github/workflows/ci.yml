@@ -466,6 +466,8 @@ jobs:
         run: make shell-a11y
       - name: macOS 新工作区与网关确认界面回归
         run: node eval/ui-preview/workspace.test.mjs
+      - name: 记忆与委托治理界面回归（模拟原生接口）
+        run: node eval/ui-preview/governance.test.mjs
       - name: Real-browser E2E (C1–C5 of docs/acceptance-chrome.md)
         # Loads apps/extension-chromium unpacked into a real Chromium and asserts the
         # pre-execution gates against eval/acceptance-fixtures. Not part of release-gate

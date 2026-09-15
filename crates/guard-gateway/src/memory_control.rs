@@ -3,7 +3,7 @@ use super::*;
 use crate::memory::{self, Material, MemoryRuntime};
 use anyhow::{ensure, Context, Result};
 use guard_audit::MemoryEntry;
-use guard_privacy::MemoryDraft;
+use guard_privacy::{MemoryDraft, MemoryState};
 use guard_schema::{ApprovalChoice, ApprovalRecord, SourceEntryPoint, SourceSensitivity};
 use serde::Deserialize;
 
@@ -35,6 +35,14 @@ struct RevokeArgs {
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RestoreArgs {
+    key: ValidatedId,
+    expected_version: u64,
+    source_version: u64,
+    expires_at_ms: i64,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ReadArgs {
     key: ValidatedId,
 }
@@ -43,6 +51,25 @@ struct ReadArgs {
 struct SearchArgs {
     query: String,
     limit: usize,
+}
+
+#[path = "memory_governance.rs"]
+mod governance;
+
+struct MemoryAction {
+    prepared: Prepared,
+    action: ActionSnapshot,
+    caller_tool: ToolIdentity,
+    epoch: u64,
+    keys: Vec<String>,
+}
+
+pub(super) struct MemoryReview {
+    name: String,
+    args: Value,
+    proposal: MemoryAction,
+    binding: ApprovalBinding,
+    digest: String,
 }
 
 enum Prepared {
@@ -169,12 +196,29 @@ impl Server {
             self.memory.as_ref().is_some_and(|m| m.allow_write),
             "宿主没有授权记忆变更"
         );
-        if name == "memory_revoke" {
+        if matches!(name, "memory_revoke" | "memory_quarantine") {
             let args: RevokeArgs = serde_json::from_value(args.clone())?;
             return Ok(Prepared::Write(Box::new(
-                self.memory.as_ref().context("记忆未启用")?.revoke(
+                self.memory.as_ref().context("记忆未启用")?.change_state(
                     &args.key,
                     args.expected_version,
+                    if name == "memory_quarantine" {
+                        MemoryState::Quarantined
+                    } else {
+                        MemoryState::Revoked
+                    },
+                    now_ms(),
+                )?,
+            )));
+        }
+        if name == "memory_restore" {
+            let args: RestoreArgs = serde_json::from_value(args.clone())?;
+            return Ok(Prepared::Write(Box::new(
+                self.memory.as_ref().context("记忆未启用")?.restore(
+                    args.key,
+                    args.expected_version,
+                    args.source_version,
+                    args.expires_at_ms,
                     now_ms(),
                 )?,
             )));
@@ -290,13 +334,17 @@ impl Server {
     }
 
     fn execute_memory(&mut self, name: &str, args: &Value) -> Result<Value> {
+        let proposal = self.prepare_memory_action(name, args)?;
+        self.run_memory_action(name, args, proposal, None)
+    }
+
+    fn prepare_memory_action(&mut self, name: &str, args: &Value) -> Result<MemoryAction> {
         self.refresh_rule_policy()?;
         self.memory_ready()?;
         let caller_tool = self.registered_tool("agentguard-memory", name)?;
         let epoch = self.pending.cancellation_epoch();
         let prepared = self.prepare_memory(name, args)?;
         self.memory_ready()?;
-        let write = matches!(prepared, Prepared::Write(_));
         let issued = now_ms();
         let (parameters, sources, target, tool, keys) = match &prepared {
             Prepared::Write(draft) => (
@@ -348,6 +396,48 @@ impl Server {
             nonce: random_nonce(),
             sources,
         })?;
+        Ok(MemoryAction {
+            prepared,
+            action,
+            caller_tool,
+            epoch,
+            keys,
+        })
+    }
+
+    // 人工治理和模型提案共用判决、存储、撤权及未知结果处理。人工批准只能由控制面构造。
+    fn run_memory_action(
+        &mut self,
+        name: &str,
+        args: &Value,
+        proposal: MemoryAction,
+        host_approval: Option<ApprovalRecord>,
+    ) -> Result<Value> {
+        self.refresh_rule_policy()?;
+        self.memory_ready()?;
+        let MemoryAction {
+            prepared,
+            action,
+            caller_tool,
+            epoch,
+            keys,
+        } = proposal;
+        ensure!(
+            action.spec().session_id.as_str() == self.host_session_id
+                && action.spec().policy_version.as_str() == self.policy_version
+                && epoch == self.pending.cancellation_epoch(),
+            "记忆复核属于旧会话或旧授权"
+        );
+        action.validate_at(now_ms())?;
+        if let Some(approval) = &host_approval {
+            ensure!(
+                approval.choice == ApprovalChoice::Approved,
+                "记忆治理没有批准"
+            );
+            approval.binding.validate_for_action(&action, now_ms())?;
+        }
+        let write = matches!(prepared, Prepared::Write(_));
+        let issued = action.spec().issued_at_ms;
         let decision = self
             .gate
             .judge_memory(name, &keys, &action.spec().parameters, write);
@@ -360,6 +450,10 @@ impl Server {
         let mut approval_reference = None;
         let allowed = if matches!(decision, Outcome::Refuse { .. }) {
             false
+        } else if let Some(record) = host_approval {
+            approval_reference = Some(record.binding.approval_id().to_string());
+            approval = Some(record);
+            true
         } else if matches!(decision, Outcome::NeedsConfirmation { .. }) {
             let expires = match &prepared {
                 Prepared::Write(d) => action.spec().expires_at_ms.min(d.expires_at_ms),
