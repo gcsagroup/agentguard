@@ -26,7 +26,7 @@
     "execution_audit_rows": 63,
     "http_requests": 24,
     "binary_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
-    "scope": "宿主脚本经真实认证通道批准；原生治理入口尚未验收"
+    "scope": "仅统计宿主脚本经真实认证通道批准的 CLI 结果；原生证明另见 native_020_results"
   },
   "native_020_results": {
     "passed": true,
@@ -504,6 +504,28 @@
       "path": ".artifacts/m3-memory-governance-2026-09-16/repository-tests-final-02.log",
       "sha256": "55f4fadc551830ef4dc76027f47fad4aec79521c99f878eb54adde30af86199d",
       "bytes": 2970
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/ci-37ce7dc-watch.log",
+      "sha256": "4d3537a4794fbc90d4513a6df1ecc864627e4bf22e004e1c7ce44162ceb893ba",
+      "bytes": 154338
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/ci-37ce7dc-watch-02.log",
+      "sha256": "c7d069afc43de850d9e50d52ab72e82a8d4c27945b6c4028761abbdf1684311d",
+      "bytes": 104271
+    },
+    {
+      "path": ".artifacts/m3-memory-governance-2026-09-16/ci-37ce7dc-final.json",
+      "sha256": "a88d6a008a392e19f41aa1a47f906c2626972d032ee8d63c212414a7909545a3",
+      "bytes": 36362
     }
-  ]
+  ],
+  "ci": {
+    "head_sha": "37ce7dc3021930b77530441cb175b2b71ad291d8",
+    "conclusion": "success",
+    "successful_jobs": 13,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35033338484",
+    "record": ".artifacts/m3-memory-governance-2026-09-16/ci-37ce7dc-final.json"
+  }
 }

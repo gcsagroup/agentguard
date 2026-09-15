@@ -12,6 +12,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 - Fixed App Ver 2.1 (020) passed both native synthetic workflows, with 12 signatures and 48 execution audit rows independently verified. All 88 resources and both macOS permissions were preserved. Switching connections now clears the previous entry count.
 - Workspace 1,515, desktop 133, governance UI 16 and SQLCipher-focused 16 tests passed; the new UI regression runs in CI. See the [acceptance record](docs/agd-026-memory-governance-2026-09-16.zh.md). Scope is an explicitly configured local CLI connection; the managed model form does not enable memory/delegation. AGD-027, deferred F13 and release remain unaccepted.
 
+- Source commit `37ce7dc` passed all 13 GitHub CI jobs in run 35033338484, including governance UI regression and Windows window smoke testing.
 
 ### Tool registration, frozen packages, and change review (2026-09-15)
 
