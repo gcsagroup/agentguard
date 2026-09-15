@@ -180,6 +180,202 @@
     {
       "path": "repository-02.log",
       "sha256": "334c4c5ebc69a4145197ee989a3cfdc30817f6cb00708e41aeec4049650b344e"
+    },
+    {
+      "path": "screenshot-recheck.json",
+      "sha256": "ffe5ab256d856f91d5dd402d486628c8c24a95757670431038b062246c862e60"
+    },
+    {
+      "path": "recheck-core.log",
+      "sha256": "4f8799dd0c871f39a657d3a8aba1ea536a9a49180bbd2c6d3e8b3f56e8828e4d"
+    },
+    {
+      "path": "ci-current.json",
+      "sha256": "4db2a48abed2e9d32b9844732248d804e50ca7e149a18c7b1b38e61fbcd1e509"
     }
-  ]
+  ],
+  "followup": {
+    "existing_code_commit": "fbcfa17cba5243ebb6e884fef9ee7af68daefc03",
+    "ci_run": 35027146897,
+    "ci_successful_jobs": 13,
+    "unchanged_app_files": 91,
+    "native_recheck": {
+      "app_build": 18,
+      "existing_code_commit": "fbcfa17cba5243ebb6e884fef9ee7af68daefc03",
+      "before_seq": 671,
+      "new_rows": [
+        [
+          672,
+          1789510075435,
+          "AgentSessionStart",
+          "app:sha256:0615570f9ea136946c5dc08a25001032",
+          "SESSION-START",
+          "LogOnly",
+          "31e70956df5a9153e1d70a42132a89a9d84bf65e1e52b359f41e6e7a38dc12f7"
+        ],
+        [
+          673,
+          1789510075478,
+          "UiTreeDelta",
+          "app:sha256:92464c6993557de5968ff5bd3f48e231",
+          "ALLOW",
+          "Allow",
+          "416b84409d908ca2d85524192d227c2cbccd0c672ec0947ccb23fbb816a1381e"
+        ],
+        [
+          674,
+          1789510075557,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly",
+          "6ca9d282f673291dfea712f68326e88807ae033d81234ec5d694e89c465d9044"
+        ],
+        [
+          675,
+          1789510080562,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly",
+          "09f3927577e8199013c6c3ae45efe09158fe3b568dd515165a5fec3a52c26e46"
+        ],
+        [
+          676,
+          1789510108904,
+          "UiTreeDelta",
+          "app:sha256:92464c6993557de5968ff5bd3f48e231",
+          "ALLOW",
+          "Allow",
+          "8f0dd3ce214f1eacbef99d5e5c11b9b1db2b12a435a7fb243099ea8c5f6cb627"
+        ],
+        [
+          677,
+          1789510110611,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-007",
+          "LogOnly",
+          "e6588b567cdfb6d76ad724132c5e30387fb4996e6629edcb81cd6d973e544a70"
+        ],
+        [
+          678,
+          1789510113984,
+          "UiTreeDelta",
+          "app:sha256:92464c6993557de5968ff5bd3f48e231",
+          "ALLOW",
+          "Allow",
+          "8ce12c352fbd1c8afba94d38e4f6f30c68e990c1495e6a67d32ba82a5098a2cf"
+        ],
+        [
+          679,
+          1789510114256,
+          "UiTreeDelta",
+          "app:sha256:03b344b45bd570659b4740c843814e94",
+          "ALLOW",
+          "Allow",
+          "ebc6fd1b2861b9ebc3103f22d8863d218051459bac1bd69f66fd13e237120d2a"
+        ],
+        [
+          680,
+          1789510114618,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-009",
+          "Alert",
+          "99f2012a63879adda95e7d90b453fa46fdeb09e62642304dec736dd70b887b60"
+        ],
+        [
+          681,
+          1789510115120,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-009",
+          "Alert",
+          "723d669400f60e7edcb23021e457b7fe1769de67530daf7345f06d8563459c28"
+        ],
+        [
+          682,
+          1789510145167,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-009",
+          "Alert",
+          "97ce13523c8d88452aa9aab2b16e4507978debf314858341c71207354b62f4d3"
+        ],
+        [
+          683,
+          1789510147161,
+          "UiTreeDelta",
+          "app:sha256:03b344b45bd570659b4740c843814e94",
+          "ALLOW",
+          "Allow",
+          "828c61074f21b4408c450e0826bacca8fbeae49e9d2c92a1807f13b54598af9a"
+        ],
+        [
+          684,
+          1789510175213,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-009",
+          "Alert",
+          "0c25c48a9fc8f95297a7f7324aa1601d3541a3a8a5bd1569468a2d5eaf7818c7"
+        ],
+        [
+          685,
+          1789510177605,
+          "UiTreeDelta",
+          "app:sha256:03b344b45bd570659b4740c843814e94",
+          "ALLOW",
+          "Allow",
+          "82f25adf7e23d68b178b0fc4ed06f400b59296c92f74f61d532013fa9c7866fe"
+        ],
+        [
+          686,
+          1789510205256,
+          "UiTreeDelta",
+          "app:sha256:e1bc9996e8a76a1935fcfb50457799c7",
+          "OVL-009",
+          "Alert",
+          "afda9b77de91cd52abc68e6990dfe768e529c565a7490549096a2c36ba9a45ed"
+        ],
+        [
+          687,
+          1789510210372,
+          "UiTreeDelta",
+          "app:sha256:03b344b45bd570659b4740c843814e94",
+          "ALLOW",
+          "Allow",
+          "c5aff9db982ae3741bf2be157aa9c4b98d9a4275fe18176dab5c5455af01c152"
+        ],
+        [
+          688,
+          1789510214741,
+          "AgentSessionEnd",
+          "app:sha256:0615570f9ea136946c5dc08a25001032",
+          "SESSION-END",
+          "LogOnly",
+          "700170cc5966cc195daf5255f6025b59047f0fea6c56cb963f4a2746b7f317f7"
+        ]
+      ],
+      "crit005_events": 0,
+      "ovl007_logonly": 3,
+      "other_alert_rules": [
+        "OVL-009"
+      ],
+      "accessibility_granted": true,
+      "screen_recording_granted": true,
+      "native_safari_pr_visible": true,
+      "native_crit005_reading_chain_proven": false,
+      "final_guard_state": "stopped_as_before_recheck",
+      "tests": {
+        "core_observation_passed": 5
+      },
+      "notes": [
+        "Safari 原 PR 正文可见，包含未修改产品版本或发布安装包；原截图命中精确片段因旧日志不保存原文无法还原",
+        "新记录未出现 CRIT-005，不以无弹窗当作已经读取并正确判定",
+        "CUA Dock 接口读取超时；未修改系统权限"
+      ]
+    }
+  }
 }
