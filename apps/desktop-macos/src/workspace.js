@@ -1,10 +1,11 @@
+import { initializeKnowledge } from "./knowledge.js";
 import { uiText, translateWorkspace } from "./workspace-i18n.js";
 import { initializeGatewayConfirmation } from "./gateway-confirmation.js";
 import { initializeCodexSetup } from "./codex-setup.js";
 import { initializeLocalAgent } from "./local-agent.js";
 
 const byId = (id) => document.getElementById(id);
-const ROUTES = new Set(["overview", "active", "activity", "settings", "help"]);
+const ROUTES = new Set(["overview", "active", "activity", "knowledge", "settings", "help"]);
 const TABS = ["observation", "risk", "privacy", "general"];
 let route = "overview";
 let status = null;
@@ -13,6 +14,7 @@ let setupKind = null;
 let setupGeneration = 0;
 let setupOpener = null;
 let invoke;
+let knowledge;
 
 export function showFeedback(message, error = false) {
   const el = byId("workspace-feedback");
@@ -28,6 +30,7 @@ export function showPage(next, focus = true) {
     closeGuide(false);
   }
   route = next;
+  if (route === "knowledge" && knowledge) knowledge.load();
   document.querySelectorAll("[data-page]").forEach((el) => { el.hidden = el.dataset.page !== route; });
   document.querySelectorAll("[data-route]").forEach((el) => {
     el.ariaCurrent = el.dataset.route === route ? "page" : null;
@@ -204,6 +207,7 @@ export function initializeWorkspace(backendInvoke) {
   const gateway = initializeGatewayConfirmation(invoke);
   initializeLocalAgent(invoke, gateway, () => showPage("active"));
   initializeCodexSetup(invoke);
+  knowledge = initializeKnowledge(invoke);
   setTab("observation");
   renderRecent([]);
   document.querySelectorAll("[data-route]").forEach((btn) => { btn.onclick = () => showPage(btn.dataset.route); });

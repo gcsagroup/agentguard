@@ -1,0 +1,158 @@
+{
+  "task": "AGD-019",
+  "status": "in_progress_reference_workspace_batch",
+  "recorded_at": "2026-09-15T07:08:09.026346+00:00",
+  "base_commit": "1907a1c851313bc637a2d476156031abd0ae1c27",
+  "source_files": {
+    "apps/desktop-macos/src-tauri/src/knowledge_view.rs": "c97160ff96875842ff7adbc64af0625d006b6209a0493930d4d88b93b06116dd",
+    "apps/desktop-macos/src-tauri/src/lib.rs": "66588b363aa5ae9cd82a91729681899c0a3e0a90e3e81e72159f0368b1ab75d2",
+    "apps/desktop-macos/src/index.html": "ac17b2f5df00e27cdfcf5eaf0e946f4e6b5a36696b51ea9305fdfb490b6451b6",
+    "apps/desktop-macos/src/knowledge.js": "af518eca74abade992c17194c157d4b98d4b99d186290800c3472e98a3f4d163",
+    "apps/desktop-macos/src/main.js": "1e49eedbf8042497de88f5abfcd81e55e88e16674d2893e84cd8454f603b2ae8",
+    "apps/desktop-macos/src/workspace-i18n.js": "d3333f1d54d0fea350f4fd286c489010040b87c76c25402c02ae39c2f3ae7b43",
+    "apps/desktop-macos/src/workspace.css": "67cc9046a6e3b87e7a613fce5a2a61aa6f306f7a6401a00f75f33ae17b2c8a4b",
+    "apps/desktop-macos/src/workspace.js": "1dc24b0869c9a74e5d0ba5e8beb0ac4b6f6aa1ca1b3998ac32569b1dbd9e73ee",
+    "crates/guard-cli/tests/仓库不变量.rs": "89740bbbee3e828fa476c2c821c7e6272ed86d226336dc55d97ce91b778a8423",
+    "eval/ui-preview/knowledge.test.mjs": "a27a5a2667a5541762a99c21a430b375638917924f8d0e243c2f9b93a0734402"
+  },
+  "catalog_sha256": "7c3c1afccdb65cba984d86f92cfe6176fc4fe07355d7604b73c54fd127fcbe9b",
+  "tests": {
+    "backend_explicit": 3,
+    "desktop_passed": 124,
+    "desktop_ignored": 10,
+    "knowledge_browser_passed": 21,
+    "existing_workspace_browser_passed": 124,
+    "repository_invariants": 23,
+    "desktop_clippy_warnings_denied": true,
+    "format_and_i18n_and_matrix": "passed"
+  },
+  "checks": [
+    {
+      "name": "18 个真实手法可选且摘要与原始目录一致",
+      "passed": true
+    },
+    {
+      "name": "七阶段都保留发生未知且只高亮登记关联",
+      "passed": true
+    },
+    {
+      "name": "平台覆盖未知显示原登记环境",
+      "passed": true
+    },
+    {
+      "name": "未运行场景不出现伪造实际结果且夹具单独列示",
+      "passed": true
+    },
+    {
+      "name": "规则编号搜索定位两个关联手法",
+      "passed": true
+    },
+    {
+      "name": "手法编号搜索可选且聚焦正文",
+      "passed": true
+    },
+    {
+      "name": "选择后键盘焦点进入对应标题",
+      "passed": true
+    },
+    {
+      "name": "无搜索结果清空旧手法正文",
+      "passed": true
+    },
+    {
+      "name": "观察 Block 与拒绝选择只计告警",
+      "passed": true
+    },
+    {
+      "name": "观察记录不能落入已阻断分类",
+      "passed": true
+    },
+    {
+      "name": "缺效果与矛盾回执都归未知",
+      "passed": true
+    },
+    {
+      "name": "读取失败清除旧目录与摘要且可重试",
+      "passed": true
+    },
+    {
+      "name": "伪造授权回执拒绝展示",
+      "passed": true
+    },
+    {
+      "name": "恶意名称只作文本且危险链接无执行入口",
+      "passed": true
+    },
+    {
+      "name": "可复制来源地址仅接受无凭据 HTTPS",
+      "passed": true
+    },
+    {
+      "name": "en 切换后阶段状态与栏目同步",
+      "passed": true
+    },
+    {
+      "name": "zh-Hant 切换后阶段状态与栏目同步",
+      "passed": true
+    },
+    {
+      "name": "zh-Hans 切换后阶段状态与栏目同步",
+      "passed": true
+    },
+    {
+      "name": "窄窗口无横向溢出",
+      "passed": true
+    },
+    {
+      "name": "浏览器无脚本错误",
+      "passed": true
+    },
+    {
+      "name": "所有知识操作仅调用读取命令",
+      "passed": true
+    }
+  ],
+  "artifacts": {
+    "backend-01.log": "3a38fd195046867d1f2f30d92532281403c84b1110c267d6c8b2df69fff5ae3e",
+    "desktop-final.log": "0ad1d6c9fdfc1f2afb1ffeed268990501a33aee5b9e520f959d945822ce4fdf3",
+    "invariants-final.log": "571fa5be3346801941a7434680ada410f6f779dc5d5a8b5cc110eaa238a9f163",
+    "workspace-ui-01.log": "4bbfb2efca636d27ce95fd40d52fc7755f2b44bfb49b7c846bb5651b28755882",
+    "desktop-clippy-01.log": "7b9ba2617cabc2755c4455da0bc49a668be98fd135202f10f857ff001d502955",
+    "matrix-check.log": "5ea0fc7c5010c52d7e6150cabfefe6f930ac0edeff8a3c08ac63872c679533c5",
+    "i18n-final.log": "7b6891fd40614097a11b92bd26b5f258d8aa31715aac0f609391b2f84dc482cb",
+    "ui-report.json": "da93a9b0f2fe94346cd3dd662256d443f93349f7acdd22d66074bb129a87d662",
+    "knowledge-receipt.json": "a36370ccd8f27b066dfd761f17f26f3c9702c1e68cc52103286949c30af4a2a3",
+    "fmt.log": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907",
+    "knowledge-fmt.log": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907",
+    "knowledge-light.png": "50c5e766924507def3e9c132722a66dc1ca9e7c60caca8078f3eb2ea1b074b86",
+    "knowledge-dark.png": "f81630d7d759920003a9e4d01ee9d5ac4abf604c130d75837fee033f81f6696b",
+    "knowledge-narrow.png": "c05ebbff8c31602ac8a9c29123c44f331f534aaa49ad798069f147c58122d70f",
+    "activity-unknown.png": "289e792d657604f1024bfc1385d497d911018fc12848dfc4d25f515f02dc0fd0",
+    "preserved.json": "fcea5a91df9f6c3acbfdb1a4907efc1d4c2815dff0d2bd1d27707e5d66a82d61"
+  },
+  "preserved": {
+    "preserved_files": 127,
+    "all_matched": true,
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_files": 90,
+    "app_all_matched": true,
+    "strict_codesign": true
+  },
+  "previous_ci": {
+    "commit": "1907a1c851313bc637a2d476156031abd0ae1c27",
+    "run": 34937538340,
+    "jobs_passed": 13
+  },
+  "evidence_boundary": [
+    "real_rust_command_output",
+    "chromium_with_ipc_test_bridge",
+    "not_native_app_acceptance",
+    "no_controlled_gateway_execution_records_yet",
+    "embedded_unsigned_reference_not_active_signed_rule_package",
+    "all_stages_occurrence_unknown",
+    "catalog_coverage_unchanged"
+  ],
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go"
+}

@@ -3301,6 +3301,7 @@ fn process_observed_events(
 }
 
 mod desktop_setup;
+mod knowledge_view;
 mod gateway_confirm;
 mod local_agent;
 mod local_model;
@@ -3496,6 +3497,7 @@ pub fn run() {
             get_pending_confirm,
             resolve_confirm,
             list_audit,
+            knowledge_view::get_knowledge_catalog,
             export_session_report,
             set_auto_approve,
             security_status,

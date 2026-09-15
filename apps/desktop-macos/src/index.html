@@ -19,6 +19,7 @@
           <button data-route="overview" aria-current="page"><span aria-hidden="true">⌂</span><span data-ui="overview"></span></button>
           <button data-route="active"><span aria-hidden="true">◇</span><span data-ui="active"></span></button>
           <button data-route="activity"><span aria-hidden="true">◷</span><span data-ui="activity"></span></button>
+          <button data-route="knowledge"><span aria-hidden="true">▤</span><span data-ui="knowledge"></span></button>
           <button data-route="settings"><span aria-hidden="true">⚙</span><span data-ui="settings"></span></button>
         </nav>
         <div class="side-bottom"><button data-route="help" data-ui="help"></button><small id="channel-label"></small></div>
@@ -141,7 +142,14 @@
           </section>
           <p class="boundary" data-ui="activeBoundary"></p>
         </section>
-        <section data-page="activity" aria-labelledby="activity-title" hidden><h1 id="activity-title" tabindex="-1" data-ui="activity"></h1><p class="lead" data-ui="activityScope"></p><label class="setting-row"><strong data-ui="filterSource"></strong><select id="activity-source"><option value="" data-ui="allSources"></option></select></label><div id="activity-slot"></div></section>
+        <section data-page="activity" aria-labelledby="activity-title" hidden><h1 id="activity-title" tabindex="-1" data-ui="activity"></h1><p class="lead" data-ui="activityScope"></p><label class="setting-row"><strong data-ui="filterSource"></strong><select id="activity-source"><option value="" data-ui="allSources"></option></select></label><label class="setting-row"><strong data-ui="activityOutcome"></strong><select id="activity-outcome"><option value="all" data-ui="outcome_all"></option><option value="alert" data-ui="outcome_alert"></option><option value="blocked" data-ui="outcome_blocked"></option><option value="unknown" data-ui="outcome_unknown"></option><option value="record" data-ui="outcome_record"></option></select></label><p class="boundary" data-ui="activityOutcomeBoundary"></p><div id="activity-slot"></div></section>
+        <section data-page="knowledge" aria-labelledby="knowledge-title" hidden>
+          <h1 id="knowledge-title" tabindex="-1" data-ui="knowledge"></h1><p class="lead" data-ui="knowledgeLead"></p>
+          <div class="knowledge-toolbar"><label for="knowledge-search"><span data-ui="knowledgeSearch"></span><input id="knowledge-search" type="search" autocomplete="off" maxlength="200"></label><button id="knowledge-reload" class="secondary" data-ui="knowledgeReload"></button></div>
+          <p id="knowledge-status" role="status"></p>
+          <div class="knowledge-layout"><aside class="knowledge-index"><p id="knowledge-count" role="status"></p><div id="knowledge-list"></div></aside><div id="knowledge-detail"></div></div>
+          <p id="knowledge-provenance" class="boundary"></p>
+        </section>
         <section data-page="settings" aria-labelledby="settings-title" hidden>
           <h1 id="settings-title" tabindex="-1" data-ui="settings"></h1><p class="lead" data-ui="settingsLead"></p>
           <div class="settings-banner"><span data-ui="wantActive"></span><button class="text-button" data-route="active" data-ui="setupActive"></button></div>

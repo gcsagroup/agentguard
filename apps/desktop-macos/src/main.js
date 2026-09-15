@@ -1,3 +1,4 @@
+import { observedRecordOutcome } from "./knowledge.js";
 import { currentLocale, initializeI18n, t } from "./i18n.js";
 import { initializeWorkspace, renderWorkspace, renderRecent, permissionFeedback, showFeedback, sourceLabel } from "./workspace.js";
 import { uiText } from "./workspace-i18n.js";
@@ -383,6 +384,7 @@ function auditRow(r) {
   // rule_id 挪到下面的 meta 行(和 popup 的"技术标识收进详情"同一原则)。
   strong.textContent = t(`action.${actionClass(r.action)}`);
   head.appendChild(strong);
+  head.appendChild(Object.assign(document.createElement("span"), { className: "badge outcome-badge", textContent: uiText(`outcome_${observedRecordOutcome(r)}`) }));
 
   const msg = document.createElement("div");
   const rawMessage = r.human_message ?? "";
@@ -435,7 +437,9 @@ function renderAuditRows() {
     source.append(option);
   }
   source.value = sources.includes(selected) ? selected : "";
-  const filtered = auditRows.filter((row) => !source.value || row.source_app === source.value);
+  const outcome = document.getElementById("activity-outcome").value;
+  const filtered = auditRows.filter((row) => (!source.value || row.source_app === source.value)
+    && (outcome === "all" || observedRecordOutcome(row) === outcome));
   timeline().replaceChildren();
   for (const row of filtered) timeline().append(auditRow(row));
   if (!filtered.length) {
@@ -481,6 +485,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   initializeI18n();
   initializeWorkspace(invoke);
   document.getElementById("activity-source").onchange = renderAuditRows;
+  document.getElementById("activity-outcome").onchange = renderAuditRows;
   await invoke("set_tray_locale", { locale: currentLocale() });
   window.addEventListener("agentguard-locale-change", async () => {
     await invoke("set_tray_locale", { locale: currentLocale() });
