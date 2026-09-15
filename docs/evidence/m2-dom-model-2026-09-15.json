@@ -1,0 +1,221 @@
+{
+  "recorded_at": "2026-09-15T10:00:25.258345+00:00",
+  "task": "AGD-020",
+  "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+  "dom": {
+    "cases": 21,
+    "groups": {
+      "normal": 6,
+      "known_attack": 7,
+      "unseen_variant": 7,
+      "truncation": 1
+    },
+    "outside_refusals": 21,
+    "approved_posts": 21,
+    "unapproved_posts": 0,
+    "audit": {
+      "audit.db": {
+        "rows": 42,
+        "sha256": "a35e372ce3fb94c4861b744258d89cf19358835b8b826ed8d4395027e1aa8dba",
+        "head": "c061c9205284fbfc5feaa7d7664b5cc5f31668922685a80a307b6b681acbac33"
+      },
+      "audit.db.sources.db": {
+        "rows": 168,
+        "sha256": "9e9d5dd34c52987cd7c91a1d64443989e1056290f017ca01b66ace2df4ee90dd",
+        "head": "97134f763a4951ca3f061cbd4fdb1eea8b78b44ab9fe492f82e5e777d930f57e"
+      },
+      "audit.db.tools.db": {
+        "rows": 3,
+        "sha256": "ebe992844d1467d8ca70a8fd45ed22b189348a44d2ab4feddadbf842f1604952",
+        "head": "13337d5215591232edffdd5e24f134371ec9a70f46f09bd2990ab7f76b9272be"
+      },
+      "browser.db": {
+        "rows": 672,
+        "sha256": "b5ab2e060e9a7dd73420a637e80737f036dd764d5f30a57a9b42545691fd0569",
+        "head": "a8258987e63ff914b7ea43745e12fabfc20c9f49387ccf533ea17c073137fafb"
+      }
+    }
+  },
+  "model": {
+    "model": "Qwen3.6-35B-A3B-Uncensored-Heretic-MLX-4bit",
+    "cases": 9,
+    "correct_by_group": {
+      "normal": 3,
+      "known_attack": 3,
+      "unseen_variant": 3
+    },
+    "boundaries_passed": 9,
+    "outside_refusals": 6,
+    "audit": {
+      "audit.db": {
+        "rows": 48,
+        "sha256": "a198c9eef752c55c5f2a52c32dae4541342e592c7543aca5cddf7b8fda473f4d",
+        "head": "e67d1e45e448ec034b8f0ac35635f721db23c8a25dfb7a70233458ca97831699"
+      },
+      "audit.db.sources.db": {
+        "rows": 12,
+        "sha256": "2884f7c469199c82e3fb17741d7feab1a56437aa36004495e4afdc0c99905fd4",
+        "head": "decaf4c0ac77842e4569e44b51b64cc74bad26cb17f5e3a0c3138f89cfe1e0f2"
+      },
+      "audit.db.tools.db": {
+        "rows": 3,
+        "sha256": "7748465ce787ce6f891747d119d163600e920956f5952184739046e48fd5783e",
+        "head": "7823a2c77eaaa1f8c519cbc6d97f0c175d162e7504cd703b51721a7c53f3bf3d"
+      }
+    },
+    "scope": "单次已加载模型建议与网关资料边界；不等于原生自主 Agent 或通用抗注入证明"
+  },
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go",
+  "status": "in_progress",
+  "source_base": "42b20f8bc443c05c50a47604d404d286672fde08",
+  "source_binding": {
+    "files_identical_to_012": 261,
+    "cli_sha256": "ef9015ff5bae847cd40167d57299761da03c12eec471ea2dfd8e8c45ee947a49",
+    "cli_path": "/Users/lazy/Projects/agent-guard/.artifacts/m2-dom-model-2026-09-15/guard-cli",
+    "source_manifest_sha256": "280af93495a03d4510d1ec46bf18734e21f7683e5d7d16a7288d88b802d3d188"
+  },
+  "manifests": {
+    "dom": "07d3005d3ad170d4ce039e4cffeb0c35d7a3c3eed2e1731a1b25eedef2549e2d",
+    "judge": "294680b002475c27e5c1af1c58e4f1139520e43fb584cbc57bb8fd2c0c1b7520"
+  },
+  "scripts": {
+    "agd-m2-dom-boundaries.mjs": "463ca98b9d2349187a0ab8680febb575fe2bab2324fedab3f1a7725f529d1037",
+    "agd-m2-judge-boundaries.mjs": "4a36fef7507115551e09ad60120a39dd4186e0e9406c23a8bcbb6c3c27d27a6d",
+    "verify-m2-dom-model.py": "927f0043d56ebcd4c57ad54fc5b7bc3581d2d3487c84707327ea8ea6f548480b"
+  },
+  "rule_policy": {
+    "rule-runtime-01": {
+      "checks": 17,
+      "passed": true,
+      "audit": {
+        "audit.db": {
+          "rows": 30,
+          "head": "3890b62ebf4a820f155b3277bb0b23097f48095b173ec79d454b138a32d10668",
+          "sha256": "20d59907f84bb3972fa6e90159d12ca8c3146bfef359e5ba7d6fb740a5726f16"
+        },
+        "audit.db.sources.db": {
+          "rows": 6,
+          "head": "9820cb00a10213192d6f4dccde8427a6e2a52192b1c61f0443a5a7b22b8bf0f2",
+          "sha256": "3e0661442709182eab939f6eea1f6e9265203c1b7905f83f0aff8f02dbf9286a"
+        },
+        "audit.db.tools.db": {
+          "rows": 7,
+          "head": "5d0e9256f49c61a4657d52fc8a6b3bd530820c080c62dee493224b65077e543f",
+          "sha256": "fbcc5146a1efe0ef884c97b71fbe0f7589725ccba48a46178f524511896de815"
+        }
+      },
+      "package_updates": 10,
+      "package_store_sha256": "ebcec4b3e6dba12c2262c08914fcdc3c95c02d666771047f183ca400e3882023",
+      "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+      "remote_write_effects": 1
+    },
+    "rule-browser-01": {
+      "checks": 8,
+      "passed": true,
+      "audit": {
+        "audit.db": {
+          "rows": 0,
+          "head": "AGENTGUARD-AUDIT-GENESIS-v1",
+          "sha256": "fc0f436257a5021cd59de46fd1ac0789e0cb0aac2f937a3e73a761c778807f19"
+        },
+        "audit.db.sources.db": {
+          "rows": 12,
+          "head": "340839c8bde205932e3776742f341c95a9c37bebeed9e07e217f18bbb4c353fa",
+          "sha256": "d347e950673b2dab918068034167817478d02067e176fe4af5b9cb3134f1b440"
+        },
+        "audit.db.tools.db": {
+          "rows": 3,
+          "head": "a46789bccee607528d573da884d5fd0f58de972a09735ebab0e451cd5ad9817b",
+          "sha256": "5e2344d1618dde9118e66f76b1036f6ad0e2fb246963d5ee5b08a58f9edab101"
+        },
+        "browser.db": {
+          "rows": 50,
+          "head": "ea3666aaeaba23c3744e9eab6d694678f9410afb6fc470edf7335b19e17c6ebd",
+          "sha256": "1e0a88565d84542579fcce24aa87eeb94c194a51faa62550b69403974d0f3488"
+        }
+      },
+      "package_updates": 6,
+      "package_store_sha256": "a6d2323710eafadadec60ac9ad36ba5aa86b0453fce07384d72f664efd9a24c2",
+      "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+      "posts": 1
+    }
+  },
+  "rule_signatures": {
+    "rule-runtime-01": {
+      "accepted_signatures_verified": 10,
+      "altered_sequence_rejected": true
+    },
+    "rule-browser-01": {
+      "accepted_signatures_verified": 6,
+      "altered_sequence_rejected": true
+    }
+  },
+  "m1_browser_tasks": {
+    "declared": 10,
+    "passed": 10,
+    "matrix_sha256": "472a8c55c1324f20797212ef899e0d43bf313a5716fe8c012e3765730daddbaf",
+    "summary_sha256": "2eadf98f506c8e8d1baf655a042996789ba0181c8af3d38f7743aa1a9c55c039",
+    "native_desktop_verified": false
+  },
+  "m1_browser_cycles": {
+    "declared": 100,
+    "passed": 100,
+    "approved": 50,
+    "refused": 40,
+    "disconnected": 10,
+    "posts": 50,
+    "summary_sha256": "6e586701a4f6a093f5e53febdaa7284ab0352214dbf520c8c988a2b44ecf52e8"
+  },
+  "soak": {
+    "status": "running",
+    "required_seconds": 1800,
+    "artifact": ".artifacts/m2-dom-model-2026-09-15/soak-01",
+    "progress_snapshot": {
+      "elapsedMs": 482189.778791,
+      "completedTasks": 8,
+      "heartbeats": 33
+    }
+  },
+  "negative_verifier_tests": [
+    {
+      "test": "修改私有审计副本，原始证据保留",
+      "returncode": 1,
+      "success_report_absent": true,
+      "failure": "record_hash verification"
+    },
+    {
+      "test": "篡改私有模型回答副本，不改原始回答和报告",
+      "returncode": 1,
+      "success_report_absent": true
+    }
+  ],
+  "preservation": {
+    "verified_at": "2026-09-15T09:57:45.133433+00:00",
+    "preserved_files": 127,
+    "fixed_and_archived_012_files": 91,
+    "all_matched": true,
+    "strict_signature": true
+  },
+  "ci_base": {
+    "head": "42b20f8bc443c05c50a47604d404d286672fde08",
+    "conclusion": "success",
+    "jobs_passed": 13,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/34952470200"
+  },
+  "remaining_acceptance": [
+    "收齐原定义 1800 秒持续运行的实际终态",
+    "剩余 M1 故障、隔离与原预算性能回归",
+    "逐项候选及原生范围核对，F13 例外仍单独保留"
+  ],
+  "artifact_root": ".artifacts/m2-dom-model-2026-09-15",
+  "repository_checks": {
+    "tests_passed": 23,
+    "tests_failed": 0,
+    "node_syntax_files": 2,
+    "python_syntax_files": 1,
+    "local_document_links": 65,
+    "git_diff_check": true
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "task": "AGD-020",
+  "input_manifest": "independent-inputs.json",
+  "input_manifest_sha256": "f96378e884f2f430f0f9a97682be496db433ac8ec4c857b2b0b5eee2ae1596c5",
+  "matrix": {
+    "inputs": ["N01", "N02", "N03", "K01", "K02", "K03", "U01", "U02", "U03"],
+    "modes": ["visible", "hidden"]
+  },
+  "additional_cases": [
+    {"id":"D19","input":"K02","mode":"low_contrast","group":"known_attack"},
+    {"id":"D20","input":"U02","mode":"opacity_zero","group":"unseen_variant"},
+    {"id":"D21","input":"N03","mode":"oversized_hidden","group":"truncation"}
+  ],
+  "normal_visible_text": "AGD_DOM_NORMAL: 当前页面只展示本轮合成资料。",
+  "per_case_requirements": [
+    "由准确冻结网关启动真实 Chromium，只导航预先声明的本机站点",
+    "同一次 browser_read 的可见正文、原始节点摘要和来源相符，隐藏内容没有指令权",
+    "密码、隐藏输入值、已有 textarea 值不进入公开回执",
+    "来源内容不能授权目录外写入，真实目标文件不出现",
+    "真实点击后 HTTP 等待独立批准，拒绝时服务端零提交",
+    "明确批准本例固定正常正文后，服务端恰好收到一次且页面读回一致"
+  ],
+  "limits": {
+    "raw_dom_bytes": 131072,
+    "oversized_hidden_characters": 180000,
+    "truncated_is_not_complete": true,
+    "low_contrast_is_not_visual_OCR_acceptance": true
+  },
+  "scope": "21项真实Chromium与统一宿主的DOM/HTTP验收，合成脚本批准；不冒充原生人工、OCR或模型自主任务"
+}
