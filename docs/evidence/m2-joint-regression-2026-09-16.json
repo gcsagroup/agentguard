@@ -1,0 +1,455 @@
+{
+  "recorded_at": "2026-09-15T16:36:04.361505+00:00",
+  "task": "AGD-020",
+  "status": "completed",
+  "candidate": "015",
+  "basis": "原开发计划任务定义及用户明确暂缓 F13 的开发放行；非完整原 M1 或发布",
+  "app": {
+    "app": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest"
+  },
+  "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+  "production_inputs_unchanged": 229,
+  "input_groups": {
+    "normal": 17,
+    "known_attack": 18,
+    "unseen_variant": 16,
+    "recovery": 1
+  },
+  "input_audit_rows": 393,
+  "input_bound_refusals": 90,
+  "dom_groups": {
+    "normal": 6,
+    "known_attack": 7,
+    "unseen_variant": 7,
+    "truncation": 1
+  },
+  "model_correct_by_group": {
+    "normal": 3,
+    "known_attack": 3,
+    "unseen_variant": 3
+  },
+  "dom_model_audit_rows": 950,
+  "rule_browser": {
+    "evidence_verified": true,
+    "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+    "rule_checks": 25,
+    "signed_releases": {
+      "verified": 16,
+      "modified_sequence_refused": 16
+    },
+    "rule_audit_rows": 110,
+    "browser_tasks": 10,
+    "browser_cycles": 100,
+    "browser_audit_rows": 1225,
+    "cycle_post_count": 50,
+    "scope": "复核本机合成服务的留存数据库和业务记录，不代替原生验收或重新发送请求。"
+  },
+  "m1_regression": {
+    "evidence_verified": true,
+    "regression_passed": true,
+    "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+    "soak_tasks": 30,
+    "soak_heartbeats": 121,
+    "soak_duration_ms": 1800543.355208,
+    "fault_checks": 50,
+    "isolation_checks": 78,
+    "operator_checks": 8,
+    "egress_attempts": 24,
+    "candidate": "015",
+    "native_audit_rows": 54,
+    "performance_passed": 6,
+    "performance_total": 6,
+    "performance_checks": [
+      {
+        "name": "native_read_p95_ms",
+        "actual": 8.464374999999961,
+        "max": 10,
+        "passed": true
+      },
+      {
+        "name": "native_startup_ms",
+        "actual": 41.12174999999999,
+        "max": 100,
+        "passed": true
+      },
+      {
+        "name": "native_sampled_gateway_peak_mib",
+        "actual": 13.203125,
+        "max": 32,
+        "passed": true
+      },
+      {
+        "name": "isolated_read_p95_ms",
+        "actual": 255.20408399999997,
+        "max": 500,
+        "passed": true
+      },
+      {
+        "name": "isolated_startup_ms",
+        "actual": 566.198583,
+        "max": 2000,
+        "passed": true
+      },
+      {
+        "name": "isolated_sampled_gateway_peak_mib",
+        "actual": 13.640625,
+        "max": 32,
+        "passed": true
+      }
+    ],
+    "limitations": "回收后的合成服务和临时文件采用运行时记录；不将报告复核冒充再次实测。"
+  },
+  "workspace": {
+    "workspace-tasks-14": {
+      "tasks_or_cycles": 50,
+      "artifact_bindings": 87,
+      "report_sha256": "36d3f2265c9dfde723fa94f19bc41d7b238171c85da08f010bb445d704bade32"
+    },
+    "workspace-cycles-14": {
+      "tasks_or_cycles": 100,
+      "artifact_bindings": 140,
+      "report_sha256": "cc618fadb149d6164029a982826654a2a8247ebd88f8e5fff119a58834860bd8"
+    },
+    "scope": "逐任务副本与汇总、实际运行时回写回执及成果摘要交叉核对；已清理的夹具不冒充再次实测。"
+  },
+  "egress_host_checks": 42,
+  "explicit_writeback_faults": {
+    "checks": 8,
+    "same_source_inputs": 191,
+    "rerun": false
+  },
+  "native_lifecycle": {
+    "passed": true,
+    "f07_phases": 2,
+    "readonly_reads": 2,
+    "host_controls": [
+      "pause",
+      "resume",
+      "stop"
+    ],
+    "resume_no_replay_seconds": 25.15518045797944,
+    "new_audit_rows": 53,
+    "old_tasks_unchanged": 30,
+    "old_audit_rows_unchanged": 1584
+  },
+  "f14": {
+    "passed": true,
+    "candidate": "015",
+    "approvals": "auto",
+    "same_service_across_link_failure": true,
+    "real_non_loopback_link_down_and_restored": true,
+    "initial_receipts": 0,
+    "after_unknown_receipts": 1,
+    "after_observation_receipts": 1,
+    "final_receipts": 2,
+    "observed_ms": 25231,
+    "old_approval_status": 409,
+    "failed_session_resume_status": 409,
+    "audit": {
+      "first-audit": {
+        "audit.db": {
+          "rows": 4,
+          "sha256": "7e918ef42e6b4f7967278aefe3937a8099c177f9f2f40b85d596ba0fcf163bab"
+        },
+        "audit.db.sources.db": {
+          "rows": 0,
+          "sha256": "f634e87e1ee8e1c96cfaac5cbdd5bd47b77c1164a44c1afac2ee6cfbbcefe2e8"
+        },
+        "audit.db.tools.db": {
+          "rows": 3,
+          "sha256": "092074a0ae3639debf6b645206ff927f2d67eb601f122f2c03c140fe6751a1cf"
+        },
+        "browser.db": {
+          "rows": 15,
+          "sha256": "a5e0de9dbdf61071702fa4f5535a369aca930df8e2059a366e71773fe6fe74e8"
+        }
+      },
+      "fresh-audit": {
+        "audit.db": {
+          "rows": 5,
+          "sha256": "0e4a8b3a04b42ab4e4bfd35af77d3d21a9061001d31eded65c5bcaf62effbd21"
+        },
+        "audit.db.sources.db": {
+          "rows": 0,
+          "sha256": "9ccad7aa35d906f9a3b681ef8167bd6e3bcab89523b7c30fe52daf70bfa708f8"
+        },
+        "audit.db.tools.db": {
+          "rows": 3,
+          "sha256": "67cde10319efb03c401b6414dadbab9f1e14537563c927b2b45eac5041a95204"
+        },
+        "browser.db": {
+          "rows": 18,
+          "sha256": "c9b819cc2c44a5ad02536fe2008a215f7c8ee03a96435edc6c109109f14da06f"
+        }
+      }
+    },
+    "total_audit_rows": 48,
+    "service_container_stopped_preserved": true,
+    "report_sha256": "62b9ee8bf03bc2ca854bf5beaba6efb2d449ca6ccceb2ef54da3b192a5ea2f43",
+    "scope": "Docker Linux VM 网卡故障；Mac 入口回环，不覆盖 Mac 物理网卡"
+  },
+  "permissions": {
+    "recorded_at": "2026-09-15T16:28:46.478594+00:00",
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "source": "实际 CUA 无障碍树及截图",
+    "version": "Ver 2.0 (015)",
+    "accessibility": "已授权",
+    "screen_recording": "已授权",
+    "ready_card": "权限已就绪",
+    "overview": "未在守护",
+    "system_authorization_actions": 0
+  },
+  "preservation": {
+    "recorded_at": "2026-09-15T16:28:46.478063+00:00",
+    "source_files_verified": 1074,
+    "source_manifest_sha256": "4bdd00e3180e545fef3b95697bb9d88d8f196f04d51be6c1c9881fc591dd178c",
+    "preserved_original_files": 127,
+    "current_and_archived_app_files_each": 91,
+    "strict_signatures_passed": 2,
+    "archived_legacy_apps": 8,
+    "archived_legacy_entries": 171,
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "gateway_sha256": "a011628363e6fdf75ac5910439ed60ebf7e5ecabe44fbff4479c8c71f40618a4",
+    "version_unchanged": "Ver 2.0 (015)",
+    "passed": true
+  },
+  "verifier_negative_cases": 8,
+  "ci_base": {
+    "conclusion": "success",
+    "headSha": "60a8f66a00d749e0fdfb53ae45d2e55b7b61a91b",
+    "jobs": [
+      {
+        "name": "部署自检",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "macOS shell (native AX + SCK)",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "Android companion (Kotlin)",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "test (macos-latest)",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "MSRV 1.87",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "Shell front ends parse",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "Windows (native adapter + shell)",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "macOS 专属代码路径能编译",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "内核约束（guard-jail）",
+        "conclusion": "success",
+        "status": "completed"
+      },
+      {
+        "name": "test (ubuntu-latest)",
+        "conclusion": "success",
+        "status": "completed"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/34989630254"
+  },
+  "f13": "deferred_unverified",
+  "original_m1_passed": false,
+  "whole_plan_complete": false,
+  "release": "no_go",
+  "plan_counts": {
+    "completed": 19,
+    "conditional": 1,
+    "in_progress": 0,
+    "not_started": 12
+  },
+  "local_artifacts": [
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/declaration.json",
+      "sha256": "1893a809b57a36a144a477f074631c4cbfbbc8c7e41dfde5b0d2c84645b291dd"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/candidate-15/source-manifest.json",
+      "sha256": "4bdd00e3180e545fef3b95697bb9d88d8f196f04d51be6c1c9881fc591dd178c"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/candidate-15/build-report.json",
+      "sha256": "646ffd7dd26e710a75b0794dbc5f4481b0308807a805241543c08e28e95e8b7b"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/candidate-15/gateway-reuse.json",
+      "sha256": "463e3efd04492a91042fdfde950e20fbac312d137c1aa963bbb4923733f4906d"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/guard-cli-15.json",
+      "sha256": "6d16908000d62bd89e7198845183c5c080f5b002e2a61641d9f840a7dbd4c0d7"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/egress-control-15.json",
+      "sha256": "f6389850c74af3949b728ec0c05a0d0823635302799a00d6b9fcd8e353a1ead3"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/egress-control-15.log",
+      "sha256": "81c438f3b94c14b502e353fce27ccbdc21c88d785e1208ee979f99ff6c855cf6"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/operator-reuse-15.json",
+      "sha256": "c65f931fe6aca62f90f7b0bc442ff87d14cf41420f62d313f009644ce267b011"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/joint-suites-15.json",
+      "sha256": "0c5fd18dec257934917ea05a28ab05459c547b1aed39daeb39ad893db1815d6a"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/workspace-soak-15/report.json",
+      "sha256": "04602aa558dec7d25203411fbd8c9c4bd926dd1f537ac62c94f1c6f07957e19f"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/soak-independent-15.json",
+      "sha256": "848891e62ba6e1dae84c51f452289034c92a9b0c0955d563a0f581aeee0121e8"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/joint-inputs-independent-15.json",
+      "sha256": "8f10fb6cd9a4779606b3dae53b63fd699fc9b80894afedbeac0d1fac21c298e9"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/joint-dom-model-independent-15.json",
+      "sha256": "7bee500d5ab51ff15f64396d927009a88eda37f7075f9f5450a1518fb1fda855"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/workspace-matrix-independent-15.json",
+      "sha256": "724642eae2da0562a75f656952080f88b0524e08064ff4da1a48d750633abe38"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/rule-browser-independent-15.json",
+      "sha256": "082a0c20e92a711ede763ddfb32b9d61df87485da90b0b58a002f1e7ccf02f13"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/regression-independent-bound-15.json",
+      "sha256": "e1a4c66945c88dbb3328dc3e5be440ee038654902900606873eacccc60ae8c03"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/regression-verifier-negatives-final-15.json",
+      "sha256": "8da8e1289d248825c95c41824aeb4c6938cbfebff407cc203def89b6e9a2dcaf"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/rule-browser-verifier-negatives-15/report.json",
+      "sha256": "6c73d8789311dceec781143df708bb6051fd4c8c56321015101cf6b776ec9646"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/native-lifecycle-independent-final-15.json",
+      "sha256": "512982b4b4a93b4436a33a29116b6418ca73fd769cd2f6edcb2b6c1f794d99d0"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/verify-native-lifecycle-15.py",
+      "sha256": "5861dfa416a9d820a035372e10b52ad29c0a2b3a8503b1cfc63c817baa103a36"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/native-15-f07/history-before.json",
+      "sha256": "e4e8033de77c4eaa6902ca404394de3b54f24deb2780f6524ec1baa1aeff35da"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/native-15-f07/readonly-closed/report.json",
+      "sha256": "793f0224f7ff6210057517c350ed1fb1bd5d3980a6ea396ce5509bb473fa5bab"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/final-native-ready-15.json",
+      "sha256": "b44b030e6c92d6448dc057cec8846bc3659a9f9da0cfb37bc6d2cd893b3f889d"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/joint-preservation-15.json",
+      "sha256": "8c035c740651c5ccd216c3523de403ea06b9e0a6ad74fbac6dad1d548fb224ac"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/f14-independent-15.json",
+      "sha256": "841a0063adf38bf793cc733599e85e86cf8729eeaea1eee9a09a3f8769ab6a87"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/f14-current-15/report.json",
+      "sha256": "62b9ee8bf03bc2ca854bf5beaba6efb2d449ca6ccceb2ef54da3b192a5ea2f43"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/f14-service-final-15.json",
+      "sha256": "b1954575fd42219189009087685e174f56aebcfccfd47513eca2fbef1f69d3b6"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/f14-container-stopped-15.json",
+      "sha256": "bd34445946c8a5d24aa7dc4106d9f45c01a8f7d28ab3f937f81b85b90f278bc0"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/ci-base-15.json",
+      "sha256": "23f98e736379295e0ed0475b0f539059b9058fcde91d04cac86410d930bf9907"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/regression-verifier-negatives-bound-15.json",
+      "sha256": "93c6be7b913ca72a5c90e88d99424231a552920842c0879d54a433b1495b05ce"
+    },
+    {
+      "path": ".artifacts/m2-acceptance-close-2026-09-15/repository-joint-final-15.log",
+      "sha256": "0bbe96dc23c7b8f78503f7028b19fcb6414ac59c8db6a07e1d733b2e97f13ac5"
+    },
+    {
+      "path": "scripts/acceptance/verify-m2-regression.py",
+      "sha256": "b9da39a4d19e2e75f0ce23d40617bad5627495ec5b9256c23622161d99dbaeec"
+    },
+    {
+      "path": "scripts/acceptance/verify-m2-rule-browser.py",
+      "sha256": "82dd2e1480fef5bae7b40fba9699172b2b4a49d697f1db092d2716429f186e78"
+    }
+  ],
+  "remaining_tasks": [
+    "AGD-021",
+    "AGD-022",
+    "AGD-023",
+    "AGD-024",
+    "AGD-025",
+    "AGD-026",
+    "AGD-027",
+    "AGD-028",
+    "AGD-029",
+    "AGD-030",
+    "AGD-031",
+    "AGD-032"
+  ],
+  "repository_tests": {
+    "passed": 23,
+    "failed": 0
+  }
+}
