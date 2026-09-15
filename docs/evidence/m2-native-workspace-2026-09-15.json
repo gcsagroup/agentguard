@@ -1,0 +1,132 @@
+{
+  "recorded_at": "2026-09-15T08:46:30.170216+00:00",
+  "task": "AGD-019",
+  "native_functional_acceptance": "passed",
+  "candidate": {
+    "version": "2.0.0-dev.12",
+    "build": "12",
+    "app_sha256": "648fb6147c3d0a20fb08b26e205b5cd3fa7263404080b8a6046e87db71c8bbda",
+    "gateway_sha256": "948d5d25109a21b93e25317054868d74c572af310c985c0ce546bd2c51dee97d",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "fixed_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "profile": "local-agent-20260910",
+    "source_files": 1042
+  },
+  "historical_sessions": 28,
+  "historical_rows": 993,
+  "all_historical_rows_unchanged": true,
+  "independent_projection": {
+    "gateway": {
+      "rows": 54,
+      "actions": 19,
+      "head_sha256": "d00fb99f9d5d8bfcd89231bf8742658f8995c56ef7071f864ca40faa903ea29a",
+      "classifications": {
+        "record": 13,
+        "alert": 1,
+        "unknown": 4,
+        "blocked": 1
+      }
+    },
+    "browser": {
+      "rows": 6,
+      "actions": 2,
+      "head_sha256": "20ce8ee21730383f5e7d0b6039a8f28f0d7dde06954e7fb0be8d40c5f2ccc071",
+      "classifications": {
+        "unknown": 2
+      }
+    }
+  },
+  "negative_fixture_removed_from_app": true,
+  "negative_fixture_preserved": true,
+  "preserved_files": 127,
+  "bundles": {
+    "010_archive": {
+      "files": 90,
+      "all_matched": true,
+      "strict_signature": true
+    },
+    "011_archive": {
+      "files": 91,
+      "all_matched": true,
+      "strict_signature": true
+    },
+    "012_archive": {
+      "files": 91,
+      "all_matched": true,
+      "strict_signature": true
+    },
+    "012_fixed": {
+      "files": 91,
+      "all_matched": true,
+      "strict_signature": true
+    }
+  },
+  "base_ci": {
+    "head": "f3301fe73799421c19c3ae2955794befa92075ca",
+    "run_id": 34944610415,
+    "passed_jobs": 13
+  },
+  "tests": {
+    "desktop_passed": 128,
+    "desktop_ignored": 11,
+    "execution_ui_passed": 18,
+    "native_host_export_passed": 1,
+    "workspace_ui_passed": 124,
+    "repository_invariants_passed": 23,
+    "root_fmt": "passed"
+  },
+  "cua_evidence_groups": 14,
+  "limitations": [
+    "native_accessibility_tree_omits_some_visible_controls_root_cause_unconfirmed",
+    "hash_chain_not_signature_attribution_or_admin_rewrite_proof",
+    "business_effects_not_reverified",
+    "historical_readback_not_new_agent_task_execution",
+    "M1_full_matrix_not_rerun_on_012",
+    "knowledge_stages_unknown_and_scenarios_not_run",
+    "organization_signature_not_notarized_release"
+  ],
+  "f13": "deferred_unverified",
+  "whole_plan_complete": false,
+  "release": "no_go",
+  "status": "completed_for_original_workspace_functional_scope",
+  "native_checks": [
+    "knowledge_18_techniques_7_unknown_stages",
+    "case_rule_coverage_scenario_references",
+    "rule_search_2_of_18",
+    "real_owned_session_selection",
+    "blocked_1_with_decision_and_refused_terminal",
+    "alert_1_without_terminal",
+    "unknown_gateway_4_browser_2",
+    "record_13_business_unverified",
+    "corrupt_channel_unavailable_other_channel_verified",
+    "process_exit_and_fresh_pid_restart",
+    "fixture_removed_refresh_recovers"
+  ],
+  "native_restart": {
+    "old_pid": 27476,
+    "old_exited": true,
+    "new_pid": 28313,
+    "new_pid_verified": true
+  },
+  "preserved_failures": [
+    "011_and_012_native_AX_tree_missing_controls",
+    "paste_tool_timeout_actual_text_was_present",
+    "host_export_wrong_filter_zero_tests",
+    "verifier_first_attempt_included_out_of_scope_model_database"
+  ],
+  "artifacts": {
+    "independent-native-verification.json": "2991e1f27f7a50db5c295edbb280fbdd5a8ef1536ff2a8b4dd6048ab3379c641",
+    "native-cua/index.json": "59276e91a4bba0c36b82cf43678ef6814c2a837a55f3c6a2ce79ee78703b1c85",
+    "native-history-before.json": "f3ba1ca32c5f8282f2e1d4d5fa906d21ff0b3590d1fee2429fd42cdb04cbd8b4",
+    "native-history-after.json": "cb733aba177e8806860f1dca1331b81b657e5f27678461533c3f598dcd740666",
+    "native-history-receipt.json": "07d561d4594750593e7fa83a0cc828a9134dedd6a668a7d06de18fb19a8a5756",
+    "desktop-12.log": "67f2febfecc619f75efdb3462688006ba4e53a06559fa97bd1c15e6535b7c62a",
+    "workspace-ui.log": "a95bf5ee63d275a76edef9e7faf8a12c4961610980a6a1b02e2db5026c8dac14",
+    "invariants-12.log": "8f7327137588cc5a3de50ae026dc57d5774c99033f2048574c6e8e5d33f80405",
+    "fmt.log": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907",
+    "native-history-export-02.log": "51c73ac0694350975184feb30145cf66bfe511ffde28eb96b991de206c09bb2a",
+    "candidate-12/build-report.json": "b3b5423e5befdd9207bcd4cbfec641fc8e197f89b05539a3f910c391112337d6",
+    "candidate-12/source-manifest.json": "280af93495a03d4510d1ec46bf18734e21f7683e5d7d16a7288d88b802d3d188"
+  },
+  "knowledge_catalog_sha256": "7c3c1afccdb65cba984d86f92cfe6176fc4fe07355d7604b73c54fd127fcbe9b"
+}

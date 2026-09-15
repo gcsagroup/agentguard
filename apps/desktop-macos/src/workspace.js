@@ -219,7 +219,11 @@ export function initializeWorkspace(backendInvoke) {
     const controlled = byId("activity-mode").value === "execution";
     byId("activity-observation").hidden = controlled;
     byId("activity-execution").hidden = !controlled;
-    if (controlled) execution.load();
+    if (controlled) {
+      // 切换来源后让原生读屏进入新区域，避免仍停在已隐藏的观察记录中。
+      byId("activity-execution").focus();
+      execution.load();
+    }
   };
   setTab("observation");
   renderRecent([]);

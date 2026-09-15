@@ -48,6 +48,7 @@ try{
  await page.goto(`http://127.0.0.1:${server.address().port}`);
  await page.locator('.sidebar [data-route="activity"]').click();await page.locator('#activity-mode').selectOption('execution');
  await page.locator('.execution-action').first().waitFor();
+ check('切换记录来源后读屏焦点进入已命名的受控区域',await page.getByRole('region',{name:'本应用的受控任务',exact:true}).count()===1&&await page.evaluate(()=>document.activeElement?.id==='activity-execution'));
  const normalActions=normal.view.channels.flatMap(c=>c.log.actions);
  check('实际宿主输出的两通道动作完整进入记录页',await page.locator('.execution-channel').count()===2&&await page.locator('.execution-action').count()===normalActions.length);
  await page.locator('#execution-outcome').selectOption('blocked');

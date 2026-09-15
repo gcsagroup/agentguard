@@ -1,0 +1,17 @@
+{
+  "productName": "AgentGuard Local Agent Test",
+  "version": "2.0.0-dev.12",
+  "identifier": "com.agentguard.desktop.macos.localagenttest",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "AgentGuard Local Agent Test",
+        "width": 1180,
+        "height": 820,
+        "minWidth": 680,
+        "minHeight": 540
+      }
+    ]
+  }
+}

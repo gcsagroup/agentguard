@@ -146,13 +146,13 @@
           <h1 id="activity-title" tabindex="-1" data-ui="activity"></h1>
           <label class="setting-row"><strong data-ui="executionRecordSource"></strong><select id="activity-mode"><option value="observation" data-ui="desktopObservation"></option><option value="execution" data-ui="executionOwnedTasks"></option></select></label>
           <div id="activity-observation"><p class="lead" data-ui="activityScope"></p><label class="setting-row"><strong data-ui="filterSource"></strong><select id="activity-source"><option value="" data-ui="allSources"></option></select></label><label class="setting-row"><strong data-ui="activityOutcome"></strong><select id="activity-outcome"><option value="all" data-ui="outcome_all"></option><option value="alert" data-ui="outcome_alert"></option><option value="blocked" data-ui="outcome_blocked"></option><option value="unknown" data-ui="outcome_unknown"></option><option value="record" data-ui="outcome_record"></option></select></label><p class="boundary" data-ui="activityOutcomeBoundary"></p><div id="activity-slot"></div></div>
-          <div id="activity-execution" hidden>
+          <section id="activity-execution" role="region" data-ui-aria="executionOwnedTasks" tabindex="-1" hidden>
             <p class="lead" data-ui="executionScope"></p>
             <label class="setting-row"><strong data-ui="executionSession"></strong><select id="execution-session"></select></label>
             <label class="setting-row"><strong data-ui="activityOutcome"></strong><select id="execution-outcome"><option value="all" data-ui="outcome_all"></option><option value="blocked" data-ui="executionCategory_blocked"></option><option value="alert" data-ui="executionCategory_alert"></option><option value="unknown" data-ui="executionCategory_unknown"></option><option value="record" data-ui="executionCategory_record"></option></select></label>
             <button id="execution-refresh" class="secondary" data-ui="executionRefresh"></button><p id="execution-status" role="status"></p>
             <p class="boundary" data-ui="executionTrustBoundary"></p><div id="execution-records"></div>
-          </div>
+          </section>
         </section>
         <section data-page="knowledge" aria-labelledby="knowledge-title" hidden>
           <h1 id="knowledge-title" tabindex="-1" data-ui="knowledge"></h1><p class="lead" data-ui="knowledgeLead"></p>
