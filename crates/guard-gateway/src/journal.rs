@@ -11,6 +11,10 @@ use std::cell::Cell;
 use std::fs::File;
 use std::path::Path;
 
+#[path = "shared_journal.rs"]
+mod shared;
+pub use shared::SharedJournal;
+
 pub struct ExecutionJournal {
     store: AuditStore,
     _lock: File,
@@ -99,6 +103,15 @@ fn audit_rule_id(id: &str) -> String {
 
 impl ExecutionJournal {
     pub fn open(path: &Path) -> Result<Self> {
+        Self::open_impl(path, true)
+    }
+
+    /// 旧来源库只读留存；未知执行记录也不能触发恢复写入。首次使用才创建空库。
+    pub(crate) fn open_source_archive(path: &Path) -> Result<Self> {
+        Self::open_impl(path, false)
+    }
+
+    fn open_impl(path: &Path, recover_execution: bool) -> Result<Self> {
         let parent = path.parent().context("审计数据库缺少父目录")?;
         std::fs::create_dir_all(parent)?;
         let mut options = std::fs::OpenOptions::new();
@@ -120,8 +133,13 @@ impl ExecutionJournal {
         }
         #[cfg(not(unix))]
         bail!("当前网关执行日志锁尚未验证该宿主平台");
-        let store = AuditStore::open_runtime(path, None)?;
-        store.enforce_durable_writes()?;
+        let store = if recover_execution || !path.exists() {
+            let store = AuditStore::open_runtime(path, None)?;
+            store.enforce_durable_writes()?;
+            store
+        } else {
+            AuditStore::open_read_only_with_key(path, None)?
+        };
         let chain = store.verify_chain()?;
         if !chain.ok {
             bail!("审计链校验失败，禁止继续执行");
@@ -132,6 +150,9 @@ impl ExecutionJournal {
             healthy: Cell::new(true),
             recovered_unknown: 0,
         };
+        if !recover_execution {
+            return Ok(journal);
+        }
         let unfinished = journal.store.unfinished_gateway_actions()?;
         for record in unfinished {
             let mut summary: Value =
@@ -174,6 +195,7 @@ impl ExecutionJournal {
                         "source/{}",
                         sha256(event.source.source_id.as_str().as_bytes())
                     )
+                    || row.timestamp_ms != event.observed_at_ms
                 {
                     bail!("来源事件标识与元数据不一致");
                 }
@@ -225,8 +247,12 @@ impl ExecutionJournal {
 
     /// 仅采集器调用：来源 ID、解析器及未知原因必须先经过宿主固定词表检查。
     pub(crate) fn source_observed(&self, event: &SourceObservedEvent) -> Result<()> {
+        self.append(&Self::source_record(event)?)
+    }
+
+    fn source_record(event: &SourceObservedEvent) -> Result<AuditRecord> {
         event.validate()?;
-        self.append(&AuditRecord {
+        Ok(AuditRecord {
             id: format!(
                 "source/{}",
                 sha256(event.source.source_id.as_str().as_bytes())
@@ -500,14 +526,14 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
-    fn temp_dir() -> std::path::PathBuf {
+    pub(super) fn temp_dir() -> std::path::PathBuf {
         let mut bytes = [0u8; 16];
         rand::rngs::OsRng.fill_bytes(&mut bytes);
         let root = std::env::temp_dir().join(format!("agd-journal-{}", sha256(&bytes)));
         std::fs::create_dir(&root).unwrap();
         root
     }
-    fn action() -> ActionSnapshot {
+    pub(super) fn action() -> ActionSnapshot {
         let id = |s| ValidatedId::new(s).unwrap();
         ActionSnapshot::new(ActionSpec {
             contract_version: EXECUTION_CONTRACT_VERSION,

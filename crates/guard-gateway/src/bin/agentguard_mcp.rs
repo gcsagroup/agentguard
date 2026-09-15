@@ -272,9 +272,18 @@ fn main() -> anyhow::Result<()> {
     let journal = audit_path
         .as_deref()
         .map(guard_gateway::journal::ExecutionJournal::open)
-        .transpose()?;
+        .transpose()?
+        .map(guard_gateway::journal::SharedJournal::from);
     let sources = std::sync::Arc::new(std::sync::Mutex::new(match source_path {
-        Some(path) => guard_gateway::provenance::SourceCollector::open(&path)?,
+        Some(path) => match &journal {
+            Some(journal) => {
+                guard_gateway::provenance::SourceCollector::open_with_execution_journal(
+                    &path,
+                    journal.clone(),
+                )?
+            }
+            None => guard_gateway::provenance::SourceCollector::open(&path)?,
+        },
         None => guard_gateway::provenance::SourceCollector::default(),
     }));
     let registry = std::sync::Arc::new(std::sync::Mutex::new(match registry_path {
@@ -344,7 +353,7 @@ fn main() -> anyhow::Result<()> {
         server = server.with_isolation(executor);
     }
     if let Some(journal) = journal {
-        server = server.with_journal(journal);
+        server = server.with_shared_journal(journal);
     }
     if let Some(config) = rule_config {
         server = server.with_rule_packages(config.open()?)?;

@@ -21,7 +21,7 @@ impl Server {
             "不能重复配置服务"
         );
         ensure!(
-            self.journal.as_ref().is_some_and(ExecutionJournal::healthy),
+            self.journal.as_ref().is_some_and(SharedJournal::healthy),
             "第三方服务需要持久执行审计"
         );
         let isolation = self
@@ -143,7 +143,7 @@ struct ProxyHost<'a> {
     pending: &'a PendingConfirm,
     registry: &'a crate::tool_registry::SharedRegistry,
     sources: &'a SharedSources,
-    journal: &'a ExecutionJournal,
+    journal: &'a SharedJournal,
     recovery: &'a mut RecoveryLog,
     journal_failed: &'a mut bool,
     isolation: &'a DockerExecutor,
@@ -410,7 +410,7 @@ impl ProxyHost<'_> {
 pub(super) struct ProxyCompletion<'a> {
     pub pending: &'a PendingConfirm,
     pub sources: &'a SharedSources,
-    pub journal: &'a ExecutionJournal,
+    pub journal: &'a SharedJournal,
     pub journal_failed: &'a mut bool,
 }
 impl ProxyCompletion<'_> {

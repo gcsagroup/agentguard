@@ -43,7 +43,7 @@ struct RemoteHost<'a> {
     pending: &'a PendingConfirm,
     registry: &'a crate::tool_registry::SharedRegistry,
     sources: &'a SharedSources,
-    journal: &'a ExecutionJournal,
+    journal: &'a SharedJournal,
     journal_failed: &'a mut bool,
     confirm_timeout: Duration,
     session: &'a str,

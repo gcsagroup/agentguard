@@ -100,3 +100,47 @@ fn 显式只读打开缺失数据库不会创建文件() {
     assert!(AuditStore::open_read_only_with_key(&path, None).is_err());
     assert!(!path.exists());
 }
+
+#[test]
+fn 来源迁移快照保留旧恢复容量而界面上限不变() {
+    let store = AuditStore::open_in_memory().unwrap();
+    let mut source = record("source");
+    source.event_type = "GatewaySourceObserved".into();
+    source.event_json = "a".repeat(16 * 1024 * 1024);
+    store.append(&source).unwrap();
+    assert!(store.verified_snapshot().is_err());
+    let view = store.verified_source_snapshot().unwrap();
+    assert_eq!(view.records().len(), 1);
+    assert_eq!(view.records()[0].event_json, source.event_json);
+    store.append(&record("unknown")).unwrap();
+    assert!(
+        store.verified_source_snapshot().is_err(),
+        "不允许忽略其它事件"
+    );
+    let store = AuditStore::open_in_memory().unwrap();
+    store.conn.execute("WITH RECURSIVE rows(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM rows WHERE n<4097) INSERT INTO audit_events(id,timestamp_ms,event_type) SELECT cast(n AS TEXT),1,'GatewaySourceObserved' FROM rows", []).unwrap();
+    assert!(store
+        .verified_source_snapshot()
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("超限"));
+}
+
+#[test]
+fn 批量最后记录失败时整批回滚且后续可重试() {
+    let store = AuditStore::open_in_memory().unwrap();
+    store.append(&record("existing")).unwrap();
+    store.conn.execute_batch("CREATE TRIGGER fail_binding BEFORE INSERT ON audit_events WHEN NEW.id='binding' BEGIN SELECT RAISE(ABORT,'migration failure'); END;").unwrap();
+    let batch = [record("source-1"), record("source-2"), record("binding")];
+    assert!(store.append_batch(&batch).is_err());
+    let view = store.verified_snapshot().unwrap();
+    assert_eq!(view.records().len(), 1);
+    assert_eq!(view.records()[0].id, "existing");
+    store
+        .conn
+        .execute_batch("DROP TRIGGER fail_binding")
+        .unwrap();
+    store.append_batch(&batch).unwrap();
+    assert_eq!(store.verified_snapshot().unwrap().records().len(), 4);
+}

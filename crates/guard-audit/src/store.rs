@@ -477,6 +477,29 @@ impl AuditStore {
         if count > MAX_ROWS || bytes > MAX_BYTES {
             bail!("执行证据快照超过读取上限，不能用截断记录证明完整性");
         }
+        let snapshot = self.collect_verified_snapshot(count)?;
+        transaction.commit()?;
+        Ok(snapshot)
+    }
+
+    /// 迁移旧来源库使用原有的 4096 条恢复上限；不套用界面快照的 16 MiB 上限。
+    /// 调用方仍须验证来源对象、父引用与敏感度，不能把完整哈希链当作类型校验。
+    pub fn verified_source_snapshot(&self) -> Result<crate::VerifiedAuditSnapshot> {
+        let transaction = self.conn.unchecked_transaction()?;
+        let (count, sources): (i64, i64) = self.conn.query_row(
+            "SELECT count(*),count(CASE WHEN event_type='GatewaySourceObserved' THEN 1 END) FROM audit_events",
+            [], |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        anyhow::ensure!(
+            count <= 4096 && count == sources,
+            "旧来源库超限或含未知事件，禁止部分迁移"
+        );
+        let snapshot = self.collect_verified_snapshot(count)?;
+        transaction.commit()?;
+        Ok(snapshot)
+    }
+
+    fn collect_verified_snapshot(&self, count: i64) -> Result<crate::VerifiedAuditSnapshot> {
         let chain = self.verify_chain()?;
         if !chain.ok || chain.total != count as usize || chain.verified != count as usize {
             bail!("执行证据哈希链不完整");
@@ -484,7 +507,6 @@ impl AuditStore {
         let mut records = self.list_recent(count as usize)?;
         records.reverse();
         let head_sha256 = self.last_hash()?;
-        transaction.commit()?;
         Ok(crate::VerifiedAuditSnapshot {
             records,
             head_sha256,
@@ -966,14 +988,24 @@ impl AuditStore {
     /// 两条相邻记录共享一次持久提交；第二条失败时，第一条和链序号也全部回滚。
     /// 调用方仍须在提交成功后才执行外部动作，不能用此接口延后执行前审计。
     pub fn append_pair(&self, first: &AuditRecord, second: &AuditRecord) -> Result<()> {
+        self.append_records([first, second])
+    }
+
+    /// 已校验的历史记录和迁移绑定共享一次事务，不留下半批导入。
+    pub fn append_batch(&self, records: &[AuditRecord]) -> Result<()> {
+        self.append_records(records)
+    }
+
+    fn append_records<'a>(&self, records: impl IntoIterator<Item = &'a AuditRecord>) -> Result<()> {
         let tx = rusqlite::Transaction::new_unchecked(
             &self.conn,
             rusqlite::TransactionBehavior::Immediate,
         )
-        .context("begin paired audit append transaction")?;
-        self.append_in_tx(first)?;
-        self.append_in_tx(second)?;
-        tx.commit().context("commit paired audit append")?;
+        .context("开始审计批量事务")?;
+        for record in records {
+            self.append_in_tx(record)?;
+        }
+        tx.commit().context("提交审计批量事务")?;
         Ok(())
     }
 
@@ -1564,6 +1596,19 @@ impl AuditStore {
         let records = statement.query_map(params![limit as i64], map_record_row)?;
         records
             .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(Into::into)
+    }
+
+    /// 按稳定宿主 ID 读取一条记录；不会为读取迁移或重建审计链。
+    pub fn record_by_id(&self, id: &str) -> Result<Option<AuditRecord>> {
+        let cols = self.record_cols()?;
+        self.conn
+            .query_row(
+                &format!("SELECT {cols} FROM audit_events WHERE id = ?1"),
+                params![id],
+                map_record_row,
+            )
+            .optional()
             .map_err(Into::into)
     }
 

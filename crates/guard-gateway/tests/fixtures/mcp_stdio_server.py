@@ -17,6 +17,11 @@ def stall():
     time.sleep(60)
 
 
+if mode == "boot-delayed":
+    time.sleep(3.2)
+with open(record + ".ready", "x", encoding="utf-8") as ready:
+    ready.write("synthetic-fixture-ready\n")
+
 for line in sys.stdin:
     request = json.loads(line)
     method = request["method"]

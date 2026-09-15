@@ -6,7 +6,7 @@ use crate::confirm::{Answer, ConfirmRequest, PendingConfirm};
 use crate::exec::{ExecOutput, ExecutionMode, ToolCall};
 use crate::gate::{Gate, Outcome, ENFORCEMENT};
 use crate::isolation::DockerExecutor;
-use crate::journal::ExecutionJournal;
+use crate::journal::{ExecutionJournal, SharedJournal};
 use crate::mcp;
 use crate::provenance::{SharedSources, SourceCollector};
 use guard_schema::{
@@ -36,8 +36,9 @@ pub struct Server {
     confirm_timeout: Duration,
     execution_mode: ExecutionMode,
     isolation: Option<DockerExecutor>,
-    journal: Option<ExecutionJournal>,
+    journal: Option<SharedJournal>,
     journal_failed: bool,
+    terminal_recorded: bool,
     sources: SharedSources,
     registry: crate::tool_registry::SharedRegistry,
     last_output_source: Option<guard_schema::SourceObject>,
@@ -132,6 +133,7 @@ impl Server {
             isolation: None,
             journal: None,
             journal_failed: false,
+            terminal_recorded: false,
             sources: Arc::new(Mutex::new(SourceCollector::default())),
             registry: Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
                 ExecutionMode::host(),
@@ -173,6 +175,7 @@ impl Server {
             isolation: None,
             journal: None,
             journal_failed: false,
+            terminal_recorded: false,
             sources: Arc::new(Mutex::new(SourceCollector::default())),
             registry: Arc::new(Mutex::new(crate::tool_registry::ToolRegistry::builtins(
                 execution_mode,
@@ -282,7 +285,11 @@ impl Server {
             .unwrap_or(true)
     }
 
-    pub fn with_journal(mut self, journal: ExecutionJournal) -> Self {
+    pub fn with_journal(self, journal: ExecutionJournal) -> Self {
+        self.with_shared_journal(journal.into())
+    }
+
+    pub fn with_shared_journal(mut self, journal: SharedJournal) -> Self {
         self.journal = Some(journal);
         self
     }
@@ -306,8 +313,7 @@ impl Server {
             "规则包必须在浏览器启用前配置一次"
         );
         anyhow::ensure!(
-            self.isolation.is_some()
-                && self.journal.as_ref().is_some_and(ExecutionJournal::healthy),
+            self.isolation.is_some() && self.journal.as_ref().is_some_and(SharedJournal::healthy),
             "动态规则包需要隔离后端及持久审计"
         );
         self.rule_policy = Some(crate::rule_policy::RuntimePolicy::new(
@@ -525,7 +531,7 @@ impl Server {
                     "browser": self.browser.as_ref().map(|b| b.host().status()),
                     "confirm_protocol": 2,
                     "required_mcp_session_binding": self.require_session_binding,
-                    "execution_journal": self.journal.as_ref().map(ExecutionJournal::status).unwrap_or_else(|| json!({"persistent":false})),
+                    "execution_journal": self.journal.as_ref().map(SharedJournal::status).unwrap_or_else(|| json!({"persistent":false})),
                     "audit_write_failed": self.journal_failed,
                     "execution_backend": self.isolation.as_ref().map(DockerExecutor::status).unwrap_or_else(|| json!({
                         "mode": "native_cooperative", "isolation": false,
@@ -705,6 +711,7 @@ impl Server {
     /// 只断言前者，就还是那种"机制存在、被直接测过、什么都没接上"的缺陷。
     pub fn gate_and_run(&mut self, call: ToolCall, action: ShellAction) -> Handled {
         self.last_output_source = None;
+        self.terminal_recorded = false;
         if let Err(error) = self.refresh_rule_policy() {
             self.refused += 1;
             return Handled::Refused {
@@ -758,7 +765,7 @@ impl Server {
             }
         }
         // 判决或开始记录失败时，内层已锁存禁止执行；不以第二次写失败掩盖原始原因。
-        if self.journal_failed {
+        if self.journal_failed || self.terminal_recorded {
             return handled;
         }
         if let Some(journal) = &self.journal {
@@ -1002,6 +1009,22 @@ impl Server {
             call.execute_with_mode_and_cancel(self.execution_mode, &|| self.pending.is_cancelled())
         };
         self.executed += u64::from(output.dispatched);
+        // 来源摘要保持对原始返回内容的绑定；终态摘要覆盖真正返回给客户端的完整文本。
+        let observed_content = output.detail.clone();
+        let alerts: Vec<_> = findings
+            .iter()
+            .filter(|f| matches!(f.severity.as_str(), "high" | "critical" | "medium"))
+            .cloned()
+            .collect();
+        let suffix = if alerts.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "\n\n--- 守卫发现（已执行）---\n{}",
+                render(&alerts, consumed_binding.is_some())
+            )
+        };
+        output.detail.push_str(&suffix);
         if output.dispatched {
             let capture = output.capture.take();
             let file_read = output.ok
@@ -1009,35 +1032,56 @@ impl Server {
                     call,
                     ToolCall::ReadFile { .. } | ToolCall::SearchFile { .. }
                 );
-            let source = self
-                .sources
-                .lock()
-                .map_err(|_| anyhow::anyhow!("来源锁已失效"))
-                .and_then(|mut sources| match capture {
-                    Some(capture) => sources.captured_output(
-                        &capture,
-                        &output.detail,
-                        if file_read {
-                            guard_schema::SourceEntryPoint::FileRead
+            let mut paired = false;
+            let source =
+                self.sources
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("来源锁已失效"))
+                    .and_then(|mut sources| {
+                        let event = match capture {
+                            Some(capture) => sources.prepare_captured_output(
+                                &capture,
+                                &observed_content,
+                                if file_read {
+                                    guard_schema::SourceEntryPoint::FileRead
+                                } else {
+                                    guard_schema::SourceEntryPoint::ToolOutput
+                                },
+                                !output.truncated,
+                            ),
+                            None if file_read => sources
+                                .prepare_unknown(crate::provenance::MissingSource::NotObserved),
+                            None => sources.prepare_captured_output(
+                                &crate::content::RawCapture::single(
+                                    guard_schema::ContentViewOrigin::ToolText,
+                                    observed_content.as_bytes(),
+                                    !output.truncated,
+                                ),
+                                &observed_content,
+                                guard_schema::SourceEntryPoint::ToolOutput,
+                                !output.truncated,
+                            ),
+                        }?;
+                        if let Some(journal) = self
+                            .journal
+                            .as_ref()
+                            .filter(|journal| sources.shares_journal(journal))
+                        {
+                            let source = sources.commit_prepared(event, |event| {
+                                journal.finished_with_source(
+                                    snapshot,
+                                    approval_id.as_deref(),
+                                    &output,
+                                    event,
+                                )
+                            })?;
+                            paired = true;
+                            Ok(source)
                         } else {
-                            guard_schema::SourceEntryPoint::ToolOutput
-                        },
-                        !output.truncated,
-                    ),
-                    None if file_read => {
-                        sources.unknown(crate::provenance::MissingSource::NotObserved)
-                    }
-                    None => sources.captured_output(
-                        &crate::content::RawCapture::single(
-                            guard_schema::ContentViewOrigin::ToolText,
-                            output.detail.as_bytes(),
-                            !output.truncated,
-                        ),
-                        &output.detail,
-                        guard_schema::SourceEntryPoint::ToolOutput,
-                        !output.truncated,
-                    ),
-                });
+                            sources.record_prepared(event)
+                        }
+                    });
+            self.terminal_recorded = paired;
             match source {
                 Ok(source) => self.last_output_source = Some(source),
                 Err(error) => {
@@ -1045,32 +1089,20 @@ impl Server {
                         sources.fault();
                     }
                     self.pending.pause();
+                    if self
+                        .journal
+                        .as_ref()
+                        .is_some_and(|journal| !journal.healthy())
+                    {
+                        self.journal_failed = true;
+                    }
                     output.ok = false;
                     output.outcome = ExecutionOutcome::Unknown;
-                    output.detail = format!("工具已经返回，但来源无法持久保存；结果记为未知，已暂停会话，不自动重试：{error}");
+                    output.detail = format!("工具已经返回，但来源或终态无法持久保存；结果记为未知，已暂停会话，不自动重试：{error}{suffix}");
                 }
             }
         }
-        // Alert 的判据要跟着结果回去，让智能体自己看到——告警的语义是"这值得知道"，
-        // 把它藏起来就只剩下日志里的一行。
-        let alerts: Vec<_> = findings
-            .iter()
-            .filter(|f| matches!(f.severity.as_str(), "high" | "critical" | "medium"))
-            .cloned()
-            .collect();
-        if alerts.is_empty() {
-            return Handled::Executed { output };
-        }
-        Handled::Executed {
-            output: ExecOutput {
-                detail: format!(
-                    "{}\n\n--- 守卫发现（已执行）---\n{}",
-                    output.detail,
-                    render(&alerts, consumed_binding.is_some())
-                ),
-                ..output
-            },
-        }
+        Handled::Executed { output }
     }
 
     fn action_snapshot(&self, call: &ToolCall) -> anyhow::Result<ActionSnapshot> {

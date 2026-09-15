@@ -1,6 +1,6 @@
 //! 可信读取入口的来源采集器。没有接受 Agent 自报标签的 MCP 写入口。
 //! 持久模式先验证已有审计链，再恢复有界来源图；只保存宿主 ID、摘要和固定版本标识。
-use crate::journal::ExecutionJournal;
+use crate::journal::{ExecutionJournal, SharedJournal};
 use anyhow::{ensure, Result};
 use guard_schema::{
     Sha256Digest, SourceEntryPoint, SourceObject, SourceObservation, SourceObservedEvent,
@@ -49,6 +49,7 @@ pub struct SourceCollector {
     sources: HashMap<ValidatedId, SourceObject>,
     latest: Option<ValidatedId>,
     journal: Option<ExecutionJournal>,
+    shared_journal: Option<SharedJournal>,
     faulted: bool,
 }
 
@@ -56,6 +57,30 @@ impl SourceCollector {
     pub fn open(path: &Path) -> Result<Self> {
         let journal = ExecutionJournal::open(path)?;
         let events = journal.source_events()?;
+        let mut collector = Self::from_events(&events)?;
+        collector.journal = Some(journal);
+        Ok(collector)
+    }
+
+    pub fn open_with_execution_journal(path: &Path, journal: SharedJournal) -> Result<Self> {
+        ensure!(
+            !journal.has_source_binding()? || path.is_file(),
+            "已绑定的旧来源库缺失，不能创建空库代替"
+        );
+        let legacy = ExecutionJournal::open_source_archive(path)?;
+        let events = journal.import_sources(&legacy)?;
+        let mut collector = Self::from_events(&events)?;
+        // 继续持有旧库的独占锁，旧写入者不能在新会话运行期间追加旧来源。
+        collector.journal = Some(legacy);
+        collector.shared_journal = Some(journal);
+        Ok(collector)
+    }
+
+    pub(crate) fn validate_events(events: &[SourceObservedEvent]) -> Result<()> {
+        Self::from_events(events).map(|_| ())
+    }
+
+    fn from_events(events: &[SourceObservedEvent]) -> Result<Self> {
         ensure!(
             events.len() <= MAX_SOURCES,
             "来源日志超过恢复上限，不能省略旧标签"
@@ -67,14 +92,14 @@ impl SourceCollector {
             collector.latest = Some(event.source.source_id.clone());
             collector
                 .sources
-                .insert(event.source.source_id.clone(), event.source);
+                .insert(event.source.source_id.clone(), event.source.clone());
         }
-        collector.journal = Some(journal);
         Ok(collector)
     }
 
     pub fn status(&self) -> serde_json::Value {
-        serde_json::json!({"persistent":self.journal.is_some(), "healthy":self.healthy(),
+        serde_json::json!({"persistent":self.journal.is_some() || self.shared_journal.is_some(), "healthy":self.healthy(),
+            "storage":if self.shared_journal.is_some() { "execution_journal" } else if self.journal.is_some() { "source_journal" } else { "memory" },
             "sources":self.sources.len(), "max_sources":MAX_SOURCES, "instruction_authority":"none"})
     }
 
@@ -82,6 +107,16 @@ impl SourceCollector {
         !self.faulted
             && self.sources.len() < MAX_SOURCES
             && self.journal.as_ref().is_none_or(ExecutionJournal::healthy)
+            && self
+                .shared_journal
+                .as_ref()
+                .is_none_or(SharedJournal::healthy)
+    }
+
+    pub(crate) fn shares_journal(&self, journal: &SharedJournal) -> bool {
+        self.shared_journal
+            .as_ref()
+            .is_some_and(|own| own.same(journal))
     }
 
     pub fn latest(&self) -> Option<SourceObject> {
@@ -126,6 +161,27 @@ impl SourceCollector {
         entry: SourceEntryPoint,
         complete: bool,
     ) -> Result<SourceObject> {
+        let source = self.captured_source(capture, content, entry, complete)?;
+        self.record(source)
+    }
+
+    pub(crate) fn prepare_captured_output(
+        &self,
+        capture: &crate::content::RawCapture,
+        content: &str,
+        entry: SourceEntryPoint,
+        complete: bool,
+    ) -> Result<SourceObservedEvent> {
+        self.prepare_event(self.captured_source(capture, content, entry, complete)?)
+    }
+
+    fn captured_source(
+        &self,
+        capture: &crate::content::RawCapture,
+        content: &str,
+        entry: SourceEntryPoint,
+        complete: bool,
+    ) -> Result<SourceObject> {
         use guard_schema::{ContentViewOrigin as Origin, ContentViewState};
         let origins: &[Origin] = match entry {
             SourceEntryPoint::FileRead => &[Origin::FileBytes],
@@ -134,11 +190,11 @@ impl SourceCollector {
                 &[Origin::Stdout, Origin::Stderr]
             }
             SourceEntryPoint::ToolOutput => &[Origin::ToolText],
-            _ => return self.unknown(MissingSource::NotObserved),
+            _ => return Self::unknown_source(MissingSource::NotObserved),
         };
         let views = match capture.views(content, complete, origins) {
             Ok(views) => views,
-            Err(_) => return self.unknown(MissingSource::ParserFailed),
+            Err(_) => return Self::unknown_source(MissingSource::ParserFailed),
         };
         let mut sensitivity =
             if views.state == ContentViewState::Complete && views.verified_sensitive {
@@ -150,7 +206,7 @@ impl SourceCollector {
         for parent in &parents {
             sensitivity = sensitivity.constrain(self.sources[parent].sensitivity);
         }
-        self.record(SourceObject {
+        Ok(SourceObject {
             source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
             observation: SourceObservation::Observed {
                 entry,
@@ -225,31 +281,67 @@ impl SourceCollector {
         Ok(())
     }
 
-    fn record(&mut self, source: SourceObject) -> Result<SourceObject> {
+    fn prepare_event(&self, source: SourceObject) -> Result<SourceObservedEvent> {
         ensure!(
             !self.faulted,
             "来源持久化已失败，不能继续读取或降级为内存模式"
         );
         ensure!(self.sources.len() < MAX_SOURCES, "本次来源采集数量已达上限");
         self.validate_source(&source)?;
-        let event = SourceObservedEvent {
+        Ok(SourceObservedEvent {
             source_event_version: 1,
             observed_at_ms: SystemTime::now()
                 .duration_since(UNIX_EPOCH)?
                 .as_millis()
                 .min(i64::MAX as u128) as i64,
-            source: source.clone(),
+            source,
+        })
+    }
+
+    fn record(&mut self, source: SourceObject) -> Result<SourceObject> {
+        let event = self.prepare_event(source)?;
+        self.record_prepared(event)
+    }
+
+    pub(crate) fn record_prepared(&mut self, event: SourceObservedEvent) -> Result<SourceObject> {
+        ensure!(self.healthy(), "来源日志已失效或已达上限");
+        event.validate()?;
+        self.validate_source(&event.source)?;
+        let result = if let Some(journal) = &self.shared_journal {
+            journal.source_observed(&event)
+        } else if let Some(journal) = &self.journal {
+            journal.source_observed(&event)
+        } else {
+            Ok(())
         };
-        if let Some(journal) = &self.journal {
-            if let Err(error) = journal.source_observed(&event) {
-                self.faulted = true;
-                return Err(error);
-            }
+        if let Err(error) = result {
+            self.faulted = true;
+            return Err(error);
         }
+        Ok(self.publish(event.source))
+    }
+
+    /// 调用期间须一直持有采集器锁；持久提交成功后才将来源放入后续动作可见的图。
+    pub(crate) fn commit_prepared(
+        &mut self,
+        event: SourceObservedEvent,
+        persist: impl FnOnce(&SourceObservedEvent) -> Result<()>,
+    ) -> Result<SourceObject> {
+        ensure!(self.healthy(), "来源日志已失效或已达上限");
+        event.validate()?;
+        self.validate_source(&event.source)?;
+        if let Err(error) = persist(&event) {
+            self.faulted = true;
+            return Err(error);
+        }
+        Ok(self.publish(event.source))
+    }
+
+    fn publish(&mut self, source: SourceObject) -> SourceObject {
         self.latest = Some(source.source_id.clone());
         self.sources
             .insert(source.source_id.clone(), source.clone());
-        Ok(source)
+        source
     }
 
     /// 敏感度由可信入口的检测器／宿主配置给出，不能从工具参数或模型正文提取。
@@ -287,7 +379,15 @@ impl SourceCollector {
     }
 
     pub fn unknown(&mut self, reason: MissingSource) -> Result<SourceObject> {
-        self.record(SourceObject {
+        self.record(Self::unknown_source(reason)?)
+    }
+
+    pub(crate) fn prepare_unknown(&self, reason: MissingSource) -> Result<SourceObservedEvent> {
+        self.prepare_event(Self::unknown_source(reason)?)
+    }
+
+    fn unknown_source(reason: MissingSource) -> Result<SourceObject> {
+        Ok(SourceObject {
             content_views: None,
             source_id: ValidatedId::new(format!("source-{}", crate::browser_bridge::token()))?,
             observation: SourceObservation::Unknown {

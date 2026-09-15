@@ -1,0 +1,262 @@
+{
+  "date": "2026-09-15",
+  "task": "AGD-020",
+  "status": "in_progress",
+  "gateway_sha256": "6f1c631776e67d7fe87132ad965f292afa5e267ddb45ccd2ab3b5f0efdc2ebd5",
+  "base_commit": "83773ef169241d89e74e290e0c8bc312bab753ee",
+  "f13": "deferred_unverified",
+  "f14": "passed_docker_virtual_link_scope",
+  "app": "Ver 2.0 (012), unchanged",
+  "scope": "来源与终态共同提交和旧来源日志迁移的诊断网关；未构建或验收新 App",
+  "verification": {
+    "evidence_verified": true,
+    "performance_passed": false,
+    "passing_budgets": 5,
+    "raw_samples": 90,
+    "audit_cases": 7,
+    "audit_checks": 68,
+    "persisted_main_rows": 29,
+    "frozen_source_files": 1066,
+    "original_files_preserved": 127,
+    "each_app_files_preserved": 91,
+    "fixed_and_archive_codesign_passed": true,
+    "wrong_binary_digest_refused_before_artifacts": true
+  },
+  "performance": {
+    "at": "2026-09-15T12:04:36.224492+00:00",
+    "exit_code": 0,
+    "functional_reads_passed": true,
+    "passing_budgets": 5,
+    "total_budgets": 6,
+    "checks": [
+      {
+        "name": "native_read_p95_ms",
+        "actual": 12.979750000000024,
+        "max": 10,
+        "passed": false
+      },
+      {
+        "name": "native_startup_ms",
+        "actual": 62.910583999999986,
+        "max": 100,
+        "passed": true
+      },
+      {
+        "name": "native_sampled_gateway_peak_mib",
+        "actual": 17.828125,
+        "max": 32,
+        "passed": true
+      },
+      {
+        "name": "isolated_read_p95_ms",
+        "actual": 268.6371250000002,
+        "max": 500,
+        "passed": true
+      },
+      {
+        "name": "isolated_startup_ms",
+        "actual": 672.2262499999999,
+        "max": 2000,
+        "passed": true
+      },
+      {
+        "name": "isolated_sampled_gateway_peak_mib",
+        "actual": 18.03125,
+        "max": 32,
+        "passed": true
+      }
+    ],
+    "original_report": "/Users/lazy/Projects/agent-guard/eval/out/AGD-002/20260915T120426110Z-69446-benchmark/report.json",
+    "original_report_sha256": "eae4e5a122655e5c7e96a197ec684dcaa764e461e6a0830f0ecb5dd2e1d39203",
+    "original_budget": "/Users/lazy/Projects/agent-guard/.artifacts/m2-performance-2026-09-15/original-budget.json",
+    "running_containers_after": [],
+    "environment": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "release": "25.6.0",
+      "cpus": 18,
+      "cpuModel": "Apple M5 Max",
+      "totalMemoryMiB": 131072,
+      "node": "v22.23.2",
+      "loadAverageAtStart": [
+        4.51171875,
+        4.77490234375,
+        4.52978515625
+      ],
+      "docker": "\"29.5.3\"",
+      "loadAverageAtEnd": [
+        4.6728515625,
+        4.798828125,
+        4.54052734375
+      ]
+    },
+    "this_candidate_attempt": 1,
+    "vm_after_benchmark": {
+      "at": "2026-09-15T12:04:36.423372+00:00",
+      "preparation_elapsed_ms": 185.79900008626282,
+      "boot_id": "ef6570df-d4e6-4591-b953-38c75cdb4c96",
+      "uptime_seconds": 12.23
+    },
+    "same_vm_boot_across_benchmark": true,
+    "scope": "来源与执行终态共享持久事务 的网关诊断，尚未进入新 App；使用原预算与已运行 VM 比较",
+    "passed": false
+  },
+  "tests": {
+    "workspace_passed": 1447,
+    "workspace_ignored": 15,
+    "desktop_passed": 128,
+    "desktop_ignored": 11,
+    "docker_writeback_passed": 8,
+    "clippy_passed": true,
+    "dependency_check_passed": true,
+    "repository_invariants_passed": 23
+  },
+  "previous_ci": {
+    "run_id": 34963908023,
+    "conclusion": "failure",
+    "macos_workspace_failures": [
+      "MCP stdio initialize timeout: argument/request validation test",
+      "MCP stdio initialize timeout: unsupported version test"
+    ],
+    "specific_startup_cause": "unconfirmed",
+    "desktop_job": "success"
+  },
+  "artifacts": [
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/report.json",
+      "sha256": "ada616460a057405d9c46ef24a7de262d127e640c38b8904d53f41a03116d2c5"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/independent-verification.json",
+      "sha256": "9fa9c82aaaa5c44788255deecc60dcc8552a32dfc939f69855c2066d6a8389c2"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/performance-01/result.json",
+      "sha256": "986a7eae243867e7198c432456a6a5db4e094ec9920bb1ab14430a3107daeaa2"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/performance-01/before.json",
+      "sha256": "687362bd821a58d3cad6e3930c0b13396cc0ac1b765c7c7217ffc783957f56de"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/performance-01/original-budget.json",
+      "sha256": "421d9562991a7dd4ea6cd6935655720d922957b1377d7da4ec3dae451b2549cb"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/profile-01/report.json",
+      "sha256": "e898169ddbf9ef3ed8883741007a86605633a6250dd4891ec97e74619414042c"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/profile-01/reads.sample.txt",
+      "sha256": "7894e826683e4f6ddaa8e9ffc0d5da30381f5e7d755bd164011a785f8035382b"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/profile-01/startup.sample.txt",
+      "sha256": "4040112c2f4d81c5950ba1d780365b3509450ff30b39fd4822cab71ae133ceca"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-tests-02.log",
+      "sha256": "617f21f9e2bd171e25aaea2ef73b708679a8184c1a5c5aecb2cb311000d895e7"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01.log",
+      "sha256": "f67561208597c8958f388aa05343b79189d170bb05ccefa11d9793668fb7918c"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/clippy.log",
+      "sha256": "b7f0934d3a6447653237df84e12dd0c1002775842793962c70eb887f28c8fd21"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/desktop-tests-01.log",
+      "sha256": "7863143231cdbd8eb0fc1784b3819b47d7530a45030eac954e35e63ff68542e2"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/supply-root.log",
+      "sha256": "b0f6973bad7515570ce7891aa69ccdaba99b078ed7c31efefca6cccd3506991b"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/ci-macos-failure.log",
+      "sha256": "ccb48039c4b6bbdc2066f1d66f95880cc6ef52dfb5b02ed6a64c7cdee4abe694"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/diagnostic/6f1c631776e67d7fe87132ad965f292afa5e267ddb45ccd2ab3b5f0efdc2ebd5/source-hashes.json",
+      "sha256": "2aa7b8c7be46b1ee7b6ab9255e810046ce1daf593cc28492425a766097de77e9"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/diagnostic/6f1c631776e67d7fe87132ad965f292afa5e267ddb45ccd2ab3b5f0efdc2ebd5/implementation.patch",
+      "sha256": "1843591b00353e8b25a62a627067d6435a678e1821430f08d97e6c8d08bf72f1"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/finish-failure/result.json",
+      "sha256": "728b22e205249ad308d1f04fe5f1c6bca76ca2aa47a51b8f4abb926d15d2eb3a"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/legacy-migration/result.json",
+      "sha256": "bd1a925aa6848b38a2bd92d1d4177de63a3c813fc7e5d9fa4457629f273b9213"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/success/result.json",
+      "sha256": "8397c953fe4b0eb7006b3a12a337d823fe9148fa4b0f4a6f6bd38291212dc5b9"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/migration-binding-failure/result.json",
+      "sha256": "d501ae0482c47604860144b4d6f3654a3a3e0d29423f9620b6722f3c46e463b1"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/decision-failure/result.json",
+      "sha256": "255b8cb87ed77597816d2cfee60280f001e8fe47b8e62cd42625205648e24740"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/start-failure/result.json",
+      "sha256": "64b0b28096e3c27ee8de67020d58d2d2215f7190571d3b328f18522178b1487b"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/audit-faults-01/source-failure/result.json",
+      "sha256": "77415e48a7b11296fafb57c9e4bfe7b0878dd647816fb92d7af45696a285fe5b"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/audit-finish-failure.json",
+      "sha256": "5b6c0850f67dbaf4d4fd851f8978a953ff0a804ca421bb0fb38b8bc1a4583598"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/new-job-old-review-after-pause.json",
+      "sha256": "fac8497bce1e7dd4f30d05bf79c633ed10373e265f3fe5d12bb9e8a525c86bba"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/old-job-after-close.json",
+      "sha256": "fb1f3dbfbced41a9d283bf3e231faf56e4e29008f7350e188c29234dc84ca2cc"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/audit-start-failure.json",
+      "sha256": "f2a6e782ac6c455d528d39258feb468351a321307b21655367c4fcaff41a07aa"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/sensitive-target-denied.json",
+      "sha256": "2ce6ef65031cb11dc2af7edd55a5a8cb78656f3d36177e0c6afda574f5ce0db1"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/old-preview-after-pause.json",
+      "sha256": "c1a3632e9728e0d5c4dfcbb19eb8e7ab49e95e5edae038a5f969c376c9019bef"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/old-job-after-pause.json",
+      "sha256": "617d196835377556b3c3bac07753cbff33124a4ed8ea7feb257c2da5701cf597"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/workspace-faults-01/discard-bound-once.json",
+      "sha256": "cec256356ae53399ae87f28e9f2bb7a165bcca7c88dae847a3ca49c4f369b966"
+    },
+    {
+      "path": "eval/out/AGD-002/20260915T120426110Z-69446-benchmark/report.json",
+      "sha256": "eae4e5a122655e5c7e96a197ec684dcaa764e461e6a0830f0ecb5dd2e1d39203"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/repo-final.log",
+      "sha256": "a43d46dcf1d09133021c6616eadba31e15fdd4d7732f63ba704a49595a1a652e"
+    },
+    {
+      "path": ".artifacts/m2-shared-audit-2026-09-15/ci-baseline-final.json",
+      "sha256": "df3a330574ef7295a7d68116ecba29c14992bf525a6bb4e922987a0a386b984e"
+    }
+  ]
+}

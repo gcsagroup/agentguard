@@ -19,7 +19,7 @@ impl Fixture {
         if let Some(directory) = std::env::var_os("DEVELOPER_DIR") {
             command.env("DEVELOPER_DIR", directory);
         }
-        let child = command
+        let mut child = command
             .args(["-I", "-u"])
             .arg(concat!(
                 env!("CARGO_MANIFEST_DIR"),
@@ -32,6 +32,26 @@ impl Fixture {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
+        // 此夹具测协议与故障语义。解释器启动独立限时，不能把尚未进入主循环
+        // 的进程误判为不支持版本或协议超时；真实网关启动预算另有实机验收。
+        let launched = Instant::now();
+        let ready = root.join("calls.jsonl.ready");
+        while !ready.is_file() {
+            let exited = child.try_wait().unwrap();
+            if exited.is_some() || launched.elapsed() >= Duration::from_secs(10) {
+                let _ = child.kill();
+                let output = child.wait_with_output().unwrap();
+                std::fs::remove_dir_all(&root).unwrap();
+                panic!(
+                    "合成服务未就绪：mode={mode} elapsed={:?} status={} stderr={}",
+                    launched.elapsed(),
+                    output.status,
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        eprintln!("合成服务就绪：mode={mode} elapsed={:?}", launched.elapsed());
         Self {
             client: StdioClient::attach(child).unwrap(),
             root,
@@ -66,6 +86,13 @@ impl Drop for Fixture {
         self.client.close();
         std::fs::remove_dir_all(&self.root).unwrap();
     }
+}
+
+#[test]
+fn 解释器延迟就绪后仍须遵守原协议响应期限() {
+    let mut fixture = Fixture::ready("boot-delayed");
+    assert!(fixture.call().is_ok());
+    assert_eq!(fixture.calls(), 1);
 }
 
 #[test]

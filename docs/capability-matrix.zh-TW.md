@@ -22,13 +22,13 @@
 
 | 位置 | 條數 | 形態 |
 |---|---:|---|
-| crates/guard-audit | 108 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-audit | 110 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-billing | 18 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-cli | 93 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-core | 262 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-eval | 43 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-ffi | 1 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-gateway | 285 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-gateway | 292 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-intel | 60 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-localapi | 17 | Rust `#[test]` / `#[tokio::test]` |
@@ -47,7 +47,7 @@
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-macos/src-tauri | 140 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合計** | **1643** | |
+| **Rust 合計** | **1652** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari 延伸功能 node `test(` |
 | eval/e2e-extension/run.mjs | 39 | 真瀏覽器 E2E 判據 `record(` |

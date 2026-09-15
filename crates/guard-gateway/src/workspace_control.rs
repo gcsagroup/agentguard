@@ -98,7 +98,7 @@ impl Server {
                 "review_sha256":r.digest,"expires_at_ms":r.binding.expires_at_ms(),"workspace_id":r.workspace_id})),
             "last_result":self.last_workspace_result,
             "browser":self.browser.as_ref().map(|b|b.host().status()),
-            "audit":self.journal.as_ref().map(ExecutionJournal::status).unwrap_or(json!({"persistent":false})),
+            "audit":self.journal.as_ref().map(SharedJournal::status).unwrap_or(json!({"persistent":false})),
             "source_provenance":self.sources.lock().map(|sources| sources.status()).unwrap_or_else(|_| json!({"healthy":false})),
             "tool_registry":self.registry.lock().map(|r|r.status()).unwrap_or_else(|_|json!({"healthy":false})),
         })
