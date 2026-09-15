@@ -25,6 +25,8 @@ pub use signing::{
     message_fingerprint, AdapterVerifyKey, AuditSigner, AuditVerifyKey, FileDeviceKey, HeadWitness,
     KeyAlgorithm, SignatureVerifyReport,
 };
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+pub use store::memory::{MemoryApprovalReference, MemoryEntry, MemoryRecovery, MemoryStore};
 pub use store::recovery::{
     has_legacy_plaintext_audit, migrate_legacy_audit, resolve_recovered_audit, RecoveryReceipt,
 };

@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "task": "AGD-021",
+  "date": "2026-09-16",
+  "status": "completed",
+  "scope": "macOS arm64 可信宿主持久存储，批准为明确合成夹具。源码在 macOS/Linux 导出 API，其它平台尚不提供该接口。",
+  "requirement_evidence": [
+    {
+      "requirement": "正文及摘要、来源、标签、期限、版本、批准引用持久绑定",
+      "proof": [
+        "process-02/data/memory-pristine.db",
+        "process-02/operator/head.json",
+        "independent-02.json"
+      ],
+      "result": "两版全部字段、前驱和完整动作摘要独立核对通过"
+    },
+    {
+      "requirement": "重启后仍保持绑定",
+      "proof": [
+        "process-02/report.json",
+        "process-02.log",
+        "frozen-02/build-inputs.json"
+      ],
+      "result": "四个独立进程分别写入、读取、撤销和读取撤销后的状态；最终程序和 195 个构建输入冻结"
+    },
+    {
+      "requirement": "直接修改存储被拒绝或识别",
+      "proof": [
+        "process-02/data/memory.db",
+        "independent-02.json",
+        "tests-05.log"
+      ],
+      "result": "篡改撤销状态实际拒绝；改正文、改签名、改普通批准字段、重算链、删尾和搬库负例通过"
+    },
+    {
+      "requirement": "损坏或撤销内容不能被当可信内容使用",
+      "proof": [
+        "tests-05.log",
+        "sqlcipher-02.log"
+      ],
+      "result": "最新过期／隔离／撤销不回落旧版本；恢复不降低标签；真实事务与见证故障按结果未确认处理，无自动重放"
+    }
+  ],
+  "tests": {
+    "tests-05.log": {
+      "passed": 216,
+      "failed": 0,
+      "ignored": 2
+    },
+    "sqlcipher-02.log": {
+      "passed": 116,
+      "failed": 0,
+      "ignored": 2
+    },
+    "workspace-03.log": {
+      "passed": 1469,
+      "failed": 0,
+      "ignored": 16
+    }
+  },
+  "independent_verification": {
+    "passed": true,
+    "independent_processes": 4,
+    "signed_rows": 3,
+    "versions": 2,
+    "full_field_and_approval_bindings": 2,
+    "rewritten_revocation_signature_refused": true,
+    "source_files": 195,
+    "test_executable_sha256": "5b2cfa3a6846b05631af860144d28d5e91a62a2627981e6aab594f229549d327",
+    "scope": "仅合成宿主存储实操；不代表网关、RAG、原生人工批准或所有宿主"
+  },
+  "preservation": {
+    "at": "2026-09-15T17:10:55.879979+00:00",
+    "passed": true,
+    "preserved_original_files": 127,
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_version": "2.0.0-dev.15",
+    "app_build": "15",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "strict_signature": true,
+    "app_rebuilt": false
+  },
+  "limits": {
+    "content_bytes": 65536,
+    "draft_bytes": 262144,
+    "source_objects": 64,
+    "history_versions": 4096,
+    "record_bytes": 16777216,
+    "metadata_items": 64,
+    "metadata_bytes": 8192
+  },
+  "not_covered": [
+    "网关记忆读写与文档型 RAG（AGD-022）",
+    "原生记忆治理入口（AGD-026）",
+    "当前批次 Linux 实机证明、其它平台接口",
+    "生产用户批准与默认加密",
+    "已攻陷宿主账户或 root",
+    "完整原 M1：F13 暂缓未验收",
+    "完整计划与发布"
+  ],
+  "previous_ci": {
+    "commit": "269ab9e65cb0c20014912b8e5a8f439802f65a3e",
+    "run_id": 34996300374,
+    "jobs_passed": 13,
+    "jobs_total": 13,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/34996300374"
+  },
+  "artifacts": [
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/baseline.json",
+      "sha256": "63d58a1b275d2fca0d4567dfca8330fd5fbd19c0399e410e2eb9f60c0e58792a"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/preservation-01.json",
+      "sha256": "befed33fd75743f8fc26149cca9df78ea49f2d3fdefbb6bf46a1017af7fe15a9"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/base-ci-final.json",
+      "sha256": "e77c8cae4bf14e955aecaf51faf372836b10042c1c64ccb282354f48a3bcddf0"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/tests-05.log",
+      "sha256": "4ab925c526bea3474f8dc3c6e5a4833ef0a0f01399c2ea6df2904a96d27a3b73"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/sqlcipher-02.log",
+      "sha256": "e1267e57578678c90db3c3ce0e68762763b8eca2a88fc8efa4b3cf3cdc011a69"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/workspace-03.log",
+      "sha256": "8c2967868a3bf983870c31bf2b307023a7189c55dc2529da2c7b61f2d3c6defc"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/clippy-02.log",
+      "sha256": "7db588d8d4d4a1ff22a0c0b46a13ab6dbc05823c58c5a767e81c74401e749c7d"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/fmt-final.log",
+      "sha256": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/frozen-02/build-inputs.json",
+      "sha256": "be1587f7de93783b3c436f18b1533f7cb4db38bac145d447a5348656bf7f9669"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-02/report.json",
+      "sha256": "6ea1ae280a8aac8437912ad40de4cda52b9de72df08c9b8724e89ae3f69a70ed"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-02/data/memory-pristine.db",
+      "sha256": "a61d0e90b22b1cfc64ab82b97c508890f82725b64bc5c1a56e0f66fc3ff3b2ed"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-02/data/memory.db",
+      "sha256": "17847ca2e6c51ebd87ad6b64424946687a1aa0acf769351c7e5e5b6cb442d1a6"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-02/operator/head.json",
+      "sha256": "40f726316f6d2c2b5fadcfdabfb1bb97a42088372863000dd628e78ab4a671dc"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-02/operator/public.hex",
+      "sha256": "a9085fe373de51acf5d736d229350c37b405c9f31862be89dd69a8ff9aa6d459"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-02.log",
+      "sha256": "4f0f022f8c9936a74ecf4271fa7db0b394a4d996db39d1249ad54d18ddb1b941"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/independent-02.json",
+      "sha256": "3f695cdf42c0f5796db19cf3ba0526f543df5e53b9fcd8092e95f80cd2211008"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/verifier-negatives-01.json",
+      "sha256": "6a8abdfd1d4a1659f9bac39304074c60c50621a75e6c2be6c59e1f0ca57fe93e"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/check-01.log",
+      "sha256": "c87c0e36c15b6a7653c75df4b9af86c332377fef383f3ea5191cd9d5b5bee432"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/tests-01.log",
+      "sha256": "46f29c5c1836139fb53c156cb8188cd319953d06a58d849f6d30bd2192ba7a6a"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/workspace-01.log",
+      "sha256": "cacaa2558c40b238b82e7425ae8e31273f011ab2d7081bea310cb92454294117"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/metadata-before-01.log",
+      "sha256": "b8ce1621f7642c552dd25453f2461fdaf717d25ad42ccb8242b6c0c1f531e8e7"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/frozen/build-inputs.json",
+      "sha256": "1261bcce6ab608ad1e94966056d91353a2041360c0a54ca843435175c00fbd88"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/process-01/report.json",
+      "sha256": "b84521cfde6a3a189bff8ed3b7c4a2bb3d8cadaed6006bb1a712c0da7fad149b"
+    },
+    {
+      "path": ".artifacts/m3-memory-2026-09-16/independent-01.json",
+      "sha256": "b45ce9a1ef5f7052e2cdfe7c1632bde0e3da44975812e2a68458cf04dad30d53"
+    }
+  ]
+}

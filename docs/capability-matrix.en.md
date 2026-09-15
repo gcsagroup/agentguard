@@ -22,7 +22,7 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 
 | Where | Count | Form |
 |---|---:|---|
-| crates/guard-audit | 110 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-audit | 128 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-billing | 18 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-cli | 93 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-core | 262 | Rust `#[test]` / `#[tokio::test]` |
@@ -35,7 +35,7 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | crates/guard-netmon | 2 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-nm-host | 27 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-overlay | 10 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-privacy | 105 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-privacy | 109 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-schema | 183 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-shell | 42 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-sync | 6 | Rust `#[test]` / `#[tokio::test]` |
@@ -47,7 +47,7 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-macos/src-tauri | 140 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust total** | **1653** | |
+| **Rust total** | **1675** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari extension node `test(` |
 | eval/e2e-extension/run.mjs | 39 | real-browser E2E checks `record(` |

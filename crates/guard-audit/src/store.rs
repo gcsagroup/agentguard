@@ -13,6 +13,10 @@ use crate::types::{AuditRecord, SessionSummary, UserDecision};
 #[path = "recovery.rs"]
 pub mod recovery;
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[path = "memory.rs"]
+pub mod memory;
+
 #[cfg(test)]
 #[path = "verified_snapshot_tests.rs"]
 mod verified_snapshot_tests;
