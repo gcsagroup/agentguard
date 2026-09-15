@@ -106,6 +106,33 @@ fn main() -> anyhow::Result<()> {
     let mcp_config = arg("--mcp-service-config").map(PathBuf::from);
     let rule_config_path = arg("--rule-package-config").map(PathBuf::from);
     let memory_config_path = arg("--memory-config").map(PathBuf::from);
+    let delegation_config_path = arg("--delegation-config").map(PathBuf::from);
+    if delegation_config_path.is_some()
+        && (isolation_image.is_none() || audit_path.is_none() || control_path.is_none())
+    {
+        anyhow::bail!("委托必须同时配置隔离镜像、持久审计和独立宿主控制文件");
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    let delegation_config = delegation_config_path
+        .as_deref()
+        .map(guard_gateway::delegation::DelegationConfig::read)
+        .transpose()?;
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    if delegation_config_path.is_some() {
+        anyhow::bail!("本平台尚未提供受控委托接口");
+    }
+    let delegation_key_path: Option<PathBuf> = {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        {
+            delegation_config
+                .as_ref()
+                .map(|config| config.signing_key.clone())
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            None
+        }
+    };
     let initialize_memory = std::env::args().any(|arg| arg == "--initialize-memory");
     anyhow::ensure!(
         !initialize_memory || memory_config_path.is_some(),
@@ -274,6 +301,8 @@ fn main() -> anyhow::Result<()> {
         &rule_config_path,
         &rule_store_path,
         &memory_config_path,
+        &delegation_config_path,
+        &delegation_key_path,
     ]
     .into_iter()
     .flatten()
@@ -294,10 +323,10 @@ fn main() -> anyhow::Result<()> {
         }
         let resolved = ancestor.canonicalize()?.join(path.strip_prefix(ancestor)?);
         let resolved = guard_schema::paths::dealias_platform_volumes(&resolved);
-        if memory_config_path.is_some() {
+        if memory_config_path.is_some() || delegation_config_path.is_some() {
             anyhow::ensure!(
                 protected_paths.insert(resolved.clone()),
-                "启用记忆时，记忆、审计、工具登记及宿主控制路径必须独立"
+                "启用记忆或委托时，存储、签名密钥、审计、工具登记及宿主控制路径必须独立"
             );
         }
         let lexical = guard_schema::paths::dealias_platform_volumes(path);
@@ -382,6 +411,15 @@ fn main() -> anyhow::Result<()> {
         policy_hash.update(b"agentguard.memory.configuration.v1\0");
         policy_hash.update(serde_json::to_vec(config)?);
     }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if let Some(config) = &delegation_config {
+        policy_hash.update(b"agentguard.delegation.configuration.v1\0");
+        policy_hash.update(serde_json::to_vec(config)?);
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    let delegation = delegation_config
+        .map(|config| config.open(shell.workspace()))
+        .transpose()?;
     let policy_version = format!("sha256-{:x}", policy_hash.finalize());
     let mut engine = guard_core::Engine::new(
         guard_schema::RuleSet::from_yaml_str(&rules_text)?,
@@ -405,6 +443,10 @@ fn main() -> anyhow::Result<()> {
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     if let Some(config) = memory_config {
         server = server.with_memory(config.open(initialize_memory)?)?;
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if let Some(authority) = delegation {
+        server = server.with_delegation(authority)?;
     }
     if let Some(config) = rule_config {
         server = server.with_rule_packages(config.open()?)?;

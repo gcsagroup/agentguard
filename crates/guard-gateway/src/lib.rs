@@ -22,6 +22,8 @@ pub mod confirm;
 mod content;
 pub mod control_file;
 pub mod control_http;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub mod delegation;
 pub mod egress;
 pub mod egress_journal;
 pub mod exec;

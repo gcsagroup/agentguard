@@ -25,6 +25,7 @@ const PARSERS: &[&str] = &[
     "memory-note/1",
     "memory-entry/1",
     "memory-result/1",
+    "delegation-message/1",
 ];
 
 #[derive(Debug, Clone, Copy)]

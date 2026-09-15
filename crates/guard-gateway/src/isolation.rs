@@ -275,6 +275,15 @@ impl DockerExecutor {
     }
 
     pub fn execute(&self, call: &ToolCall, cancelled: &dyn Fn() -> bool) -> ExecOutput {
+        self.execute_with_file_scope(call, cancelled, false)
+    }
+
+    pub(crate) fn execute_with_file_scope(
+        &self,
+        call: &ToolCall,
+        cancelled: &dyn Fn() -> bool,
+        strict_file_scope: bool,
+    ) -> ExecOutput {
         if self.degraded.load(Ordering::SeqCst) {
             return ExecOutput::err("隔离后端状态未知，已禁止后续动作；须核实遗留容器并重建会话")
                 .with_state(ExecutionOutcome::Refused, false);
@@ -286,7 +295,14 @@ impl DockerExecutor {
         let request_root = self.snapshot_root.join(format!("request-{}", random_id()));
         let result = (|| -> Result<ExecOutput> {
             create_private_dir(&request_root)?;
-            fs::write(request_root.join("call.json"), serde_json::to_vec(call)?)?;
+            let mut request = serde_json::to_value(call)?;
+            if strict_file_scope {
+                request["__agentguard_single_link"] = json!(true);
+            }
+            fs::write(
+                request_root.join("call.json"),
+                serde_json::to_vec(&request)?,
+            )?;
             fs::write(request_root.join("helper.py"), HELPER)?;
             let name = format!("agentguard-task-{}", random_id());
             // 名字仅由宿主生成，取消/超时不能只杀 Docker 客户端而遗留容器。

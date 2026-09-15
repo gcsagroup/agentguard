@@ -118,7 +118,7 @@ export class WorkspaceSession {
   #token; #origin; #sequence = 0; #waiting = new Map(); #secrets = new Set(); #reviews = new Map();
   #stderr = []; #output; #logs; #exit; #exited = false; #closed = false; #ownedSnapshots = new Set();
 
-  static async start({ binary, image = DEFAULT_IMAGE, fixture, confirmSeconds = 5, requireWorkspaceProtocol = true, onSession, mcpServiceConfig, rulePackageConfig, memoryConfig, initializeMemory = false, startupTimeoutMs = 20000 }) {
+  static async start({ binary, image = DEFAULT_IMAGE, fixture, confirmSeconds = 5, requireWorkspaceProtocol = true, onSession, mcpServiceConfig, rulePackageConfig, memoryConfig, delegationConfig, initializeMemory = false, startupTimeoutMs = 20000 }) {
     assert.match(image, /^sha256:[a-f0-9]{64}$/, '验收必须使用已存在的固定镜像摘要');
     assert.ok(isAbsolute(binary), '候选二进制必须使用冻结的绝对路径');
     assert.ok(!within(fixture.work, fixture.control), '批准凭据目录不能在任务工作区内');
@@ -133,6 +133,7 @@ export class WorkspaceSession {
     if (mcpServiceConfig) args.push("--mcp-service-config", mcpServiceConfig);
     if (rulePackageConfig) args.push("--rule-package-config", rulePackageConfig);
     if (memoryConfig) args.push("--memory-config", memoryConfig);
+    if (delegationConfig) args.push("--delegation-config", delegationConfig);
     if (initializeMemory) { assert.ok(memoryConfig); args.push("--initialize-memory"); }
     session.child = spawn(binary, args, { cwd: ROOT, env: { ...process.env, PATH: `${RUST_BIN}:${process.env.PATH}`,
       RUSTC: join(RUST_BIN, 'rustc'), RUSTDOC: join(RUST_BIN, 'rustdoc'), AGD_HOST_ONLY_TEST_TOKEN: 'AGD_M1_SYNTHETIC_ENV_SECRET' },

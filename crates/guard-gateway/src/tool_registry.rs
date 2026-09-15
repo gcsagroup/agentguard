@@ -49,6 +49,7 @@ fn builtin_namespace(service: &str) -> Option<&'static str> {
         "agentguard-protected-browser" => Some("agentguard_browser"),
         "agentguard-host-control" => Some("agentguard_host"),
         "agentguard-memory" => Some("agentguard_memory"),
+        "agentguard-delegation" => Some("agentguard_delegation"),
         _ => None,
     }
 }
@@ -280,6 +281,17 @@ impl ToolRegistry {
         self.declare_builtin(builtin_manifest(
             "agentguard-memory",
             crate::memory::tools(),
+            &[],
+            builtin_package()?,
+        )?)
+        .map(|_| ())
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub(crate) fn enable_delegation(&mut self) -> Result<()> {
+        self.declare_builtin(builtin_manifest(
+            "agentguard-delegation",
+            crate::delegation::tools(),
             &[],
             builtin_package()?,
         )?)
@@ -759,7 +771,7 @@ fn builtin_manifest(
             .into(),
         service_version: if matches!(
             service,
-            "agentguard-protected-browser" | "agentguard-memory"
+            "agentguard-protected-browser" | "agentguard-memory" | "agentguard-delegation"
         ) {
             "1".into()
         } else {

@@ -22,6 +22,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
+#[path = "delegation_control.rs"]
+mod delegation_control;
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[path = "memory_control.rs"]
 mod memory_control;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -45,9 +48,15 @@ pub struct Server {
     sources: SharedSources,
     registry: crate::tool_registry::SharedRegistry,
     last_output_source: Option<guard_schema::SourceObject>,
+    // 本次未派发的细分终态，供 MCP 回执与持久审计保持一致。
+    last_refused_outcome: ExecutionOutcome,
     last_read_content: Option<String>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     memory: Option<crate::memory::MemoryRuntime>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    delegation: Option<crate::delegation::DelegationAuthority>,
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    active_delegation: Option<crate::delegation::VerifiedDelegation>,
     browser: Option<crate::browser_bridge::BrowserActor>,
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     proxies: Vec<crate::mcp_proxy::ProxyService>,
@@ -145,9 +154,14 @@ impl Server {
                 ExecutionMode::host(),
             ))),
             last_output_source: None,
+            last_refused_outcome: ExecutionOutcome::Refused,
             last_read_content: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             memory: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            delegation: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            active_delegation: None,
             browser: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             proxies: Vec::new(),
@@ -190,9 +204,14 @@ impl Server {
                 execution_mode,
             ))),
             last_output_source: None,
+            last_refused_outcome: ExecutionOutcome::Refused,
             last_read_content: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             memory: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            delegation: None,
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
+            active_delegation: None,
             browser: None,
             #[cfg(any(target_os = "linux", target_os = "macos"))]
             proxies: Vec::new(),
@@ -294,6 +313,20 @@ impl Server {
         }
         json!({"enabled":false,"third_party_internal_memory":"uncovered","coverage_note":"受控记忆尚未启用；第三方不可访问的内部记忆未覆盖","instruction_authority":"none"})
     }
+    fn delegation_status(&self) -> Value {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(authority) = &self.delegation {
+            return authority.status();
+        }
+        json!({"enabled":false,"coverage":"未启用经认证主体的委托"})
+    }
+    fn delegation_deadline(&self) -> Option<i64> {
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(verified) = &self.active_delegation {
+            return Some(verified.deadline());
+        }
+        None
+    }
     pub fn browser_faulted(&self) -> bool {
         self.browser.as_ref().is_some_and(|b| b.host().faulted())
     }
@@ -379,6 +412,14 @@ impl Server {
         }
         self.host_profile = profile.map(str::to_owned);
         self.host_session_id = session_id.clone();
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(authority) = &mut self.delegation {
+            let root = authority.start(&session_id, now_ms())?;
+            self.journal
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("委托根授权缺少审计"))?
+                .delegation_root(&root)?;
+        }
         if let Some(browser) = &self.browser {
             browser
                 .host()
@@ -498,6 +539,10 @@ impl Server {
                     if self.memory.is_some() {
                         tools.extend(registry.published("agentguard-memory")?);
                     }
+                    #[cfg(any(target_os = "linux", target_os = "macos"))]
+                    if self.delegation.is_some() {
+                        return registry.published("agentguard-delegation");
+                    }
                     if self.browser.is_some() {
                         tools.extend(registry.published("agentguard-protected-browser")?);
                     }
@@ -544,6 +589,7 @@ impl Server {
                 json!({
                     "enforcement": ENFORCEMENT,
                     "memory": self.memory_status(),
+                    "delegation": self.delegation_status(),
                     "side_effect_tools": self.execution_mode.label(),
                     "executed": self.executed,
                     "refused": self.refused,
@@ -583,6 +629,17 @@ impl Server {
             .and_then(Value::as_str)
             .unwrap_or_default();
         let args = params.get("arguments").cloned().unwrap_or(json!({}));
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if name == "delegation_send" {
+            return mcp::result(id, self.delegation_call(&args));
+        }
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if self.delegation.is_some() {
+            return mcp::result(
+                id,
+                mcp::tool_error("当前宿主会话仅接受已认证的委托入口；不能使用普通工具绕过子权限"),
+            );
+        }
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if matches!(
             name,
@@ -733,8 +790,7 @@ impl Server {
                             }
                             Handled::Refused { reason } => {
                                 let mut result = mcp::tool_error(reason);
-                                result["_meta"] =
-                                    json!({"agentguard":{"outcome":"refused","dispatched":false}});
+                                result["_meta"] = json!({"agentguard":{"outcome":self.last_refused_outcome,"dispatched":false}});
                                 mcp::result(id, result)
                             }
                         }
@@ -751,6 +807,7 @@ impl Server {
     /// 只断言前者，就还是那种"机制存在、被直接测过、什么都没接上"的缺陷。
     pub fn gate_and_run(&mut self, call: ToolCall, action: ShellAction) -> Handled {
         self.last_output_source = None;
+        self.last_refused_outcome = ExecutionOutcome::Refused;
         self.last_read_content = None;
         self.terminal_recorded = false;
         if let Err(error) = self.refresh_rule_policy() {
@@ -785,6 +842,20 @@ impl Server {
             }
         };
         let mut approval_id = None;
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(delegation) = &self.active_delegation {
+            if let Err(error) = self
+                .journal
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("委托缺少审计"))
+                .and_then(|journal| journal.delegation_message(delegation, None, Some(&snapshot)))
+            {
+                self.journal_failed = true;
+                return Handled::Refused {
+                    reason: format!("委托与执行绑定无法持久保存，未执行：{error}"),
+                };
+            }
+        }
         let mut refused_outcome = ExecutionOutcome::Refused;
         let mut deferred_decision = None;
         let handled = self.gate_and_run_snapshot(
@@ -795,6 +866,7 @@ impl Server {
             &mut refused_outcome,
             &mut deferred_decision,
         );
+        self.last_refused_outcome = refused_outcome;
         // 原本无需批准的动作也可能在最终校验时被拒绝。没有派发时仍补记其
         // 判决，再记录拒绝终态；不能因合并成功路径的提交而丢失这些判决。
         if let (Some(journal), Some(outcome)) = (&self.journal, deferred_decision) {
@@ -920,7 +992,15 @@ impl Server {
                 let res = self.pending.wait(
                     ConfirmRequest {
                         id: binding.approval_id().to_string(),
-                        what: confirmation_description(&call, &digest, self.isolation.is_some()),
+                        what: {
+                            let text = confirmation_description(&call, &digest, self.isolation.is_some());
+                            #[cfg(any(target_os = "linux", target_os = "macos"))]
+                            if let Some(delegation) = &self.active_delegation {
+                                format!("{text}\n\n经认证的委托主体与会话（JSON）：{}\n此证明不替代当前动作批准。", delegation.receipt())
+                            } else { text }
+                            #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+                            { text }
+                        },
                         findings: findings.clone(),
                         binding: Some(binding.clone()),
                         action_sha256: Some(digest),
@@ -1013,6 +1093,23 @@ impl Server {
                 reason: "执行前工具登记已失效，旧动作或批准不能派发".into(),
             };
         }
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(delegation) = &self.active_delegation {
+            if self
+                .delegation
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("委托授权器失效"))
+                .and_then(|authority| {
+                    authority.revalidate(delegation, &self.host_session_id, now_ms())
+                })
+                .is_err()
+            {
+                self.refused += 1;
+                return Handled::Refused {
+                    reason: "委托在执行前失效，未执行".into(),
+                };
+            }
+        }
         let _policy_lease = match crate::rule_policy::acquire(
             self.rule_policy.as_ref(),
             snapshot.spec().policy_version.as_str(),
@@ -1044,8 +1141,16 @@ impl Server {
                 };
             }
         }
+        let strict_file_scope = self.delegation_deadline();
         let mut output = if let Some(executor) = &self.isolation {
-            executor.execute(&call, &|| self.pending.is_cancelled())
+            executor.execute_with_file_scope(
+                &call,
+                &|| {
+                    self.pending.is_cancelled()
+                        || strict_file_scope.is_some_and(|deadline| now_ms() >= deadline)
+                },
+                strict_file_scope.is_some(),
+            )
         } else {
             call.execute_with_mode_and_cancel(self.execution_mode, &|| self.pending.is_cancelled())
         };
@@ -1171,6 +1276,10 @@ impl Server {
         if let Some(policy) = &self.rule_policy {
             parameters["rule_package"] = policy.receipt(&self.policy_version)?;
         }
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(delegation) = &self.active_delegation {
+            parameters["delegation"] = delegation.receipt();
+        }
         let issued_at_ms = now_ms();
         // 批准窗口之后仍留执行前复核窗口；真正执行有独立的超时，批准不覆盖后续新动作。
         let lifetime = self.confirm_timeout.as_millis().min(i64::MAX as u128) as i64;
@@ -1195,7 +1304,10 @@ impl Server {
             parameters,
             policy_version: validated_id(self.policy_version.clone()),
             issued_at_ms,
-            expires_at_ms: issued_at_ms.saturating_add(lifetime).saturating_add(1000),
+            expires_at_ms: self
+                .delegation_deadline()
+                .unwrap_or(i64::MAX)
+                .min(issued_at_ms.saturating_add(lifetime).saturating_add(1000)),
             nonce: random_nonce(),
             sources: self
                 .sources
@@ -1542,6 +1654,45 @@ mod execution_contract_tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         panic!("没有进入待批准状态");
+    }
+
+    #[test]
+    fn 未批准超时的工具回执与审计一致且不写文件() {
+        let root = std::env::temp_dir().join(random_id("ag-timeout-receipt"));
+        std::fs::create_dir(&root).unwrap();
+        let root = root.canonicalize().unwrap();
+        let database = root.join("audit.db");
+        let target = root.join("must-not-write.txt");
+        let mut server =
+            server_without_grants().with_journal(ExecutionJournal::open(&database).unwrap());
+        server.confirm_timeout = Duration::from_millis(40);
+        let reply = server.handle_tool_call(
+            json!(1),
+            &json!({
+                "name":"write_file", "arguments":{"path":target,"contents":"不得写入"}
+            }),
+        );
+        assert_eq!(
+            reply["result"]["_meta"]["agentguard"]["outcome"], "timed_out",
+            "{reply}"
+        );
+        assert_eq!(reply["result"]["_meta"]["agentguard"]["dispatched"], false);
+        assert!(!target.exists());
+        drop(server);
+        let store = guard_audit::AuditStore::open(&database).unwrap();
+        let events = store.list_recent(10).unwrap();
+        let terminal = events
+            .iter()
+            .find(|row| row.event_type == "GatewayExecutionFinished")
+            .unwrap();
+        let body: Value = serde_json::from_str(&terminal.event_json).unwrap();
+        assert_eq!(
+            body["outcome"],
+            reply["result"]["_meta"]["agentguard"]["outcome"]
+        );
+        assert_eq!(body["dispatched"], false);
+        drop(store);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

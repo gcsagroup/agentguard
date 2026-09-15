@@ -30,20 +30,22 @@ def parent_directory(path, create=False):
         os.close(fd)
         raise
 
-def regular(path, flags, mode=0o600, create_parents=False):
+def regular(path, flags, mode=0o600, create_parents=False, single_link=False):
     parent, name = parent_directory(path, create=create_parents)
     try:
         fd = os.open(name, flags | os.O_NONBLOCK | os.O_NOFOLLOW, mode, dir_fd=parent)
     finally:
         os.close(parent)
-    if not stat.S_ISREG(os.fstat(fd).st_mode):
+    metadata = os.fstat(fd)
+    if not stat.S_ISREG(metadata.st_mode) or (single_link and metadata.st_nlink != 1):
         os.close(fd)
-        raise ValueError('只支持普通文件')
+        raise ValueError('只支持符合当前链接限制的普通文件')
     return fd
 
 def main():
     with open('/run/agentguard-request/call.json', encoding='utf-8') as stream:
         call = json.load(stream)
+    single_link = call.pop('__agentguard_single_link', False)
     name, args = next(iter(call.items()))
     if name == 'RunShell':
         argv = args['argv']
@@ -56,7 +58,7 @@ def main():
     capture = None
     if name in ('ReadFile', 'SearchFile'):
         scan_limit = LIMIT if name == 'ReadFile' else 4 * 1024 * 1024
-        with os.fdopen(regular(path, os.O_RDONLY), 'rb') as stream:
+        with os.fdopen(regular(path, os.O_RDONLY, single_link=single_link), 'rb') as stream:
             raw = stream.read(scan_limit + 1)
         truncated = len(raw) > scan_limit
         capture = {'version': 1, 'streams': [{'origin': 'file_bytes',
@@ -88,7 +90,7 @@ def main():
         truncated |= len(encoded) > LIMIT
         detail = encoded[:LIMIT].decode('utf-8', errors='ignore')
     elif name == 'WriteFile':
-        with os.fdopen(regular(path, os.O_WRONLY | os.O_CREAT, create_parents=True), 'wb') as stream:
+        with os.fdopen(regular(path, os.O_WRONLY | os.O_CREAT, create_parents=True, single_link=single_link), 'wb') as stream:
             stream.truncate(0)
             stream.write(args['contents'].encode())
         detail = f'已写入隔离工作区副本：{path}；宿主原文件未回写'

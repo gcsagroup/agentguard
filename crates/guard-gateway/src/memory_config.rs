@@ -30,14 +30,14 @@ pub struct MemoryConfig {
     pub encryption: MemoryEncryption,
 }
 
-fn read_private(path: &Path, max: u64) -> Result<Vec<u8>> {
+pub(crate) fn read_private(path: &Path, max: u64) -> Result<Vec<u8>> {
     let meta = fs::symlink_metadata(path)?;
     ensure!(
         meta.is_file()
             && meta.nlink() == 1
             && meta.uid() == unsafe { libc::geteuid() }
             && meta.mode() & 0o077 == 0,
-        "记忆配置或密钥须为宿主持有的私有普通文件，不能是链接"
+        "宿主配置或密钥须为当前用户持有的私有普通文件，不能是链接"
     );
     let file = OpenOptions::new()
         .read(true)
@@ -46,11 +46,11 @@ fn read_private(path: &Path, max: u64) -> Result<Vec<u8>> {
     let opened = file.metadata()?;
     ensure!(
         (meta.dev(), meta.ino()) == (opened.dev(), opened.ino()),
-        "记忆配置或密钥在打开时被替换"
+        "宿主配置或密钥在打开时被替换"
     );
     let mut bytes = Vec::new();
     file.take(max + 1).read_to_end(&mut bytes)?;
-    ensure!(bytes.len() as u64 <= max, "记忆配置或密钥超过读取上限");
+    ensure!(bytes.len() as u64 <= max, "宿主配置或密钥超过读取上限");
     Ok(bytes)
 }
 

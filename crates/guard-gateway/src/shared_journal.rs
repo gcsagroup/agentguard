@@ -162,3 +162,44 @@ impl SharedJournal {
         })
     }
 }
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+impl SharedJournal {
+    pub(crate) fn delegation_root(
+        &self,
+        signed: &guard_schema::delegation::SignedDelegationGrant,
+    ) -> Result<()> {
+        let grant = &signed.grant;
+        grant.validate()?;
+        let digest = crate::delegation::grant_digest(grant)?;
+        self.access(|journal| journal.append(&AuditRecord {
+            id:format!("delegation-root/{}",digest.as_str()), timestamp_ms:now_ms(), platform:"gateway".into(), event_type:"GatewayDelegationRoot".into(),
+            source_app:"agentguard-mcp".into(), agent_session_id:Some(grant.host_session_id.to_string()), rule_id:"DELEGATION-ROOT".into(), severity:"Info".into(),
+            action:"issued".into(), human_message:"宿主已签发当前会话的委托根授权；不记录文件路径或私钥".into(),
+            event_json:serde_json::to_string(&json!({"schema":"gateway_delegation_root_v1","grant_sha256":digest,"subject_id":grant.subject_id,
+                "session_id":grant.session_id,"key_id":signed.key_id,"signature":signed.signature,"issued_at_ms":grant.issued_at_ms,"expires_at_ms":grant.expires_at_ms}))?,
+            evidence_ref:None,user_decision:None,attributed_agent:None,
+        }))
+    }
+    pub(crate) fn delegation_message(
+        &self,
+        verified: &crate::delegation::VerifiedDelegation,
+        child: Option<&guard_schema::delegation::SignedDelegationGrant>,
+        action: Option<&ActionSnapshot>,
+    ) -> Result<()> {
+        let message = &verified.envelope.message;
+        let digest = sha256(&message.signing_bytes()?);
+        let action_sha = action.map(|a| sha256(&a.canonical_bytes()));
+        let child_sha = child
+            .map(|c| crate::delegation::grant_digest(&c.grant))
+            .transpose()?;
+        self.access(|journal| journal.append(&AuditRecord {
+            id:format!("delegation-{}/{}",if action.is_some(){"binding"}else{"accepted"},digest),timestamp_ms:now_ms(),platform:"gateway".into(),
+            event_type:if action.is_some(){"GatewayDelegationDispatchBinding"}else{"GatewayDelegationAccepted"}.into(),source_app:"agentguard-mcp".into(),
+            agent_session_id:Some(message.host_session_id.to_string()),rule_id:"DELEGATION-VERIFIED".into(),severity:"Info".into(),action:"authenticated".into(),
+            human_message:"每条委托消息已验签并与实际执行绑定；正文和文件路径只保留摘要".into(),
+            event_json:serde_json::to_string(&json!({"schema":"gateway_delegation_message_v1","receipt":verified.receipt(),"child_grant_sha256":child_sha,"action_sha256":action_sha}))?,
+            evidence_ref:None,user_decision:None,attributed_agent:Some(message.actor_id.to_string()),
+        }))
+    }
+}

@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "task": "AGD-023",
+  "status": "completed_for_declared_scope",
+  "date": "2026-09-16",
+  "base_commit": "e56695d1ac845a9da1de5af5da555eea87b2c17c",
+  "scope": "当前 macOS 宿主和既有 Linux Docker 后端的结构化文件委托；独立宿主签名及 HTTP 脚本批准",
+  "f13": "deferred_not_passed",
+  "full_m1_passed": false,
+  "release_passed": false,
+  "gateway_sha256": "4a8ad06dca3ab5efe9712f1926e7f9d4fd2d9341b5eae3b882ec79d5c503075c",
+  "frozen": ".artifacts/m3-delegation-2026-09-16/frozen-03",
+  "source_files": 202,
+  "actual_process_report": ".artifacts/m3-delegation-2026-09-16/process-05/report.json",
+  "independent": {
+    "passed": true,
+    "processes": 2,
+    "signed_grants": 5,
+    "authenticated_messages": 12,
+    "negative_messages": 30,
+    "file_action_bindings": 9,
+    "audit_rows": 71,
+    "signatures": 17,
+    "source_files": 202,
+    "gateway_sha256": "4a8ad06dca3ab5efe9712f1926e7f9d4fd2d9341b5eae3b882ec79d5c503075c",
+    "scope": "真实隔离文件工具；宿主签名和独立 HTTP 脚本批准；容器私钥不可见另有实际 Docker 测试"
+  },
+  "negative_report_copies": {
+    "passed": true,
+    "cases": [
+      {
+        "case": "child_permission",
+        "refused": true,
+        "error_type": "KeyError"
+      },
+      {
+        "case": "missing_negative",
+        "refused": true,
+        "error_type": "AssertionError"
+      },
+      {
+        "case": "false_timeout_success",
+        "refused": true,
+        "error_type": "AssertionError"
+      }
+    ],
+    "original_sha256": "1b6c45abe584fe668722d5cbe69883505f2b48ae16c53263347c7b43e1db3e40",
+    "original_unchanged": true
+  },
+  "tests": {
+    "delegation_unit_passed": 9,
+    "timeout_receipt_passed": 1,
+    "actual_docker_private_key_passed": 1,
+    "sqlcipher_memory_control_passed": 9,
+    "sqlcipher_memory_config_passed": 4,
+    "workspace_passed": 1496,
+    "workspace_ignored": 17,
+    "clippy_workspace_all_targets": true,
+    "format_check": true
+  },
+  "preservation": {
+    "preserved_files": 127,
+    "all_unchanged": true,
+    "app_path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "app_version": "2.0.0-dev.15",
+    "app_build": "15",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "app_sha256": "dc336f5f4de6a00b275c1bfe371432d608542251c70e505595f0ba24c10733ca",
+    "codesign_strict": true,
+    "app_rebuilt": false
+  },
+  "baseline_ci": {
+    "conclusion": "success",
+    "headSha": "e56695d1ac845a9da1de5af5da555eea87b2c17c",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "Windows (native adapter + shell)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (macos-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (ubuntu-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Android companion (Kotlin)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS shell (native AX + SCK)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "部署自检",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Shell front ends parse",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "内核约束（guard-jail）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "MSRV 1.87",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35006016017"
+  },
+  "failures_preserved": [
+    "tests-01.log",
+    "process-01/report.json",
+    "process-02/report.json",
+    "independent-01.err"
+  ],
+  "superseded_intermediate": [
+    "frozen-01",
+    "frozen-02",
+    "process-03/report.json",
+    "process-04/report.json",
+    "workspace-01.log"
+  ],
+  "logs": [
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/tests-03.log",
+      "sha256": "083c68c20e1479964cc7faf5d78020b7546abeae96778de70123a22cd103e98b"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/timeout-receipt-01.log",
+      "sha256": "4ef1c40f6c3513cccf81b2724a46f8ba448f3cfde140b04208afe40403c5d505"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/docker-private-key-01.log",
+      "sha256": "fe0908d475b18b97d9a806318cfca8db1b5430e184fab8aa52bd49e988b0453d"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/workspace-02.log",
+      "sha256": "b3d07bef7ad0caef9d6dc72bdff484ef9bfedc4258ee64f2c29c0fade2f65bb7"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/clippy-02.log",
+      "sha256": "a1202ce6c8cde84a2ecca8a8022090175c75e3ee3bbccc3229551f48d1ef324e"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/sqlcipher-01.log",
+      "sha256": "cae517b2faa379c29a750ba2f9402775fae3857ed562d3bde59382c102e90539"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/sqlcipher-config-01.log",
+      "sha256": "e13cc1fa624e5cd9761ad353bde97edb2d9e99231da4490865910b2cb2535a01"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/format-01.log",
+      "sha256": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907"
+    },
+    {
+      "path": ".artifacts/m3-delegation-2026-09-16/process-05.log",
+      "sha256": "651ab222efa0c3bee25ebfb1589f03e2c6e5dd5c40e90eeb38c9a93ae81cd391"
+    }
+  ],
+  "next": "AGD-024 分支预算和父撤销，随后按原依赖继续 AGD-025～032"
+}

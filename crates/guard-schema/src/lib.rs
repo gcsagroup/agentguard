@@ -1,6 +1,7 @@
 //! Shared schemas for AgentGuard: events, decisions, rules, and policies.
 
 pub mod agent;
+pub mod delegation;
 pub mod events;
 pub mod execution;
 pub mod plan;
