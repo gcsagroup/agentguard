@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 joint acceptance in progress (2026-09-16)
+
+- Added a real four-process crash/restart and principal key revocation workflow. Approved memory survives, unapproved content is not stored, the old key fails with valid new-session metadata, and the replacement key succeeds on the same message. Removed principals cannot receive new delegation.
+- Independently checked 49 execution audit rows and 17 signature results; four altered evidence cases were rejected. The original 50 complete tasks passed. Fixed App 020, all 91 bundle files and its organization signature are unchanged; no rebuild.
+- The 100 cycles passed; the 30-minute run and remaining joint regressions are pending. Principal key revocation requires stopping the old host and reloading configuration. See the [record](docs/agd-027-m3-joint-2026-09-16.zh.md); deferred F13 and release No-Go remain unchanged.
+
 ### AGD-026 native memory and delegation governance (2026-09-16)
 
 - Added source/version inspection, quarantine, revocation, historical restoration and branch stopping. Full previews and single-use approval bind the session and current version; restoration preserves provenance and restrictive labels. Completed external effects are not reversed.

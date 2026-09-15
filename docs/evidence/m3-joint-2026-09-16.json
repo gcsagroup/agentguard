@@ -1,0 +1,177 @@
+{
+  "recorded_at": "2026-09-15T23:41:58.805850+00:00",
+  "task": "AGD-027",
+  "status": "in_progress",
+  "gateway_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
+  "app": {
+    "passed": true,
+    "app_files": 91,
+    "native_inputs": 36,
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "version": "2.1.0-dev.20",
+    "build": "20",
+    "binary_sha256": "f20827a43849e9847b9234a751dcb5e70a8cc78dab5378c9426f5e32b3d7f0dc",
+    "strict_signature": true,
+    "scope": "准确 020 包与源码逐项相同，复核旧原生治理证据身份；本次不重做治理操作"
+  },
+  "recovery": {
+    "passed": true,
+    "processes": 4,
+    "sigkill": 1,
+    "memory_versions": 1,
+    "memory_audit_rows": 2,
+    "execution_audit_rows": 49,
+    "signature_checks": 17,
+    "accepted_messages": 5,
+    "refused_messages": 4,
+    "replacement_signature_same_message": true,
+    "source_files": 211,
+    "scope": "主体公钥撤销依赖停止旧宿主并重开；不证明运行中配置热更新、原生人工批准或全平台"
+  },
+  "workspace": {
+    "normal_tasks": 50,
+    "cycles": 100,
+    "fault_checks": 50,
+    "soak": "pending"
+  },
+  "memory_rag": {
+    "passed": true,
+    "processes": 4,
+    "signed_memory_rows": 5,
+    "approved_versions": 4,
+    "execution_audit_rows": 89,
+    "model_tasks": 3,
+    "source_files": 211,
+    "gateway_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
+    "scope": "合成文档的真实网关与模型消费；脚本独立批准，CLI 为显式明文测试，加密另见 SQLCipher 测试"
+  },
+  "persistence_propagation": {
+    "passed": true,
+    "memory_versions": 5,
+    "memory_rows": 6,
+    "memory_gateway_audit_rows": 81,
+    "delegation_audit_rows": 81,
+    "signatures": 33,
+    "deliveries": 2,
+    "follow_up_refusals": 2,
+    "gateway_processes": 6,
+    "model_tasks": 2
+  },
+  "delegation_budget": {
+    "passed": true,
+    "processes": 6,
+    "phases": 6,
+    "signed_grants": 13,
+    "authenticated_messages": 15,
+    "signatures": 33,
+    "reservations": 16,
+    "finished": 15,
+    "unconfirmed_charged_in_full": 1,
+    "audit_rows": 113,
+    "source_files": 211,
+    "gateway_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
+    "scope": "本机隔离文件工具与独立 HTTP 脚本批准；金额不可测；输出审计是准备公开记录，不是客户端接收确认"
+  },
+  "ci_base": {
+    "commit": "cec86d187275f439fe01d28a232aeadec1d80114",
+    "run": 35034836801,
+    "conclusion": "success",
+    "jobs": 13
+  },
+  "f13": "deferred_not_accepted",
+  "original_m1_passed": false,
+  "whole_plan_complete": false,
+  "release": "No-Go",
+  "plan_counts": {
+    "complete": 25,
+    "conditional": 1,
+    "in_progress": 1,
+    "pending": 5
+  },
+  "artifacts": [
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/preflight-notes.md",
+      "sha256": "b17cf6952c2df1e9b745434a7b3c7e39fcd62c3f5f7e57e5ed7fa48f24345993"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/prior-candidate-drift.json",
+      "sha256": "376cbaddcd7521c1e8d53d4f9ff7a915f882872d36b49aca81de6250b17c0ab8"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/recovery-01/report.json",
+      "sha256": "b3f7be2f2f28343a61df9b53358d83e85bd62c8b5aef1c5fc3608a762893be4f"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/recovery-01/harness-source.mjs",
+      "sha256": "2be7f5d7b888fd305759f2c7a1fb2c1ad4972fd3bbfc05c06c4b8421d9e37928"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/recovery-02/report.json",
+      "sha256": "9339fb6d58e93487b32cdd73bc4115ade7a48b89baec15dd0cd56b1acfd0189d"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/recovery-02/harness-source.mjs",
+      "sha256": "87da12afdd338eec208b861f008829bf67a05e3f00a3fe545157636e0399c078"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/recovery-independent-01.json",
+      "sha256": "9b65e3df8ec19a20c2cf690fa8f4c5c3a1157f45b10fb0263a93ec2c4e56c614"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/recovery-tamper-results.json",
+      "sha256": "b74421348ae62b8bcd0f290be2bc61e173da32fb4b65d6a5d699b5a143178b4e"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/workspace-tasks-01/report.json",
+      "sha256": "ccde9723e9376f90942eeab9db4c1128e26c046377e5c2be452207354cfd8465"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/workspace-cycles-01/report.json",
+      "sha256": "10f59c3bc9b901d522396c4b85c1bdccbfed318e7f74f081c0e8ee8ba81f574e"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/workspace-faults-01/report.json",
+      "sha256": "6aa9d37e172381e344cb1bcbf9ebe9abe6f7816da1b64379ae0449c1273df3d0"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/memory-rag-independent-01.log",
+      "sha256": "77a5ddebae9c452de33e01013dbd36921dfd342c492c0a54ebcbca2b360d2fb5"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/propagation-independent-01.log",
+      "sha256": "301e6227a38c110f21e9f0c882139ad3d83587278c3048241d0fceafd99951f2"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/delegation-budget-independent-01.log",
+      "sha256": "5079723590b338f34894c41d52fe44322a3bedb571abecde7e8f6f77d62277cb"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/app-020-revalidation.json",
+      "sha256": "f388037b946561d5de790cf10ce0a85bd8867dc005de2d76eb2d1ffb260e65a4"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/app-020-timeline.png",
+      "sha256": "7668b3f5500452fdd918cbcdef66ab3c185f019b7d0f011e1ed553ce7b11bd53"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/app-020-timeline.txt",
+      "sha256": "4d88a6be60317a233cfea738ad471055f9b4457709fe097bf86166e9a3e663c2"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/governance-revalidated.json",
+      "sha256": "1bf7fbb7c5257b6c66c534369787199f772b9afd86cf8bfc3e8a76d3b0766cd4"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/native-governance-revalidated.json",
+      "sha256": "a644befcb3d6c792f69c3442c0c12a56e09e9943462c3a47ae1785a6c8031752"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/repository-tests-01.log",
+      "sha256": "17a99437334be7c985314aadc6538489618a921c84f46566879ea3e3e33611fd"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/ci-cec86d1.json",
+      "sha256": "574a8cd35cdfd75a4c2c52d0ea8b04873e44f5bc72315b4ea48966bedd1f5ee8"
+    }
+  ]
+}
