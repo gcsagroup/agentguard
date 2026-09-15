@@ -87,6 +87,23 @@ mac-adapter = { path = "adapters/mac-adapter" }
 browser-adapter = { path = "adapters/browser-adapter" }
 android-adapter = { path = "adapters/android-adapter" }
 
-# 开发版也要对完整内建工具包计算摘要；只优化固定算法库，保留业务代码的调试检查。
+# 开发版也要对完整内建工具包计算摘要；优化固定算法库，保留调试检查。
 [profile.dev.package.sha2]
 opt-level = 3
+
+# 开发构建也用于交互式网关验收：统一减少 CPU 开销，同时保留全部调试检查。
+[profile.dev]
+opt-level = 1
+debug-assertions = true
+overflow-checks = true
+
+# 同步落盘之外的编码及 SQL 执行开销；不改变同步级别或审计事件。
+[profile.dev.package.serde_json]
+opt-level = 2
+debug-assertions = true
+overflow-checks = true
+
+[profile.dev.package.libsqlite3-sys]
+opt-level = 2
+debug-assertions = true
+overflow-checks = true
