@@ -1,0 +1,516 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-16",
+  "task": "AGD-027",
+  "base_commit": "a3917b34e84ddcc861c77a782abf432c92e2c09b",
+  "status": "performance_not_accepted",
+  "product_runtime_source_changed": false,
+  "app": {
+    "version": "2.1.0-dev.22",
+    "files_unchanged": 91,
+    "name_path_signature_unchanged": true
+  },
+  "candidates": [
+    {
+      "binary_sha256": "9af1137e9d3e866778df59964c834b2e1faed5b7dc32461eb2cd038dfe1e7805",
+      "build_profile": "dev",
+      "base_commit": "a3917b34e84ddcc861c77a782abf432c92e2c09b",
+      "frozen_source_count": 241
+    },
+    {
+      "binary_sha256": "4816aec468a5b24bc0424e16a98732bff893e0151dcb16b983d77a65c583ceb8",
+      "build_profile": "release",
+      "base_commit": "a3917b34e84ddcc861c77a782abf432c92e2c09b",
+      "frozen_source_count": 241
+    }
+  ],
+  "performance": {
+    "original_budgets_retained": true,
+    "all_raw_samples_verified": true,
+    "passing_budgets": [
+      4,
+      4,
+      4,
+      4
+    ],
+    "dev_acceptance_passed": false,
+    "runs": [
+      {
+        "round": 1,
+        "profile": "dev",
+        "checks": [
+          {
+            "route": "native_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 9.349084000000062,
+            "maximum": 10,
+            "passed": true
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "startup_ms",
+            "actual": 621.209417,
+            "maximum": 100,
+            "passed": false
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.46875,
+            "maximum": 32,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 379.5509579999998,
+            "maximum": 500,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "startup_ms",
+            "actual": 3049.029042,
+            "maximum": 2000,
+            "passed": false
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.828125,
+            "maximum": 32,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "profile": "release",
+        "checks": [
+          {
+            "route": "native_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 12.980916000000093,
+            "maximum": 10,
+            "passed": false
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "startup_ms",
+            "actual": 636.645708,
+            "maximum": 100,
+            "passed": false
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.4375,
+            "maximum": 32,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 486.4108749999996,
+            "maximum": 500,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "startup_ms",
+            "actual": 871.0477080000001,
+            "maximum": 2000,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.5625,
+            "maximum": 32,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "profile": "release",
+        "checks": [
+          {
+            "route": "native_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 10.265083000000004,
+            "maximum": 10,
+            "passed": false
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "startup_ms",
+            "actual": 47.498791999999995,
+            "maximum": 100,
+            "passed": true
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.453125,
+            "maximum": 32,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 760.0110420000001,
+            "maximum": 500,
+            "passed": false
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "startup_ms",
+            "actual": 850.9642920000001,
+            "maximum": 2000,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.65625,
+            "maximum": 32,
+            "passed": true
+          }
+        ]
+      },
+      {
+        "round": 4,
+        "profile": "dev",
+        "checks": [
+          {
+            "route": "native_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 13.92070799999999,
+            "maximum": 10,
+            "passed": false
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "startup_ms",
+            "actual": 56.454125000000005,
+            "maximum": 100,
+            "passed": true
+          },
+          {
+            "route": "native_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.453125,
+            "maximum": 32,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "read_p95_ms",
+            "actual": 525.261958000001,
+            "maximum": 500,
+            "passed": false
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "startup_ms",
+            "actual": 1613.821583,
+            "maximum": 2000,
+            "passed": true
+          },
+          {
+            "route": "isolated_gateway_read",
+            "metric": "memory_mib",
+            "actual": 13.890625,
+            "maximum": 32,
+            "passed": true
+          }
+        ]
+      }
+    ]
+  },
+  "timing": [
+    {
+      "round": 1,
+      "spawn_to_main_ms": 2806.917,
+      "main_to_ready_ms": 40.369084,
+      "startup_ms": 2847.1530829999997,
+      "two_commit_ms": {
+        "count": 100,
+        "p50_ms": 7.3431455,
+        "p95_ms": 11.323334,
+        "mean_ms": 7.96745225,
+        "max_ms": 12.211875
+      },
+      "two_sql_phase_ms": {
+        "count": 100,
+        "p50_ms": 0.1298125,
+        "p95_ms": 0.19225,
+        "mean_ms": 0.13740784,
+        "max_ms": 0.30425
+      },
+      "request_ms": {
+        "count": 100,
+        "p50_ms": 8.024499999999762,
+        "p95_ms": 12.009749999999713,
+        "mean_ms": 8.683385400000029,
+        "max_ms": 12.96591699999999
+      },
+      "commit_fraction_total": 0.9175513792120724,
+      "sql_fraction_total": 0.01582422450119507,
+      "db_counts": {
+        "GatewayDecision": 105,
+        "GatewayExecutionFinished": 105,
+        "GatewayExecutionStarted": 105,
+        "GatewaySourceObserved": 105,
+        "GatewaySourceStorageBinding": 1
+      },
+      "sampling_scope": "每轮 5 次预热后 100 次原生读取；独立诊断构建，不计原预算通过"
+    },
+    {
+      "round": 2,
+      "spawn_to_main_ms": 3.9450419999998303,
+      "main_to_ready_ms": 30.193,
+      "startup_ms": 34.3171669999997,
+      "two_commit_ms": {
+        "count": 100,
+        "p50_ms": 7.210813,
+        "p95_ms": 9.362709,
+        "mean_ms": 7.84795419,
+        "max_ms": 40.1855
+      },
+      "two_sql_phase_ms": {
+        "count": 100,
+        "p50_ms": 0.19195800000000002,
+        "p95_ms": 0.360543,
+        "mean_ms": 0.21303843,
+        "max_ms": 0.5685
+      },
+      "request_ms": {
+        "count": 100,
+        "p50_ms": 8.002978999999868,
+        "p95_ms": 10.035665999999765,
+        "mean_ms": 8.814462029999994,
+        "max_ms": 41.129791000000296
+      },
+      "commit_fraction_total": 0.8903497642044984,
+      "sql_fraction_total": 0.024169192546853607,
+      "db_counts": {
+        "GatewayDecision": 105,
+        "GatewayExecutionFinished": 105,
+        "GatewayExecutionStarted": 105,
+        "GatewaySourceObserved": 105,
+        "GatewaySourceStorageBinding": 1
+      },
+      "sampling_scope": "每轮 5 次预热后 100 次原生读取；独立诊断构建，不计原预算通过"
+    }
+  ],
+  "verification": {
+    "audit_rows": 842,
+    "actual_actions": 210,
+    "measured_requests_excluding_warmup": 200,
+    "tampered_reports_rejected": 9,
+    "database_failure_scenarios": 5,
+    "database_failure_checks": 51,
+    "performance_exit_code": 1,
+    "evidence_verified": true,
+    "repository_tests_passed": 23
+  },
+  "boundaries": [
+    "诊断构建只增加计时，不是验收候选",
+    "提交阶段包含同步和调度，不等于全部磁盘设备耗时",
+    "main 前延迟未进一步归因至某个系统服务",
+    "完整 M3 功能、性能及发布仍未通过",
+    "当前未完成真机 AX 超时恢复，F13 暂缓",
+    "干净源码重建开发件摘要不同，留存该产物并恢复冻结候选，未混用证据"
+  ],
+  "scripts": {
+    "scripts/acceptance/verify-m3-performance.py": "dbfb30a6f9a563f3908cb23cdb75d905a114dad2d4728d72bbabc0c9689ef27d",
+    "scripts/acceptance/agd-isolation-benchmark.mjs": "b4b411414f074e47fd5f8d1a80585200eebda897f923c5f2cb12fa4156e3a7d3",
+    "scripts/acceptance/agd-audit-batching.py": "1e6d66fd3a9b02f56afbafce1ce55713b7e716bf5eb8477eb54605456e9fa387"
+  },
+  "local_artifacts": [
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/plan.json",
+      "sha256": "63924cc2f8d30ad560ff8a6c2665bc8c0788531c0536f53de556ed02a47b3c6e"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/comparison-plan.json",
+      "sha256": "28746674d421f6c1518c2ac9e27ec1dfdc0fd449ede71a7de86187dc206be030"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/build.log",
+      "sha256": "916b62b4e8464007c06142e59ecaf4db2e28a90ca552c53868d9354154b91361"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/build-dev.log",
+      "sha256": "e502c55d2753a7d806d61208c5afe44ced26e59af9a3306348494e5eafa8cebe"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/run-comparison.py",
+      "sha256": "85110ed0ef2ecfa8ec924f52734804a4202ec454acb14d75e0533948828b0495"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/comparison.json",
+      "sha256": "fc6e3a4005841eebed5ad84fd2f45e00c478725f64e8c50a524e54b53fc202f1"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/frozen-dev/build-inputs.json",
+      "sha256": "c776be8d7680ae14c157d595c398a743d5ae92fe6e89a0609782fb867a89ce68"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/frozen-release/build-inputs.json",
+      "sha256": "6a30e3b3e0e70baab12143d6438502a93bad52365be4d606c87efcddccf96734"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-plan.json",
+      "sha256": "518fff03d78ccbc48c22531fb1c857b274d81be8e6be67e8eecbdc04e92d08e4"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-only.patch",
+      "sha256": "d2ccfb3908481362e172c62bbb369604298863e0d12a3cdc7a1919107ffc17a7"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/build-timing.log",
+      "sha256": "a59aeb750cb73b29c771f490da33c4816b30aafd2063a1b08808fd987961f453"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/frozen-timing/build-inputs.json",
+      "sha256": "2a44c1a22c8b87195fc493d32f58b0b820602af8657ab6bc032b2617bc77f42c"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/measure-timing.mjs",
+      "sha256": "d25e4ed4baa0ddc979f27f3173cc5b8a301dd3133f9503c24eb8bc698876c6a3"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing.json",
+      "sha256": "0be9f38ecd21ef90f3360750e91fed6f7de42a095cd14c97644dab2c0c4c5d9d"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-summary.json",
+      "sha256": "cb7a8986a2793a5263d9eb8f1542eb78106dfdbc7abb97da2fef1581a8f3980e"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/independent-verification.json",
+      "sha256": "8fcd468b658e7f95de833ea7bfaf7fd4ebc4e1f1f2261a176d64255026243907"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/test-verifier.py",
+      "sha256": "344d3d33dbbdf16b8bb4e6d9861f0411285a2e8aca53200bb9db2868381c0546"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/verifier-tests.json",
+      "sha256": "ff6f1ae7b6155d63d351f8448df9c7bc80b0e42a3756677b35e96c47564da3b3"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/report.json",
+      "sha256": "4d0d0c6828aebcd89e66723826532f0dd203ab213d98b31d0c6327cf608b6814"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults.log",
+      "sha256": "ee9b01ad6236931c8fcd7b684674e9d51d292bcfe045e5e5634fd9222c3c3a00"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/restore-build.log",
+      "sha256": "48877e7bd7569816da1d3f84b0a8d3c5454cfdf6791bcb74c919ffee3da993f6"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/restore-identity-difference.json",
+      "sha256": "af6cdee32a25b18aaf23292b45c4ad199ff380317cd0e686c19d2759008e60ae"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/final-state.json",
+      "sha256": "ef3606b42f85ed9bd98db0e2dc61d77c1264abf15d57d7ef8b3df2a620082b68"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/app-before.json",
+      "sha256": "8c54c91bf2cf278c7cfca1f4af9ec3a41c2e137ae48c703e0469d893af6f5123"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-1/audit.db",
+      "sha256": "31dc42feab0aebb9cccb681b0f211645ecbfe15a88188c2b307756e35e4c35a2"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-1/workspace/fixed-read.txt",
+      "sha256": "f3c0d9da255aa5736610e478401f75c718c2daa6ac634b7be54e16aea05352e9"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-2/audit.db",
+      "sha256": "0a68b5aa2dcbdef3a886ab77d5a63e4d48c811d7501243020888d790fd473033"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/timing-2/workspace/fixed-read.txt",
+      "sha256": "f3c0d9da255aa5736610e478401f75c718c2daa6ac634b7be54e16aea05352e9"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/success/result.json",
+      "sha256": "47d813199439b012f4de747c36b509d660c27af6634fe0726eedb5335e45949b"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/success/audit.db",
+      "sha256": "13077d092641c87879968b643b851fb568af6fc175c97788b94edafa17716f46"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/decision-failure/result.json",
+      "sha256": "d833c4badd4f4ec44a507dd09c9c59f09a66531a07a814c35be5b19f6e8a56a9"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/decision-failure/audit.db",
+      "sha256": "5272e874dec4f482c8a048a58ea0d42e093bd6c1f34e6564cf9a9a5dae84ec38"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/start-failure/result.json",
+      "sha256": "f2112d37c31079c4190f77babe600479c58ceb21db9e0f766c36f7e095a4a976"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/start-failure/audit.db",
+      "sha256": "a2e73d60f42bc36e333c38da767976e3a204234fb3e6d773147ffc9e64f24088"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/source-failure/result.json",
+      "sha256": "5a155b8d0c914cc81ab53b0dad5de86348f30ced7e7adba1ad3ee1bcd5c8e7e4"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/source-failure/audit.db",
+      "sha256": "d7ddea4ba67e5cac38edaa1a8714f4117518fde6e8840b8bf034fef6ab600d61"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/finish-failure/result.json",
+      "sha256": "1b021a2d76a087efe053e1a684820ba9ec561193df46c4acad610cafc7a1d50a"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/audit-faults/finish-failure/audit.db",
+      "sha256": "446bbba3def34bd292b4d04b0bb8bed180dc155e6f81fc502f9e8458c717c2bf"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T064655988Z-87971-benchmark/report.json",
+      "sha256": "c4e9d1a300873e0d9e0435c497e63634e96986a7496744faa217a5ac90b9f35d"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T064711527Z-88848-benchmark/report.json",
+      "sha256": "4fd80798da68c5a8ede7e6241e1fd84141cc5dec9c2720fe1498dc3bd3f99872"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T064728256Z-89692-benchmark/report.json",
+      "sha256": "602e42e29b0df0ce43d8c1cb665afc41aeb634bac4ce345ac62fd2f2be3c3e5d"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T064743961Z-90466-benchmark/report.json",
+      "sha256": "037a20322e24644d8c70e31dd92c922daed810ccd251178dfeee09560bac6a91"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/ci-a3917b3-final.json",
+      "sha256": "af89a38d72528fbc5600eda212975528d5025a9f847fd2d67710e3aaa816a55b"
+    },
+    {
+      "path": ".artifacts/m3-performance-current-2026-09-16/repository-tests.log",
+      "sha256": "54ead697e374b9281e98900f1d18ca459ac98988d08a9ef895df620846353dff"
+    }
+  ],
+  "baseline_ci": {
+    "commit": "a3917b34e84ddcc861c77a782abf432c92e2c09b",
+    "run": 35064815465,
+    "passed_jobs": 13,
+    "status": "completed"
+  }
+}

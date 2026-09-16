@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 current-candidate performance diagnostics (2026-09-16)
+
+- Four development/optimized-build runs retained the original samples and budgets; each passed 4/6. Startup before main and durable-commit time were measured separately without weakening synchronization. See the [record](docs/agd-027-current-performance-2026-09-16.zh.md).
+- Added an independent verifier for raw samples and 842 actual audit rows; nine tampered reports were rejected. Five real database-failure scenarios passed 51 checks. Fixed App 022 is unchanged; AGD-027 and the full plan remain incomplete.
+
 ### Fixed App 022: passive fields no longer imply cross-app writes (2026-09-16)
 
 - Native field observations no longer create profile provenance, cross-app taint or agent-fill scores. Actual writes, explicit injection and privacy-trap checks remain protected.
