@@ -1,0 +1,57 @@
+{
+  "baseline": "f4834812a7cf5842835b07cb02f9570015fac6b4",
+  "ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35126965648",
+    "successful_jobs": 13
+  },
+  "edge": {
+    "app": "/Users/lazy/Applications/Microsoft Edge.app",
+    "version": "153.0.4234.32",
+    "bundle_id": "com.microsoft.edgemac",
+    "method": "将已验证官方 PKG 的原始签名 App 放入用户 Applications；未执行 root 安装脚本",
+    "existing_default_edge_profile": true,
+    "test_profile": "/Users/lazy/Library/Application Support/AgentGuard Browser Acceptance/Edge",
+    "official_source": "https://edgeupdates.microsoft.com/api/products?view=enterprise",
+    "package_sha256": "8ccdfd126c8e80411108c8ec45cbc610779a08c54285d02d48681e8d8afed529",
+    "package_size_bytes": 429856524,
+    "team_id": "UBF8T346G9",
+    "pkg_and_app_gatekeeper": "accepted / Notarized Developer ID",
+    "first_run": "等待用户确认许可条款",
+    "extension_loaded": false
+  },
+  "candidate_zip_sha256": "67b34bbedbb77bed07c5cb6ae99b11a7ad12b3a53650496cce686bde6e2e49e2",
+  "source_and_unpacked_files_verified": 23,
+  "fixed_mac_app_unchanged_files": 91,
+  "fixture_server_self_tests_passed": 14,
+  "fixture_server_self_tests_are_native_acceptance": false,
+  "fixture_server_stopped": true,
+  "repository_invariants_passed": 23,
+  "acceptance": {
+    "B1": "BLOCKED: 浏览器首次启动许可未确认，扩展未加载",
+    "B2": "NOT_RUN",
+    "B3": "NOT_RUN",
+    "B4": "BLOCKED: 上一公开版本来源待确认",
+    "B5": "NOT_RUN"
+  },
+  "release": "No-Go",
+  "artifact_root": ".artifacts/edge-native-2026-09-17",
+  "artifact_sha256": {
+    "official-products.json": "75655527c535b7af81f7616035d37f588c2305bebef2c71c66e800694c1fa579",
+    "selected-release.json": "7edb3a266d05d4abc3c31945edf9e1784e572959ea8dc95f29fbe99b8775c6c5",
+    "MicrosoftEdge.pkg": "8ccdfd126c8e80411108c8ec45cbc610779a08c54285d02d48681e8d8afed529",
+    "pkg-signature.txt": "e2ada7f395b489dca1521b683ddf32b6dc5ce1972dfa12750d025e078c9346fd",
+    "pkg-gatekeeper.txt": "44ac64d5c62d26de3861323cfbb3d2d82a8358dcc2470dc6557990e54e0a919f",
+    "app-placement.json": "ba5299c6e09961303703906dd941f9d82c5c4e8dcf4e25123fa33a008995c935",
+    "app-signature-identity.txt": "3d76b33d3251d72df13b8af6e7a19d31b553050a94ec69c897e00878c1d4d0da",
+    "app-signature-verify.txt": "6542c98cce2a70d6215d147eaaaf03ed041f02b26868bc9c5794b389c1d897f1",
+    "app-final-verify.txt": "069a82720f0a2b1af68b40a98481acd685e0b1f9c21a58a0f6f0826c7b238822",
+    "app-gatekeeper.txt": "46d9729ec1cf8125a071f2f49fbb0a7192a5b0ea3cc3e1048ea49db596904378",
+    "native-ui-observation.json": "a491a241c31a0ce889306d58fbe6015a34e667a9124b244b22d6dad06b5c0d7e",
+    "native-fixtures.mjs": "d23f57685601fe1090985d5fb334352b199746b21925715f932f4b0f3677bb48",
+    "fixture-self-test.log": "84dc944d9a2cafc31bfb5f85c2c02836821d3237dcd36d5fa51bd5972a0abba1",
+    "fixture-self-test/fixture-hashes.json": "7fa839a9ada70157cc76d6b05aae63a7126903f44b7e89be6f1941c92ca246fe",
+    "fixture-self-test/result.json": "53cefcbc5dd3f8a3c3b5b26bb060a0cf1afb95cc07a60a9787ec15b64b9e4cdf",
+    "verification.json": "f72e83f284f444d94b8951fd4a59a23cddaefd5095cc629015acd1a91ce2c5a4",
+    "repository-invariants.log": "49e4d22ea12b5b56369d8ba2b5729bd6d15ea887b6e227eafb4cf3af24c48459"
+  }
+}

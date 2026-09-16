@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Official Edge preparation and first-run consent (2026-09-17)
+
+- Previous commit `f483481` passed all 13 CI jobs. Prepared Microsoft Stable 153.0.4234.32 after checking the official package hash, Microsoft signatures and Apple notarization. Placed the original App in user Applications without running root installer scripts.
+- The isolated empty profile is waiting for first-run license consent; the extension has not been loaded. Fourteen fixture-server self-checks passed, establishing helper readiness only, not B1–B5 acceptance. All 91 files and modes of fixed App 024 remain unchanged; current permissions and timestamped observation records were checked. See the [record](docs/edge-native-preparation-2026-09-17.zh.md).
+
 ### Chrome acceptance preparation and incomplete attempt (2026-09-17)
 
 - Android correction `c56fd02` passed all 13 CI jobs. Froze the extension ZIP from the same source; all 23 files match source bytes and packaging regression checks passed.
