@@ -1,22 +1,23 @@
 {
-  "schema": 1,
-  "base_image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+  "schema": 2,
+  "base_image": "sha256:6d16b7d4562b458e87d27f1c0ca21a32270bfc2454dc90cec4d9fb487077bec0",
   "architecture": "arm64",
   "python": "3.11",
-  "scope": "本地解析候选；APT 通过 Debian 签名索引下载，离线构建；不是发布供应链验收",
-  "apt_requested": [
-    "tesseract-ocr=5.3.0-2",
-    "tesseract-ocr-eng=1:4.1.0-2",
-    "tesseract-ocr-chi-sim=1:4.1.0-2",
-    "tesseract-ocr-chi-tra=1:4.1.0-2"
+  "scope": "继承原文档运行时，新增离线 PP-OCRv5；本机候选，不代表发布或默认 App 更新",
+  "apt_requested": [],
+  "ocr_runtime": {
+    "rapidocr": "3.9.2",
+    "onnxruntime": "1.30.0",
+    "opencv-python-headless": "4.13.0.92",
+    "omegaconf": "2.3.0",
+    "antlr4-python3-runtime": "4.9.3"
+  },
+  "packaging_notes": [
+    "使用 headless cv2 替代 GUI cv2；RapidOCR 上游元数据仍声明 opencv_python，不宣称 pip 依赖检查通过",
+    "ANTLR 只展开校验后源码包的 src 与原 egg-info，不执行 setup.py",
+    "模型路径固定，运行时不下载"
   ],
   "packages": [
-    {
-      "path": "wheels/defusedxml-0.7.1-py2.py3-none-any.whl",
-      "sha256": "a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61",
-      "bytes": 25604,
-      "url": "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl"
-    },
     {
       "path": "wheels/pillow-12.3.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
       "sha256": "bcb46e2f9feff8d06323983bd83ed00c201fdcab3d74973e7072a889b3979fcd",
@@ -24,55 +25,154 @@
       "url": "https://files.pythonhosted.org/packages/c8/98/766667a4be768150a202836acd9fad19c06824ca86c4286d3cf6b274964e/pillow-12.3.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl"
     },
     {
-      "path": "wheels/pypdf-6.18.1-py3-none-any.whl",
-      "sha256": "ee93a2665670ecf57ee81d197a4ca548f3dc15f9cefc56e59b8140866aaa3de5",
-      "bytes": 394327,
-      "url": "https://files.pythonhosted.org/packages/58/13/645df3995075112cb3cce15e8797c205f0f88fb50acc11012b84b071bc22/pypdf-6.18.1-py3-none-any.whl"
+      "path": "wheels/pyyaml-6.0.3-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "10892704fc220243f5305762e276552a0395f7beb4dbf9b14ec8fd43b57f126c",
+      "bytes": 775556,
+      "url": "https://files.pythonhosted.org/packages/0c/62/d2eb46264d4b157dae1275b573017abec435397aa59cbcdab6fc978a8af4/pyyaml-6.0.3-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl"
     },
     {
-      "path": "debs/libarchive13_3.6.2-1+deb12u5_arm64.deb",
-      "sha256": "0be76b2a5c9f1ff3f97ed44731175a5bf69fe0b89a8ebfb3cee7ad77777ee918",
-      "bytes": 318348
+      "path": "wheels/colorlog-6.12.0-py3-none-any.whl",
+      "sha256": "30d392604e9110045a2c2aeefc27d7a017abbab63f3a8aee594eac0801df784e",
+      "bytes": 12239,
+      "url": "https://files.pythonhosted.org/packages/d4/19/0b6647bf5e331521e55d2b63bfbdc210bd9cd605189273f03614a05f702d/colorlog-6.12.0-py3-none-any.whl"
     },
     {
-      "path": "debs/libgif7_5.2.1-2.5+deb12u1_arm64.deb",
-      "sha256": "be2d59e3e3f630391b72fd5c4a3430dbd6eb6d98c6b6012082135aff860ae580",
-      "bytes": 42572
+      "path": "wheels/rapidocr-3.9.2-py3-none-any.whl",
+      "sha256": "04d6b8d151f823d930bd91910555f57bea897c0c44fa6794267b94cf9c1ef9a0",
+      "bytes": 27275208,
+      "url": "https://files.pythonhosted.org/packages/55/ed/0ee9b9281986974be9d2406ae0134c8d7c91d2fc613f16ffda9701eeda6f/rapidocr-3.9.2-py3-none-any.whl"
     },
     {
-      "path": "debs/liblept5_1.82.0-3+b3_arm64.deb",
-      "sha256": "8558ed0ca34daace46cedebb8f13374d4248c4f47faf337c736f1ad1dfcc23fd",
-      "bytes": 972528
+      "path": "wheels/shapely-2.1.2-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "sha256": "cc4f7397459b12c0b196c9efe1f9d7e92463cbba142632b4cc6d8bbbbd3e2b09",
+      "bytes": 3001519,
+      "url": "https://files.pythonhosted.org/packages/70/8b/868b7e3f4982f5006e9395c1e12343c66a8155c0374fdc07c0e6a1ab547d/shapely-2.1.2-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl"
     },
     {
-      "path": "debs/libtesseract5_5.3.0-2_arm64.deb",
-      "sha256": "d6c8de87768190ab1adfc9a9954bfb3c79c9dbd51b43eab06812db471f4ad1c3",
-      "bytes": 1122688
+      "path": "wheels/idna-3.19-py3-none-any.whl",
+      "sha256": "815e7be7a7806d54abb586dc943addc79e8b2ee16915059658cbeff4b1b43bf4",
+      "bytes": 68550,
+      "url": "https://files.pythonhosted.org/packages/57/b0/0e52c878c53f245edd3a11020f20979b3f490f245af532c7cae3027754b5/idna-3.19-py3-none-any.whl"
     },
     {
-      "path": "debs/tesseract-ocr-chi-sim_1%3a4.1.0-2_all.deb",
-      "sha256": "035f20a3e317343c1b88f6db546225eda9b5857078729c009662e0b3e0fb5d57",
-      "bytes": 1636436
+      "path": "wheels/flatbuffers-25.12.19-py2.py3-none-any.whl",
+      "sha256": "7634f50c427838bb021c2d66a3d1168e9d199b0607e6329399f04846d42e20b4",
+      "bytes": 26661,
+      "url": "https://files.pythonhosted.org/packages/e8/2d/d2a548598be01649e2d46231d151a6c56d10b964d94043a335ae56ea2d92/flatbuffers-25.12.19-py2.py3-none-any.whl"
     },
     {
-      "path": "debs/tesseract-ocr-chi-tra_1%3a4.1.0-2_all.deb",
-      "sha256": "b4b08ba6e2b90cf1b6b472ae770a1dea26c03f003183862440e535f74cb7d45d",
-      "bytes": 1587616
+      "path": "wheels/tqdm-4.70.1-py3-none-any.whl",
+      "sha256": "c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73",
+      "bytes": 80199,
+      "url": "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl"
     },
     {
-      "path": "debs/tesseract-ocr-eng_1%3a4.1.0-2_all.deb",
-      "sha256": "9242d054563262398f8cf41fbd96fcc72f9dde70db16de18539882a6cff74f9d",
-      "bytes": 1593640
+      "path": "wheels/onnxruntime-1.30.0-cp311-cp311-manylinux_2_28_aarch64.whl",
+      "sha256": "bac3aee7b40acd805659fd81a2acd6096312d5b0f014c97ddfe75fb4c1644627",
+      "bytes": 21332697,
+      "url": "https://files.pythonhosted.org/packages/4f/1a/4d197d2676a866f6239cd2d06a95b6db40d47dc29d5bec9fb1493a13dd94/onnxruntime-1.30.0-cp311-cp311-manylinux_2_28_aarch64.whl"
     },
     {
-      "path": "debs/tesseract-ocr-osd_1%3a4.1.0-2_all.deb",
-      "sha256": "72cc0ba5a04e4d38e5d7901ae2f0319f4941fddaa4a77d1a86110909c036bacb",
-      "bytes": 2992152
+      "path": "wheels/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "bytes": 129956,
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
     },
     {
-      "path": "debs/tesseract-ocr_5.3.0-2_arm64.deb",
-      "sha256": "b547619f12d974916322ca9a2c7628dff8fbcb4b097adc8e277891b03239a6c1",
-      "bytes": 363072
+      "path": "wheels/six-1.17.0-py2.py3-none-any.whl",
+      "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274",
+      "bytes": 11050,
+      "url": "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl"
+    },
+    {
+      "path": "wheels/protobuf-7.36.1-cp310-abi3-manylinux2014_aarch64.whl",
+      "sha256": "43d3d37b1eb24c113b9b7d02008cac44e423f00b611b7781ae998d7623972969",
+      "bytes": 344226,
+      "url": "https://files.pythonhosted.org/packages/6e/08/9f9548793c771095245c0eeaf0c84b76b16a5ef26158043d456f551344a0/protobuf-7.36.1-cp310-abi3-manylinux2014_aarch64.whl"
+    },
+    {
+      "path": "wheels/requests-2.34.2-py3-none-any.whl",
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0",
+      "bytes": 73075,
+      "url": "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl"
+    },
+    {
+      "path": "wheels/urllib3-2.8.0-py3-none-any.whl",
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3",
+      "bytes": 135717,
+      "url": "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl"
+    },
+    {
+      "path": "wheels/certifi-2026.7.22-py3-none-any.whl",
+      "sha256": "62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775",
+      "bytes": 136983,
+      "url": "https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl"
+    },
+    {
+      "path": "wheels/charset_normalizer-3.5.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "aa2bb0b37202dca27175591f761108b5d34096ade1191ffe4808bdf6b1571488",
+      "bytes": 251189,
+      "url": "https://files.pythonhosted.org/packages/d5/fa/6a7e2a7c4b5451912b8c417732df79574354443592a88d616de03da66ae5/charset_normalizer-3.5.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl"
+    },
+    {
+      "path": "wheels/numpy-2.4.6-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "0ab0a9c4ffb1a6d95ef519fe4247dba8eb6b18ad93999f76b7f657039acabd47",
+      "bytes": 15966692,
+      "url": "https://files.pythonhosted.org/packages/33/a8/6fa8c1a345a8c85dbb21932c447bee07c30a2c2a3f31e369c0a84b300147/numpy-2.4.6-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl"
+    },
+    {
+      "path": "wheels/pyclipper-1.4.0-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "58e29d7443d7cc0e83ee9daf43927730386629786d00c63b04fe3b53ac01462c",
+      "bytes": 962842,
+      "url": "https://files.pythonhosted.org/packages/ff/e9/ea7d68c8c4af3842d6515bedcf06418610ad75f111e64c92c1d4785a1513/pyclipper-1.4.0-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl"
+    },
+    {
+      "path": "wheels/omegaconf-2.3.0-py3-none-any.whl",
+      "sha256": "7b4df175cdb08ba400f45cae3bdcae7ba8365db4d165fc65fd04b050ab63b46b",
+      "bytes": 79500,
+      "url": "https://files.pythonhosted.org/packages/e3/94/1843518e420fa3ed6919835845df698c7e27e183cb997394e4a670973a65/omegaconf-2.3.0-py3-none-any.whl"
+    },
+    {
+      "path": "wheels/opencv_python_headless-4.13.0.92-cp37-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+      "sha256": "5c8cfc8e87ed452b5cecb9419473ee5560a989859fe1d10d1ce11ae87b09a2cb",
+      "bytes": 33703709,
+      "url": "https://files.pythonhosted.org/packages/21/76/9417a6aef9def70e467a5bf560579f816148a4c658b7d525581b356eda9e/opencv_python_headless-4.13.0.92-cp37-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl"
+    },
+    {
+      "path": "sources/antlr4-python3-runtime-4.9.3.tar.gz",
+      "sha256": "f224469b4168294902bb1efa80a8bf7855f24c99aef99cbefc1bcd3cce77881b",
+      "bytes": 117034,
+      "url": "https://files.pythonhosted.org/packages/3e/38/7859ff46355f76f8d19459005ca000b6e7012f2f1ca597746cbcd1fbfe5e/antlr4-python3-runtime-4.9.3.tar.gz"
+    },
+    {
+      "path": "models/ch_PP-OCRv5_det_mobile.onnx",
+      "sha256": "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae",
+      "bytes": 4819576,
+      "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/det/ch_PP-OCRv5_det_mobile.onnx"
+    },
+    {
+      "path": "models/ch_PP-OCRv5_rec_mobile.onnx",
+      "sha256": "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
+      "bytes": 16631306,
+      "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile.onnx"
+    },
+    {
+      "path": "models/ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx",
+      "sha256": "54379ae5174d026780215fc748a7f31910dee36818e63d49e17dc598ecc82df7",
+      "bytes": 1018508,
+      "url": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/cls/ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx"
+    },
+    {
+      "path": "licenses/LICENSE",
+      "sha256": "3e0af25fdd06aa9586ae97adb00ea927ebe5a3805ac77d2d3a81ce5f55693333",
+      "bytes": 11422,
+      "source": "RapidAI/RapidOCR@64b1c680be9992b7500aecd89a484d161443612a"
+    },
+    {
+      "path": "licenses/MODEL_LICENSES.md",
+      "sha256": "c5fd0e8603d3df743355b546121e6fe0f4ef8ff455c5a85c1681fd3ae520e153",
+      "bytes": 8398,
+      "source": "RapidAI/RapidOCR@64b1c680be9992b7500aecd89a484d161443612a"
     }
   ]
 }

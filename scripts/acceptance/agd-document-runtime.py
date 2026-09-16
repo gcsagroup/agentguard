@@ -12,8 +12,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--packages", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--lock", type=Path, default=Path(__file__).with_name("document-runtime-lock.json"))
     args = parser.parse_args()
-    lock_path = Path(__file__).with_name("document-runtime-lock.json")
+    lock_path = args.lock
     lock = json.loads(lock_path.read_text())
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -34,11 +35,25 @@ def main():
     subprocess.run([docker, "image", "tag", lock["base_image"], base_tag], check=True)
     extract = "import pathlib,zipfile; target='/usr/local/lib/python3.11/dist-packages'; " \
               "[zipfile.ZipFile(p).extractall(target) for p in pathlib.Path('/tmp/agd-wheels').glob('*.whl')]"
-    recipe = f"FROM {base_tag}\nCOPY debs/ /tmp/agd-debs/\nCOPY wheels/ /tmp/agd-wheels/\n" \
-             "RUN dpkg -i /tmp/agd-debs/*.deb\n" \
-             + "RUN " + json.dumps(["/usr/bin/python3", "-c", extract]) + "\n" \
-             + "RUN rm -rf /tmp/agd-debs /tmp/agd-wheels\n" \
-             + 'LABEL org.gcsa.agentguard.scope="development-acceptance" org.gcsa.agentguard.document="1"\n'
+    recipe = f"FROM {base_tag}\n"
+    if (context / "debs").exists():
+        recipe += "COPY debs/ /tmp/agd-debs/\nRUN dpkg -i /tmp/agd-debs/*.deb\nRUN rm -rf /tmp/agd-debs\n"
+    recipe += "COPY wheels/ /tmp/agd-wheels/\nRUN " + json.dumps(["/usr/bin/python3", "-c", extract]) + "\nRUN rm -rf /tmp/agd-wheels\n"
+    if lock.get("ocr_runtime"):
+        unpack = """import pathlib,tarfile
+target=pathlib.Path('/usr/local/lib/python3.11/dist-packages')
+with tarfile.open('/tmp/agd-sources/antlr4-python3-runtime-4.9.3.tar.gz') as archive:
+ for item in archive:
+  prefix='antlr4-python3-runtime-4.9.3/src/'
+  if not item.name.startswith(prefix) or not item.isfile(): continue
+  path=pathlib.Path(item.name[len(prefix):])
+  assert not path.is_absolute() and '..' not in path.parts
+  destination=target/path; destination.parent.mkdir(parents=True,exist_ok=True)
+  destination.write_bytes(archive.extractfile(item).read())
+"""
+        recipe += "COPY sources/ /tmp/agd-sources/\nRUN " + json.dumps(["/usr/bin/python3", "-c", unpack]) + "\nRUN rm -rf /tmp/agd-sources\n"
+        recipe += "COPY models/ /usr/local/share/agentguard/ocr/\nCOPY licenses/ /usr/local/share/agentguard/ocr/licenses/\n"
+    recipe += f'LABEL org.gcsa.agentguard.scope="development-acceptance" org.gcsa.agentguard.document="{lock["schema"]}"\n'
     (context / "Dockerfile").write_text(recipe)
     tag = "agentguard-local/agd-runtime:document"
     report = {"base_image": lock["base_image"], "lock_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(),
@@ -55,6 +70,10 @@ def main():
                 "'Pillow':PIL.__version__,'defusedxml':defusedxml.__version__," \
                 "'tesseract':subprocess.check_output(['/usr/bin/tesseract','--version'],text=True).splitlines()[0]," \
                 "'languages':subprocess.check_output(['/usr/bin/tesseract','--list-langs'],text=True).splitlines()[1:]}))"
+        if lock.get("ocr_runtime"):
+            probe = "import json,pypdf,PIL,defusedxml; from importlib.metadata import version; " \
+                    + "print(json.dumps({'pypdf':pypdf.__version__,'Pillow':PIL.__version__,'defusedxml':defusedxml.__version__," \
+                    + "'ocr_runtime':{name:version(name) for name in " + repr(list(lock["ocr_runtime"])) + "}}))"
         result = subprocess.run([docker, "run", "--rm", "--name", "agentguard-document-runtime-probe",
             "--pull=never", "--network=none", "--read-only", "--user=65534:65534", "--cap-drop=ALL",
             "--security-opt=no-new-privileges:true", "--pids-limit=64", "--memory=256m", "--memory-swap=256m",
@@ -64,8 +83,11 @@ def main():
         assert result.returncode == 0, "解析运行时探测失败"
         versions = json.loads(result.stdout)
         assert versions["pypdf"] == "6.18.1" and versions["Pillow"] == "12.3.0" and versions["defusedxml"] == "0.7.1"
-        assert versions["tesseract"] == "tesseract 5.3.0"
-        assert {"eng", "chi_sim", "chi_tra"}.issubset(versions["languages"])
+        if lock.get("ocr_runtime"):
+            assert versions["ocr_runtime"] == lock["ocr_runtime"]
+        else:
+            assert versions["tesseract"] == "tesseract 5.3.0"
+            assert {"eng", "chi_sim", "chi_tra"}.issubset(versions["languages"])
         report["runtime"] = versions
         report["passed"] = True
     finally:

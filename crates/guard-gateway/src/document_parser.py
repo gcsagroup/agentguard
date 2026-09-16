@@ -9,11 +9,12 @@ import re
 import stat
 import subprocess
 import tempfile
+import time
 import warnings
 import zipfile
 
 
-VERSION = "agentguard-document/1"
+VERSION = "agentguard-document/2"
 LIMITS = {
     "input_bytes": 8 * 1024 * 1024,
     "text_bytes": 32 * 1024,
@@ -32,8 +33,14 @@ LIMITS = {
     "image_side": 8192,
     "image_frames": 1,
     "ocr_seconds": 15,
+    "ocr_working_side": 1024,
+    "ocr_detection_side": 640,
 }
-OCR_LANGUAGES = "eng+chi_sim+chi_tra"
+OCR_MODELS = {
+    "Det": ("ch_PP-OCRv5_det_mobile.onnx", "4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae"),
+    "Rec": ("ch_PP-OCRv5_rec_mobile.onnx", "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5"),
+    "Cls": ("ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx", "54379ae5174d026780215fc748a7f31910dee36818e63d49e17dc598ecc82df7"),
+}
 
 
 class Rejected(Exception):
@@ -260,29 +267,115 @@ def picture(data, kind, result):
         result.meta("height", height)
         image.load()
         with tempfile.TemporaryDirectory(prefix="agd-ocr-", dir="/tmp") as directory:
-            # 重新编码成无附加元数据的位图，OCR 进程不再接触原始解析格式。
+            # 先限制工作图尺寸并去掉元数据，释放原解码图后再启动 OCR 子进程。
             raster = os.path.join(directory, "image.png")
+            image.thumbnail((LIMITS["ocr_working_side"], LIMITS["ocr_working_side"]), Image.Resampling.LANCZOS)
+            result.meta("ocr_working_width", image.width)
+            result.meta("ocr_working_height", image.height)
             Image.frombytes("RGB", image.size, image.convert("RGB").tobytes()).save(raster)
-            output = os.path.join(directory, "ocr")
-            process = subprocess.run(["/usr/bin/tesseract", raster, output, "-l", OCR_LANGUAGES,
-                                      "--psm", "6", "--oem", "1"],
+            image.close()
+            output = os.path.join(directory, "ocr.json")
+            deadline = time.monotonic() + LIMITS["ocr_seconds"]
+            process = subprocess.run(["/usr/bin/python3", "-I", os.path.abspath(__file__), "--ocr-worker", raster, output],
                                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                      timeout=LIMITS["ocr_seconds"], check=False,
-                                     env={"PATH": "/usr/bin:/bin", "HOME": "/tmp", "OMP_THREAD_LIMIT": "1"})
+                                     env={"PATH": "/usr/bin:/bin", "HOME": "/tmp", "OMP_NUM_THREADS": "1",
+                                          "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"})
             require(process.returncode == 0, "OCR 引擎未成功返回，不视为无文字", "parser_failed")
-            with open(output + ".txt", "rb") as stream:
-                text = stream.read(LIMITS["text_bytes"] + 1)
-            require(len(text) <= LIMITS["text_bytes"], "OCR 正文超限")
-            result.add("image:1:ocr", text.decode("utf-8"))
+            with open(output, "rb") as stream:
+                raw = stream.read(LIMITS["text_bytes"] + 4097)
+            require(len(raw) <= LIMITS["text_bytes"] + 4096, "OCR 回执超限")
+            receipt = json.loads(raw)
+            if receipt["status"] != "parsed":
+                raise Rejected(receipt["status"], receipt["reason"])
+            text = receipt["text"]
+            # 全英文结果用原引擎复核词间空格；只有去空白后逐字一致才采用，不改字词。
+            if re.fullmatch(r"[\x20-\x7e\s]+", text) and re.search(r"[A-Za-z]", text):
+                def remaining():
+                    value = deadline - time.monotonic()
+                    if value <= 0:
+                        raise subprocess.TimeoutExpired("ocr", LIMITS["ocr_seconds"])
+                    return value
+                latin_output = os.path.join(directory, "latin")
+                latin = subprocess.run(["/usr/bin/tesseract", raster, latin_output, "-l", "eng", "--psm", "6", "--oem", "1"],
+                                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                       timeout=remaining(), check=False,
+                                       env={"PATH": "/usr/bin:/bin", "HOME": "/tmp", "OMP_THREAD_LIMIT": "1"})
+                require(latin.returncode == 0, "英文空格复核失败", "parser_failed")
+                with open(latin_output + ".txt", "rb") as stream:
+                    latin_text = stream.read(LIMITS["text_bytes"] + 1)
+                require(len(latin_text) <= LIMITS["text_bytes"], "英文复核正文超限")
+                latin_text = latin_text.decode("utf-8").strip()
+                if "".join(latin_text.split()) == "".join(text.split()):
+                    text = latin_text
+                    result.meta("ocr_spacing_review", "相同字符的英文空格复核")
+                version = subprocess.run(["/usr/bin/tesseract", "--version"], stdin=subprocess.DEVNULL,
+                                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=remaining(), check=False,
+                                         env={"PATH": "/usr/bin:/bin", "HOME": "/tmp"})
+                require(version.returncode == 0 and len(version.stdout) <= 4096, "无法核对英文 OCR 版本", "dependency_missing")
+                result.dependencies["tesseract_spacing"] = version.stdout.decode("utf-8").splitlines()[0]
+            result.add("image:1:ocr", text)
+            result.meta("ocr_rotation_degrees", receipt["rotation"])
+            result.meta("ocr_lines", receipt["lines"])
+            result.dependencies.update(receipt["dependencies"])
     result.covered = ["image_metadata", "image_ocr"]
-    version = subprocess.run(["/usr/bin/tesseract", "--version"], stdin=subprocess.DEVNULL,
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=2, check=False,
-                             env={"PATH": "/usr/bin:/bin", "HOME": "/tmp"})
-    require(version.returncode == 0 and len(version.stdout) <= 4096,
-            "无法核对 OCR 引擎版本", "dependency_missing")
-    result.dependencies["tesseract"] = version.stdout.decode("utf-8").splitlines()[0]
-    result.dependencies["ocr_languages"] = OCR_LANGUAGES
-    result.uncovered = ["OCR 可能误识别或漏字，不构成风险排除", "隐写、非文字像素、二进制元数据及嵌套 EXIF 未覆盖"]
+    result.uncovered = ["OCR 工作图最长边为 1024 像素，可能误识别或漏字，不构成风险排除",
+                        "仅在至少两行均明确倒置时纠正整页 180 度方向；混合方向、竖排及复杂阅读顺序未验证",
+                        "隐写、非文字像素、二进制元数据及嵌套 EXIF 未覆盖"]
+
+
+def ocr_worker(path, output):
+    """固定子进程入口；不接收模型路径或 URL，异常不返回部分正文。"""
+    try:
+        import gc
+        from importlib.metadata import version
+        from PIL import Image
+        import numpy as np
+        from rapidocr import RapidOCR, ModelType, OCRVersion
+        params = {"Global.log_level": "error", "Global.max_side_len": LIMITS["ocr_working_side"],
+                  "EngineConfig.onnxruntime.intra_op_num_threads": 1,
+                  "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+                  "EngineConfig.onnxruntime.enable_cpu_mem_arena": False,
+                  "Det.limit_type": "max", "Det.limit_side_len": LIMITS["ocr_detection_side"],
+                  "Det.mean": [0.485, 0.456, 0.406], "Det.std": [0.229, 0.224, 0.225],
+                  "Rec.rec_batch_num": 1, "Cls.cls_batch_num": 1}
+        dependencies = {name: version(name) for name in ("rapidocr", "onnxruntime", "opencv-python-headless")}
+        for component, (name, digest) in OCR_MODELS.items():
+            model = "/usr/local/share/agentguard/ocr/" + name
+            with open(model, "rb") as stream:
+                require(sha(stream.read(24 * 1024 * 1024 + 1)) == digest, "OCR 模型与固定摘要不一致", "dependency_missing")
+            params[component + ".model_path"] = model
+            params[component + ".model_type"] = ModelType.MOBILE
+            params[component + ".ocr_version"] = OCRVersion.PPOCRV5
+            dependencies["ocr_" + component.lower() + "_sha256"] = digest
+        engine = RapidOCR(params=params)
+        with Image.open(path, formats=["PNG"]) as image:
+            require(max(image.size) <= LIMITS["ocr_working_side"], "OCR 工作图超限")
+            original = engine.load_img(image)
+        image, operations = engine.preprocess_img(original)
+        det, cls, rec, crops = engine.run_ocr_steps(image, operations)
+        directions = cls.cls_res or []
+        rotation = 0
+        if len(directions) >= 2 and all(label == "180" and score >= 0.9 for label, score in directions):
+            rotation = 180
+            del det, cls, rec, crops, image
+            gc.collect()
+            original = np.ascontiguousarray(original[::-1, ::-1])
+            image, operations = engine.preprocess_img(original)
+            det, cls, rec, crops = engine.run_ocr_steps(image, operations)
+        recognized = engine.build_final_output(original, det, cls, rec, crops, operations)
+        text = "\n".join(recognized.txts or [])
+        require(len(text.encode("utf-8")) <= LIMITS["text_bytes"], "OCR 正文超限")
+        receipt = {"status": "parsed", "text": text, "rotation": rotation,
+                   "lines": len(recognized.txts or []), "dependencies": dependencies}
+    except Rejected as error:
+        receipt = {"status": error.status, "reason": error.reason}
+    except (ImportError, FileNotFoundError):
+        receipt = {"status": "dependency_missing", "reason": "OCR 运行时或固定模型不可用"}
+    except Exception:
+        receipt = {"status": "parser_failed", "reason": "OCR 失败，未取得完整可用结果"}
+    with open(output, "w") as stream:
+        json.dump(receipt, stream, ensure_ascii=False)
 
 
 def parse_bytes(data, kind):
@@ -340,4 +433,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) == 4 and sys.argv[1] == "--ocr-worker":
+        ocr_worker(sys.argv[2], sys.argv[3])
+    else:
+        main()

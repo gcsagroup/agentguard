@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-028 Chinese OCR and persisted retrieval (2026-09-16)
+
+- Image parsing now uses offline, hash-pinned PP-OCRv5 with bounded working and detection images. English spacing is reconciled only when all non-whitespace characters agree, within the shared 15-second deadline. Parser version 2 continues reading version 1 records without migration.
+- All 13 frozen images, including the four original failures, met the original 5% character-error threshold. A stopped OCR child returned unknown and was reaped after about 15.09 seconds. The original 36 component cases, eight entrypoints, six-format gateway flow, two-process Chinese persistence/retrieval and new-candidate container faults passed. Peak memory still reached the limit; OOM and fixture failures remain in the [record](docs/agd-028-chinese-ocr-2026-09-16.zh.md).
+- Workspace tests passed 1,525 cases, SQLCipher-feature document tests five, and strict Clippy passed. Chinese evidence independently verified three signatures and 53 audit rows; six report mutations were rejected. App 020 and its 91 files/signature are unchanged. Previous commit 76150f9 passed all 13 CI jobs. Plan v0.59 keeps existing task counts; model/native integration, AGD-027 performance and release remain unaccepted, with F13 deferred.
+
 ### AGD-028 parser faults and Chinese OCR evaluation (2026-09-16)
 
 - Two real parser container faults produced dispatched/unknown outcomes with no memory writes. A paused container was removed at the original execution deadline after about 30.13 seconds; explicitly initiated subsequent imports succeeded. Empty PDFs were refused, partial PDFs retained blank-page coverage, and tested external relationships caused no observed side effects.

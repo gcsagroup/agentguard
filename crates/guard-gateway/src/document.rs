@@ -142,7 +142,10 @@ impl ParsedDocument {
 
     pub fn validate(&self) -> Result<()> {
         ensure!(
-            self.parser_version == "agentguard-document/1",
+            matches!(
+                self.parser_version.as_str(),
+                "agentguard-document/1" | "agentguard-document/2"
+            ),
             "文档解析版本未支持"
         );
         // 历史记录绑定当时的源码摘要，不强制等于当前版本，避免升级破坏已签名历史。
@@ -265,6 +268,10 @@ mod tests {
     #[test]
     fn 修改正文摘要格式权限分段或覆盖说明均拒绝() {
         for (pointer, value) in [
+            (
+                "/parser_version",
+                serde_json::json!("agentguard-document/3"),
+            ),
             ("/text", serde_json::json!("被替换正文")),
             ("/text_sha256", serde_json::json!("ef".repeat(32))),
             ("/format", serde_json::json!("docx")),
@@ -278,6 +285,22 @@ mod tests {
             let mut raw: Value = serde_json::from_str(&test_receipt()).unwrap();
             *raw.pointer_mut(pointer).unwrap() = value;
             assert!(parse(&raw.to_string()).is_err(), "{pointer}");
+        }
+    }
+
+    #[test]
+    fn 新旧解析版本均保留各自源码摘要且不迁移历史() {
+        for version in ["agentguard-document/1", "agentguard-document/2"] {
+            let mut raw: Value = serde_json::from_str(&test_receipt()).unwrap();
+            raw["parser_version"] = serde_json::json!(version);
+            let mut document = parse(&raw.to_string()).unwrap();
+            document.parser_sha256 = Sha256Digest::new("12".repeat(32)).unwrap();
+            let stored = serde_json::to_string(&document).unwrap();
+            let reopened: ParsedDocument = serde_json::from_str(&stored).unwrap();
+            reopened.validate().unwrap();
+            assert_eq!(reopened.parser_version, version);
+            assert_eq!(reopened.parser_sha256.as_str(), "12".repeat(32));
+            assert_eq!(serde_json::to_string(&reopened).unwrap(), stored);
         }
     }
 
