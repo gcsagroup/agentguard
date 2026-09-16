@@ -112,4 +112,8 @@ In the preceding correction, the app and extension were 1.0.0 (3), retaining the
 
 ## Native text contrast (2026-09-17)
 
-The current app and extension are 1.0.0 (13), retaining their names and bundle IDs. Status text, explanations and section headings use adaptive primary text color; unavailable shared storage still leaves protection off. Three new first-screen contrast and scrolling regressions are included in the Node 26/26, Swift 26/26, strict Release and Analyze development gate. Full accessibility audits still report Dynamic Type, clipping and later-page issues. I6, device Safari and TestFlight remain unverified. [Evidence and limits](../../docs/ios-native-contrast-2026-09-17.zh.md).
+The preceding app and extension were 1.0.0 (13), retaining their names and bundle IDs. Status text, explanations and section headings use adaptive primary text color; unavailable shared storage still leaves protection off. Three new first-screen contrast and scrolling regressions are included in the Node 26/26, Swift 26/26, strict Release and Analyze development gate. Full accessibility audits still report Dynamic Type, clipping and later-page issues. I6, device Safari and TestFlight remain unverified. [Evidence and limits](../../docs/ios-native-contrast-2026-09-17.zh.md).
+
+## Older-toolchain compatibility (2026-09-17)
+
+The current app and extension are **1.0.0 (22)** with the same names and identifiers. [Build 21](../../docs/ios-page-audit-2026-09-17.zh.md) improved page layout and multiline text, but failed compilation under CI Xcode 16.4 because the new API is absent. Build 22 adds a compile-time guard and passes the complete local gate; the older SDK branch still needs the correction commit CI. Maximum text size, device Safari, VoiceOver and TestFlight remain unverified. [Correction and evidence](../../docs/ios-sdk-compatibility-2026-09-17.zh.md).

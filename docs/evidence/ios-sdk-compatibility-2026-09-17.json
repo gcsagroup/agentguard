@@ -1,0 +1,362 @@
+{
+  "baseline": "8b55a0e9dae656cb4b430201c594d116fe40c278",
+  "app_build": "1.0.0 (22)",
+  "change": "编译期隔离旧 Xcode SDK 不存在的 iOS 26 滚动边缘 API；新版保留原显示行为。",
+  "local_environment": {
+    "xcode": "27.0 (27A266a)",
+    "swift": "6.4",
+    "simulator": "Aegis QA iPhone 17 / iOS 26.5 (23F77)",
+    "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A"
+  },
+  "checks": {
+    "node": 26,
+    "swift": 26,
+    "release_simulator": "passed",
+    "release_unsigned_device": "passed",
+    "analyze": "passed",
+    "screenshots_reviewed": 6,
+    "macos_control_http_passed": 16,
+    "control_http_clippy": "passed",
+    "repository_invariants_passed": 23,
+    "contrast_exceptions": "3 个禁用 audit.clear 按钮，与上一批同条件；没有增加例外。"
+  },
+  "products": {
+    "products": [
+      {
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/local-22/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "22",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/local-22/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "22",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      },
+      {
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/local-22/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "22",
+        "executable_sha256": "9614576f50dc24541df8b4c6cc442c4d5594792e805752f7fb97a186586720be"
+      },
+      {
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/local-22/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "22",
+        "executable_sha256": "1dae0d9782ff69359e0ab3cb38bf11220ac330fa6f0f70d3695be29dd5ebc2f7"
+      },
+      {
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/local-22/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "22",
+        "executable_sha256": "0abf77a86cb5cdb33cfeeaea8e154f2eb4f14e984b7da3bab2d67b8100a7e564"
+      },
+      {
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/local-22/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "22",
+        "executable_sha256": "e3365111ee304e0d79c53dc2118cf2a8cee218910147919627c88add068c2bf8"
+      }
+    ],
+    "extension_resource_files_per_product": 7,
+    "extension_resources_match_source": true
+  },
+  "macos_identity": {
+    "app_version": "2.1.0-dev.24",
+    "files_verified": 91,
+    "hashes_and_modes_unchanged": true
+  },
+  "previous_ci": {
+    "run": 35149317349,
+    "status": "completed",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "name": "Android companion (Kotlin)",
+        "conclusion": "success"
+      },
+      {
+        "name": "Windows (native adapter + shell)",
+        "conclusion": "failure"
+      },
+      {
+        "name": "Shell front ends parse",
+        "conclusion": "success"
+      },
+      {
+        "name": "内核约束（guard-jail）",
+        "conclusion": "success"
+      },
+      {
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "conclusion": "success"
+      },
+      {
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "conclusion": "failure"
+      },
+      {
+        "name": "macOS 专属代码路径能编译",
+        "conclusion": "success"
+      },
+      {
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (macos-latest)",
+        "conclusion": "success"
+      },
+      {
+        "name": "MSRV 1.87",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (ubuntu-latest)",
+        "conclusion": "success"
+      },
+      {
+        "name": "部署自检",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS shell (native AX + SCK)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "windows_diagnosis": {
+    "failure": "ControlHttp 销毁后的首次连接探测成功，原日志未区分未启动或空闲分支。",
+    "change": "保留阶段、目标和探测连接信息，三处首次探测必须失败的断言不变。",
+    "controlled_negative": "仍在监听的本机合成反例退出 101，诊断字段齐全；不代表已复现 Windows 根因。"
+  },
+  "attachments": [
+    {
+      "name": "en-page-1-inactive-clear-contrast-exception_0_F526337A-99C9-4F7A-866A-66C0E73E3C9D.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/14FAAF60-445C-4319-9B6B-7A31EFC5E039.txt",
+      "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+      "detail": [
+        "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+      ]
+    },
+    {
+      "name": "en-page-1-issue_0_DD11F8B6-6982-4CA7-B570-2F0C47492888.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/3D901629-FF57-4628-ABD2-DFA487A99182.txt",
+      "sha256": "2fbf9404b04302e044e8a336ee87e951e775f00462fdc5f156f670bf3802016b",
+      "detail": [
+        "Contrast failed",
+        "Contrast failed for SwiftUI.AccessibilityNode",
+        "Optional(Attributes: Button, 0x115900f00, {{32.0, 584.7}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled"
+      ]
+    },
+    {
+      "name": "en-page-1-bounds_0_EA52A46F-DD9C-46CE-8197-C81EB23BCDE4.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/4FBAD0E8-1A24-4FBA-93BE-AE4CE4DDB466.txt",
+      "sha256": "3e121222db841da00de8e4881defdca35adf812c51ab7eae0d27a191d2cc6bcf"
+    },
+    {
+      "name": "en-page-1_0_E3678AB8-EAC3-4308-B9F6-845F2657BBE2.png",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/68B78311-7C5F-423F-BBBC-7C22A094B2AB.png",
+      "sha256": "b48d1de3603f8d41471cad64e5924c52f9228c6fafefce26a3f00d80f966b7cf"
+    },
+    {
+      "name": "en-page-1-tree_0_07AD0865-998C-4C53-9F6B-A71D1A27AB0C.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/87813E56-90C6-40C0-8175-D1B3F3DC6E12.txt",
+      "sha256": "708660aefb6d3cc279f0b13983e46e9b0874402d8a6c928a84d0465ffc4fffdd"
+    },
+    {
+      "name": "en-page-0-bounds_0_BC30F2B3-0EDC-4DB8-9C67-9BFFC6C5BDED.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/4941C85F-2798-48DA-B97C-6553D7C9EC28.txt",
+      "sha256": "60f0027ec9bc03451aebe04f48d9eba4a82e9eb7545252c0f4f79b4e579ebd68"
+    },
+    {
+      "name": "en-page-0_0_7B79C841-38DE-47BC-B5E7-AF16A2B9C548.png",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/D66ED8E3-0F2E-4540-AB3C-363B4EE566E8.png",
+      "sha256": "38348d49d24cdfdeb6ace3bee15d169f63463cf9e7500a3ac0dfc422f9edf8da"
+    },
+    {
+      "name": "en-page-0-tree_0_D68C94AD-C1BD-4AA0-912C-1362098E22CD.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/99118027-5903-48D6-8EDF-E2A5A079786D.txt",
+      "sha256": "c49ea533c7a879b6d4bec791e18545e9c1d72cd6cbfc3fa4ee8629487513ca38"
+    },
+    {
+      "name": "zh-Hans-page-1-inactive-clear-contrast-exception_0_EB06B05B-D32C-441C-9ED0-CD555C888247.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/14A30901-A751-472B-8609-9B39E336C166.txt",
+      "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+      "detail": [
+        "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+      ]
+    },
+    {
+      "name": "zh-Hans-page-1-issue_0_567B8EE7-0C7D-49BF-808B-E611BCAFE08E.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/91C1B1DD-48F8-48CA-82E8-44CA6E7D779B.txt",
+      "sha256": "4e04b3e2abc5e4582c1886400b1b70f018fe8ec7c0865550e0b16fc43c023543",
+      "detail": [
+        "Contrast failed",
+        "Contrast failed for SwiftUI.AccessibilityNode",
+        "Optional(Attributes: Button, 0x115901180, {{32.0, 631.3}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled"
+      ]
+    },
+    {
+      "name": "zh-Hans-page-1-bounds_0_C21EE7AF-4F63-4299-9DBD-D3B775F7F590.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/D18D03DA-0A61-48DC-8DAA-700870676ED4.txt",
+      "sha256": "a999605c73d6f5f432ff535c99f5ad44b9d40ba355a218794f3eda9d6a0ac010"
+    },
+    {
+      "name": "zh-Hans-page-1_0_B668992E-2242-4C7E-AFE6-4328150495B1.png",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/1BBFE0B9-0411-4166-825C-3847EEB6A8A2.png",
+      "sha256": "d89ad7d7673dce9903c474447a3c2037ea4144d76ae17a482c3f7a2889f47508"
+    },
+    {
+      "name": "zh-Hans-page-1-tree_0_8C06FFD6-07D9-4289-8AD3-0C0CB5714734.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/B1DBCC31-2BC4-4E27-A57F-D739F62396CE.txt",
+      "sha256": "1f4b0e6ff6155f75c922509f536703863e5190fddc185f9deacce73ef14d10c9"
+    },
+    {
+      "name": "zh-Hans-page-0-bounds_0_7FC7354D-A6C1-4AA7-B341-063DA77BB27D.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/246DC380-1A6E-4B4B-921D-0FC9AC7708E7.txt",
+      "sha256": "a3dc83c2fa3287f0d5bcad73fff4ce8371ce64520b6e102138edede37c4b13e7"
+    },
+    {
+      "name": "zh-Hans-page-0_0_B2324955-093A-4C44-A0C7-9F31863C4C91.png",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/04134B84-3EFF-47B5-818A-5454D52DAB16.png",
+      "sha256": "f1145ee5f25c7a08e7d31647a97c639896b4c472cb3a55d5865e56cf9c69d842"
+    },
+    {
+      "name": "zh-Hans-page-0-tree_0_16E5546A-571B-4396-8C70-0B5F83348821.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/0BBB8DF0-1B66-4CA2-9784-A3EE4DD0C04C.txt",
+      "sha256": "2baf7bb50d47a6f4332ccad0fe7abf899535fd6298dfaf4470bfe3855a60f272"
+    },
+    {
+      "name": "zh-Hant-page-1-inactive-clear-contrast-exception_0_63841DAC-3B39-4EA3-A729-92F258116F47.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/13A122E2-29BF-49C1-9597-20E35DA6F5BE.txt",
+      "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+      "detail": [
+        "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+      ]
+    },
+    {
+      "name": "zh-Hant-page-1-issue_0_2FB04B1F-F9BB-42D5-B291-8D8C5AAB131D.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/588C312C-7E96-4F6D-9F5F-76AAF2CD9D66.txt",
+      "sha256": "9e7684af32adbc43cd0e8d64f9f3906e6c61589da9a7ed3b255ea7f660297d00",
+      "detail": [
+        "Contrast failed",
+        "Contrast failed for SwiftUI.AccessibilityNode",
+        "Optional(Attributes: Button, 0x115666e40, {{32.0, 631.3}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled"
+      ]
+    },
+    {
+      "name": "zh-Hant-page-1-bounds_0_962A3C41-E238-4961-9A73-D276C91C2D2D.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/5EF064CF-8046-4F9D-A29E-3B4E7B74C350.txt",
+      "sha256": "b680c5270c574213a01add95ec795e8ac8123cab4fb9c286c815b75d3c301192"
+    },
+    {
+      "name": "zh-Hant-page-1_0_98296C69-DF49-4E41-B525-9222578A210E.png",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/64C2B652-FF9D-4EC3-A3CD-BE437F773D16.png",
+      "sha256": "f7c2a6fc84b81a2aa113847a5dcc248d0c5ec653c9a26fb8d221a14ecc97929f"
+    },
+    {
+      "name": "zh-Hant-page-1-tree_0_432A8C0D-582E-4B47-9B91-9A7E24E5ECBD.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/2B4685D9-E8AD-4350-846C-08B84423B020.txt",
+      "sha256": "9df0f944c3f53188d647bb4adf23b6b6aa61e5619c02d74afce32d08b631df93"
+    },
+    {
+      "name": "zh-Hant-page-0-bounds_0_AF06278D-1E6D-40FA-8487-F2991B8C0073.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/42E301E0-4A76-4665-8EE6-AD47748D6065.txt",
+      "sha256": "861d3131ceee49fd666b073e60a17fba1998dc3d3c614cc04e1187f101597b2a"
+    },
+    {
+      "name": "zh-Hant-page-0_0_A30C6DA5-CE07-4C45-9331-8513BBFDE66B.png",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/8095058B-41DC-4B8C-BC33-8A3A035E2B46.png",
+      "sha256": "dd703d285b70424cec6cac66eac99bd0fde772cefe2d9a620c7067d9399ac6f1"
+    },
+    {
+      "name": "zh-Hant-page-0-tree_0_8F8CBA0B-399A-4838-962F-8EF7235EF5E7.txt",
+      "path": ".artifacts/ios-sdk-compatibility-2026-09-17/attachments-22/6DCA1910-A936-4496-A085-496B83CB692A.txt",
+      "sha256": "1f871bb099744a3a26b5cda4f7d618fc3eb95e79e4141be340d8177cfa836f27"
+    }
+  ],
+  "files": {
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-before.json": {
+      "sha256": "9605fc246d359151a701520c8284a4d115862b26e710826c94e8e9f28539ed9f",
+      "bytes": 36789
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-before.log": {
+      "sha256": "7bd4d2c1fb1f6c4cb3094b7da7e51c8879ea40cdf44b7dd1c0332908c1759c11",
+      "bytes": 49762
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-windows-before.log": {
+      "sha256": "bdd5c36dbef69926f31350098c876c75dfb2b721f5ab7953e917aa8776120f58",
+      "bytes": 133381
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/close-diagnostic-live-listener.rs": {
+      "sha256": "4ee7e716e13d0b156a0c5bcfed1918dfafe76205308d682ecca77db76cc61c72",
+      "bytes": 674
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/close-diagnostic-negative.log": {
+      "sha256": "11a080ae8ec99c024c496713bc10bada398741077423bb3c8651d1927a9a1818",
+      "bytes": 375
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/control-http-clippy.log": {
+      "sha256": "3b8e11c1114f100225c94404c5d07cd41af994a7cfe82c75f0991f5a406736f6",
+      "bytes": 970
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/control-http-startup.sample.log": {
+      "sha256": "631091eb2fc53627e266f42878d227ac8b4882db6218aafbaf1af347da195cc0",
+      "bytes": 120
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/control-http-tests.log": {
+      "sha256": "edd6a3699b7025825b811fbdfbc7fcea2d28efe0739ca0c6498d9c025a754151",
+      "bytes": 2280
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/index-evidence.py": {
+      "sha256": "372b01242f179b95091db7a60e1dfc96ad9a2a0a199c5950b0958d7c6d1a3580",
+      "bytes": 3121
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/local-gate-22.log": {
+      "sha256": "cbb34d9bd0dc94c5ee047dc7ad3b2fa2fc9ea5ddaeb8f3bfe9af65840c138525",
+      "bytes": 9041
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/local-summary-22.json": {
+      "sha256": "c6e40ecb7b20db89296f7d7aae2879f6a71ae9fbafa70a24a25d6a18bb3a3aa5",
+      "bytes": 1215
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/macos-identity.json": {
+      "sha256": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
+      "bytes": 98
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/products-22.json": {
+      "sha256": "08fd959752ffacabd119cc4100e57542596c2921541fd214761fd2c1ac1b9274",
+      "bytes": 2339
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/repository-tests.log": {
+      "sha256": "2fece94ed8cd498592dd2e87699f86e883a68d9542a93e33469122349f9e1bea",
+      "bytes": 2904
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/verify-products.py": {
+      "sha256": "51ea6f897d99456eac396cdb13877ad2bcc60fd2728304801f367e5ad219c5dc",
+      "bytes": 2056
+    }
+  },
+  "limitations": [
+    "旧 SDK 分支须等待新提交 CI；本地新版工具链不替代旧版证明。",
+    "最大字号完整审计之前失败，I6 未完成。",
+    "Windows 端口释放、之前 Windows 并发审计及 macOS 启动等待的间歇性根因仍未关闭。",
+    "共享能力、真机 Safari、VoiceOver、TestFlight、签名与正式发布材料仍待完成。"
+  ],
+  "release_go": false,
+  "f13": "暂缓，未验收",
+  "plan_counts": {
+    "complete": 28,
+    "conditional": 1,
+    "in_development": 1,
+    "not_started": 2
+  }
+}

@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 #[cfg(unix)]
 use std::net::Shutdown;
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -99,6 +99,16 @@ fn wait_for(mut condition: impl FnMut() -> bool) {
         assert!(Instant::now() < deadline, "状态未在期限内到达");
         thread::sleep(Duration::from_millis(2));
     }
+}
+
+fn assert_listener_closed(address: SocketAddr, phase: &str) {
+    // 失败时保留探测双方的地址和 socket 信息，为残留监听或端口复用提供定位线索。
+    // 仍要求第一次探测就失败，不重试、不吞掉成功连接。
+    let connection = TcpStream::connect(address);
+    assert!(
+        connection.is_err(),
+        "监听入口销毁后仍可连接：phase={phase}, target={address}, connection={connection:?}"
+    );
 }
 
 #[test]
@@ -350,7 +360,7 @@ fn drop_cancels_incomplete_connections_without_waiting_for_read_deadline() {
     drop(server);
     assert!(start.elapsed() < Duration::from_millis(500));
     assert!(read_closed(&mut stream).is_empty());
-    assert!(TcpStream::connect(address).is_err());
+    assert_listener_closed(address, "取消不完整连接后");
 }
 
 #[test]
@@ -363,7 +373,14 @@ fn dropping_idle_or_unstarted_listener_releases_port_and_workers() {
             assert!(server.start(Arc::new(ok)).is_err());
         }
         drop(server);
-        assert!(TcpStream::connect(address).is_err());
+        assert_listener_closed(
+            address,
+            if start {
+                "已启动的空闲入口"
+            } else {
+                "未启动的入口"
+            },
+        );
         let rebound = std::net::TcpListener::bind(address).unwrap();
         drop(rebound);
     }
@@ -391,7 +408,7 @@ fn handler_can_release_last_server_owner_without_joining_itself() {
     assert!(read_closed(&mut stream).is_empty());
     wait_for(|| returned.load(Ordering::SeqCst) == 1);
     assert!(owner.lock().unwrap().is_none());
-    assert!(TcpStream::connect(address).is_err());
+    assert_listener_closed(address, "处理器释放最后一个所有者后");
 }
 
 #[test]

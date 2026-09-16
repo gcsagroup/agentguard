@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS older-SDK compilation and Windows close diagnostics (2026-09-17)
+
+- Compile-time guard for the iOS 26 API preserves modern rendering and the iOS 17 deployment target; app/extension build 22. Local Node 26/26, Swift 26/26, strict Release and Analyze passed; the older toolchain still requires the correction commit CI.
+- Baseline CI ended with 11 successes and 2 failures. Windows close assertions retain the first-probe requirement and now report phase and connection details. All 16 macOS cases passed; a live-listener counterexample correctly failed. The Windows root cause remains open.
+- Fixed macOS app 024, maximum-size audit and formal native/release gaps remain unchanged. [Record](docs/ios-sdk-compatibility-2026-09-17.zh.md).
+
 ### iOS page layout, localized text and audit scope (2026-09-17)
 
 - Multiline instructions use native Dynamic Type and full measured height. Vertical sections and an opaque navigation background improve scrolling readability. App and extension keep their names and IDs at 1.0.0 (21).

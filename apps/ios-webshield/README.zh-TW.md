@@ -101,4 +101,8 @@ TestFlight 都尚未驗證。設定 Team/App IDs/profiles 並完成上述驗收�
 
 ## 原生文字對比度（2026-09-17）
 
-目前 App／Extension 為 1.0.0 (13)，名稱與 Bundle ID 保持。狀態、說明與分組標題使用正文顏色；共享儲存不可用時防護仍關閉。新增三語首屏對比度與捲動回歸，開發門禁 Node 26／26、Swift 26／26、嚴格 Release 與 Analyze 通過。完整自動稽核仍有動態字體、截斷及後續頁面報告，I6、真機 Safari 與 TestFlight 未通過；[證據與限制](../../docs/ios-native-contrast-2026-09-17.zh.md)。
+先前 App／Extension 為 1.0.0 (13)，名稱與 Bundle ID 保持。狀態、說明與分組標題使用正文顏色；共享儲存不可用時防護仍關閉。新增三語首屏對比度與捲動回歸，開發門禁 Node 26／26、Swift 26／26、嚴格 Release 與 Analyze 通過。完整自動稽核仍有動態字體、截斷及後續頁面報告，I6、真機 Safari 與 TestFlight 未通過；[證據與限制](../../docs/ios-native-contrast-2026-09-17.zh.md)。
+
+## 舊工具鏈相容（2026-09-17）
+
+目前 App／Extension 為 **1.0.0 (22)**，沿用相同名稱與識別碼。逐頁版面與多行文字修正見[建置 21 記錄](../../docs/ios-page-audit-2026-09-17.zh.md)；該提交在 CI 的 Xcode 16.4 因新 API 不存在而編譯失敗。建置 22 補充編譯期隔離，本機完整門禁通過，舊 SDK 分支仍待修正提交 CI。最大字體、真機 Safari、VoiceOver 與 TestFlight 尚未驗收；見[修正與證據邊界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。

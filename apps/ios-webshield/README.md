@@ -101,4 +101,8 @@ Keychain access group；完全关闭代码签名时 Keychain 与 App Group 会�
 
 ## 原生文字对比度（2026-09-17）
 
-当前 App／Extension 为 1.0.0 (13)，名称与 Bundle ID 保持。状态、说明和分组标题使用正文颜色；共享存储不可用时防护仍关闭。新增三语首屏对比度及滚动回归，开发门禁 Node 26／26、Swift 26／26、严格 Release 与 Analyze 通过。完整自动审计仍有动态字体、截断和后续页面报告，I6、真机 Safari 与 TestFlight 未通过；[证据与限制](../../docs/ios-native-contrast-2026-09-17.zh.md)。
+此前 App／Extension 为 1.0.0 (13)，名称与 Bundle ID 保持。状态、说明和分组标题使用正文颜色；共享存储不可用时防护仍关闭。新增三语首屏对比度及滚动回归，开发门禁 Node 26／26、Swift 26／26、严格 Release 与 Analyze 通过。完整自动审计仍有动态字体、截断和后续页面报告，I6、真机 Safari 与 TestFlight 未通过；[证据与限制](../../docs/ios-native-contrast-2026-09-17.zh.md)。
+
+## 旧工具链兼容（2026-09-17）
+
+当前 App／Extension 为 **1.0.0 (22)**，沿用相同名称与标识。逐页布局与多行文字修正见[构建 21 记录](../../docs/ios-page-audit-2026-09-17.zh.md)；该提交在 CI 的 Xcode 16.4 因新 API 不存在而编译失败。构建 22 补充编译期隔离，本机完整门禁通过，旧 SDK 分支仍待修正提交 CI。最大字号、真机 Safari、VoiceOver 与 TestFlight 尚未验收；见[修正与证据边界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。

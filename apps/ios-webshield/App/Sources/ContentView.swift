@@ -9,11 +9,16 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             Group {
+                // 旧 Xcode 的 SDK 没有此声明；运行时版本判断不能替代编译期隔离。
+                #if compiler(>=6.2)
                 if #available(iOS 26.0, *) {
                     pageContent.scrollEdgeEffectHidden(true, for: .top)
                 } else {
                     pageContent
                 }
+                #else
+                pageContent
+                #endif
             }
             .navigationTitle(Text("app_name"))
             .navigationBarTitleDisplayMode(.inline)
