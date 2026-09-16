@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Startup size diagnosis and local Android preparation (2026-09-16)
+
+- Removing 19.64% of an organizationally signed CLI did not meet the original startup budget: first handshakes were 587.520 ms for the trimmed file and 789.719 ms for the original. Verified four reads, 32 unsigned audit rows and seven counterexamples. Corrected the earlier verifier's signature-field check and independently rechecked 72 historical rows; see the [diagnosis](docs/agd-027-startup-size-2026-09-16.zh.md).
+- Android Debug and Release each passed 87 tests, with no lint issues. A Debug APK was frozen; Release packaging failed because signing configuration is missing. No phone installation or interaction occurred. See the [local preparation](docs/agd-032-android-local-preparation-2026-09-16.zh.md). Fixed App 023 and all performance and release requirements remain unchanged.
+
 ### Full gate and recovery after the database upgrade (2026-09-16)
 
 - All 17 automatic checks passed in the current clean candidate's full GA gate, and CI completed 13/13. Nineteen formal evidence categories remain unconfigured; release is No-Go. See the [gate record](docs/agd-032-release-gate-recheck-2026-09-16.zh.md).
