@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Chrome acceptance preparation and incomplete attempt (2026-09-17)
+
+- Android correction `c56fd02` passed all 13 CI jobs. Froze the extension ZIP from the same source; all 23 files match source bytes and packaging regression checks passed.
+- Native window-control limitations stopped installation in Chrome; the extension was not loaded. Edge and a confirmed previous public version remain unavailable, so no formal acceptance passed. Fixed App 024 is unchanged; see the [record](docs/chrome-native-preparation-2026-09-17.zh.md).
+
+
 ### Android observation false positives and CI race (2026-09-17)
 
 - Ignore unsubscribed events before scheduling a background survey. Waiting for the actual queue reproduces the original failure reliably; the original CI result of 12 successful jobs and one failure, and failing regressions, are preserved.

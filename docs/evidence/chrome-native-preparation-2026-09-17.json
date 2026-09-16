@@ -1,0 +1,78 @@
+{
+  "baseline": "c56fd022893f728d40e1ca103d4ed9bf472af482",
+  "ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35123521270",
+    "successful_jobs": 13
+  },
+  "chrome_version": "152.0.7977.84",
+  "edge_installed": false,
+  "candidate": {
+    "zip_sha256": "67b34bbedbb77bed07c5cb6ae99b11a7ad12b3a53650496cce686bde6e2e49e2",
+    "version": "1.0.0.1",
+    "version_name": "1.0.0-rc.1",
+    "permissions": [
+      "storage",
+      "activeTab",
+      "notifications",
+      "declarativeNetRequest"
+    ],
+    "entries": 30
+  },
+  "packaged_files": {
+    "onboarding.js": "10cd75389867ce3b2d5a83fa879174ffc5852422c1033a0b8a034dcb43bb5a85",
+    "popup.js": "e0e5bf10ecf1bd3af444527d32bb9ce63c1abcaf582bd1d72d762d24411106fe",
+    "background.js": "33d9f817227feeffa6d6bfbae6ae08215d3f8e8af5a6db2b021947f5b0a1023c",
+    "popup.html": "12ca3ed843035fabeaf643e516b21545088a5997daeecef00dc23b63c68b1ca5",
+    "guard-gate.js": "952f6c5547ead58ffd3248391c7e9e2c066fc19add71dd1f72ece08440399c1d",
+    "mail-content.js": "8ad57eb1eb330ecc362e8b0906973f2048968d61e69948fa06e385a087ee1b49",
+    "icons/icon16.png": "6a217e3fa6d71e81506162edd2922a697bec0105de39df89a2dd004f9a541b93",
+    "icons/icon48.png": "5e01b4474387cc0fb6f6c71da5abd27a5e78b84929ff9e0d9d81d06930a37048",
+    "icons/icon128.png": "0f156ad5535c783406b25d1d61c06fa6cfcd7b68553602152071d7c4b48794fe",
+    "icons/icon32.png": "3fb1f43bfb1f3cf17e445a3894600e04c10ac009c97f8c209a6b0f8b54b494ea",
+    "manifest.json": "4322181d761f01c07ee74cddab18b5b2c85ee2012cd37f2e7dfec67254e2d668",
+    "rules/payment-shape-block.json": "e15e405e22d18c6eb71851aad7acdd2ee5b8ead2f68ad438351d342df50f6cce",
+    "guard-modal.js": "71704a2a5cb75c7009329c7a66bc57b73586891625c33a5681eb0c32d0c9a0bf",
+    "guard-strings.js": "d90f8fa1d9bced520ba3b743c9ae5cf4b7f76dda3e0d886d64e39d7cd8f4792d",
+    "popup.css": "ef1e62b4074839b5d902d24ce140cb2e098b89bc727e0eb686c8f6d1b9300ccc",
+    "_locales/zh_TW/messages.json": "78112a42f2c3f5e62204e80b9ce51d24a2fec6de0df45e242d7e0ac812c2497a",
+    "_locales/zh_CN/messages.json": "f02311586c2395afe36c50f949ad33b94bef710f8fe97e9c7003ccc41c9e21cd",
+    "_locales/en/messages.json": "70c3b5ed8974db679ee0942194ed466a061c425f7bf6315cb598f577ea5bd609",
+    "content.js": "2533dded5b78b1caed326a031884ec37950c2311073f639e4d30568c269a5a9a",
+    "onboarding.css": "9ba9e0c9c99729e500440f85daf42b4e51bc7694e78adb6ccc024520a350ea01",
+    "assets/agentguard-mark-white.png": "4ec566f6237c85938b5158f3967c90e0f8a4d5fac05dc8b022dafcaff90cb428",
+    "onboarding.html": "bef2ccd6a6a867d2361fb9f0b47bbccef22d614c26db8df7e06b2d18958fc4c5",
+    "guard-mail.js": "ddf924beefc0de8cdccd02bbf68c1eb981203727a4194bc6912a53e703015181"
+  },
+  "mac_app_unchanged_files": 91,
+  "acceptance": {
+    "Chrome_B1": "BLOCKED: 原生目录选择器未能控制，扩展未加载",
+    "Chrome_B2": "NOT_RUN",
+    "Chrome_B3": "NOT_RUN",
+    "Chrome_B4": "BLOCKED: 上一公开版本未提供，GitHub Release 列表为空不证明商店从未发布",
+    "Chrome_B5": "NOT_RUN",
+    "Edge": "BLOCKED: 正式浏览器未安装"
+  },
+  "release": "No-Go",
+  "artifact_root": ".artifacts/chrome-native-2026-09-17",
+  "artifact_sha256": {
+    "baseline.json": "bba11fdfe540d29a7a4384a754ffd86eccd404f63f203465aaacabd7cee1b477",
+    "candidate.json": "946fa81f1bb3e062c57846e861387874bc00481b591e59fc4bfb71b4409cdaf9",
+    "agentguard-extension.zip": "67b34bbedbb77bed07c5cb6ae99b11a7ad12b3a53650496cce686bde6e2e49e2",
+    "previous-local-package.zip": "5bc506750054a3eb747d3a24414a386b6c0bbcce6860ad53f6c817c4a60bb130",
+    "package.log": "a8e9fdffa83892d6bb261bb70b08fe7e0cbf1ffe43fcb9ae81f436651adbdffd",
+    "package-test.log": "7cfa92beefd22609ae03477177e051f73e35e00fc584d7da19652a21965913e7",
+    "package-test-bash.log": "383905b7cd218094b9957da78cf9db94c84336b53314f04b7f742b18b8511af2",
+    "extensions-empty.png": "d8b28878db51911817ad056c6dc66bac0b847ea0c31bb3bcc80ceebca0a31a5c",
+    "filechooser-unavailable.txt": "a1beb21d2f382674d2966ba5c926db475015cb39967de9f72ac5e8b2bc6d5d8c",
+    "cleanup.json": "27e5aa26e2a6e92e1edfe3e3210e4c04cd940d2a3467eb4d34608995f2563695",
+    "verification.json": "672ef6bfe37b048abd71261b01023b105237fe1de8b756064a86575f180eec9f",
+    "baseline-ci.json": "8a2ecbf44a6645492a98b38ec3e278001c0a65a88090494ede6567b4877d299c",
+    "github-releases.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "repository-invariants.log": "15e5d6bac83e18d08407848c868b8ee95cd95021d00290bacaed5510ed01f638"
+  },
+  "edge_checked_paths": [
+    "/Applications/Microsoft Edge.app",
+    "/Users/lazy/Applications/Microsoft Edge.app"
+  ],
+  "repository_invariants_passed": 23
+}
