@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 minimal-process first-launch comparison (2026-09-17)
+
+- A new approximately 52 KB C control still took 434/591 ms to reach its first main operation, with repeat entries at 2.3–4.3 ms. Aligned parent/child clocks put log delivery at only 0.06–0.09 ms. Gateway behavior, original budgets and system protection are unchanged.
+- Twelve valid exchanges, two rejected invalid inputs and five rejected evidence mutations passed; all 91 files in fixed App 024 are unchanged. This narrows diagnosis and does not pass gateway performance or release acceptance. See the [control evidence](docs/agd-027-startup-control-2026-09-17.zh.md).
+
 ### Android API 35 notification recovery after permission grant (2026-09-17)
 
 - Native API 35 checks found that granting notification permission restored the Protecting label without restoring the ongoing notification. Permission callbacks and foreground resume now post it only for an active session with a bound observer; stopped or unbound sessions remain stopped.

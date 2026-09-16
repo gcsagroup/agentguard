@@ -1,0 +1,269 @@
+{
+  "date": "2026-09-17",
+  "source_baseline": "485efe4f299debfe4b22978ed44280859971c7bc",
+  "scope": "约 52 KB C 程序的首次入口对照；不替代网关预算验收",
+  "host": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83\nhw.model: Mac17,7\nhw.memsize: 137438953472\narm64\n",
+  "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+  "signing_type": "Apple Distribution，非 Developer ID Application",
+  "clock": "父子进程 CLOCK_MONOTONIC；子进程 main 第一项操作读取时钟",
+  "variants": {
+    "minimal": {
+      "sha256": "d9d64b7d34e2c5e27d4a3f6819f416acd32523741c8162fc0222cc81b9f32331",
+      "bytes": 52000,
+      "command": [
+        "xcrun",
+        "clang",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/lazy/Projects/agent-guard/.artifacts/m3-startup-control-2026-09-17/clock-aligned/probe.c",
+        "-o",
+        "/Users/lazy/Projects/agent-guard/.artifacts/m3-startup-control-2026-09-17/clock-aligned/minimal/startup-control"
+      ],
+      "dependencies": "/Users/lazy/Projects/agent-guard/.artifacts/m3-startup-control-2026-09-17/clock-aligned/minimal/startup-control:\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)\n"
+    },
+    "gateway-dependencies": {
+      "sha256": "482f8f1330df750dd443329c49fc38bd15f598d660b989403fc1df4303066a8b",
+      "bytes": 52000,
+      "command": [
+        "xcrun",
+        "clang",
+        "-O0",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/lazy/Projects/agent-guard/.artifacts/m3-startup-control-2026-09-17/clock-aligned/probe.c",
+        "-o",
+        "/Users/lazy/Projects/agent-guard/.artifacts/m3-startup-control-2026-09-17/clock-aligned/gateway-dependencies/startup-control",
+        "-framework",
+        "Security",
+        "-framework",
+        "CoreFoundation",
+        "-liconv"
+      ],
+      "dependencies": "/Users/lazy/Projects/agent-guard/.artifacts/m3-startup-control-2026-09-17/clock-aligned/gateway-dependencies/startup-control:\n\t/System/Library/Frameworks/Security.framework/Versions/A/Security (compatibility version 1.0.0, current version 62460.1.2)\n\t/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation (compatibility version 150.0.0, current version 5027.0.69)\n\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)\n"
+    }
+  },
+  "rows": [
+    {
+      "number": 1,
+      "label": "gateway-dependencies-first",
+      "main_entry_ms": 590.524,
+      "main_observed_ms": 590.61,
+      "reply_observed_ms": 590.745,
+      "exit_code": 0
+    },
+    {
+      "number": 2,
+      "label": "minimal-first",
+      "main_entry_ms": 434.349,
+      "main_observed_ms": 434.405,
+      "reply_observed_ms": 434.487,
+      "exit_code": 0
+    },
+    {
+      "number": 3,
+      "label": "minimal-repeat",
+      "main_entry_ms": 2.955,
+      "main_observed_ms": 2.986,
+      "reply_observed_ms": 3.037,
+      "exit_code": 0
+    },
+    {
+      "number": 4,
+      "label": "gateway-dependencies-repeat",
+      "main_entry_ms": 4.171,
+      "main_observed_ms": 4.203,
+      "reply_observed_ms": 4.254,
+      "exit_code": 0
+    },
+    {
+      "number": 5,
+      "label": "gateway-dependencies-repeat",
+      "main_entry_ms": 4.302,
+      "main_observed_ms": 4.34,
+      "reply_observed_ms": 4.409,
+      "exit_code": 0
+    },
+    {
+      "number": 6,
+      "label": "minimal-repeat",
+      "main_entry_ms": 2.284,
+      "main_observed_ms": 2.308,
+      "reply_observed_ms": 2.356,
+      "exit_code": 0
+    }
+  ],
+  "initial_host_observed": [
+    {
+      "label": "minimal-first",
+      "entry_ms": null,
+      "observed_ms": 531.283
+    },
+    {
+      "label": "gateway-dependencies-first",
+      "entry_ms": null,
+      "observed_ms": 420.61075
+    },
+    {
+      "label": "gateway-dependencies-repeat",
+      "entry_ms": null,
+      "observed_ms": 3.46
+    },
+    {
+      "label": "minimal-repeat",
+      "entry_ms": null,
+      "observed_ms": 2.138583
+    },
+    {
+      "label": "minimal-repeat",
+      "entry_ms": null,
+      "observed_ms": 2.687
+    },
+    {
+      "label": "gateway-dependencies-repeat",
+      "entry_ms": null,
+      "observed_ms": 3.988958
+    }
+  ],
+  "negative_inputs_rejected": 2,
+  "tamper_variants_rejected": 5,
+  "macos_fixed_024_unchanged_files": 91,
+  "gateway_performance_passed": false,
+  "release_status": "NO_GO",
+  "interpretation": "在本机及现有签名条件下，无业务初始化的最小程序也在首次进入 main 前超过 100 ms。没有定位具体系统检查或承诺正式签名可消除等待。",
+  "preceding_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35138414831",
+    "head": "485efe4f299debfe4b22978ed44280859971c7bc",
+    "status": "in_progress",
+    "conclusion": "",
+    "jobs": [
+      {
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (macos-latest)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Android companion (Kotlin)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS shell (native AX + SCK)",
+        "status": "in_progress",
+        "conclusion": ""
+      },
+      {
+        "name": "test (ubuntu-latest)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "部署自检",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Windows (native adapter + shell)",
+        "status": "in_progress",
+        "conclusion": ""
+      },
+      {
+        "name": "MSRV 1.87",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "内核约束（guard-jail）",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "name": "Shell front ends parse",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "artifact_root": ".artifacts/m3-startup-control-2026-09-17",
+  "artifacts": {
+    "certificate-preflight-failed.log": "37fcd3ec77f06e3f87dce58193cf7337488f59c1d925544dd41c9c03cc2625ac",
+    "ci-after-verification.json": "7f8c293488aaae354c8a3423027c25ffff1a3186420b7e1f457ef6b4517c93b7",
+    "ci-latest.json": "2c7318db89590653a8309d7ed4c726a9651bdf36567de5d7a9eda93bb1bba951",
+    "ci-snapshot.json": "4709aac02d8f679ee97907463a38f688c642fbb52047ed151a60eb6f50d64271",
+    "clock-aligned/gateway-dependencies/build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "clock-aligned/gateway-dependencies/certificate0": "8e07c8a92220e0b2d7950f1773583a2407fa8acdcd2c01529e2e48c1e9347d03",
+    "clock-aligned/gateway-dependencies/certificate1": "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
+    "clock-aligned/gateway-dependencies/certificate2": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024",
+    "clock-aligned/gateway-dependencies/dependencies.txt": "0e2156b7ad05d68528779082178e233a577ba55715f49078384018aaa6653bb9",
+    "clock-aligned/gateway-dependencies/sign-detail.txt": "7512d81750ce14d76d5c62b8f6ce65dfc8d831260cce358db318afa06e3349a3",
+    "clock-aligned/gateway-dependencies/sign.log": "27ad361d952b18444605df6a35f2c379b3aa944fff93a7216eefe4204edbc861",
+    "clock-aligned/gateway-dependencies/startup-control": "482f8f1330df750dd443329c49fc38bd15f598d660b989403fc1df4303066a8b",
+    "clock-aligned/minimal/build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "clock-aligned/minimal/certificate0": "8e07c8a92220e0b2d7950f1773583a2407fa8acdcd2c01529e2e48c1e9347d03",
+    "clock-aligned/minimal/certificate1": "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
+    "clock-aligned/minimal/certificate2": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024",
+    "clock-aligned/minimal/dependencies.txt": "b6c93940f8daae4fba280edab9b67f72a7ae1ff33df69ca1ed174cec704b418a",
+    "clock-aligned/minimal/sign-detail.txt": "4410f2688a864b5bc5bdc604f80ed09bb304a25826649006a3ca54eeda4974ee",
+    "clock-aligned/minimal/sign.log": "5cc0600c728c80b64c87f064e2438979b6a10c0908183c85b6f47dda7518e619",
+    "clock-aligned/minimal/startup-control": "d9d64b7d34e2c5e27d4a3f6819f416acd32523741c8162fc0222cc81b9f32331",
+    "clock-aligned/negative-input.json": "6edc42f608610505676b7388e699652ec31d6f360a6af00cc98b7e7cbfaa8a38",
+    "clock-aligned/plan.json": "9a044513b02ff1bf0481fa634eebf132de9ccf303c726662992ad23fda9e8be3",
+    "clock-aligned/probe.c": "f592004a489479603c718c53c46fda9eeb39ae7702c216e0a2776a7cc3ac871b",
+    "clock-aligned/result.json": "a91c1377319eeca4b0d81746e2b6b96107435aadaa85bde939e0dbc8cfa4b058",
+    "clock-aligned/run.py": "bf4d017425d7dffceef2d55086a696503ad79000f55f6c8ca91e5230ceedc52a",
+    "gateway-dependencies/build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gateway-dependencies/certificate0": "8e07c8a92220e0b2d7950f1773583a2407fa8acdcd2c01529e2e48c1e9347d03",
+    "gateway-dependencies/certificate1": "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
+    "gateway-dependencies/certificate2": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024",
+    "gateway-dependencies/dependencies.txt": "6750476a7b556ace22d4ed9626269710080ce59200941dbb8d2a8ddf2d933697",
+    "gateway-dependencies/sign-detail.txt": "ed12b4496f7f8b1987207a196321d6dd423c0f8f1ea50da9fb14146986105079",
+    "gateway-dependencies/sign.log": "5dbd7b8442e42d33eb7bc88577833e6211ba2441e90ae10ea7f81149e74b6174",
+    "gateway-dependencies/startup-control": "79c4c2518a3735b0917e60d990fe1dd2a2e9a4b5b744750f219e36f0b2ddc1e9",
+    "host.txt": "90cad6ffb8cd38c9af5f7fb8c94f0582136524c9a2b112b2a1de2531e49b2ec3",
+    "minimal/build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "minimal/certificate0": "8e07c8a92220e0b2d7950f1773583a2407fa8acdcd2c01529e2e48c1e9347d03",
+    "minimal/certificate1": "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
+    "minimal/certificate2": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024",
+    "minimal/dependencies.txt": "a1dcaf148102bbca165a7be373894dce47f80072e75fef545130bbcc4b574fc7",
+    "minimal/sign-detail.txt": "982c895444be29add4f8bc71881d8ced1aef9f9243b452e67e671debfa8f674b",
+    "minimal/sign.log": "417da096ef699a8286ef6eb5eed97c5d211256a852b28775cc6c9f3383b42e28",
+    "minimal/startup-control": "623bfa9c0259fea73f7a1e3599671393a7d987b21debfd414cebac919074a9f4",
+    "negative-input.json": "4ff2550530df41d7fec18cd76e2f0224d2f7b889d543afe9f03eb755b072bd82",
+    "plan.json": "3ded172d77c4cd327a1247bbaa86154da9b4e92a9893789200ba803bfe667477",
+    "preflight-failed/build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "preflight-failed/sign-detail.txt": "77ea3ac5511a3bb04b9f51f624b7e6509ca38e6a7f766339ef230b232ab46a59",
+    "preflight-failed/sign.log": "417da096ef699a8286ef6eb5eed97c5d211256a852b28775cc6c9f3383b42e28",
+    "preflight-failed/startup-control": "dc183ccb09da7f01f864acc037c48781c009d8581db50aa58db04c5a7565e17e",
+    "probe.c": "61b0209f41a93d4c6c7b91c3058c347abf681bf50b5ac272dd56793b21f153f7",
+    "real-gateway-dependencies.txt": "e3627e6618f4e1d3ef0805ba5c659161e76489271731f174ef1541c41699ca3c",
+    "repository-tests.log": "6bec4be0ac40e5f12bbb3a56c1a9d32dc5a7e8f591015eb30fdebadf3703324d",
+    "result.json": "3fa8a658f54fae808b0c671bd1036173be7760af272a8e99751d1a45b31c8392",
+    "run-before-certificate-fix.py": "210b390b304bc6a866a080170b19c97b4902f9474deefc5e34d22957e22e179a",
+    "run.py": "3633663d6e19b831885d036c430e38424d7065a03a77b95dd1462ac8cb7537ae",
+    "verification.json": "019ea586487ed02a4725b0c48407b8c879964bab115da828755b75aa9df46e5a",
+    "verify.py": "a08396b4ee2ff8842ff82cd31c972e32417f1e0359e44a4fb24163f920f91372"
+  },
+  "repository_invariants_passed": 23
+}
