@@ -49,12 +49,12 @@
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
 | **Rust 合计** | **1762** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
-| apps/ios-webshield/Tests/ExtensionTests | 18 | Safari 扩展 node `test(` |
+| apps/ios-webshield/Tests/ExtensionTests | 22 | Safari 扩展 node `test(` |
 | eval/e2e-extension/run.mjs | 39 | 真浏览器 E2E 判据 `record(` |
 | apps/android-companion/app/src/test | 72 | Kotlin JVM `@Test`(纯函数) |
 | apps/android-companion/app/src/test(Robolectric) | 28 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需设备) |
-| apps/ios-webshield | 22 | Swift `func test*(` |
+| apps/ios-webshield | 23 | Swift `func test*(` |
 | eval/scenarios | 135 | 离线评测场景(YAML) |
 | eval/capability-claims.yaml | 36 | 用户能力声明(每条挂证明测试) |
 

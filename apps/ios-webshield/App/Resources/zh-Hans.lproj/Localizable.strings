@@ -26,3 +26,4 @@
 "section_privacy" = "隐私边界";
 "privacy_note" = "处理和审计存储均留在本机；不保存或上传原始网页文字、表单值、URL 路径、查询参数和片段。";
 "storage_unavailable" = "App Group 共享存储不可用。签名能力正确配置前，防护保持关闭。";
+"audit_blocked" = "已阻止";

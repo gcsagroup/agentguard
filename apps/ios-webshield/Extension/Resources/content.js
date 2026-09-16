@@ -7,9 +7,9 @@
 
   let protectionState = "unknown";
   let statusGeneration = 0;
-  const bypassOnce = new WeakSet();
   const pending = new WeakSet();
   const installedRoots = new WeakSet();
+  const overlayHosts = new WeakSet();
 
   function i18n(key) {
     return globalThis.browser.i18n.getMessage(key) || key;
@@ -62,7 +62,8 @@
     const path = typeof event.composedPath === "function" ? event.composedPath() : [event.target];
     for (const target of path) {
       if (!(target instanceof Element)) continue;
-      if (target.closest("[data-agentguard-webshield-overlay]")) return null;
+      // 网页可伪造属性；只有本脚本实际创建的提示宿主才是自己的控件。
+      if (overlayHosts.has(target)) return null;
       const candidate = target.closest(
         "button, input[type='submit'], input[type='button'], [role='button'], a[href]"
       );
@@ -87,9 +88,10 @@
     runtime.sendMessage({ type: "webshield:record-events", events: [event] }).catch(() => {});
   }
 
-  function showDialog(finding, canAllow) {
+  function showDialog(finding, stateKnown) {
     return new Promise((resolve) => {
       const host = document.createElement("div");
+      overlayHosts.add(host);
       host.dataset.agentguardWebshieldOverlay = "true";
       host.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483647";
       const shadow = host.attachShadow({ mode: "closed" });
@@ -100,41 +102,34 @@
       dialog.setAttribute("aria-modal", "true");
       dialog.style.cssText = "box-sizing:border-box;width:min(420px,100%);padding:22px;border-radius:18px;background:#fff;color:#101828;box-shadow:0 24px 80px rgba(0,0,0,.3)";
       const title = document.createElement("h2");
-      title.textContent = i18n(canAllow ? `modal_title_${finding.kind}` : "modal_title_unavailable");
+      title.textContent = i18n(stateKnown ? `modal_title_${finding.kind}` : "modal_title_unavailable");
       title.style.cssText = "margin:0 0 8px;font-size:21px;line-height:1.25";
       const body = document.createElement("p");
-      body.textContent = i18n(canAllow ? `modal_body_${finding.kind}` : "modal_body_unavailable");
+      body.textContent = i18n(stateKnown ? `modal_body_${finding.kind}` : "modal_body_unavailable");
       body.style.cssText = "margin:0 0 18px;color:#475467;font-size:15px;line-height:1.5";
       const actions = document.createElement("div");
       actions.style.cssText = "display:flex;gap:10px;justify-content:flex-end";
       const cancel = document.createElement("button");
       cancel.type = "button";
-      cancel.textContent = i18n(canAllow ? "modal_cancel" : "modal_close");
+      cancel.textContent = i18n("modal_close");
       cancel.style.cssText = "border:0;border-radius:10px;padding:10px 16px;background:#d92d20;color:#fff;font:600 15px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      const allow = document.createElement("button");
-      allow.type = "button";
-      allow.textContent = i18n("modal_allow_once");
-      allow.style.cssText = "border:1px solid #d0d5dd;border-radius:10px;padding:10px 16px;background:#fff;color:#344054;font:600 15px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-
-      function finish(decision) {
+      function finish() {
         document.removeEventListener("keydown", onKeyDown, true);
         host.remove();
-        resolve(decision);
+        resolve();
       }
       function onKeyDown(event) {
-        if (event.key === "Escape") finish("cancelled");
+        if (event.key === "Escape") finish();
       }
-      cancel.addEventListener("click", () => finish("cancelled"));
-      allow.addEventListener("click", () => finish("allowed"));
+      cancel.addEventListener("click", finish);
       document.addEventListener("keydown", onKeyDown, true);
       actions.append(cancel);
-      if (canAllow) actions.append(allow);
       dialog.append(title, body, actions);
       backdrop.append(dialog);
       shadow.append(backdrop);
       const mount = document.documentElement || document.body;
       if (!mount) {
-        finish("cancelled");
+        finish();
         return;
       }
       mount.append(host);
@@ -142,30 +137,14 @@
     });
   }
 
-  function showDecision(finding) {
-    return showDialog(finding, true);
-  }
-
-  async function decideAndMaybeReplay(element, finding, replay) {
+  async function explainBlocked(element, finding) {
     if (pending.has(element)) return;
     pending.add(element);
     try {
-      const decision = await showDecision(finding);
-      sendAudit(finding, decision);
-      if (decision === "allowed" && protectionState === "enabled") {
-        bypassOnce.add(element);
-        replay();
-      }
-    } finally {
-      pending.delete(element);
-    }
-  }
-
-  async function explainUnavailable(element, finding) {
-    if (pending.has(element)) return;
-    pending.add(element);
-    try {
-      await showDialog(finding, false);
+      const stateKnown = protectionState === "enabled";
+      // 阻断在同步监听器里已经发生；关闭提示不是批准，也不会重放原操作。
+      if (stateKnown) sendAudit(finding, "blocked");
+      await showDialog(finding, stateKnown);
     } finally {
       pending.delete(element);
     }
@@ -183,18 +162,13 @@
     if (event.defaultPrevented || protectionState === "disabled") return;
     const element = candidateFromClick(event);
     if (!element) return;
-    // Submit controls are handled by the submit listener so one user action can never show two gates.
+    // 提交控件统一由 submit 监听器处理，避免一次操作出现两个提示。
     if (isSubmitControl(element)) return;
-    if (protectionState === "enabled" && bypassOnce.delete(element)) return;
     const finding = gate.classify(contextFor(element));
     if (!finding) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (protectionState === "enabled") {
-      void decideAndMaybeReplay(element, finding, () => element.click());
-    } else {
-      void explainUnavailable(element, finding);
-    }
+    void explainBlocked(element, finding);
   }
 
   function handleSubmit(event) {
@@ -202,20 +176,12 @@
     if (event.defaultPrevented || protectionState === "disabled"
       || !(event.target instanceof HTMLFormElement)) return;
     const form = event.target;
-    if (protectionState === "enabled" && bypassOnce.delete(form)) return;
     const nativeSubmitter = event.submitter instanceof HTMLElement ? event.submitter : undefined;
     const finding = gate.classify(contextFor(nativeSubmitter || form));
     if (!finding) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (protectionState === "enabled") {
-      void decideAndMaybeReplay(form, finding, () => {
-        if (nativeSubmitter) form.requestSubmit(nativeSubmitter);
-        else form.requestSubmit();
-      });
-    } else {
-      void explainUnavailable(form, finding);
-    }
+    void explainBlocked(form, finding);
   }
 
   function installEventRoot(root) {

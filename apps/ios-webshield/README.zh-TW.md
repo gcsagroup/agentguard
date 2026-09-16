@@ -14,7 +14,7 @@
   targets；容器 App 透過 Embed App Extensions 嵌入延伸功能。
 - **IOS-02 Safari 閘門：**Manifest V3 isolated-world 內容腳本以 `document_start` 注入所有獲准的
   HTTP(S) frame，並同步註冊 capture listener。`unknown`/`unavailable` 對已識別的危險點擊或提交
-  關閉失敗，只有原生端明確回傳 `disabled` 才放行；啟用時僅允許一次或取消後只傳送最小化事件。
+  關閉失敗，只有原生端明確回傳 `disabled` 才放行；啟用時阻斷匹配操作並傳送最小化的 `blocked` 記錄；提示只有關閉鍵，不授權或重放。
 - **IOS-03 原生合約與儲存：**原生訊息只接受版本 1 白名單欄位，限制 64 KiB/50 個事件；URL
   只保留 HTTP(S) origin。App Group UserDefaults 保存同意/開關，原子 JSON 稽核由 actor 與
   `NSFileCoordinator` 協調的原子 JSONL，最多保留 7 天或 500 筆；讀取也會在同一個協調寫入
@@ -90,3 +90,7 @@ access group；完全停用程式碼簽署時，Keychain 與 App Group 會回傳
 倉庫沒有 provisioning profile，也沒有 App Group/Keychain capability 的開發者後台註冊證據；
 Archive、簽署、真機 Safari 延伸功能啟用、網站權限、Private Browsing、升級/解除安裝與
 TestFlight 都尚未驗證。設定 Team/App IDs/profiles 並完成上述驗收前，發佈仍是 **No-Go**。
+
+## 2026-09-17 阻斷合約修正
+
+App 與 Extension 建置號同為 2，名稱與 Bundle ID 保持。移除頁面內的一次放行與重放，修正網頁偽造提示屬性繞過；新事件記為 `blocked`，舊 `allowed`／`cancelled` 保留原含義。新增四個擴充功能回歸在舊程式碼全部失敗，修正後 Node 22／22、Swift Core 21／21 與 UI 2／2 通過；Xcode 27 嚴格 Release 模擬器／無簽章裝置建置及 Analyze 通過。真實 Chromium DOM 測試頁驗證三語提示與零風險請求，但原生狀態為合成，不能替代真機 Safari 或 TestFlight。詳見[本輪記錄](../../docs/ios-block-only-2026-09-17.zh.md)。

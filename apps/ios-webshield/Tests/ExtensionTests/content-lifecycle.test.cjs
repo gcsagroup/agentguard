@@ -31,6 +31,10 @@ class EventHub {
     this.listeners.set(type, group);
   }
 
+  removeEventListener(type, listener) {
+    this.listeners.set(type, (this.listeners.get(type) || []).filter((entry) => entry.listener !== listener));
+  }
+
   dispatch(type, event) {
     for (const entry of this.listeners.get(type) || []) {
       entry.listener(event);
@@ -51,6 +55,7 @@ class EventHub {
 
 function createHarness(statusPromise, options = {}) {
   let document;
+  const shadows = [];
 
   class Element extends EventHub {
     constructor(tagName) {
@@ -124,6 +129,7 @@ function createHarness(statusPromise, options = {}) {
 
     attachShadow({ mode }) {
       const root = new ShadowRoot(this, mode);
+      shadows.push(root);
       if (mode === "open") this.shadowRoot = root;
       return root;
     }
@@ -139,6 +145,8 @@ function createHarness(statusPromise, options = {}) {
     }
 
     focus() {}
+
+    click() { return click(this); }
   }
 
   class HTMLElement extends Element {}
@@ -258,6 +266,7 @@ function createHarness(statusPromise, options = {}) {
   function click(element, path = [element, document.body, document.documentElement, document]) {
     const event = eventFor(element, path);
     document.dispatch("click", event);
+    if (!event.immediatePropagationStopped) element.dispatch("click", event);
     if (!event.defaultPrevented) element.activations += 1;
     return event;
   }
@@ -301,7 +310,10 @@ function createHarness(statusPromise, options = {}) {
     submit,
     eventFor,
     emitStatus,
-    runtimeMessages
+    runtimeMessages,
+    // 夹具保留自己创建的封闭根；页面代码本身不能读取它。
+    dialogButtons: () => shadows.filter((root) => root.mode === "closed" && root.host.parentElement)
+      .flatMap((root) => root.querySelectorAll("*").filter((element) => element.tagName === "BUTTON"))
   };
 }
 
@@ -366,6 +378,65 @@ test("an enabled status keeps a dangerous candidate behind the decision gate", a
   await settle();
 
   assert.equal(harness.click(harness.button()).defaultPrevented, true);
+});
+
+test("启用时提示只有关闭键，关闭和再次点击均不重放付款", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const button = harness.button();
+  assert.equal(harness.click(button).defaultPrevented, true);
+  assert.deepEqual(harness.dialogButtons().map((element) => element.textContent), ["modal_close"]);
+  harness.click(harness.dialogButtons()[0]);
+  await settle();
+  assert.equal(button.activations, 0);
+  assert.equal(harness.click(button).defaultPrevented, true);
+  assert.equal(button.activations, 0);
+  const records = harness.runtimeMessages.filter((message) => message.type === "webshield:record-events");
+  assert.equal(records.length, 2);
+  assert.ok(records.every((message) => message.events[0].action === "blocked"));
+  assert.equal(harness.click(harness.button("Open help")).defaultPrevented, false);
+});
+
+test("敏感表单在提示关闭前已记录阻断，关闭后不提交且再次提交仍阻断", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const form = harness.sensitiveForm();
+  assert.equal(harness.submit(form).defaultPrevented, true);
+  const records = harness.runtimeMessages.filter((message) => message.type === "webshield:record-events");
+  assert.equal(records.length, 1);
+  assert.equal(records[0].events[0].action, "blocked");
+  harness.click(harness.dialogButtons()[0]);
+  await settle();
+  assert.equal(form.submissions, 0);
+  assert.equal(harness.submit(form).defaultPrevented, true);
+  assert.equal(form.submissions, 0);
+});
+
+test("Escape 只关闭提示，后续关闭防护也不会重放此前被拦的动作", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const button = harness.button();
+  harness.click(button);
+  harness.document.dispatch("keydown", { key: "Escape" });
+  await settle();
+  assert.equal(harness.dialogButtons().length, 0);
+  assert.equal(harness.document.listenerCount("keydown"), 0);
+  harness.emitStatus({ type: "webshield:status-changed", state: "disabled", enabled: false, nativeAvailable: true });
+  await settle();
+  assert.equal(button.activations, 0);
+  assert.equal(harness.click(button).defaultPrevented, false);
+  assert.equal(button.activations, 1);
+  assert.deepEqual(harness.runtimeMessages.filter((message) => message.type === "webshield:record-events")
+    .map((message) => message.events[0].action), ["blocked"]);
+});
+
+test("网页伪造提示属性不能绕过付款检查", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const button = harness.button();
+  button.dataset.agentguardWebshieldOverlay = "true";
+  assert.equal(harness.click(button).defaultPrevented, true);
+  assert.equal(button.activations, 0);
 });
 
 test("a delayed stale status cannot overwrite a newer explicit disabled message", async () => {

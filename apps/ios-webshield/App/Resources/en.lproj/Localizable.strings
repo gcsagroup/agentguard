@@ -26,3 +26,4 @@
 "section_privacy" = "Privacy boundary";
 "privacy_note" = "Processing and audit storage stay on this device. Raw page text, form values, URL paths, queries, and fragments are not stored or uploaded.";
 "storage_unavailable" = "App Group storage is unavailable. Protection remains disabled until signing capabilities are configured correctly.";
+"audit_blocked" = "Blocked";

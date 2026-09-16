@@ -42,5 +42,5 @@ test("all declared extension resources exist", () => {
 
 test("submit controls are gated only by the submit listener", () => {
   assert.match(contentSource, /if \(isSubmitControl\(element\)\) return;/);
-  assert.match(contentSource, /form\.requestSubmit\(/);
+  assert.doesNotMatch(contentSource, /\.requestSubmit\(|bypassOnce|modal_allow_once/);
 });

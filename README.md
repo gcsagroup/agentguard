@@ -35,7 +35,7 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 - **大部分控制是合作式的。** Agent 如果绕过网关直接执行命令，网关无法阻止。
 - **不是通用沙箱、EDR、防火墙或 DLP。** Linux `guard-jail` 只约束它启动的进程；网络端口天花板是可选能力，声明后若所选后端无法强制会拒绝启动。
 - **浏览器控制有明确范围。** DOM 风险动作只阻断，网页内没有放行；页面提示只是可被页面影响的信息层，用户若坚持继续只能从浏览器扩展管理页停用或移除保护后自行重做。静态 DNR 不检查 body，也不覆盖自定义别名或其他未声明表面；GA manifest 禁用 Native Messaging。Android 高风险提示仍发生在事件之后。
-- 首个 GA 的浏览器包只支持共用 Chromium 包的 Chrome / Edge；Firefox 仅保留源码原型，不打包、不作为验收门。iOS WebShield/Safari Extension 是首发正式产品范围内的独立 Xcode/Swift 受限 SKU，不是未来可选项。固定 macOS 开发 App 023 已有组织签名及限定原生验收；它不替代正式 universal 安装包的签名、公证、全新安装、升级与卸载验收。Windows 历史候选 `89dadf9` 已取得真实 Windows 11 上的启动、连续观测与风险确认界面部分证据，但当前安全构建、签名安装包及全新安装/升级/卸载仍待重新验收。iOS 已有可构建的受限 Safari WebShield App/扩展/Core 工程并通过无签名模拟器测试，但未接 Rust 引擎，生产签名、真机 Safari 与 TestFlight 仍未完成。
+- 首个 GA 的浏览器包只支持共用 Chromium 包的 Chrome / Edge；Firefox 仅保留源码原型，不打包、不作为验收门。iOS WebShield/Safari Extension 是首发正式产品范围内的独立 Xcode/Swift 受限 SKU，不是未来可选项。固定 macOS 开发 App 024 已有组织签名及限定原生验收；它不替代正式 universal 安装包的签名、公证、全新安装、升级与卸载验收。Windows 历史候选 `89dadf9` 已取得真实 Windows 11 上的启动、连续观测与风险确认界面部分证据，但当前安全构建、签名安装包及全新安装/升级/卸载仍待重新验收。iOS 已有可构建的受限 Safari WebShield App/扩展/Core 工程并通过无签名模拟器测试，但未接 Rust 引擎，生产签名、真机 Safari 与 TestFlight 仍未完成。
 - **各端真正观察什么，以源码生成的 [docs/capability-matrix.md](docs/capability-matrix.md) 为准。** 上面"分析深链"说的是引擎能力（离线语料与适配器格式带 `deeplink` 事件）；目前没有任何一端的观察器在真机上发出深链事件——Android 只报界面文字里的深链字样。
 
 适用对象是研究与评测、开发或预发环境，以及知情运维控制下的内部试点；不应把当前 RC 作为面向消费者或受监管环境的强制安全控制。

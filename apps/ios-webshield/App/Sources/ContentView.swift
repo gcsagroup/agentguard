@@ -164,7 +164,7 @@ private struct AuditRecordRow: View {
                 Text(record.ruleID)
                     .font(.headline.monospaced())
                 Spacer()
-                Text(record.action)
+                Text(record.action == "blocked" ? String(localized: "audit_blocked") : record.action)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

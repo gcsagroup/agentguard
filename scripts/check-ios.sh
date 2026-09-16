@@ -79,9 +79,9 @@ summary = json.load(sys.stdin)
 passed = int(summary.get("passedTests", 0))
 failed = int(summary.get("failedTests", 0))
 skipped = int(summary.get("skippedTests", 0))
-if passed != 22 or failed != 0 or skipped != 0:
-    raise SystemExit(f"error: expected Swift 22/22 with no skips; got passed={passed} failed={failed} skipped={skipped}")
-print("Swift tests: 22/22 PASS")
+if passed != 23 or failed != 0 or skipped != 0:
+    raise SystemExit(f"error: expected Swift 23/23 with no skips; got passed={passed} failed={failed} skipped={skipped}")
+print("Swift tests: 23/23 PASS")
 '
 
 xcodebuild build -quiet "${COMMON[@]}" \
@@ -97,5 +97,5 @@ xcodebuild analyze -quiet "${COMMON[@]}" \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$RESULT_ROOT/analyze-derived"
 
-echo "iOS limited SKU: Node 18/18, Swift 22/22, strict Release Simulator/device build + Analyze PASS"
+echo "iOS limited SKU: Node 22/22, Swift 23/23, strict Release Simulator/device build + Analyze PASS"
 echo "Evidence: $RESULT_ROOT"

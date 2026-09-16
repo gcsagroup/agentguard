@@ -64,6 +64,28 @@ final class MessageContractTests: XCTestCase {
         ]))
     }
 
+    func testBlockedActionAndHistoricalActionsRemainDistinct() throws {
+        for action in ["blocked", "cancelled", "allowed"] {
+            let request = try NativeMessageDecoder.decode([
+                "version": 1,
+                "requestId": UUID().uuidString,
+                "type": "record_events",
+                "events": [[
+                    "ruleId": "CRIT-001",
+                    "kind": "payment",
+                    "action": action,
+                    "timestampMs": 1_700_000_000_000,
+                    "url": "https://example.com/checkout?private=value"
+                ]]
+            ])
+            guard case let .recordEvents(_, events) = request else {
+                return XCTFail("应得到事件记录请求")
+            }
+            XCTAssertEqual(events.single?.action, action)
+            XCTAssertEqual(events.single?.origin, "https://example.com")
+        }
+    }
+
     func testRejectsMoreThanFiftyEvents() {
         let event: [String: Any] = [
             "ruleId": "CRIT-001",

@@ -49,12 +49,12 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
 | **Rust total** | **1762** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
-| apps/ios-webshield/Tests/ExtensionTests | 18 | Safari extension node `test(` |
+| apps/ios-webshield/Tests/ExtensionTests | 22 | Safari extension node `test(` |
 | eval/e2e-extension/run.mjs | 39 | real-browser E2E checks `record(` |
 | apps/android-companion/app/src/test | 72 | Kotlin JVM `@Test`(纯函数) |
 | apps/android-companion/app/src/test(Robolectric) | 28 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test` (needs a device) |
-| apps/ios-webshield | 22 | Swift `func test*(` |
+| apps/ios-webshield | 23 | Swift `func test*(` |
 | eval/scenarios | 135 | offline evaluation scenarios (YAML) |
 | eval/capability-claims.yaml | 36 | user-facing capability claims (each pinned to a proving test) |
 

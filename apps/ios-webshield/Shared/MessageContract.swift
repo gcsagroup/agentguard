@@ -70,7 +70,8 @@ public enum NativeMessageDecoder {
         "ruleId", "kind", "action", "timestampMs", "url"
     ]
     private static let allowedKinds: Set<String> = ["payment", "prompt_injection", "privacy_trap"]
-    private static let allowedActions: Set<String> = ["cancelled", "allowed"]
+    // 新版只产生 blocked；保留旧记录与旧扩展的枚举，不改写历史含义。
+    private static let allowedActions: Set<String> = ["blocked", "cancelled", "allowed"]
 
     public static func decode(_ value: Any) throws -> WebShieldRequest {
         guard let dictionary = value as? [String: Any] else {

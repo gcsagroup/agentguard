@@ -26,3 +26,4 @@
 "section_privacy" = "隱私邊界";
 "privacy_note" = "處理與稽核儲存都留在本機；不儲存或上傳原始網頁文字、表單值、URL 路徑、查詢參數與片段。";
 "storage_unavailable" = "App Group 共享儲存空間無法使用。簽署能力正確設定前，防護維持關閉。";
+"audit_blocked" = "已阻止";

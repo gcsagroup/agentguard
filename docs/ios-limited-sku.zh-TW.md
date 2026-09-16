@@ -12,7 +12,7 @@
 1. `apps/ios-webshield/project.yml` 可重現產生含容器 App、Safari Web Extension、
    `WebShieldCore`、unit/UI tests 的 Xcode 工程；主 App 嵌入延伸功能。
 2. Safari isolated-world 內容腳本只檢查 DOM 點擊與表單提交，對付款、提示注入與敏感表單
-   提供本機「取消/僅允許一次」閘門。
+   直接阻斷匹配操作；提示只有關閉鍵，不提供「允許一次」或重放。
 3. `sendNativeMessage` 接入版本化白名單 Swift 合約；原生層限制訊息大小/數量，URL 縮減成
    origin 後才寫入本機稽核。
 4. App Group UserDefaults 保存同意與開關；原子 JSONL 稽核透過 actor、`NSFileCoordinator` 與
@@ -43,8 +43,12 @@
 
 - 確認正式 bundle IDs，註冊同 Team 的 App Group/Keychain capabilities 並產生 profiles。
 - 完成簽署 Archive、entitlements 回讀與 App Store Connect 驗證。
-- 在代表性真機 Safari 驗收延伸功能啟用、網站權限、允許/取消恰好一次、程序重啟、Private
+- 在代表性真機 Safari 驗收延伸功能啟用、網站權限、關閉提示後仍阻斷、普通操作不誤攔、程序重啟、Private
   Browsing、三語、升級/解除安裝與清除。
 - 完成 TestFlight 安裝/升級與隱私說明複核。
 
 所有條件完成前，iOS 只能標示為 **buildable limited candidate**，不能標示為已發佈或完整支援。
+
+## 2026-09-17 阻斷合約修正
+
+App 與 Extension 建置號同為 2，名稱與 Bundle ID 保持。移除頁面內的一次放行與重放，修正網頁偽造提示屬性繞過；新事件記為 `blocked`，舊 `allowed`／`cancelled` 保留原含義。新增四個擴充功能回歸在舊程式碼全部失敗，修正後 Node 22／22、Swift Core 21／21 與 UI 2／2 通過；Xcode 27 嚴格 Release 模擬器／無簽章裝置建置及 Analyze 通過。真實 Chromium DOM 測試頁驗證三語提示與零風險請求，但原生狀態為合成，不能替代真機 Safari 或 TestFlight。詳見[本輪記錄](ios-block-only-2026-09-17.zh.md)。

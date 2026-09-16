@@ -1,0 +1,154 @@
+{
+  "baseline": "99dc358490ca4f978eaaadb14c96c309bec8ab3a",
+  "baseline_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35130126697",
+    "successful_jobs": 13
+  },
+  "app_build": "1.0.0 (2)",
+  "source_scope": "iOS 内容脚本、消息兼容与界面、回归及文档；macOS App 不变",
+  "old_node": {
+    "passed": 18,
+    "failed": 4
+  },
+  "node": {
+    "passed": 22,
+    "failed": 0
+  },
+  "swift": {
+    "core_passed": 21,
+    "ui_passed": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "release_builds": [
+    "Simulator",
+    "unsigned device"
+  ],
+  "analyze": "passed",
+  "dom": {
+    "browser": "141.0.7390.37",
+    "native_bridge": "synthetic",
+    "viewports": [
+      "393x852",
+      "1280x800"
+    ],
+    "results": [
+      {
+        "case": "原代码反例",
+        "payment_replayed": 1,
+        "forged_attribute_bypass": 1
+      },
+      {
+        "case": "新代码 en",
+        "only_close": true,
+        "risk_handlers_before_disable": 0,
+        "risk_requests_before_disable": 0,
+        "ordinary_requests": 1,
+        "explicit_disabled_new_action_requests": 1
+      },
+      {
+        "case": "新代码 zh_CN",
+        "only_close": true,
+        "risk_handlers_before_disable": 0,
+        "risk_requests_before_disable": 0,
+        "ordinary_requests": 1,
+        "explicit_disabled_new_action_requests": 1
+      },
+      {
+        "case": "新代码 zh_TW",
+        "only_close": true,
+        "risk_handlers_before_disable": 0,
+        "risk_requests_before_disable": 0,
+        "ordinary_requests": 1,
+        "explicit_disabled_new_action_requests": 1
+      },
+      {
+        "case": "unknown",
+        "risk_requests": 0
+      },
+      {
+        "case": "unavailable",
+        "risk_requests": 0
+      }
+    ],
+    "console_errors": 0
+  },
+  "products": {
+    "release-simulator-app": {
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "2",
+      "executable_sha256": "80c83e8233c0336b1af05a50379feedf940512ed958b183a20bc712f333af5f2",
+      "sdk": "iphonesimulator27.0",
+      "files": 29,
+      "signature_description_exit": 0
+    },
+    "release-simulator-extension": {
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "2",
+      "executable_sha256": "6f4c241f350e42b96ba7b6132ee99e421c8d6fae828e60c1da18109c0a78f1ef",
+      "sdk": "iphonesimulator27.0",
+      "files": 19,
+      "signature_description_exit": 0
+    },
+    "release-device-app": {
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "2",
+      "executable_sha256": "b48ef55a7da180746328f919210ab45526d7e5305e01eb126e9a656a5bc99807",
+      "sdk": "iphoneos27.0",
+      "files": 29,
+      "signature_description_exit": 1
+    },
+    "release-device-extension": {
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "2",
+      "executable_sha256": "bd54c5dd3563bb701cb28458f431af91bedd3b4985aead8da862bebfd3641da4",
+      "sdk": "iphoneos27.0",
+      "files": 19,
+      "signature_description_exit": 1
+    }
+  },
+  "fixed_mac_app_unchanged_files": 91,
+  "simulator_restored_shutdown": true,
+  "repository_invariants_passed": 23,
+  "native_safari_acceptance": "NOT_PASSED",
+  "testflight": "NOT_PASSED",
+  "release": "No-Go",
+  "artifact_root": ".artifacts/ios-block-only-2026-09-17",
+  "artifact_sha256": {
+    "content-before.js": "f10c2f89ad4a8d0bcd40493d1a00d9beaaeee5584a826b520c4405a0d3737eee",
+    "old-node.log": "2843f8864b8d2647f7b197391828adc4cac199a2297f176784664cb6271e4a5f",
+    "new-node.log": "21c1e908b9f64e9c094bf62e44f8e0ec37dc2d4d40809b333c8945b21e0ec01e",
+    "ios-gate.log": "d3d803058884ff986d428dde99d94f3bff07e87d431227886629f33a695f9fb2",
+    "swift-tests.json": "5f0fe06736af031647d4af25e7158c12a8c23ec96eada9b5a87d82e680d7ebfc",
+    "products.json": "43538e1f78bfeeed1c0977e145f28afd3858769c6025775c49e2611484d5736d",
+    "render-check.mjs": "af193a09fee93940531f1aafb6ca9acc37cb578fa1d6bf74b3934c7981926205",
+    "render-check-final.log": "40a034ca89c1dd28ae9edebf19cebd4925f27cfa6da15f7425808d4c63f9f572",
+    "render-result.json": "10c7629eb9c9cd92f89bb2d87ae5cb2a659a6e93cc0c4e2a8851088a5274e544",
+    "source-files.json": "b167fad38966071f05289c74d8424fd5ef96f1495d42ede5481dae91c83b037b",
+    "source.patch": "399111bd88617594de39984471081430707606a37bdcc58aaa90deb7498921ba",
+    "cleanup.json": "83b261d249f9da1b2285d63179a7f4b05fd12e35a1b0be44eb7793a5c9c6cf93",
+    "repository-invariants.log": "99901429595408aa79f1f409c0c34941074883774ae0918c572660f30669e4c8",
+    "baseline-ci.json": "79e1600ba140e511bb2672bd6a32702bde2b80bc8c0a5808b445ebe554b5b738",
+    "release-simulator-app-signing.txt": "b9202b6ba941d7873a0fb1031b82e2a5f3e3147f502e43a37a89f24774dcebc7",
+    "release-simulator-extension-signing.txt": "01b150792f6caef06aae32d77f8f8527f10b6d9a72fc7e2226782be4f9929553",
+    "release-device-app-signing.txt": "416c99f5beb06b96437b3b0cca11737a22c4f006a9a6efc6c256c7f923f108f8",
+    "release-device-extension-signing.txt": "8a2e9d3f19841eeed597458c1976b09a177f4b079a9da6d974780ab3d70b1f9d",
+    "screenshots/after-en.png": "bec79e2de2534c35e559616d68e0902c7d0099646ff9f667660bbc08258dec52",
+    "screenshots/after-zh_CN.png": "b0120eec1b3cca5e80d94bf97dfafda6da6cae3eb1c12f26e9ec360b002caef2",
+    "screenshots/after-zh_TW.png": "57dbf029bb64fa58eafafe59179232b7466781ae8b391081866e9a9fa1008466",
+    "screenshots/before-en.png": "d5f80f31a14967bb439f9eb3578a712ddc94d2b14e289f3fac46b5c0177d0cd3",
+    "screenshots/state-unavailable.png": "3cc03c33d41cbfad727a47afe3d80a6bd59f88aef7c05e67804ad683e6a36c4d",
+    "screenshots/state-unknown.png": "3cc03c33d41cbfad727a47afe3d80a6bd59f88aef7c05e67804ad683e6a36c4d"
+  },
+  "first_launch_artifact_root": ".artifacts/ios-first-launch-2026-09-17",
+  "first_launch_artifact_sha256": {
+    "versions.json": "bea05b45d56ec3279d8a7b08569d9bee3abdb9cfd746f77308de09f91290e6a5",
+    "xcodebuild-first-launch.sample.txt": "dcd20177feb8bd036a607ee7697f82019458443163804c27a1fb4f656200d441",
+    "xcodebuild-system.log": "b10fc54ffeddc8e9a2d7ee5271e71302379a4cbca761ca6c09186e0be3025b0e",
+    "simulators-after.json": "a3dc22f955946fd78c4c80993f6c729693f359d0a9cd3c966cb45a16611ce880"
+  }
+}

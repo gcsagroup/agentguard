@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS blocking contract and forged-overlay bypass correction (2026-09-17)
+
+- Aligned behavior with acceptance I3: removed allow-once and action replay. Risk notices only close, and blocking emits `blocked` while preserving historical records. Page-defined overlay attributes no longer skip checks. Ordinary actions and new actions after explicit native disablement retain their behavior.
+- App and extension now share build 2, with updated trilingual UI, documentation and capability matrices. All four added regressions failed on the old code. The correction passed Node 22, Swift 23, strict Release Simulator/unsigned-device builds, Analyze and real DOM comparisons. The DOM test uses a synthetic native bridge; it does not replace device Safari or TestFlight acceptance.
+- Previous commit `99dc358` passed CI 13/13. All 91 files of fixed macOS App 024 remain unchanged, and the test simulator was shut down again. See the [correction and evidence](docs/ios-block-only-2026-09-17.zh.md).
+
 ### Official Edge preparation and first-run consent (2026-09-17)
 
 - Previous commit `f483481` passed all 13 CI jobs. Prepared Microsoft Stable 153.0.4234.32 after checking the official package hash, Microsoft signatures and Apple notarization. Placed the original App in user Applications without running root installer scripts.

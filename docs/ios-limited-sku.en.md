@@ -13,7 +13,7 @@
 1. `apps/ios-webshield/project.yml` reproducibly generates an Xcode project with the containing app,
    Safari Web Extension, `WebShieldCore`, and unit/UI tests. The app embeds the extension.
 2. An isolated-world Safari content script checks DOM clicks and form submissions, providing local
-   cancel/allow-once gates for payment, prompt-injection, and sensitive-form risks.
+   blocking for payment, prompt-injection, and sensitive-form risks. Notices only close; there is no allow-once authorization or replay.
 3. `sendNativeMessage` reaches a versioned, allow-listed Swift contract. The native layer caps message
    size/count and reduces URLs to origins before local audit storage.
 4. App Group UserDefaults stores consent and enablement. Atomic JSONL audit storage uses an actor,
@@ -49,9 +49,13 @@ failure and keeps protection off. This is intentional fail-closed behavior, not 
 - Confirm production bundle IDs, register same-Team App Group/Keychain capabilities, and generate
   profiles.
 - Complete a signed Archive, entitlement readback, and App Store Connect validation.
-- On representative devices, validate Safari enablement, site permissions, exactly-once allow/cancel,
+- On representative devices, validate Safari enablement, site permissions, continued blocking after closing notices, ordinary actions,
   process restart, Private Browsing, all three languages, upgrade/uninstall, and local clear.
 - Complete TestFlight install/upgrade and privacy-copy review.
 
 Until every gate is complete, iOS may be called a **buildable limited candidate**, not released or
 fully supported.
+
+## September 17, 2026 blocking contract correction
+
+The app and extension now share build number 2, retaining their names and bundle IDs. Removed in-page allow-once authorization and replay, and fixed a forged-overlay-attribute bypass. New events use `blocked`; historical `allowed` and `cancelled` retain their meaning. All four new extension regressions failed on the old code. The correction passed Node 22/22, Swift Core 21/21 and UI 2/2, plus strict Xcode 27 Release Simulator/unsigned-device builds and Analyze. Real Chromium DOM fixtures verified trilingual notices and zero risk requests using a synthetic native bridge. These do not replace device Safari or TestFlight acceptance. See the [record](ios-block-only-2026-09-17.zh.md).

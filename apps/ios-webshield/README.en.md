@@ -16,7 +16,7 @@ Safari, or TestFlight acceptance.
 - **IOS-02 Safari gate:** an isolated-world Manifest V3 content script runs at `document_start` in
   every permitted matching HTTP(S) frame and registers capture listeners synchronously. `unknown`
   and `unavailable` fail closed for classified risky clicks/submissions; only a native-confirmed
-  `disabled` state allows them through. When enabled, allow-once or cancel emits only a minimized event.
+  `disabled` state allows them through. When enabled, matching actions are blocked and emit a minimized `blocked` event. The notice only closes; it never authorizes or replays the action.
 - **IOS-03 contract and storage:** native messaging accepts only version-1 allow-listed fields, with
   64 KiB/50-event limits; URLs are reduced to HTTP(S) origins. App Group UserDefaults stores consent
   and enablement. An atomic JSONL audit is coordinated by an actor and `NSFileCoordinator`, retaining
@@ -101,3 +101,7 @@ The repository has no provisioning profile or developer-portal registration evid
 Group/Keychain capabilities. Archive/signing, real-device Safari enablement and site permissions,
 Private Browsing, upgrade/uninstall, and TestFlight remain unverified. The release decision stays
 **No-Go** until Team, App IDs, profiles, and those acceptance gates are completed.
+
+## September 17, 2026 blocking contract correction
+
+The app and extension now share build number 2, retaining their names and bundle IDs. Removed in-page allow-once authorization and replay, and fixed a forged-overlay-attribute bypass. New events use `blocked`; historical `allowed` and `cancelled` retain their meaning. All four new extension regressions failed on the old code. The correction passed Node 22/22, Swift Core 21/21 and UI 2/2, plus strict Xcode 27 Release Simulator/unsigned-device builds and Analyze. Real Chromium DOM fixtures verified trilingual notices and zero risk requests using a synthetic native bridge. These do not replace device Safari or TestFlight acceptance. See the [record](../../docs/ios-block-only-2026-09-17.zh.md).
