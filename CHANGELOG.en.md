@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS contrast position controls and test-runner refresh (2026-09-17)
+
+- Three maximum-size labels produce 1/0/1 reports when clipped, fully visible, then clipped again. A deliberately low-contrast counterexample is still detected while fully visible. Intermediate failures are retained; formal audit exceptions are unchanged.
+- Reinstall this project's UI test runner before checks to prevent the observed execution of old test logic, preserving product data. The underlying cache mechanism remains unproven. App/extension build 28 retains the UI and full audit conditions.
+- Node 26/26, Swift 26/26, strict Release, Analyze and repository invariants 23/23 passed; six standard-size screenshots in three languages were reviewed. Baseline `afbd1e7` passed 13/13 CI jobs. Fixed macOS app 024 is unchanged; full maximum-size acceptance, I6, devices and release remain open. [Record](docs/ios-contrast-position-2026-09-17.zh.md).
+
 ### Maximum-text contrast diagnosis and CI readback (2026-09-17)
 
 - Exact correction commit `b458ca5` passed all 13 CI jobs, closing the older-SDK iOS compilation gap. Historical Windows/macOS intermittent root causes remain open.

@@ -68,6 +68,11 @@ COMMON=(
   GCC_TREAT_WARNINGS_AS_ERRORS=YES
 )
 
+# 同一模拟器复用生成的 UI 测试运行器时，曾实际运行旧测试代码，磁盘哈希一致仍不足以排除。
+# 只移除本项目的临时测试运行器，让 Xcode 重新安装；不卸载产品 App 或清除它的数据。
+# simctl 对尚未安装的运行器也返回成功；其他卸载错误在 set -e 下中止检查。
+xcrun simctl uninstall "$SIMULATOR_ID" com.agentguard.webshield.ui-tests.xctrunner
+
 xcodebuild test -quiet "${COMMON[@]}" \
   -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
   -derivedDataPath "$RESULT_ROOT/test-derived" \

@@ -105,4 +105,8 @@ Keychain access group；完全关闭代码签名时 Keychain 与 App Group 会�
 
 ## 旧工具链兼容（2026-09-17）
 
-当前 App／Extension 为 **1.0.0 (22)**，沿用相同名称与标识。逐页布局与多行文字修正见[构建 21 记录](../../docs/ios-page-audit-2026-09-17.zh.md)；该提交在 CI 的 Xcode 16.4 因新 API 不存在而编译失败。构建 22 补充编译期隔离，本机完整门禁通过，准确提交 `b458ca5` 的 CI 已 13／13 成功；Xcode 16.4／iOS 18.5 的 Node 26／26、Swift 26／26、严格 Release 和 Analyze 通过。最大字号、真机 Safari、VoiceOver 与 TestFlight 尚未验收；见[修正与证据边界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。
+此前 App／Extension 为 1.0.0 (22)，沿用相同名称与标识。逐页布局与多行文字修正见[构建 21 记录](../../docs/ios-page-audit-2026-09-17.zh.md)；该提交在 CI 的 Xcode 16.4 因新 API 不存在而编译失败。构建 22 补充编译期隔离，本机完整门禁通过，准确提交 `b458ca5` 的 CI 已 13／13 成功；Xcode 16.4／iOS 18.5 的 Node 26／26、Swift 26／26、严格 Release 和 Analyze 通过。最大字号、真机 Safari、VoiceOver 与 TestFlight 尚未验收；见[修正与证据边界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。
+
+## 对比度位置对照与测试可靠性（2026-09-17）
+
+当前 App／Extension 为 **1.0.0 (28)**，名称和标识保持。检查前重装本项目 UI 测试运行器，避免本次观察到的旧逻辑复用，产品数据保留。三处最大字号文字的位置对照为 1／0／1，真实低对比度反例仍被检测；产品界面与正式全类别审计未改。Node 26／26、Swift 26／26、严格 Release、Analyze 和仓库 23／23 通过，三语标准字号 6 张截图已核对；基线 `afbd1e7` CI 13／13。最大字号完整验收、I6、真机 Safari、VoiceOver 和 TestFlight 仍未完成。[证据与限制](../../docs/ios-contrast-position-2026-09-17.zh.md)。

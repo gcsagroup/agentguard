@@ -105,4 +105,8 @@ TestFlight 都尚未驗證。設定 Team/App IDs/profiles 並完成上述驗收�
 
 ## 舊工具鏈相容（2026-09-17）
 
-目前 App／Extension 為 **1.0.0 (22)**，沿用相同名稱與識別碼。逐頁版面與多行文字修正見[建置 21 記錄](../../docs/ios-page-audit-2026-09-17.zh.md)；該提交在 CI 的 Xcode 16.4 因新 API 不存在而編譯失敗。建置 22 補充編譯期隔離，本機完整門禁通過，準確提交 `b458ca5` 的 CI 已 13／13 成功；Xcode 16.4／iOS 18.5 的 Node 26／26、Swift 26／26、嚴格 Release 與 Analyze 通過。最大字體、真機 Safari、VoiceOver 與 TestFlight 尚未驗收；見[修正與證據邊界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。
+先前 App／Extension 為 1.0.0 (22)，沿用相同名稱與識別碼。逐頁版面與多行文字修正見[建置 21 記錄](../../docs/ios-page-audit-2026-09-17.zh.md)；該提交在 CI 的 Xcode 16.4 因新 API 不存在而編譯失敗。建置 22 補充編譯期隔離，本機完整門禁通過，準確提交 `b458ca5` 的 CI 已 13／13 成功；Xcode 16.4／iOS 18.5 的 Node 26／26、Swift 26／26、嚴格 Release 與 Analyze 通過。最大字體、真機 Safari、VoiceOver 與 TestFlight 尚未驗收；見[修正與證據邊界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。
+
+## 對比度位置對照與測試可靠性（2026-09-17）
+
+目前 App／Extension 為 **1.0.0 (28)**，名稱與識別碼保持。檢查前重裝本專案 UI 測試執行器，避免本次觀察到的舊邏輯重用，產品資料保留。三處最大字級文字的位置對照為 1／0／1，真實低對比度反例仍被偵測；產品介面與正式全類別審計未改。Node 26／26、Swift 26／26、嚴格 Release、Analyze 與儲存庫 23／23 通過，三語標準字級 6 張截圖已核對；基線 `afbd1e7` CI 13／13。最大字級完整驗收、I6、真機 Safari、VoiceOver 及 TestFlight 仍未完成。[證據與限制](../../docs/ios-contrast-position-2026-09-17.zh.md)。
