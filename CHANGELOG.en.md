@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 performance after the database upgrade (2026-09-16)
+
+- Froze 247 current inputs and the four-round plan. The updated SQLite gateway passed 5/6, 4/6, 5/6 and 6/6 original budgets; all 420 reads were correct. Both development rounds must pass every budget, so acceptance still fails. See the [record](docs/agd-027-sqlite-performance-2026-09-16.zh.md).
+- Recomputed budgets from raw samples and rejected ten tampered reports. No round selection, synchronization change or App rebuild; performance and release acceptance remain incomplete.
+
 ### macOS synthetic startup diagnostics (2026-09-16)
 
 - Added aligned startup and request/reply timings to test fixtures, preserving the eight-second deadline. Two controlled pauses verified failure diagnostics. All 136 desktop tests and static checks passed; 11 tests remain ignored. See the [record](docs/macos-ci-startup-2026-09-16.zh.md).

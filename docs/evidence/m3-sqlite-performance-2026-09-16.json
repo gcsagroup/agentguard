@@ -1,0 +1,272 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "2d8cc7aa62787cd466d3074b2c351e9df51820ce",
+  "scope": "数据库升级后四轮 CLI 原预算复验；不是完整 M3 或发布验收",
+  "artifact_directory": ".artifacts/m3-sqlite-performance-2026-09-16",
+  "performance_passed": false,
+  "sources_verified": 247,
+  "successful_reads": 420,
+  "order": [
+    "dev",
+    "release",
+    "release",
+    "dev"
+  ],
+  "builds": {
+    "dev": {
+      "binary": ".artifacts/m3-sqlite-performance-2026-09-16/dev/agentguard-mcp",
+      "sha256": "b5fdf2cab601610bcd7573b3719b868f0fa5f6a7d5915e8649949dae2a9193e0"
+    },
+    "release": {
+      "binary": ".artifacts/m3-sqlite-performance-2026-09-16/release/agentguard-mcp",
+      "sha256": "2f725fedc17b55691d403b4c0925402b336b0f51e572e86946a55ff03115ae52"
+    }
+  },
+  "runs": [
+    {
+      "number": 1,
+      "profile": "dev",
+      "started_at": 1789553812.5451798,
+      "candidate_sha256": "b5fdf2cab601610bcd7573b3719b868f0fa5f6a7d5915e8649949dae2a9193e0",
+      "exit_code": 0,
+      "finished_at": 1789553824.7206929,
+      "report": "eval/out/AGD-002/20260916T101652669Z-42734-benchmark/report.json",
+      "report_sha256": "6010c1b711551dd4a2a2bd6662ed80f59e6c2e3ce1f62e9d5ceb557cd9f0ae52",
+      "checks": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 8.910666999999648,
+          "maximum": 10,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 249.364959,
+          "maximum": 100,
+          "passed": false
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.890625,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 255.28645899999992,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 594.125,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 14.03125,
+          "maximum": 32,
+          "passed": true
+        }
+      ],
+      "passing_budgets": 5
+    },
+    {
+      "number": 2,
+      "profile": "release",
+      "started_at": 1789553824.729155,
+      "candidate_sha256": "2f725fedc17b55691d403b4c0925402b336b0f51e572e86946a55ff03115ae52",
+      "exit_code": 0,
+      "finished_at": 1789553836.287681,
+      "report": "eval/out/AGD-002/20260916T101704776Z-43268-benchmark/report.json",
+      "report_sha256": "16e0dacb736296cfd430f9b0a85653c2360796c825e7a8412d514d99089051ef",
+      "checks": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 18.082374999999956,
+          "maximum": 10,
+          "passed": false
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 546.549625,
+          "maximum": 100,
+          "passed": false
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.25,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 404.1950829999996,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 355.9180409999999,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.578125,
+          "maximum": 32,
+          "passed": true
+        }
+      ],
+      "passing_budgets": 4
+    },
+    {
+      "number": 3,
+      "profile": "release",
+      "started_at": 1789553836.295011,
+      "candidate_sha256": "2f725fedc17b55691d403b4c0925402b336b0f51e572e86946a55ff03115ae52",
+      "exit_code": 0,
+      "finished_at": 1789553845.751848,
+      "report": "eval/out/AGD-002/20260916T101716344Z-43870-benchmark/report.json",
+      "report_sha256": "6b335d4f56524ae7b8ee1af41f0fbc40225ef13af7c24a92a13b14f0fd42b3c2",
+      "checks": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 12.086208,
+          "maximum": 10,
+          "passed": false
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 34.014625000000024,
+          "maximum": 100,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.390625,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 255.1175000000003,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 345.902292,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.625,
+          "maximum": 32,
+          "passed": true
+        }
+      ],
+      "passing_budgets": 5
+    },
+    {
+      "number": 4,
+      "profile": "dev",
+      "started_at": 1789553845.761184,
+      "candidate_sha256": "b5fdf2cab601610bcd7573b3719b868f0fa5f6a7d5915e8649949dae2a9193e0",
+      "exit_code": 0,
+      "finished_at": 1789553855.197043,
+      "report": "eval/out/AGD-002/20260916T101725813Z-44357-benchmark/report.json",
+      "report_sha256": "eb66ac13dc019bde5e7c01bc13bfdfbf982e981405dac031adb9c637189ec484",
+      "checks": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 8.90670799999998,
+          "maximum": 10,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 43.157708000000014,
+          "maximum": 100,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.890625,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 262.38125000000036,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 359.96579199999996,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 14.046875,
+          "maximum": 32,
+          "passed": true
+        }
+      ],
+      "passing_budgets": 6
+    }
+  ],
+  "negative_cases_rejected": [
+    "drop_round",
+    "change_order",
+    "change_budget",
+    "change_candidate",
+    "missing_sample",
+    "wrong_content_size",
+    "nan_latency",
+    "vm_not_ready",
+    "fabricate_pass",
+    "change_plan_count"
+  ],
+  "app": {
+    "version": "2.1.0-dev.23",
+    "files_unchanged": 91
+  },
+  "artifacts": {
+    "plan.json": "cb6a362af4144a421b8e5a4dea0b4f11ef565154dd290bd6e51edcf46cf48c92",
+    "comparison.json": "34ea2dffaf1525f2fba0fa53b95b5853f6c184b068729179ac798adb57178a66",
+    "run-comparison.py": "8b68fdfd0bf9818521cced6401d349f173a8cb0b936221a7ea03a5cbb5febcb2",
+    "verify.py": "35a832f5708a2c8cf70171414309dfe8b857c4c4f394d6614847c58e4607377b",
+    "verification.json": "df0e3029992bc0496466989bd2b6a111fe597b18865a0d2fe61c4247851cb394",
+    "build-dev.log": "3b40b5c202dff4df3519c35c37c4c0756ac4d3ce345bda3194c94ca72e2de05b",
+    "build-release.log": "35de1494e9838806a05a418a5583083a2a8395d142b138490a43d5408f6eb759"
+  }
+}
