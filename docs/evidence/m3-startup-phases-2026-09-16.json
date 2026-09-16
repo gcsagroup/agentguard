@@ -1,0 +1,134 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "9df7323f3f1821849224928132c7bec8dd57f0e7",
+  "scope": "CLI 启动阶段、签名与系统采样诊断；不计原性能或完整 M3 通过",
+  "artifact_directory": ".artifacts/m3-startup-phases-2026-09-16",
+  "verification": {
+    "evidence_verified": true,
+    "performance_acceptance": false,
+    "audit_records_verified": 72,
+    "successful_reads": 9,
+    "signing_sections_identical": 14,
+    "groups": {
+      "original": [
+        {
+          "label": "dev-new-copy",
+          "before_first_dyld_log_ms": 573.375,
+          "first_app_log_ms": 579.17425,
+          "handshake_ms": 619.951291,
+          "after_app_log_ms": 40.77704099999994
+        },
+        {
+          "label": "dev-same-path",
+          "before_first_dyld_log_ms": 2.355084,
+          "first_app_log_ms": 8.540042,
+          "handshake_ms": 37.917375,
+          "after_app_log_ms": 29.377333
+        },
+        {
+          "label": "release-replace",
+          "before_first_dyld_log_ms": 2.40075,
+          "first_app_log_ms": 8.433667,
+          "handshake_ms": 37.104417,
+          "after_app_log_ms": 28.670749999999998
+        },
+        {
+          "label": "release-same-path",
+          "before_first_dyld_log_ms": 2.392166,
+          "first_app_log_ms": 8.283958,
+          "handshake_ms": 35.42775,
+          "after_app_log_ms": 27.143792000000005
+        }
+      ],
+      "signing": [
+        {
+          "label": "adhoc-first",
+          "before_first_dyld_log_ms": 1890.291375,
+          "first_app_log_ms": 1898.178959,
+          "handshake_ms": 1934.421375,
+          "after_app_log_ms": 36.24241599999982
+        },
+        {
+          "label": "organization-first",
+          "before_first_dyld_log_ms": 648.219042,
+          "first_app_log_ms": 659.431459,
+          "handshake_ms": 698.60075,
+          "after_app_log_ms": 39.16929099999993
+        },
+        {
+          "label": "organization-repeat",
+          "before_first_dyld_log_ms": 5.277791,
+          "first_app_log_ms": 12.154875,
+          "handshake_ms": 41.764541,
+          "after_app_log_ms": 29.609666
+        },
+        {
+          "label": "adhoc-repeat",
+          "before_first_dyld_log_ms": 3.928667,
+          "first_app_log_ms": 10.18825,
+          "handshake_ms": 38.713542,
+          "after_app_log_ms": 28.525291999999997
+        }
+      ],
+      "sampling": [
+        {
+          "label": "dev-profiled",
+          "before_first_dyld_log_ms": 662.053916,
+          "first_app_log_ms": 711.256875,
+          "handshake_ms": 744.533041,
+          "after_app_log_ms": 33.27616599999999
+        }
+      ]
+    },
+    "negative_cases_rejected": [
+      "original/candidate",
+      "original/missing_round",
+      "original/clock_order",
+      "original/fake_first_log",
+      "original/failed_child",
+      "signing/candidate",
+      "signing/missing_round",
+      "signing/clock_order",
+      "signing/fake_first_log",
+      "signing/failed_child",
+      "sampling/candidate",
+      "sampling/missing_round",
+      "sampling/clock_order",
+      "sampling/fake_first_log",
+      "sampling/failed_child"
+    ],
+    "limits": [
+      "日志及采样改变运行开销，不计原性能验收",
+      "系统日志和采样没有给出 XProtect 全部耗时的直接测量",
+      "组织签名 CLI 的独立分发评估仍被拒，不能外推固定 App 发布"
+    ]
+  },
+  "app": {
+    "version": "2.1.0-dev.23",
+    "files_unchanged": 91
+  },
+  "artifacts": {
+    "plan.json": "cdbc91728e73b05f36a2d04b45c7846ea854f724fd778528973429fdac0b7686",
+    "result.json": "d55e33c334323ddb577b7fe303ee6dcee319d3322305704193d39a0cd9a5b92d",
+    "run.py": "17f2de4b49188aea76f20b86278d2799bc7d7ae432e44ae8ecd2f6b55ded8ce6",
+    "launch-system-log.json": "9488669527da6e3254e5c288d8eebcfdb099c753eccb2f2510e6541a1f889ff7",
+    "run-signing.py": "8438e9d965debaeca57e8f9d1441a2fc4c8469be115760f5d848432c5a9e0ae3",
+    "signing/plan.json": "84d82f142c6c3604048a8084d067426a9249518dfb82def9190a9981880aa61a",
+    "signing/result.json": "0c93f46be3ce1742661b6fd1eb7611220c7b4dd67bcbb84520e5d56b5e205194",
+    "signing/sign.log": "10619fc910b3375fdcbe05b452f946ed56889d85d1472bbc3a48fa8fd4d5f7a8",
+    "signing/sections.json": "1a6140a6647686c32493d71cd36309bafcc03e65dc71e1cf66deb297ad314bff",
+    "signing/certificate0": "8e07c8a92220e0b2d7950f1773583a2407fa8acdcd2c01529e2e48c1e9347d03",
+    "signing/system-log.json": "d6ea132d1b27ad4c4fa73661993028f616b55c2a3668692e36e087bfcf362fa2",
+    "signing/assessment.json": "02aa17d6c0ae7fa986da7bd626427d43b54e09ee42cad7c74405a1cec7943955",
+    "run-sampling.py": "45602b5013f83369313966d5ba3490ec2399e7591aceabce7499ffee3f00dadf",
+    "sampling/plan.json": "3a835f6d573450f0b9942212b6108f80d71a3609f0f98b8cc5c71160fd231d22",
+    "sampling/result.json": "bd59a6a87602a9cbb11e6e9d558a33e78cb349418b393849790f4433fbd01674",
+    "sampling/run-1/sample.txt": "5f1e2e23a3446e4b31a7174bbcc08eeef84b32afdb8c79ffeb473f77d525dca7",
+    "verification.json": "a9b6423740596f749ab6448b024c2e317ccad6358e730e9bf705ec4593ad3c1c",
+    "verify.py": "d629a9f62e5242263b729616b03de9f9be0a0e04dac6e71e19f6ec16b0315e87"
+  },
+  "official_references": [
+    "https://support.apple.com/guide/security/gatekeeper-and-runtime-protection-sec5599b66df/web",
+    "https://support.apple.com/guide/security/protecting-against-malware-sec469d47bd8/web"
+  ]
+}

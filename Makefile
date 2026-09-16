@@ -230,13 +230,17 @@ check-shell-apps:
 #
 # 不挂进 `make check`:它需要装一条额外的工具链,而 `check` 要能在裸仓库上跑。
 # CI 里是单独一个 job。
+# bootstrap-rust 会导出 RUSTC/RUSTDOC；最低版本检查须一起覆盖，不能只换 PATH。
 MSRV := 1.87
 MSRV_TOOLCHAIN := 1.87.0
 check-msrv:
 	@rustup toolchain list | grep -q "^$(MSRV_TOOLCHAIN)-" || { \
 		echo "缺 Rust $(MSRV):rustup toolchain install $(MSRV_TOOLCHAIN) --profile minimal"; exit 1; }
-	@MSRV_BIN="$$(dirname "$$(rustup which cargo --toolchain $(MSRV_TOOLCHAIN))")"; \
-		PATH="$$MSRV_BIN:$$PATH" cargo test --workspace
+	@MSRV_CARGO="$$(rustup which cargo --toolchain $(MSRV_TOOLCHAIN))" || exit $$?; \
+		MSRV_BIN="$$(dirname "$$MSRV_CARGO")"; \
+		PATH="$$MSRV_BIN:$$PATH" RUSTUP_TOOLCHAIN="$(MSRV_TOOLCHAIN)" \
+		RUSTC="$$MSRV_BIN/rustc" RUSTDOC="$$MSRV_BIN/rustdoc" \
+		"$$MSRV_CARGO" test --workspace
 	@echo "MSRV $(MSRV) PASS"
 
 # 在非 macOS 机器上编译 mac-adapter 里 macOS 专属的代码路径。

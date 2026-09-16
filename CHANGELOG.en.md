@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### MSRV environment and macOS first-launch diagnosis (2026-09-16)
+
+- Fixed the minimum-version target inheriting newer `RUSTC/RUSTDOC` overrides. Three environment cases passed; actual Rust 1.87 passed 1,535 workspace tests with 17 ignored through the normal bootstrap entrypoint. See the [gate fix](docs/agd-032-msrv-environment-2026-09-16.zh.md).
+- First-launch waits occur primarily before application entry. Organizational signing did not meet the original startup budget; standalone distribution assessments remained rejected. Verified nine reads, 72 unsigned audit rows and 15 diagnostic counterexamples. See the [startup record](docs/agd-027-startup-phases-2026-09-16.zh.md). Fixed App 023 and all acceptance gates remain unchanged.
+
 ### AGD-027 performance after the database upgrade (2026-09-16)
 
 - Froze 247 current inputs and the four-round plan. The updated SQLite gateway passed 5/6, 4/6, 5/6 and 6/6 original budgets; all 420 reads were correct. Both development rounds must pass every budget, so acceptance still fails. See the [record](docs/agd-027-sqlite-performance-2026-09-16.zh.md).

@@ -1529,6 +1529,20 @@ fn check_pinned(spec: &str, line_no: usize) {
 /// 工具链与前端运行时都钉了版本;MSRV job 不会被发布工具链的钉子静默带走。
 #[test]
 fn 工具链与node版本已钉且msrv_job不受发布钉子影响() {
+    // 实际执行 Makefile 配方，防止继承 bootstrap-rust 设置的新版编译器路径。
+    #[cfg(unix)]
+    {
+        let output = std::process::Command::new("bash")
+            .arg(root().join("scripts/test-msrv-environment.sh"))
+            .output()
+            .expect("运行 MSRV 环境回归");
+        assert!(
+            output.status.success(),
+            "MSRV 环境回归失败：{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
     let tc = read("rust-toolchain.toml");
     let channel = tc
         .lines()
