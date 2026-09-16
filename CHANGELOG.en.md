@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-030 platform APIs and native file grants (2026-09-16)
+
+- Completed the API, signing, permission, compatibility and device inventory for four platforms, with nine follow-up tickets; current source and historical device evidence remain distinct. See the [platform report](docs/agd-030-platform-api-2026-09-16.zh.md).
+- Four native workers signed with the existing organization certificate exercised file bookmarks. Access before activation and new opens after stopping were denied; granted reads/writes succeeded while outside paths and symlinks remained denied. Hard-link, open-descriptor and bookmark-replay limitations were measured and retained. Three invalid inputs and four tampered reports were rejected; 47 artifacts were independently checked.
+- Fixed App 021 remains unchanged across 91 files. This API experiment is not an integrated native execution backend. Plan v0.63: 28 complete, one conditional, one in progress, two pending. Performance, Safari AX, deferred F13 and platform release gates remain open.
+
 ### Installation alert screenshot recheck (2026-09-16)
 
 - Verified timestamps in fixed App 021, both retained permissions, and seven new low-contrast records classified as LogOnly. Five core, two desktop, and 133 frontend checks passed. Safari displayed the synthetic installation document, but the App's reading of its body remains unproven. No product changes or App rebuild; see the [recheck record](docs/timeline-observation-018-2026-09-16.zh.md).

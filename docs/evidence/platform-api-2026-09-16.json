@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-16",
+  "task": "AGD-030",
+  "source_base_commit": "627b557dad14e8824d8190e6d0cfb09b29c17e6e",
+  "task_status": "原定义范围已完成：四个平台清单、一个接口的实际最小验证、后续工单",
+  "scope": "独立原生 CLI 的 App Sandbox 文件授权实验；未接入主 App 或产品执行后端",
+  "environment": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t26.6.2\nBuildVersion:\t\t25G83",
+    "architecture": "arm64",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "native_api": {
+    "name": "Foundation URL 书签 / App Sandbox",
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "worker_entitlements": {
+      "com.apple.security.app-sandbox": true
+    },
+    "verification": {
+      "worker_cases": 4,
+      "invalid_inputs": 3,
+      "artifacts": 47,
+      "file_scope_api_verified": true,
+      "product_backend_verified": false,
+      "known_boundaries_verified": [
+        "hardlink",
+        "open_descriptor",
+        "bookmark_replay"
+      ],
+      "tampered_reports_rejected": 4
+    },
+    "observations": {
+      "before_activation": "六种读写全部 EPERM",
+      "valid_scope": "目录内真实读写成功；目录外路径和符号链接 EPERM；范围外输出逐字不变",
+      "after_stop": "按路径重新打开全部 EPERM",
+      "no_scope_bookmark": "可解析、未启用访问，全部 EPERM",
+      "malformed_bookmark": "无法解析、未启用访问，全部 EPERM",
+      "stale_bookmark": true
+    },
+    "known_boundaries": [
+      "目录内硬链接仍可读取同 inode 的范围外合成内容",
+      "停止作用域后已打开的文件描述符仍可读",
+      "同一临时书签可被新工作进程重用"
+    ],
+    "product_backend_verified": false
+  },
+  "fixed_app": {
+    "app_files_unchanged": 91,
+    "version": "2.1.0-dev.21",
+    "build": 21,
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "strict_signature": true,
+    "rebuilt": false,
+    "entitlements": {}
+  },
+  "devices": {
+    "android": {
+      "adb_query_succeeded": true,
+      "connected_devices": 0
+    },
+    "ios_simulator": {
+      "query_completed": false,
+      "reason": "30 秒查询超时，进程已回收；未取得列表，不代表设备为空"
+    },
+    "windows": "本批未取得当前交互设备会话，未作真机验收"
+  },
+  "checks": {
+    "repository_invariants": {
+      "passed": 23,
+      "failed": 0
+    },
+    "protected_browser_local": {
+      "passed": 31,
+      "failed": 0,
+      "file_concurrency": 1
+    },
+    "prior_commit_ci": {
+      "conclusion": "success",
+      "headSha": "627b557dad14e8824d8190e6d0cfb09b29c17e6e",
+      "jobs": [
+        {
+          "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502242"
+        },
+        {
+          "name": "fmt + clippy（workspace，-D warnings）",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502379"
+        },
+        {
+          "name": "macOS shell (native AX + SCK)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502453"
+        },
+        {
+          "name": "Android companion (Kotlin)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502454"
+        },
+        {
+          "name": "Windows (native adapter + shell)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502469"
+        },
+        {
+          "name": "test (macos-latest)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502566"
+        },
+        {
+          "name": "Shell front ends parse",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502580"
+        },
+        {
+          "name": "部署自检",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502585"
+        },
+        {
+          "name": "MSRV 1.87",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502631"
+        },
+        {
+          "name": "test (ubuntu-latest)",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502649"
+        },
+        {
+          "name": "内核约束（guard-jail）",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502652"
+        },
+        {
+          "name": "Chromium extension real-browser E2E + acceptance fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502684"
+        },
+        {
+          "name": "macOS 专属代码路径能编译",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599/job/104668502685"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/gcsagroup/agentguard/actions/runs/35056774599"
+    }
+  },
+  "followups": [
+    "MAC-030-01",
+    "MAC-030-02",
+    "MAC-030-03",
+    "WIN-030-01",
+    "WIN-030-02",
+    "AND-030-01",
+    "AND-030-02",
+    "IOS-030-01",
+    "QA-030-01"
+  ],
+  "preserved_failures": [
+    {
+      "path": ".artifacts/platform-api-2026-09-16/worker-01.stdout",
+      "reason": "夹具位于可执行程序目录，授权前也可读取，且 stale 分支未启用作用域；不能证明隔离"
+    },
+    {
+      "path": ".artifacts/platform-api-2026-09-16/run-03",
+      "reason": "codesign 人类可读 entitlements 输出不符合 plist 解析；未操作夹具"
+    },
+    {
+      "path": ".artifacts/platform-api-2026-09-16/run-04",
+      "reason": "证书提取参数形式错误；未操作夹具"
+    },
+    {
+      "ci_run": 35055636382,
+      "commit": "4f9d4e10cf05c4bd7a98ba5a57fa8faa91d34f54",
+      "reason": "浏览器扩展 serviceworker 启动等待 10 秒超时；后续成功不证明偶发原因已消除"
+    }
+  ],
+  "release_status": "No-Go；AGD-027 性能、Safari AX、原生超时恢复、暂缓 F13 及各平台签名／真机／发布门槛保持",
+  "source_sha256": {
+    "scripts/acceptance/native-bookmark-probe.m": "673fc7fdfa410262bc8588b1f322c0b70d0039cd34c59ba42063e1c367dcaf90",
+    "scripts/acceptance/agd-native-bookmark.py": "01296711321354cfb39af7c83be75301e486b5be9cff25ccf5f862d402f47870",
+    "scripts/acceptance/verify-native-bookmark.py": "fb87762259368b0783790e2a44853321183ed1bdcee8611a390e136dc484748e"
+  },
+  "local_artifact_root": ".artifacts/platform-api-2026-09-16",
+  "run_05_report_sha256": "0307c9b0a4b4605158068fdf35ab705e5fd779ce070e2ab6ec6cb474c92dea3f",
+  "run_05_artifact_sha256": {
+    "certificate.stderr": "fb7b3a90980fe750007d0e40ac4d8ac76b81ed9183fa0c8a6303feeb81e9d1a4",
+    "fixture.json": "c966fdaa7de9cfeac61f4be4ad21ec647252974ec9c53c91511dcc96e892fa8a",
+    "fresh-worker-replay.stdout": "afc684c21816b73af7b5eee38ef23f7fb092f80c772a1256166305867ad79322",
+    "malformed.input.json": "e61f0a0ef3be9876ce979501a9e1f8722fbfee0c4dcb007fb0ac3cfa7b0966d4",
+    "valid.input.json": "59746218e923dfd4207d3730a03f9cea169f4370ed1d769aabf4ba3928b275b1",
+    "sign-broker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verify-broker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sign-worker.stderr": "ee7be36a8c2f4ca006c72e41d6fc4b95d14522ac1c0c83ffb309deda28bf5f8c",
+    "verify-worker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "valid.stdout": "7b863b8e6967cc13c571ecddc265d46dec717ef4322d32b57503169d7e5371b1",
+    "broker-scoped.stdout": "d53f4e58773be00dbb215b99cfc45b9797558836f2ebf5211eab5500138a0c13",
+    "no-scope.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sandbox.entitlements": "b746c74b201e6af4e0864fbd1f4f629f96156a7ec4b7208bc995d0a5089bb592",
+    "no-scope.stdout": "52704c27ff29cba5c8606caaf4a57f181add43d7cc761c5fd5b4d8d3eb02d447",
+    "broker-scoped.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signer-2": "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024",
+    "verify-broker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sign-broker.stderr": "c75731715ee63aa5e94f3cccbf64c89decebc544d63dc0d88b30a679a3f6d166",
+    "verify-worker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sign-worker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "valid.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "certificate.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "fresh-worker-replay.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "os.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "invalid-json.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-bookmark-probe.m": "673fc7fdfa410262bc8588b1f322c0b70d0039cd34c59ba42063e1c367dcaf90",
+    "fresh-worker-replay.input.json": "59746218e923dfd4207d3730a03f9cea169f4370ed1d769aabf4ba3928b275b1",
+    "agentguard-native-probe": "7fa55f7f972cda334a73cb06c2e122346eddace8c0eb1691ce63b77c5161bc67",
+    "agentguard-native-broker": "288ef46b399b08e1abd19e5b0eba18f8d09fd2dd2f285877931d65b8bb69ea5d",
+    "no-scope.input.json": "9270ce3f4230f3b655afb38b14bc6b6d3dafaa94be7643bb8ab70bc4a2fb52fd",
+    "malformed.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "oversized-input.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worker-entitlements.stdout": "f8b4cfc5e7c5076be716c5a3e37f8f6b03db3f5c47220215175e9ea3cd9ef6f0",
+    "broker-unscoped.stdout": "076654838dd4872d71871c48860628681780d1ffb787c1a60b333b25bce4a8ca",
+    "missing-fields.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "malformed.stdout": "8f85631c76286b7513b74a46d9d7f18ba58075e1199d749201f90a7e460e2593",
+    "broker-unscoped.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "missing-fields.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worker-entitlements.stderr": "a12eb4ba0771a5f69bd4e98a502354173e0c0e7c4759d4054777a0825e836213",
+    "oversized-input.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signer-1": "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
+    "Info.plist": "ec31f6f59dc0eec5f3bef1c333ddb69baa345e7603d8008c48841c0ef63743f7",
+    "compile.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "os.stdout": "cd5d6399b3785b04ceaae75045a9ca9f80f0bbc3526eff9d0c36b170ed1ec348",
+    "signer-0": "8e07c8a92220e0b2d7950f1773583a2407fa8acdcd2c01529e2e48c1e9347d03",
+    "invalid-json.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "supporting_artifact_sha256": {
+    "Info.plist": "a195b77b4a22f36fdbcc47e04239585dda09d44cc141fbea57fabe49a51d44d9",
+    "agd-native-bookmark.py": "01296711321354cfb39af7c83be75301e486b5be9cff25ccf5f862d402f47870",
+    "agentguard-native-probe": "6c3c038c78412f84b8c71be54e4cca18a9a46a80245773090988dc43432109e2",
+    "app-unchanged.json": "9a9b15535a3191a9e2fed216693cbfeba5d42520ffd688a589470a51cecd6de4",
+    "broker-01.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "broker-01.stdout": "b90d633b4a1d3c179ad373b7f198e1a90bae37e71fefa0ffc221c802a44eb587",
+    "broker-evidence-01": "4cfb81ed6a1a1a117ce4f6562a57727d57b25bd8c661038d49d669f25a2a33dc",
+    "browser-serial.log": "86e7eb0c27c36cbd87879a5d18ec8fb385d8bb77cfa86a239d9150e223cbfbe4",
+    "build-01.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ci-35055636382-failed.log": "fe62f2958ea1def4bbda47d3ea110c9244e156f96a7e609cf9d4ed432ef8b8eb",
+    "ci-627b557-snapshot.json": "f2674a205ddaa4cab4ffe7ffecc131d49618faca6e5c1a00ee678b2aa3edc3d3",
+    "device-inventory.json": "c48c2f0a111bf9f7e4e49b1f75895c23704e46529f519cdf9631b76599a8232f",
+    "input-01.json": "69a7965e7b251e7c72a026f3e9366a9b18a7b60f54fcb316b239d9aacc1830c5",
+    "native-bookmark-probe.m": "10cab93ab2be1af2de7590e3b32f88ebb51f7d1e90c7f8383a0940d6ebe30ab5",
+    "repository-tests.log": "f641fcafceae5359d73ba6976fbb793aa6042efbc0ae503094d42eb2717c7ddd",
+    "run-02/Info.plist": "27a75b5db22c79e94f69b1e89246f14b54559ae6bf7250ea49ef6e0751201ac0",
+    "run-02/agentguard-native-broker": "5ca143138ffd5cc1e1ba94a9694c639efaf5f388c289756b789bd07d63202d27",
+    "run-02/agentguard-native-broker.sign.log": "bd7cf6f8a6461f9b851ca61b7d706cdc496a8549477c715906ac324e7e5d1294",
+    "run-02/agentguard-native-probe": "f261c01c61dee6c932b5d525cf0dcb0b2a45378933debc7d50a3286ff59fa371",
+    "run-02/agentguard-native-probe.sign.log": "243bfdf51d2126feea69f7ae63aeea679349a26c43c4adc439f9c2c286c4a8ca",
+    "run-02/build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-02/native-bookmark-probe.m": "f5482ce60973e37e64620e06c3bd0855cce2a0544c26f9d13e8d2aa1598032da",
+    "run-02/no-scope.broker.json": "025c1da385c31fa98ece9feed65bc18e78acb075911dfcee4ccf0342a839d63e",
+    "run-02/no-scope.broker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-02/no-scope.input.json": "7e156d535fee5291df1de2e06da6ae957b75903b1dbb72ad4dd73fbeb8882b0a",
+    "run-02/no-scope.worker.json": "2c32c0d4ffb2d7c90f2a4bd008bba5a3b0ce2c4fd2f422d950081b3300d50f7e",
+    "run-02/no-scope.worker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-02/sandbox.entitlements": "b746c74b201e6af4e0864fbd1f4f629f96156a7ec4b7208bc995d0a5089bb592",
+    "run-02/valid.broker.json": "8e8eb740bc2f3ce48a6f2250ebc92202e6c4a18fa34f26a0f996a66a9696906f",
+    "run-02/valid.broker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-02/valid.input.json": "191075aa61581349a232f06cb99626f3ea763eb501f9e03e383639c22dd16583",
+    "run-02/valid.worker.json": "706630b3aedee81f9750f945ddfbeb84583391a609f017e9982513ed1deec906",
+    "run-02/valid.worker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/Info.plist": "ec31f6f59dc0eec5f3bef1c333ddb69baa345e7603d8008c48841c0ef63743f7",
+    "run-03/agentguard-native-broker": "3e0170b8dd6310ef1d3a8ec2167d40f5a2846337db667827c93cc016da1d6865",
+    "run-03/agentguard-native-probe": "2f09eff0abda6763a75b0b1b7a77838be04eb8b9d3912ef9965851c6355171a0",
+    "run-03/compile.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/compile.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/native-bookmark-probe.m": "673fc7fdfa410262bc8588b1f322c0b70d0039cd34c59ba42063e1c367dcaf90",
+    "run-03/sandbox.entitlements": "b746c74b201e6af4e0864fbd1f4f629f96156a7ec4b7208bc995d0a5089bb592",
+    "run-03/sign-broker.stderr": "ab6f75da54b25fcef7cdad88bb45da14a97738bbb6eb012ed569bc535a932817",
+    "run-03/sign-broker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/sign-worker.stderr": "0222ebd28394ad66f41069de48939c9af4bfc6c3985ae27ab8443d9e38adbaaa",
+    "run-03/sign-worker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/verify-broker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/verify-broker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/verify-worker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/verify-worker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-03/worker-entitlements.stderr": "9b66f37bfd2142dc3b998c8dee2b230af25ffabc9811682cda16c0f60913de04",
+    "run-03/worker-entitlements.stdout": "870d93f07b0e9f033076709f90253d12ca684662b702647cf58558c71be76be4",
+    "run-04/Info.plist": "ec31f6f59dc0eec5f3bef1c333ddb69baa345e7603d8008c48841c0ef63743f7",
+    "run-04/agentguard-native-broker": "cc9f2f443924df264fe765ce6497cc2e7fcc4e80898528c8da2c19eeada577a9",
+    "run-04/agentguard-native-probe": "72b756a6df20f93f278f2b4db647c8bdf0eccb9decfbee95a7f9adafc702baa4",
+    "run-04/certificate.stderr": "5df5ec3b935dfb05f3b959ea01847a2513f804069100b09a3359b41c378a361b",
+    "run-04/certificate.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/compile.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/compile.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/native-bookmark-probe.m": "673fc7fdfa410262bc8588b1f322c0b70d0039cd34c59ba42063e1c367dcaf90",
+    "run-04/sandbox.entitlements": "b746c74b201e6af4e0864fbd1f4f629f96156a7ec4b7208bc995d0a5089bb592",
+    "run-04/sign-broker.stderr": "5cc547e2472736519a33caebc4ff8fd91abaa7525a364715c225bfee278b9a83",
+    "run-04/sign-broker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/sign-worker.stderr": "64720ee65d26ef20326c74e5277be3fa2b0c3970aace93be11834b0b6cc1d3c8",
+    "run-04/sign-worker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/verify-broker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/verify-broker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/verify-worker.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/verify-worker.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "run-04/worker-entitlements.stderr": "89876ada392182cdae16bd5b8afaade019aebc2a1c6196ea59578eaa80f12ffe",
+    "run-04/worker-entitlements.stdout": "f8b4cfc5e7c5076be716c5a3e37f8f6b03db3f5c47220215175e9ea3cd9ef6f0",
+    "sandbox.entitlements": "b746c74b201e6af4e0864fbd1f4f629f96156a7ec4b7208bc995d0a5089bb592",
+    "verification.json": "3de5d0c700fdb441339662df8a199b3c611a711f065c5a44b70c82f7caccf519",
+    "verify-native-bookmark.py": "fb87762259368b0783790e2a44853321183ed1bdcee8611a390e136dc484748e",
+    "worker-01.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worker-01.stdout": "442d86ca8d1fb91ae469556f06fc59884dda8c460c630f24271f71857ed70f0e",
+    "合成工作区 空格/input.txt": "a2150250238820b3ead2aa969370f8df0ab53d4ad5b1031a095e3c384d71f7a0",
+    "合成工作区 空格/link.txt": "b2f6db0d4173c770b7da1965a69d94f029d3004747c9935da71c005500a961fe",
+    "合成工作区 空格/output.txt": "db3f05ba48e8d2c90e849a291f69997b91892b93ecdb6d859f211b871e25e139",
+    "合成范围外/output.txt": "db3f05ba48e8d2c90e849a291f69997b91892b93ecdb6d859f211b871e25e139",
+    "合成范围外/secret.txt": "b2f6db0d4173c770b7da1965a69d94f029d3004747c9935da71c005500a961fe"
+  },
+  "privacy": "书签、原始输入及本机夹具路径仅存本机；公开索引只含摘要。不得将访问书签加入 Git。"
+}
