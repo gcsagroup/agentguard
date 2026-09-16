@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Fixed App 023 database update (2026-09-16)
+
+- Updated the same App path to Ver 2.1 (023), including the SQLite fix in both the desktop and bundled gateway. Verified 91 files, 29 setup resources and the fixed organizational signature.
+- Both permissions survived the update and restart. Preserved all 774 historical audit rows and 13 receipts; six new rows recorded ordinary installation text and fields without confirmation, with visible timestamps. Chain and signature verification passed for all 780 audit rows and 13 receipts. See the [023 record](docs/native-sqlite-023-2026-09-16.zh.md).
+- The exact bundled gateway passed five real database-fault cases and 51 checks; 23 repository checks passed. Baseline CI reproduced the existing macOS synthetic-model timeout, which remains unresolved. Performance, F13 and release gates remain open.
+
 ### Audit database WAL-reset fix (2026-09-16)
 
 - Upgraded bundled SQLite to 3.53.2 and SQLCipher to 4.14.0 (SQLite 3.51.3), both containing the upstream WAL-reset fix. Updated all three lockfiles and added an actual linked-version check. Database format, signing and durable synchronization requirements remain unchanged.

@@ -1,0 +1,356 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-16",
+  "scope": "固定 App 023 的同路径数据库升级、原生观察和持久记录复验，非全量 M3 或发布验收",
+  "source": {
+    "base_commit": "e56ce1ee91b0b513a7e3251132d5aa0b7c4dfbc0",
+    "patch": {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/runtime.patch",
+      "sha256": "f82f8605666f9ddcb55a45956b7659c04368aa8f446abbda02fb9058f3d6a828"
+    },
+    "files": [
+      {
+        "path": "apps/desktop-macos/src-tauri/tauri.local-agent.conf.json",
+        "sha256": "f61630b3e3c7154199280a1d62e073aca1b1ee86d32ac66fd12c75ac529abcbd"
+      },
+      {
+        "path": "apps/desktop-macos/src-tauri/tauri.conf.json",
+        "sha256": "7b9a193a0ecd97ff37b13d1ae4f505ebf11d2f5d5419078c2d8540808a17df29"
+      },
+      {
+        "path": "apps/desktop-macos/src/workspace-i18n.js",
+        "sha256": "086187cce1e9baa1cff372768b53c9596f5ce2b511d81ec04592aa092a96ce74"
+      }
+    ]
+  },
+  "app": {
+    "path": "apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "version": "2.1.0-dev.23",
+    "bundle_version": "23",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "profile": "local-agent-20260910",
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "files_verified": 91,
+    "setup_files_verified": 29,
+    "codesign_strict_passed": true,
+    "gateway_bytes_match_build": true,
+    "gateway_sha256": "84047725505f7e662e2339eef8ab27bcb49f7734f0a1f7e12c3aac39371de3c5",
+    "desktop_sha256": "b2cbb7b2919d5cceacaf5a652b9b936a8e759a3f792e48f8f71902ea2bc17268",
+    "sqlite_version": "3.53.2",
+    "sqlite_version_evidence": "锁定依赖构建，并核对两个实际二进制中的内置版本符号",
+    "old_bundle_archive_verified": true,
+    "daily_app_name_added": false,
+    "notarized": false
+  },
+  "native": {
+    "old_audit_rows_unchanged": 774,
+    "new_audit_range": [
+      775,
+      780
+    ],
+    "new_rows": 6,
+    "ordinary_install_seq": 778,
+    "ordinary_field_seq": 779,
+    "confirmation_requests": 0,
+    "ax_ticks_with_events": 1,
+    "screen_ticks": 24,
+    "reopen_rows_unchanged": 780,
+    "old_receipts_unchanged": 13,
+    "old_sessions_unchanged": 13,
+    "negative_cases_rejected": [
+      "history_changed",
+      "install_alert",
+      "screen_missing",
+      "reopen_changed"
+    ],
+    "passed": true
+  },
+  "ui_observations": {
+    "source": "本轮 Computer Use 原生状态与截图人工摘录，不是 App 遥测",
+    "version": "Ver 2.1 (023)",
+    "after_update": {
+      "accessibility": "已授权",
+      "screen_recording": "已授权",
+      "audit": "已就绪"
+    },
+    "during_observation": {
+      "status": "守护中",
+      "channels": [
+        "窗口内容",
+        "屏幕画面"
+      ]
+    },
+    "timeline": {
+      "time": "2026/09/16 GMT+8 17:42:05",
+      "rule": "CRIT-005",
+      "label": "观察记录",
+      "explanation": "页面出现安装相关文字；这条观察记录不证明实际发起了安装。"
+    },
+    "after_restart": {
+      "accessibility": "已授权",
+      "screen_recording": "已授权",
+      "status": "未在守护",
+      "trace_environment_present": false
+    },
+    "temporary_document_closed": true,
+    "other_user_windows_untouched": true
+  },
+  "audit": {
+    "schema_changed": false,
+    "storage_mode_changed": false,
+    "history_rows_unchanged": 774,
+    "verified_records": 780,
+    "verified_receipts": 13,
+    "signatures_verified": true,
+    "public_key_source": "原数据库，更新前后相同；不是离机见证",
+    "restarted_without_replay": true
+  },
+  "gateway_faults": {
+    "exact_bundled_binary": true,
+    "cases": [
+      {
+        "case": "success",
+        "passed": true,
+        "checks": 13
+      },
+      {
+        "case": "decision-failure",
+        "passed": true,
+        "checks": 8
+      },
+      {
+        "case": "start-failure",
+        "passed": true,
+        "checks": 8
+      },
+      {
+        "case": "source-failure",
+        "passed": true,
+        "checks": 11
+      },
+      {
+        "case": "finish-failure",
+        "passed": true,
+        "checks": 11
+      }
+    ],
+    "checks": 51,
+    "passed": true,
+    "signed": false,
+    "synthetic_data_only": true
+  },
+  "tests": {
+    "repository": {
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0
+    },
+    "page_javascript_parse_passed": true,
+    "native_evidence_negative_cases": 4,
+    "previous_test_totals_not_recounted": true
+  },
+  "ci_baseline": {
+    "commit": "e56ce1ee91b0b513a7e3251132d5aa0b7c4dfbc0",
+    "run_id": 35080234854,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35080234854",
+    "status_at_capture": "in_progress",
+    "jobs_at_capture": [
+      {
+        "conclusion": "failure",
+        "name": "macOS shell (native AX + SCK)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (macos-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Shell front ends parse",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (ubuntu-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed"
+      },
+      {
+        "conclusion": "",
+        "name": "Windows (native adapter + shell)",
+        "status": "in_progress"
+      },
+      {
+        "conclusion": "success",
+        "name": "部署自检",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "MSRV 1.87",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Android companion (Kotlin)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "内核约束（guard-jail）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed"
+      },
+      {
+        "conclusion": "",
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "in_progress"
+      }
+    ],
+    "macos_test": {
+      "passed": 135,
+      "failed": 1,
+      "ignored": 11,
+      "failure": "停止期间迟到成功回执保留完成事实但不复活任务",
+      "timeout_seconds": 8,
+      "observed_phase": "running",
+      "faulted": false,
+      "stopped": false,
+      "worker": true,
+      "fixed": false
+    }
+  },
+  "acceptance": {
+    "native_upgrade_checked": true,
+    "full_m3_revalidated": false,
+    "performance_passed": false,
+    "f13": "暂缓、未验收",
+    "agd_031": "外部共享需求条件未触发",
+    "release_passed": false,
+    "entire_plan_passed": false
+  },
+  "local_artifacts": [
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/app-022.json",
+      "sha256": "8c54c91bf2cf278c7cfca1f4af9ec3a41c2e137ae48c703e0469d893af6f5123"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/app-023.json",
+      "sha256": "102a49a99ea0d54932c992271569fa238961a428f09f3189a7f6e8ea3425bcfe"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/fixed-app-022.tar",
+      "sha256": "192c2fb40849a34ea59b61d8ac438518e1847f6621b108439f48fa44cf8eb432"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/setup-assets-before.tar",
+      "sha256": "0f48a90123395d1b85c9df6d7fb71d9923919276166ced29d273da33dcbc64e3"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/setup-assets-before.json",
+      "sha256": "ec9b9a04c010de504a363253115638825b58f9c7f940d7f19284b1ddead2047a"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/setup-assets-after.json",
+      "sha256": "91f2e579f7f67edfca48b3fb78e4edc7054bf89f688720aa22cabc2d662b6868"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/build-app.log",
+      "sha256": "e0cacd30e1683f66192c490b0a912deb9db02cbd7114bb13b848ed54fb03263b"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/prepare-assets.log",
+      "sha256": "000e63af30a2e1323a66bf81e488ae0f43efd71777c1a97f971b789c56df5d54"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/sign.log",
+      "sha256": "7d3ba91d1e40fae75c17e3be45e58652e93bb3d357d41cbdffb8c06fcbf716e9"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/excluded.json",
+      "sha256": "564df971af9c77348c8f42f1b4d3bd3a500b66b79b3f9062b6447082856898f1"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/normal-install-guide.txt",
+      "sha256": "c22fba260b6a547c76870acda5e015b2f8d8771daf3574b7cef85e150f5f5850"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/audit-before.db",
+      "sha256": "c607f2c3a61685b6770ce6896f9921e0c2c811ec645cb25d762bd4380191c009"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/audit-after.db",
+      "sha256": "0925a04d3ced3ed5c6ce9988604f7dae7ce4e52577566dd31646f505f120b206"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/audit-reopened.db",
+      "sha256": "0925a04d3ced3ed5c6ce9988604f7dae7ce4e52577566dd31646f505f120b206"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/audit-verify.log",
+      "sha256": "cd1d40311cf986ca3f037889c1ccfa68ea94091e07d6f21dfa89e879a60801fd"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/audit-reopened-verify.log",
+      "sha256": "cd1d40311cf986ca3f037889c1ccfa68ea94091e07d6f21dfa89e879a60801fd"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/trace-023.jsonl",
+      "sha256": "b7b7459bb69c5e39f0d6c507abc89b385debae5f3f869aab28905cba687f07db"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/verification.json",
+      "sha256": "d39900610cd7df5bcadf085fdc60f7d5de814953b695a87e700a2612419c7a17"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/verify-upgrade.py",
+      "sha256": "ea7283e581042b063a2c72cdfe42cd75ab3bccb1c4e36b479ae8dd757cefc25b"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/ui-observations.json",
+      "sha256": "b2741f7543e6e392222074b83ba699100a158a4991d0a730f9c5b9289f1162fb"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/gateway-faults/report.json",
+      "sha256": "85e9ad14bfd01c85b4c5175c9732f3c98562f74c741244264afee152785861d3"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/bundled-gateway-tests.log",
+      "sha256": "50b0d57835d50676f099544c9b86edccae1195a5e2b0d2e3dac6fcf2765a6a3a"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/repository-tests.log",
+      "sha256": "5cab76e3939e3cbda4c5374378932701a64789402cb721db71091ea59caf23ea"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/ci-e56ce1e-latest.json",
+      "sha256": "59c9a8b17f7913ce1bffa8c7a2078e343e574d7f5d0600e92528f48eed983136"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/ci-e56ce1e-macos-failure.log",
+      "sha256": "8c5c82408f6239c530559610f1ba97083682c40cca1d040204c07cbe2baa595f"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/initial-path-failure.txt",
+      "sha256": "23477de4c0117aba7d023c848646a429cf94d188de48568909a85de062ca8221"
+    },
+    {
+      "path": ".artifacts/native-sqlite-023-2026-09-16/signature-check-correction.txt",
+      "sha256": "ca85542d8b8d04c6ada8fccd37b144085e83b8ea8f0f5d789a35b2715dbc9237"
+    }
+  ]
+}

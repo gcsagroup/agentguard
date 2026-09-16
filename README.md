@@ -13,7 +13,9 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 
 当前开发已接通受保护本地任务的模型数据授权、隔离副本、命令与差异批准、实际回写及持久审计，并完成来源与工具治理、[记忆与委托治理](docs/agd-026-memory-governance-2026-09-16.zh.md)、[受限媒体解析](docs/agd-028-native-media-2026-09-16.zh.md)等任务的限定验收。记忆、委托和媒体通过显式网关配置接入，内置模型表单尚未自动启用这些能力。
 
-固定开发 App 为 **AgentGuard Local Agent Test，Ver 2.1（022）**。活动时间线已显示时间，普通安装说明和输入框观察误报已修复；[022 原生记录](docs/native-form-observation-022-2026-09-16.zh.md)及[窗口读取恢复](docs/native-ax-recovery-022-2026-09-16.zh.md)记录了准确候选的验证范围。App 名称、路径、Bundle ID 与签名身份保持固定，版本号不追加到文件名。
+固定开发 App 为 **AgentGuard Local Agent Test，Ver 2.1（023）**。活动时间线已显示时间，普通安装说明和输入框观察误报已修复；[022 原生记录](docs/native-form-observation-022-2026-09-16.zh.md)及[窗口读取恢复](docs/native-ax-recovery-022-2026-09-16.zh.md)记录了准确候选的验证范围。App 名称、路径、Bundle ID 与签名身份保持固定，版本号不追加到文件名。
+
+023 已将数据库修复纳入桌面和包内网关，更新及重启保留两项权限与历史记录，见[023 原生复验](docs/native-sqlite-023-2026-09-16.zh.md)。
 
 **整个计划仍未完成。** AGD-027 的 M3 性能验收尚未通过；F13 按用户要求暂缓、未验收；AGD-031 等待外部共享需求，AGD-032 仍待前置验收和正式发布材料。最新任务状态与逐项证据以[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)为准，不用早期 010 或后续单项通过代替完整 M1、M3 或发布结论。
 
@@ -33,7 +35,7 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 - **大部分控制是合作式的。** Agent 如果绕过网关直接执行命令，网关无法阻止。
 - **不是通用沙箱、EDR、防火墙或 DLP。** Linux `guard-jail` 只约束它启动的进程；网络端口天花板是可选能力，声明后若所选后端无法强制会拒绝启动。
 - **浏览器控制有明确范围。** DOM 风险动作只阻断，网页内没有放行；页面提示只是可被页面影响的信息层，用户若坚持继续只能从浏览器扩展管理页停用或移除保护后自行重做。静态 DNR 不检查 body，也不覆盖自定义别名或其他未声明表面；GA manifest 禁用 Native Messaging。Android 高风险提示仍发生在事件之后。
-- 首个 GA 的浏览器包只支持共用 Chromium 包的 Chrome / Edge；Firefox 仅保留源码原型，不打包、不作为验收门。iOS WebShield/Safari Extension 是首发正式产品范围内的独立 Xcode/Swift 受限 SKU，不是未来可选项。固定 macOS 开发 App 022 已有组织签名及限定原生验收；它不替代正式 universal 安装包的签名、公证、全新安装、升级与卸载验收。Windows 历史候选 `89dadf9` 已取得真实 Windows 11 上的启动、连续观测与风险确认界面部分证据，但当前安全构建、签名安装包及全新安装/升级/卸载仍待重新验收。iOS 已有可构建的受限 Safari WebShield App/扩展/Core 工程并通过无签名模拟器测试，但未接 Rust 引擎，生产签名、真机 Safari 与 TestFlight 仍未完成。
+- 首个 GA 的浏览器包只支持共用 Chromium 包的 Chrome / Edge；Firefox 仅保留源码原型，不打包、不作为验收门。iOS WebShield/Safari Extension 是首发正式产品范围内的独立 Xcode/Swift 受限 SKU，不是未来可选项。固定 macOS 开发 App 023 已有组织签名及限定原生验收；它不替代正式 universal 安装包的签名、公证、全新安装、升级与卸载验收。Windows 历史候选 `89dadf9` 已取得真实 Windows 11 上的启动、连续观测与风险确认界面部分证据，但当前安全构建、签名安装包及全新安装/升级/卸载仍待重新验收。iOS 已有可构建的受限 Safari WebShield App/扩展/Core 工程并通过无签名模拟器测试，但未接 Rust 引擎，生产签名、真机 Safari 与 TestFlight 仍未完成。
 - **各端真正观察什么，以源码生成的 [docs/capability-matrix.md](docs/capability-matrix.md) 为准。** 上面"分析深链"说的是引擎能力（离线语料与适配器格式带 `deeplink` 事件）；目前没有任何一端的观察器在真机上发出深链事件——Android 只报界面文字里的深链字样。
 
 适用对象是研究与评测、开发或预发环境，以及知情运维控制下的内部试点；不应把当前 RC 作为面向消费者或受监管环境的强制安全控制。
