@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-029 fraud research and simulated transaction (2026-09-16)
+
+- Completed two fraud technique proposals, an independent review design, and a deepfake candidate assessment. The real protected Chromium simulation passed 15 checks; 51 audit rows agree with one correct local ledger entry. No deepfake model or real payment was executed. See the [record](docs/agd-029-fraud-review-2026-09-16.zh.md).
+- Fixed macOS sandbox cleanup failing with `EPERM` when invoking setuid `ps`, and wait for normal cleanup before exiting. User and directory restrictions remain; four lifecycle checks and 30 browser regressions passed.
+- All 91 files in fixed App 021 remain unchanged; these fixes belong to the external gateway source candidate. Plan v0.62: 27 complete, one conditional, one in progress, three pending. Performance, Safari AX, deferred F13, and release gates remain open.
+
 ### AGD-028 media preview and native approval (2026-09-16)
 
 - Updated the fixed App in place to Ver 2.1 (021), with full extracted text, provenance, coverage limits and empty pages. Native approval, denial and reopening were verified; both system permissions remained granted. Independent checks cover 3 signed records and 48 audit rows; see the [acceptance record](docs/agd-028-native-media-2026-09-16.zh.md).

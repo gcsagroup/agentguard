@@ -1,0 +1,288 @@
+{
+  "task": "AGD-029",
+  "date": "2026-09-16",
+  "status": "completed_original_research_and_simulation_scope",
+  "base_commit": "c85c5f12f61990d11813961342da47197b565cf7",
+  "candidate_cli_sha256": "df37e0ce5adbf970293fcd3b27a313b7b866a09a24788434c951c4c605356232",
+  "app": {
+    "version": "2.1.0-dev.21",
+    "build": 21,
+    "files_unchanged": 91,
+    "rebuilt": false
+  },
+  "results": {
+    "workflow_checks": 15,
+    "browser_audit_rows": 51,
+    "actual_local_ledger_entries": 1,
+    "deepfake_models_executed": 0,
+    "fraud_detection_rate": null,
+    "lifecycle_checks": 4,
+    "browser_tests": 30,
+    "knowledge_tests": 11,
+    "repository_tests": 23,
+    "gateway_tests": {
+      "passed": 354,
+      "failed": 0,
+      "ignored": 14
+    },
+    "verifier_negative_cases": 5
+  },
+  "scope": [
+    "全部付款为合成本机账本；所有批准由明确的验收脚本完成",
+    "候选手法是离线资料，正式18项分类不变",
+    "未验证真实身份、通用深伪检测或金融服务接入",
+    "固定App包内资源未更新；原计划及发布仍未完成"
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/build-04.log",
+      "bytes": 420,
+      "sha256": "3f1f9907207be0bc7efedf12559535a8a12aaeb683a3259027c0e8b281c0dcbe"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/build-05.log",
+      "bytes": 419,
+      "sha256": "2d4d8791ed0ed3cfb42079ed973dbd40747a0713582718135394cbc00e6ffc33"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-01.log",
+      "bytes": 1146,
+      "sha256": "78c1b2cb61fbe1a207c7ddbb159d2c6e93566ea919870a757c0981b13cd88106"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-02.log",
+      "bytes": 881,
+      "sha256": "0618e955813c4502a4857e4f38fc9f49d86e9a781673f903fab240ec4144664e"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-03.log",
+      "bytes": 2705,
+      "sha256": "800c26789efc6e23dfea50991fdf5238ff68c34c85b72cd8fab87df07be2a3bd"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-04.log",
+      "bytes": 918,
+      "sha256": "32a3a4706bfbb9d9db83340bca4704f45502c4541bfe7a0615890842af61f216"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05.log",
+      "bytes": 918,
+      "sha256": "32a3a4706bfbb9d9db83340bca4704f45502c4541bfe7a0615890842af61f216"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/lifecycle-tests.log",
+      "bytes": 890,
+      "sha256": "aa99a393bb2b6a1e1df64e95edc12645fa03a7cef4e9c6ca3dd3a38047e79168"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/lifecycle-tests-02.log",
+      "bytes": 1823,
+      "sha256": "f2c3b3b4a917aba1de5d22a11a00fd15412fa866ccbf7090af15ac1306215f69"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/lifecycle-tests-03.log",
+      "bytes": 1126,
+      "sha256": "78731591f2ac2ae6c3b34f61d5f3eea6019f97e0560b928c4cd930da68b474bf"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/browser-tests.log",
+      "bytes": 6581,
+      "sha256": "4763cab9d32d92ba91ddb5ff973bccbaddf6a87f6da6c9c1be4919f28ed93114"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/browser-tests-02.log",
+      "bytes": 6583,
+      "sha256": "8bf6774d665e742bd4bd4fec6c8eb9c80f32df6e77260987de4b20fe069760df"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/gateway-tests.log",
+      "bytes": 34337,
+      "sha256": "22a75d1605cf10c9286aeeb6624301c6bfa707581dc3ac9c2367a97b8c43e31d"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/gateway-tests-02.log",
+      "bytes": 34337,
+      "sha256": "819bb5cceffd169066fcf46a8a9430f606cde98734b5ec0e135a8a84c326e306"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/knowledge-tests.log",
+      "bytes": 2061,
+      "sha256": "529ed77715177484fcac6de0d35c4556ea5564d004c240d1e39c830eba902dc9"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/repo-tests.log",
+      "bytes": 2883,
+      "sha256": "3a3961f63638472cb2e13b7469a0ea2fa7441be4310571d7b5187e8dd1c64731"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/independent-04.json",
+      "bytes": 370,
+      "sha256": "b7f295648715fa18202c7a0ef4aec3353e6880d2354cc4cf42584c05fb124cdb"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/independent-05.json",
+      "bytes": 370,
+      "sha256": "b7f295648715fa18202c7a0ef4aec3353e6880d2354cc4cf42584c05fb124cdb"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/negative-verifier.json",
+      "bytes": 424,
+      "sha256": "3110d9b1f35f2cacfe56b98cb82536d918d0bb5c7a213df56614561ec8e6e796"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/negative-verifier-05.json",
+      "bytes": 424,
+      "sha256": "3110d9b1f35f2cacfe56b98cb82536d918d0bb5c7a213df56614561ec8e6e796"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/document-check.json",
+      "bytes": 127,
+      "sha256": "0a66df44168a71ed5201c8e9134238b690e199e18cd79b91cfc71774d88cfcbe"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/source-unchanged-05.json",
+      "bytes": 72,
+      "sha256": "94a7d05686df15ad3ec80e5093c7567ed28550cba6be09b14a68e345aabe115c"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/app-unchanged.json",
+      "bytes": 140,
+      "sha256": "79ea9d385cee18a6a6eb804c5c60b6b7fbba1f890fd99a628127d7d43af66e78"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/ci-c85c5f1.json",
+      "bytes": 36492,
+      "sha256": "ed38108c6331f862029df38ae7d62bb3ec243b3c1f7bd9af4ddd0726ead0cd71"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/host-lifecycle-report-03.json",
+      "bytes": 1533,
+      "sha256": "b0ccb945e07e61780a88cf437b064b8dea093ad8470702bda8ba6580b2483d58"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/frozen/build-inputs.json",
+      "bytes": 38036,
+      "sha256": "96caa08c80fc641ca54d1c123a2290e0eaae6a8a6e27871203b3e50f6be484de"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/frozen-04/build-inputs.json",
+      "bytes": 38036,
+      "sha256": "6d0bd2e246e0149febf61cd2d3c40f6d785b86b6d087192b67f5743427b51f8e"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/frozen-05/build-inputs.json",
+      "bytes": 38036,
+      "sha256": "911d9ddafbca733d08f4e0052c5a0f077fb8b87a6380dc7da5e215e6a6538b6f"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/package-inputs-05/manifest.json",
+      "bytes": 8436,
+      "sha256": "d15f8d245214a1e95d0c0086fd1474374b49884ad6cd8583600a298ce1de6f82"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-01/report.json",
+      "bytes": 70424,
+      "sha256": "6e250bd4911e396709c7d75b1f1aaf78ec93c80d54f8619727b3db852d35650e"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-01/ledger.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-01/browser.db",
+      "bytes": 122880,
+      "sha256": "92ac8542b7cebd7a105013d9c071fd66769a495acaa627c57982b15d782ebaf7"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-01/independent-reference.json",
+      "bytes": 146,
+      "sha256": "609f3b33efd4ad7045c8016b40be1385e7acb058f2671ae55cdefd79f4052c96"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-02/report.json",
+      "bytes": 122236,
+      "sha256": "12322fb1ffa22fc8a4088ed4ae4ce4a7c9edab154814e44d69e3d0d6d89290e0"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-02/ledger.json",
+      "bytes": 337,
+      "sha256": "393d5b4139329be58855cc7bdfd0e9a0baf431e43491bb053bce3db52c84e7cb"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-02/browser.db",
+      "bytes": 159744,
+      "sha256": "7c6cee08763fba6a92cc4b8abee74d731a0b12ffb0d56150f7b5c564f899a476"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-02/independent-reference.json",
+      "bytes": 146,
+      "sha256": "609f3b33efd4ad7045c8016b40be1385e7acb058f2671ae55cdefd79f4052c96"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-04/report.json",
+      "bytes": 121191,
+      "sha256": "110f3985e98b5934d9c16486bc9cabcb97e82cd1654230ef4cac1e5419f4a671"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-04/ledger.json",
+      "bytes": 337,
+      "sha256": "c9261d8bf2f5c9fd04385485dd3f0988d2e1f178b3250c902c23422db4016b4e"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-04/browser.db",
+      "bytes": 159744,
+      "sha256": "645c17b04bd3736d5a5da083de36494130a91247d81265efe00f5cc30f7a2201"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-04/independent-reference.json",
+      "bytes": 146,
+      "sha256": "609f3b33efd4ad7045c8016b40be1385e7acb058f2671ae55cdefd79f4052c96"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05/report.json",
+      "bytes": 121191,
+      "sha256": "2b5c4e3ea333d69890536ad17760b88dfcd74b74875026ed6341a5233f91784c"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05/ledger.json",
+      "bytes": 337,
+      "sha256": "781004cf0f6b514bc685662c9978ebdcf3c9d92f5c643b867c09bde7841818c1"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05/browser.db",
+      "bytes": 159744,
+      "sha256": "2c04c199423d7170b255d6124c0f5a562b2e92f0d83c49e4cb7dd0f71cda0892"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05/independent-reference.json",
+      "bytes": 146,
+      "sha256": "609f3b33efd4ad7045c8016b40be1385e7acb058f2671ae55cdefd79f4052c96"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05/preview-390.png",
+      "bytes": 93670,
+      "sha256": "b5d93924c5fbacad43e06309ec966295b419a2ce9758c4e27316e36bdc214870"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/run-05/preview-1100.png",
+      "bytes": 98830,
+      "sha256": "5a406771eb2d345e71e0feb44bfd36a01f503359eba9829e235c389e0c9a5866"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/final-tools/agd-fraud-review.mjs",
+      "bytes": 10441,
+      "sha256": "265089408ea8b9ea932664ad5034b7d84025b5187184b9eebe85cf97579d0957"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/final-tools/verify-fraud-review.py",
+      "bytes": 7586,
+      "sha256": "4a3f2e46956f24aa1c50c45bc3d70b00aa2081166394250582d6bf7312b11187"
+    },
+    {
+      "path": ".artifacts/fraud-review-2026-09-16/repo-final.log",
+      "bytes": 2883,
+      "sha256": "88becc676d31a1d6935d1e9ff93fa80e2488340426ed833a533e50e51835f814"
+    }
+  ]
+}

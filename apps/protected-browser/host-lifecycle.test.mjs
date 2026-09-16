@@ -76,7 +76,7 @@ test('F08 真实统一浏览器崩溃撤销待提交，新会话重新批准且�
     report.phases.push({ name: 'kill_owned_chromium_pending_post', gateway_pid: firstIdentity.gatewayPid, chromium_pid: firstIdentity.browserPid,
       private_profile: firstIdentity.profile, session_id: firstSession, post_count: 0, old_approval_status: 409,
       http_outcome: oldReceipt.outcome, dispatched: oldReceipt.dispatched, dom_outcome: read.result._meta.agentguard.outcome });
-    await first.close(); first = undefined; await verifyClosed(firstIdentity);
+    await first.close(); assert.doesNotMatch(first.stderr(), /Error: spawn|EPERM|清理失败|退出超时|异常退出/); first = undefined; await verifyClosed(firstIdentity);
     report.phases.push({ name: 'old_session_cleanup', processes: 'all_recorded_owned_processes_exited', profile_removed: true });
 
     second = await startHostFixture([origin], { timeout: 12 });
@@ -98,7 +98,7 @@ test('F08 真实统一浏览器崩溃撤销待提交，新会话重新批准且�
     assert.ok(received.filter(item => item.method === 'POST').every(item => new URLSearchParams(item.body).get('value') === '新会话明确批准一次'));
     report.phases.push({ name: 'new_session_single_approved_write', session_id: secondSession, new_action_id: fresh.binding.action.action_id,
       post_count: 1, business_verified_in_receiver_and_page: true, duplicate_approval_status: 409 });
-    await second.close(); second = undefined; await verifyClosed(secondIdentity);
+    await second.close(); assert.doesNotMatch(second.stderr(), /Error: spawn|EPERM|清理失败|退出超时|异常退出/); second = undefined; await verifyClosed(secondIdentity);
     report.phases.push({ name: 'new_session_cleanup', processes: 'all_recorded_owned_processes_exited', profile_removed: true });
     report.pass = true;
   } catch (error) { report.error = error.message; throw error; }
@@ -106,5 +106,29 @@ test('F08 真实统一浏览器崩溃撤销待提交，新会话重新批准且�
     await first?.close(); await second?.close();
     await new Promise(resolve => site.close(resolve));
     if (process.env.AGD_BROWSER_LIFECYCLE_REPORT) { await mkdir(dirname(process.env.AGD_BROWSER_LIFECYCLE_REPORT), { recursive: true }); await writeFile(process.env.AGD_BROWSER_LIFECYCLE_REPORT, JSON.stringify(report, null, 2)); }
+  }
+});
+
+test('沙箱内浏览器入口被强杀后，清理守护进程仍回收自有浏览器', { timeout: 30000 }, async () => {
+  const site = createServer((request, response) => response.end('<!doctype html><title>合成退出检查</title>无业务副作用'));
+  await new Promise(resolve => site.listen(0, '127.0.0.1', resolve));
+  const origin = `http://127.0.0.1:${site.address().port}`;
+  let host;
+  try {
+    host = await startHostFixture([origin]);
+    const navigation = host.call('browser_navigate', { url: origin });
+    await host.decide(await host.pending()); toolValue(await navigation);
+    const identity = await ownedBrowser(host);
+    const actors = identity.owned.filter(item => item.command.includes('/registered-package/protected-browser/cli.mjs'));
+    assert.equal(actors.length, 1);
+    process.kill(actors[0].pid, 'SIGKILL');
+    // 网关还活着，不能靠关闭网关或测试自行删除目录来制造清理通过。
+    await verifyClosed({ ...identity, owned: identity.owned.filter(item => item.pid !== host.child.pid) });
+    assert.equal(host.child.exitCode, null);
+    assert.doesNotMatch(host.stderr(), /Error: spawn|EPERM|清理失败|退出超时|异常退出/);
+  } catch (error) {
+    console.error(host?.stderr()); throw error;
+  } finally {
+    await host?.close(); site.closeAllConnections(); await new Promise(resolve => site.close(resolve));
   }
 });

@@ -20,8 +20,12 @@ async function close() {
   if (closing) return; closing = true;
   await bridge?.close();
   await task?.stop(); await demo?.close();
+  if (guardian?.connected) await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('浏览器清理守护进程退出超时')), 3000);
+    guardian.once('exit', code => { clearTimeout(timer); code === 0 ? resolve() : reject(new Error(`浏览器清理守护进程异常退出：${code}`)); });
+    guardian.send({ operation: 'browser_stopped' }, error => { if (error) { clearTimeout(timer); reject(error); } });
+  });
   if (privateDir) await rm(privateDir, { recursive: true, force: true });
-  if (guardian?.connected) guardian.disconnect();
 }
 try {
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('此受保护会话 CLI 目前仅实现 macOS/Linux 生命周期，其他平台尚未验收');

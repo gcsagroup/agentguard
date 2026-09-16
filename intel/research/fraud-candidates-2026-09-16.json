@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-09-16",
+  "task": "AGD-029",
+  "status": "reviewed_research_proposals",
+  "authorization_effect": "none",
+  "runtime_rule_package": false,
+  "taxonomy_decision": "保留原 v0.1 的 18 个编号。两个候选语义成立，但本次不分配正式 ATI 编号；后续分类版本升级时统一迁移、校验并发布。",
+  "candidates": [
+    {
+      "proposal_id": "AGD-029-SYNTHETIC-IDENTITY",
+      "name": "合成身份冒充",
+      "definition": "组合身份要素构造虚构的人或机构，以取得不当利益；合成照片或声音可能是证据载体，但并不是成立的必要条件。",
+      "prerequisites": ["业务入口接受身份材料或身份声明", "材料与真实主体、收款人或授权关系的独立绑定不足"],
+      "stage_ids": ["GCSA-AKC-02", "GCSA-AKC-03", "GCSA-AKC-04"],
+      "stage_boundary": "阶段仅为候选映射；没有身份真值、权限动作或收件证据时不登记实际冒充成功或业务损失。",
+      "observable_signals": ["同一材料中的主体信息不一致", "声称已核验但无可核对的独立来源", "发票主体与实际收款账户登记主体不同"],
+      "required_telemetry": ["原材料及提取结果的摘要、来源、覆盖范围", "独立登记的主体与收款账户关系及版本", "冻结的实际交易字段和执行回执"],
+      "mitigations": ["通过事先登记的独立通道核实主体和收款人", "不接受材料自带的授权声明", "未知或冲突进入人工复核，交易仍独立确认"],
+      "false_positive_conditions": ["合法更名、代收或受托付款", "OCR 错字或材料过期", "普通学习材料描述身份造假"],
+      "related_existing_techniques": ["GCSA-ATI-007", "GCSA-ATI-009"],
+      "distinction": "007 约束 Agent 调用者身份；本候选是业务人员或机构身份。009 是对 Agent 的权威伪装，可能重合但不能据此声称已经验证虚构主体。",
+      "coverage": "not_integrated",
+      "unknowns": ["没有政府身份或银行开户真值服务", "没有已验证的活体、人脸或声纹检测", "模拟交易只验证批准边界，不能证明检出合成身份"],
+      "sources": ["https://fedpaymentsimprovement.org/wp-content/uploads/synthetic-identity-fraud-definition.pdf", "https://www.fincen.gov/system/files/shared/FinCEN-Alert-DeepFakes-Alert508FINAL.pdf"]
+    },
+    {
+      "proposal_id": "AGD-029-AUTOMATED-SOCIAL-FRAUD",
+      "name": "自动化社工诈骗",
+      "definition": "通过自动生成或投递的冒充、理由和催促信息，诱导人或 Agent 将交易、资料或权限交给非预期主体。",
+      "prerequisites": ["收件方能接触外部消息、网页或媒体", "存在可提交的业务动作", "外部说服内容有机会被当作授权"],
+      "stage_ids": ["GCSA-AKC-02", "GCSA-AKC-03", "GCSA-AKC-04"],
+      "stage_boundary": "自动化需投递日志、工具回执或其他来源佐证；仅文风或一条催促消息不能证明机器人、规模化活动或诈骗成功。",
+      "observable_signals": ["要求临时更换收款账户并绕开已登记复核通道", "页面声称负责人或 AI 已同意付款", "多个材料或会话出现有证据关联的重复交易请求"],
+      "required_telemetry": ["消息来源和关联依据", "独立采购或付款委托及允许范围", "实际请求目标、完整正文、会话、有效期和一次性批准"],
+      "mitigations": ["将理由材料与授权分开", "显示实际收款人、账户、币种和金额", "拒绝旧批准、草稿替换、超时和重放；结果未知先查账，不自动重试"],
+      "false_positive_conditions": ["正常应急结算", "批量合法账单或提醒", "正常网页讲解诈骗案例及防范方法"],
+      "related_existing_techniques": ["GCSA-ATI-009", "GCSA-ATI-016"],
+      "distinction": "包含 AI 欺骗人；不要求攻击已进入 Agent 上下文。模型评分遭操纵与完整诈骗流程分别记录。",
+      "coverage": "confirmation_boundary_simulated_only",
+      "unknowns": ["没有通用意图或诈骗分类器", "没有真实付款与金融机构接入", "自动化规模与媒体真伪在本次模拟中均未检验"],
+      "sources": ["https://www.fincen.gov/system/files/shared/FinCEN-Alert-DeepFakes-Alert508FINAL.pdf"]
+    }
+  ],
+  "simulation": {
+    "fixture": "eval/acceptance-fixtures/fraud-review.html",
+    "runner": "scripts/acceptance/agd-fraud-review.mjs",
+    "business_effect": "local_synthetic_ledger_only",
+    "identity_ground_truth": "fictional_operator_reference",
+    "approval_actor": "declared_test_script",
+    "deepfake_models_executed": 0,
+    "fraud_detection_rate": null
+  }
+}
