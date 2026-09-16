@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### macOS synthetic startup diagnostics (2026-09-16)
+
+- Added aligned startup and request/reply timings to test fixtures, preserving the eight-second deadline. Two controlled pauses verified failure diagnostics. All 136 desktop tests and static checks passed; 11 tests remain ignored. See the [record](docs/macos-ci-startup-2026-09-16.zh.md).
+- The baseline CI desktop test step passed this time, but the earlier intermittent timeout remains unexplained. Fixed App 023, product behavior, performance budgets and release gates are unchanged.
+
 ### Fixed App 023 database update (2026-09-16)
 
 - Updated the same App path to Ver 2.1 (023), including the SQLite fix in both the desktop and bundled gateway. Verified 91 files, 29 setup resources and the fixed organizational signature.

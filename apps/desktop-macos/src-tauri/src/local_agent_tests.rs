@@ -71,6 +71,9 @@ struct ModelFixture {
     stopped: Arc<AtomicBool>,
     worker: Option<std::thread::JoinHandle<()>>,
     run: Mutex<Option<std::sync::Weak<AgentRun>>>,
+    directory: Mutex<Option<PathBuf>>,
+    progress: Arc<Mutex<Vec<(u128, &'static str)>>>,
+    started_at_ms: u128,
 }
 
 impl ModelFixture {
@@ -82,6 +85,13 @@ impl ModelFixture {
         let (replies, reply_rx) = mpsc::sync_channel::<Value>(1);
         let stopped = Arc::new(AtomicBool::new(false));
         let signal = stopped.clone();
+        let progress = Arc::new(Mutex::new(Vec::new()));
+        let observed = progress.clone();
+        let started_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        let started = Instant::now();
         let worker = std::thread::spawn(move || {
             while !signal.load(Ordering::SeqCst) {
                 let mut stream = match listener.accept() {
@@ -92,6 +102,10 @@ impl ModelFixture {
                     }
                     Err(_) => break,
                 };
+                observed
+                    .lock()
+                    .unwrap()
+                    .push((started.elapsed().as_millis(), "accepted"));
                 stream
                     .set_read_timeout(Some(Duration::from_millis(100)))
                     .unwrap();
@@ -99,8 +113,16 @@ impl ModelFixture {
                     .set_write_timeout(Some(Duration::from_secs(1)))
                     .unwrap();
                 let Some(request) = read_request(&mut stream, &signal) else {
+                    observed
+                        .lock()
+                        .unwrap()
+                        .push((started.elapsed().as_millis(), "incomplete_request"));
                     continue;
                 };
+                observed
+                    .lock()
+                    .unwrap()
+                    .push((started.elapsed().as_millis(), "request_complete"));
                 if request_tx.send(request).is_err() {
                     break;
                 }
@@ -116,9 +138,18 @@ impl ModelFixture {
                 };
                 let body = serde_json::to_vec(&reply).unwrap();
                 let header = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
-                let _ = stream
+                let written = stream
                     .write_all(header.as_bytes())
-                    .and_then(|_| stream.write_all(&body));
+                    .and_then(|_| stream.write_all(&body))
+                    .is_ok();
+                observed.lock().unwrap().push((
+                    started.elapsed().as_millis(),
+                    if written {
+                        "reply_written"
+                    } else {
+                        "reply_failed"
+                    },
+                ));
             }
         });
         Self {
@@ -128,6 +159,9 @@ impl ModelFixture {
             stopped,
             worker: Some(worker),
             run: Mutex::new(None),
+            directory: Mutex::new(None),
+            progress,
+            started_at_ms,
         }
     }
 
@@ -142,7 +176,15 @@ impl ModelFixture {
                         let view = run.state.try_lock().ok().map(|state| json!({"phase":state.view.phase,"error":state.view.error}));
                         json!({"view":view,"worker":run.worker.load(Ordering::SeqCst),"stopped":run.stopped.load(Ordering::SeqCst),"faulted":run.faulted.load(Ordering::SeqCst)})
                     });
-                panic!("合成模型未收到 {path}：{error:?}；状态：{state:?}")
+                // 只输出合成端点的阶段与耗时，不输出请求正文、控制令牌或进程环境。
+                let model_progress = self.progress.try_lock().ok().map(|items| items.clone());
+                let gateway_progress = self.directory.try_lock().ok().and_then(|directory| {
+                    let file = std::fs::File::open(directory.as_ref()?.join("fixture-progress.log")).ok()?;
+                    let mut text = String::new();
+                    file.take(8192).read_to_string(&mut text).ok()?;
+                    Some(text)
+                });
+                panic!("合成模型未收到 {path}：{error:?}；状态：{state:?}；模型起点 Unix 毫秒：{}；模型阶段（相对毫秒）：{model_progress:?}；网关阶段（Unix 毫秒／相对毫秒）：{gateway_progress:?}", self.started_at_ms)
             });
         assert!(
             request.lines().next().unwrap().contains(path),
@@ -228,6 +270,7 @@ fn start_fixture(
     model: &ModelFixture,
     mode: &str,
 ) -> Arc<AgentRun> {
+    *model.directory.lock().unwrap() = Some(directory.0.clone());
     let view = manager
         .start(
             directory.paths(mode),
@@ -776,16 +819,23 @@ fn 浏览器网络等待可暂停且迟到成功不触发后续工具() {
 }
 
 const GATEWAY_FIXTURE: &str = r#"#!/usr/bin/python3
-import json, os, socket, sys, threading, time
+import os, time
+root = os.path.dirname(os.path.realpath(__file__))
+started = time.monotonic()
+def progress(stage):
+    with open(os.path.join(root,'fixture-progress.log'),'a') as output:
+        output.write(str(time.time_ns()//1000000) + ' ' + str(round((time.monotonic()-started)*1000,3)) + ' ' + stage + '\n')
+progress('python_entered')
+import json, socket, sys, threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import TCPServer
+progress('imports_ready')
 MODE = "__MODE__"
 if MODE == 'dns-forbidden':
     def forbidden_lookup(*args): raise RuntimeError('固定回环夹具不得执行 DNS 查询')
     socket.getfqdn = forbidden_lookup
 args = sys.argv[1:]
 def flag(name): return args[args.index(name) + 1]
-root = os.path.dirname(os.path.realpath(__file__))
 with open(os.path.join(root,'gateway-cwd.txt'),'w') as output: output.write(os.getcwd())
 workspace = json.load(open(flag('--plans')))['plans'][0]['scope']['paths']['read'][0]
 session = {'state': 'active', 'number': 1}
@@ -802,6 +852,7 @@ class Handler(BaseHTTPRequestHandler):
         body = json.dumps(value).encode()
         self.send_response(200); self.send_header('Content-Type','application/json'); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
     def do_GET(self):
+        progress('http_get ' + self.path)
         if self.path == '/status': self.reply({'service':'agentguard-mcp','confirm_protocol':2,'instance_id':'b'*32,'pending':None,'remaining_ms':0})
         elif MODE == 'bad-workspace': self.reply({'invalid':'合成损坏状态'})
         else:
@@ -826,6 +877,7 @@ class LoopbackHTTPServer(HTTPServer):
         self.server_name = '127.0.0.1'
         self.server_port = self.server_address[1]
 server = LoopbackHTTPServer(('127.0.0.1',0), Handler)
+progress('http_bound')
 port = server.server_address[1]
 with open(os.open(flag('--control-file'),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as output:
     json.dump({'service':'agentguard-mcp','confirm_protocol':2,'url':'http://127.0.0.1:'+str(port),'port':port,'instance_id':'b'*32,'token':'a'*32},output)
@@ -834,6 +886,7 @@ for line in sys.stdin:
     request = json.loads(line)
     if 'id' not in request: continue
     method = request['method']
+    progress('rpc ' + method)
     if method == 'initialize': result = {'serverInfo':{'name':'agentguard-mcp'},'capabilities':{'experimental':{} if MODE == 'old-receipt' else {'agentguardExecutionReceipt':1}}}
     elif method == 'gateway/stats': result = {'execution_backend':{'mode':'isolated_workspace_snapshot','network':'none'},'execution_journal':{'persistent':True,'healthy':True}}
     elif method == 'tools/list': result = {'tools': [] if MODE == 'bad-tools' else [{'name':name,'description':'合成工具','inputSchema':{'type':'object'}} for name in ['read_file','search_file','write_file','delete_file','run_shell'] + (['browser_status','browser_navigate','browser_read','browser_fill','browser_click'] if MODE.startswith('browser-') else [])]}
