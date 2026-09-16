@@ -962,7 +962,10 @@ impl Engine {
         let fs_finding = self.check_filesystem_scope(event);
 
         let scope_finding = self.check_agent_session_scope(event);
-        let decision = self.decide_with_memory_backend(event, persistent)?;
+        // 可信持久记忆路径中的正文是保存／读取资料，不是安装动作。
+        // 只排除基础安装文字规则；继续走记忆契约、注入检测和后续独立策略。
+        let decision =
+            self.decide_with_memory_backend(event, persistent, persistent.then_some("CRIT-005"))?;
         // 在合并其它风险、受控规则包和企业策略之前限定基础文字规则的含义。
         // 不能在最终判决上降级，否则会一并抹去身份冒充、明确注入等独立发现。
         let decision = if desktop_observation {
@@ -990,7 +993,7 @@ impl Engine {
         let decision = match self.rule_package.as_mut() {
             Some(package) => constrain_with_package(
                 decision,
-                package.decide_with_memory_backend(event, persistent)?,
+                package.decide_with_memory_backend(event, persistent, None)?,
             ),
             None => decision,
         };
@@ -1360,13 +1363,14 @@ impl Engine {
     }
 
     fn decide(&mut self, event: &GuardEvent) -> Result<Decision> {
-        self.decide_with_memory_backend(event, false)
+        self.decide_with_memory_backend(event, false, None)
     }
 
     fn decide_with_memory_backend(
         &mut self,
         event: &GuardEvent,
         persistent: bool,
+        excluded_text_rule: Option<&str>,
     ) -> Result<Decision> {
         // Ingest point for untrusted provenance. Done before rule matching
         // because those arms return early: an event that trips an injection rule
@@ -1693,9 +1697,13 @@ impl Engine {
         if let Some(text) = event.metadata.get("ui_text") {
             if self.intel.matches_injection(text) || self.intel.matches_deeplink(text) {
                 // Prefer the most specific explicit rule; otherwise INTEL-INJECT.
-                if let Some(rule) =
-                    most_specific_rule(&self.rules.rules, text, event.event_type, &event.platform)
-                {
+                if let Some(rule) = most_specific_rule(
+                    &self.rules.rules,
+                    text,
+                    event.event_type,
+                    &event.platform,
+                    excluded_text_rule,
+                ) {
                     return Ok(Decision {
                         action: rule.action,
                         severity: rule.severity,
@@ -1734,9 +1742,13 @@ impl Engine {
 
         // Text-based critical / overlay / privacy trap rules.
         if let Some(text) = event.metadata.get("ui_text") {
-            if let Some(rule) =
-                most_specific_rule(&self.rules.rules, text, event.event_type, &event.platform)
-            {
+            if let Some(rule) = most_specific_rule(
+                &self.rules.rules,
+                text,
+                event.event_type,
+                &event.platform,
+                excluded_text_rule,
+            ) {
                 return Ok(Decision {
                     action: rule.action,
                     severity: rule.severity,
@@ -4574,6 +4586,7 @@ fn most_specific_rule<'a>(
     text: &str,
     event_type: EventType,
     platform: &str,
+    excluded_rule: Option<&str>,
 ) -> Option<&'a guard_schema::Rule> {
     let lowered: Vec<_> = guard_schema::text::matching_views(text)
         .iter()
@@ -4582,6 +4595,7 @@ fn most_specific_rule<'a>(
     let platform = platform.trim().to_lowercase();
     rules
         .iter()
+        .filter(|r| Some(r.id.as_str()) != excluded_rule)
         .filter(|r| r.event_types.is_empty() || r.event_types.contains(&event_type))
         // `platforms` was declared on 20 rules and **read nowhere**: a reviewer found that
         // `ENV-A5`, `platforms: [android]`, fired on a macOS survey and returned a Critical

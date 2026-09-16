@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-028 installation-document false positive and model consumption (2026-09-16)
+
+- A real flow found CRIT-005 refusing an ordinary installation document during persistence after successful OCR. Only the trusted memory entrypoint excludes the base installation-text rule; storage still needs independent approval. Execution, self-declared fields, explicit injection and additional policy constraints remain covered, with original failures retained.
+- Two parsed images were stored and retrieved across processes for three local-model requests: the installation example and Traditional Chinese amount were correct, while the post-revocation request received no material. Independently verified four signatures and 76 audit rows, rejecting six evidence mutations. Six-format regression, seven memory-focused tests and 1,528 workspace tests passed; see the [record](docs/agd-028-document-model-2026-09-16.zh.md).
+- Fixed App 020 was not rebuilt or renamed. This is script-mediated retrieval and model consumption, not autonomous tool selection or native acceptance. Plan v0.60 preserves task counts; AGD-027 performance, native integration and release remain unaccepted, with F13 deferred.
+
 ### AGD-028 Chinese OCR and persisted retrieval (2026-09-16)
 
 - Image parsing now uses offline, hash-pinned PP-OCRv5 with bounded working and detection images. English spacing is reconciled only when all non-whitespace characters agree, within the shared 15-second deadline. Parser version 2 continues reading version 1 records without migration.
