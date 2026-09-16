@@ -9,6 +9,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 ### Build 024 gates and startup diagnosis (2026-09-16)
 
 - Build 024 source CI passed 13/13. The complete GA gate initially passed 16 checks and failed one: two generated relay capability reports were stale and have now been regenerated. All 19 formal evidence categories remain missing; the initial failure is preserved in the [gate record](docs/agd-032-release-gate-recheck-2026-09-16.zh.md).
+- On September 17, correction `0068e94` passed all 17 automatic checks in a fresh complete GA run, with a clean candidate at both ends. The 19 missing formal evidence categories still produce exit 1 / No-Go under the unchanged release requirements.
 - Desktop test sampling retained one run with 19 passes and two failures, and a separate run with 21 passes. Startup waiting is better localized, but its root cause remains unresolved. The original timeout and fixed App 024 are unchanged; see the [diagnosis](docs/macos-ci-startup-2026-09-16.zh.md).
 
 ### Fixed App 024: ordinary browsing false alerts (2026-09-16)
