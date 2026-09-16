@@ -31,9 +31,16 @@
       "faults": {
         "checks": 50,
         "groups": 13
+      },
+      "soak": {
+        "complete_tasks_or_cycles": 30,
+        "artifact_receipts": 41,
+        "heartbeats": 121,
+        "measured_ms": 1801212.2355840001,
+        "max_heartbeat_gap_ms": 15409.072374999989
       }
     },
-    "all_workspace_stages_complete": false,
+    "all_workspace_stages_complete": true,
     "performance_accepted": false,
     "m3_joint_accepted": false,
     "scope": "冻结脚本的真实合成流程与留存成果回执；成功后临时数据库已清理，不声称新增逐行审计验链"
@@ -75,16 +82,20 @@
     }
   ],
   "soak": {
-    "status": "running_at_snapshot",
-    "snapshot": "soak-start-snapshot.json",
-    "passed": false,
+    "status": "completed_and_verified",
+    "passed": true,
     "required_ms": 1800000,
+    "measured_ms": 1801212.2355840001,
     "required_tasks": 30,
-    "minimum_heartbeats": 120
+    "completed_tasks": 30,
+    "minimum_heartbeats": 120,
+    "heartbeats": 121,
+    "max_heartbeat_gap_ms": 15409.072374999989,
+    "parent_elapsed_seconds": 1801.5235152079258,
+    "remaining_own_containers": [],
+    "earlier_running_snapshot": "soak-start-snapshot.json"
   },
   "remaining": [
-    "30 分钟持续运行结束与独立核对",
-    "新数据库候选的记忆／RAG、委托预算／传播、浏览器及 F14 联合证据",
     "原性能预算",
     "F13 暂缓",
     "正式发布材料"
@@ -278,7 +289,43 @@
     "workspace-faults-01/groups/unsupported-new-directory.json": "185fa3aa0e6d5113086160ec1c9097a09fa2bf75050f080fb52c24c41fed79c1",
     "workspace-faults-01/report.json": "90c12c98c7282110e6f29064ab03fd83aefda2f5c5830abac5d3ca81a4a4aa1f",
     "workspace-faults-01/harness-source.mjs": "fdbb645ef371bcd2dccf0e80d6335b5fd1cf00e8bd040c9b088c9b177ae3f319",
-    "source-binding-after.json": "c598e72d682ae33f8eecc2427cdabdfb1a2fc6491070121fafc56bb470da0a93"
+    "source-binding-after.json": "c598e72d682ae33f8eecc2427cdabdfb1a2fc6491070121fafc56bb470da0a93",
+    "workspace-pipeline.json": "0b44f75785af297bbab2916fc093414835620fe90429952a2a9ff230f76403b0",
+    "workspace-soak-01.log": "dac19fdf1d81d7ff34ca3bf56da2346a7a57932ebabb42db8770c971b4d7465f",
+    "joint/workspace-verification.json": "5d3948d1f355ec6c9ae3cd33324f9e56bb20316ec348070436ae2ec0992d7b2a",
+    "workspace-soak-01/harness-source.mjs": "fdbb645ef371bcd2dccf0e80d6335b5fd1cf00e8bd040c9b088c9b177ae3f319",
+    "workspace-soak-01/report.json": "cf65db886db60a1456bf6b6c6257ecb03186bf09f30d52c1a6a07b2eebfbb29d",
+    "workspace-soak-01/progress.json": "bb2f442b31210b12ed52d48c9f8a08d3b3358485de68bde4aa6bd3b7dd809cc5",
+    "workspace-soak-01/tasks/007.json": "f4d6d962537756b74117be66c6f53ac26620fbacfc41c9687747d78225bb65ad",
+    "workspace-soak-01/tasks/011.json": "6045027bcfcc1340e409a8d83f3eaf7c666814a27d574ac1c9c25ea16615c877",
+    "workspace-soak-01/tasks/027.json": "b038ba4b0504d64489e906c6ae57d8bd69434dd9c08fd06923f837cdb5c31150",
+    "workspace-soak-01/tasks/026.json": "6085ef482d1a6bcc680462831ddc360ed17f5725530dc0d19dfae47a0ba5d807",
+    "workspace-soak-01/tasks/030.json": "e1eb5f055c6413962001b71efdd138c1a72d70bcef9fedaa434702d7147a3582",
+    "workspace-soak-01/tasks/010.json": "51c8f2a0b9f9b5c786779cec27f59a114c93ea9f44b90eec538bbcc051380d6d",
+    "workspace-soak-01/tasks/006.json": "ce5f9f4a0aea7ed77165d5769ba0647f9ae86d29f94ac3d62ba43b73535266e6",
+    "workspace-soak-01/tasks/021.json": "a78b638f69a27a9fe3b8660d701c0302a8d943c98a13e5204526912fd9659d0c",
+    "workspace-soak-01/tasks/001.json": "37cc04cb997135fd1dd5941c040ae92f686352bd81a74efa1b136b9dada129ce",
+    "workspace-soak-01/tasks/017.json": "d82a59dd89afc7c91092f4a32c961e54d25db12d5a0e235c66ae5ecf30f85070",
+    "workspace-soak-01/tasks/016.json": "fea705351652d340cf256a58014cf00ef96cc83dedff9316493849e7a8fc011d",
+    "workspace-soak-01/tasks/020.json": "779543ef74613d506adaaaf4b92e7ea4dc38b7b02508e4cb40d15da2a939bb35",
+    "workspace-soak-01/tasks/023.json": "4ae540e90cca9dfed471fa8fe5500b4a7ad12dd723f4fea3959cb3fbbdf9192a",
+    "workspace-soak-01/tasks/019.json": "9d92c918b6c27877cd7970660ee7349f69585c59549d3d319821529d87dabccc",
+    "workspace-soak-01/tasks/015.json": "f17522d9ea7662a74cf83abe413eca6683c9941c4039f7ddeff6980e14874707",
+    "workspace-soak-01/tasks/003.json": "f5f3185eb2aeff53f82c16de1b7e884d460521b7bb46e4a599a031c4e0a767b6",
+    "workspace-soak-01/tasks/002.json": "bb63dcfcaeac4cd00a12b8f6ff5829ae16d16aa22af9329107b41325233d95eb",
+    "workspace-soak-01/tasks/014.json": "509fc64a2da4d2cce28c592056d8d134aa7262c06a584095496cd54edd953083",
+    "workspace-soak-01/tasks/018.json": "1ca041601a5aded2910a74dbaae3d3568c7c340b8bd982010bf4be0826319dc2",
+    "workspace-soak-01/tasks/022.json": "89b3bf608a575d3e5b6e5bd06855e17bcccfcbc580bbd04440f3a6183cb9f18b",
+    "workspace-soak-01/tasks/029.json": "7178c266bb6200e0927cd95945f764ec7bf133e6a81e30a01d1a3c2ffd387b1b",
+    "workspace-soak-01/tasks/013.json": "446fdbe9fb506e789b49aa1a655bd72087fa257a63c6c54b37e8227d576d35d9",
+    "workspace-soak-01/tasks/005.json": "fff911c61316475abee86f81542611f4619eb555c3816ec10f4f6cd81a433f30",
+    "workspace-soak-01/tasks/025.json": "2c9832929081ea9ce93507f570c2434c14407f6cb600e7dc2c272de25442db6d",
+    "workspace-soak-01/tasks/009.json": "a78f99f48da00972fac256904b52e689729941f5204515a2b2473e40867d265e",
+    "workspace-soak-01/tasks/008.json": "4a78b5ef88849a91b4a6c7103ca29e9d14e095f97cda2514a50c1ab3a3bcd8bc",
+    "workspace-soak-01/tasks/024.json": "6d80ef5c601bae5d2f9431d9c104c4e7bd1163b02a347bab271ca1947898edd6",
+    "workspace-soak-01/tasks/004.json": "0e4f9a0accf9553a7866864231414c22838e1bc299eee96938ddf07655f316ac",
+    "workspace-soak-01/tasks/012.json": "e42626d12197d13b20a8f08262648c408790bf07b58e4ec7696c7afa46574727",
+    "workspace-soak-01/tasks/028.json": "a3353cb51b6fcd99af882af35c8aee238acc5fdbcd6b73d0c5e76ac293505de5"
   },
   "source_binding_after": {
     "source_files_unchanged": 254,
@@ -286,5 +333,6 @@
     "app_files_unchanged": 91,
     "app_version": "2.1.0-dev.23",
     "scope": "文件字节及模式核对，不替代本轮原生权限或采集操作"
-  }
+  },
+  "joint_functional_recheck": "m3-sqlite-joint-2026-09-16.json"
 }
