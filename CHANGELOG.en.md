@@ -21,6 +21,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 - Native field observations no longer create profile provenance, cross-app taint or agent-fill scores. Actual writes, explicit injection and privacy-trap checks remain protected.
 - Updated the same App path to Ver 2.1 (022). Native Finder/Safari fields, installation prose and an injection control were exercised; both permissions survived restart. See the [native record](docs/native-form-observation-022-2026-09-16.zh.md).
 - Passed 274 core, 136 desktop (11 ignored), 133 frontend and 23 repository checks. Historical trace coverage failures and platform, performance and deferred F13 gaps remain open; this is not full-plan or release approval.
+- Rechecked the installation-alert screenshot at 15:47 UTC+8: all 91 fixed App 022 files and its signature remain unchanged; permissions and native timestamps are visible. Eight observation tests and the existing 44-record native session verification passed. The screenshot lacks a version and event time, so it does not establish a new regression in the current candidate.
 
 ### AGD-030 platform APIs and native file grants (2026-09-16)
 
