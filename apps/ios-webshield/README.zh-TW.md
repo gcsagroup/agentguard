@@ -97,4 +97,8 @@ TestFlight 都尚未驗證。設定 Team/App IDs/profiles 並完成上述驗收�
 
 ## 2026-09-17 鍵盤提示修正（建置 3）
 
-App 與 Extension 現為 1.0.0 (3)，名稱與 Bundle ID 保持。風險提示關聯三語標題與說明，Tab／Shift+Tab 留在關閉鍵；關閉或 Escape 返回此前仍連接的控制項，重疊提示按層處理。未新增放行或重放。四個新增回歸在舊原始碼全部失敗；修正後 Node 26／26、Swift 23／23、兩種嚴格 Release 與 Analyze 通過，真實 Chromium DOM 的三語鍵盤操作無風險請求。原生橋為合成；真實 Safari、VoiceOver、動態字體與 TestFlight 未驗收。前批 CI 另有 macOS 啟動等待與 Windows 並行稽核失敗，仍待解決。 [記錄](../../docs/ios-dialog-accessibility-2026-09-17.zh.md)。
+先前 App 與 Extension 為 1.0.0 (3)，名稱與 Bundle ID 保持。風險提示關聯三語標題與說明，Tab／Shift+Tab 留在關閉鍵；關閉或 Escape 返回此前仍連接的控制項，重疊提示按層處理。未新增放行或重放。四個新增回歸在舊原始碼全部失敗；修正後 Node 26／26、Swift 23／23、兩種嚴格 Release 與 Analyze 通過，真實 Chromium DOM 的三語鍵盤操作無風險請求。原生橋為合成；真實 Safari、VoiceOver、動態字體與 TestFlight 未驗收。前批 CI 另有 macOS 啟動等待與 Windows 並行稽核失敗，仍待解決。 [記錄](../../docs/ios-dialog-accessibility-2026-09-17.zh.md)。
+
+## 原生文字對比度（2026-09-17）
+
+目前 App／Extension 為 1.0.0 (13)，名稱與 Bundle ID 保持。狀態、說明與分組標題使用正文顏色；共享儲存不可用時防護仍關閉。新增三語首屏對比度與捲動回歸，開發門禁 Node 26／26、Swift 26／26、嚴格 Release 與 Analyze 通過。完整自動稽核仍有動態字體、截斷及後續頁面報告，I6、真機 Safari 與 TestFlight 未通過；[證據與限制](../../docs/ios-native-contrast-2026-09-17.zh.md)。

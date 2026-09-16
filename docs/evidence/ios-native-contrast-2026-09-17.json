@@ -1,0 +1,518 @@
+{
+  "baseline": "28fbfe56fa2f043027cf3f9b46943037bd392433",
+  "app_build": "1.0.0 (13)",
+  "scope": "原生文字对比度修正；新增检查仅审计首屏 contrast，再实际滚动到末尾并保存截图和原生树。",
+  "device": {
+    "name": "Aegis QA iPhone 17",
+    "os": "iOS 26.5",
+    "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+    "runtime_build": "23F77",
+    "ui_build_configuration": "Debug"
+  },
+  "node": {
+    "passed": 26,
+    "failed": 0
+  },
+  "swift": {
+    "core_passed": 21,
+    "ui_passed": 5,
+    "failed": 0,
+    "skipped": 0
+  },
+  "additional_ui": {
+    "maximum_font_light": {
+      "passed": 3,
+      "failed": 0,
+      "content_size": "accessibility-extra-extra-extra-large"
+    },
+    "standard_dark": {
+      "passed": 3,
+      "failed": 0,
+      "content_size": "large"
+    }
+  },
+  "release_builds": [
+    "Simulator",
+    "unsigned device"
+  ],
+  "strict_concurrency_and_warnings_as_errors": true,
+  "analyze": "passed",
+  "repository_invariants_passed": 23,
+  "summaries": {
+    "body-standard-summary.json": {
+      "result": "Failed",
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 1
+    },
+    "contrast-standard-summary.json": {
+      "result": "Failed",
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 1
+    },
+    "dark-standard-summary.json": {
+      "result": "Passed",
+      "passedTests": 3,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 3
+    },
+    "final-gate-tests-summary.json": {
+      "result": "Passed",
+      "passedTests": 26,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 26
+    },
+    "fix-standard-summary.json": {
+      "result": "Failed",
+      "passedTests": 2,
+      "failedTests": 2,
+      "skippedTests": 0,
+      "totalTestCount": 4
+    },
+    "gate-tests-summary.json": {
+      "result": "Failed",
+      "passedTests": 25,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 26
+    },
+    "initial-audit-summary.json": {
+      "result": "Failed",
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 1
+    },
+    "isolated-lower-summary.json": {
+      "result": "Failed",
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 1
+    },
+    "layout-standard-summary.json": {
+      "result": "Failed",
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 1
+    },
+    "maximum-font-summary.json": {
+      "result": "Passed",
+      "passedTests": 3,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 3
+    },
+    "standard-audit-summary.json": {
+      "result": "Failed",
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 1
+    }
+  },
+  "interrupted_run": {
+    "name": "fix-standard",
+    "exit_code": 73,
+    "included_as_pass": false,
+    "note": "英文已失败，停止已知重复的后续用例；完整结果包保留。"
+  },
+  "visual_review": {
+    "screenshot_counts": {
+      "final-standard-attachments": {
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollEnglish()": 2,
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollSimplifiedChinese()": 2,
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollTraditionalChinese()": 2
+      },
+      "maximum-font-attachments": {
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollEnglish()": 10,
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollSimplifiedChinese()": 7,
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollTraditionalChinese()": 8
+      },
+      "dark-standard-attachments": {
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollEnglish()": 2,
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollSimplifiedChinese()": 2,
+        "AgentGuardWebShieldUITests/testFirstScreenContrastAndScrollTraditionalChinese()": 2
+      }
+    },
+    "all_37_final_screenshots_reviewed": true,
+    "scope": "标准浅色、最大辅助字号浅色、标准深色的英简繁三语；检查文本换行与滚动末尾。不能替代完整自动审计、所有字号或 VoiceOver。"
+  },
+  "products": [
+    {
+      "kind": "debug-simulator",
+      "bundle": ".artifacts/ios-native-accessibility-2026-09-17/final-gate/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app",
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "13",
+      "binary_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+    },
+    {
+      "kind": "debug-simulator",
+      "bundle": ".artifacts/ios-native-accessibility-2026-09-17/final-gate/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "13",
+      "binary_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+    },
+    {
+      "kind": "release-simulator",
+      "bundle": ".artifacts/ios-native-accessibility-2026-09-17/final-gate/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app",
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "13",
+      "binary_sha256": "bbfd53090a4e328b4b5fb98c069bb323f8c1a5af39b34edb3a7f0baecdf82786"
+    },
+    {
+      "kind": "release-simulator",
+      "bundle": ".artifacts/ios-native-accessibility-2026-09-17/final-gate/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "13",
+      "binary_sha256": "0b82813436e7c9e684f1e78ed865c16042c7154791042a4732f8b30a1255e5da"
+    },
+    {
+      "kind": "unsigned-device",
+      "bundle": ".artifacts/ios-native-accessibility-2026-09-17/final-gate/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app",
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "13",
+      "binary_sha256": "5a99e4d702794155d82e4f01784202bac4e9b6818cfd1a8843e74e918b34432b"
+    },
+    {
+      "kind": "unsigned-device",
+      "bundle": ".artifacts/ios-native-accessibility-2026-09-17/final-gate/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "13",
+      "binary_sha256": "88d7b1387f1740b47d9f2f32163a90a76a5a5243430bfbda2fa94ed793bc5fb8"
+    }
+  ],
+  "extension_resources_match_source": true,
+  "app_group_storage_available": false,
+  "protection_toggles_remain_disabled": true,
+  "restoration": {
+    "device": {
+      "dataPath": "/Users/lazy/Library/Developer/CoreSimulator/Devices/01D9DC02-2C70-4958-973E-4F5668AB788A/data",
+      "dataPathSize": 2807500800,
+      "logPath": "/Users/lazy/Library/Logs/CoreSimulator/01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "lastUsedAt": "2026-09-16T19:51:28Z",
+      "isAvailable": true,
+      "logPathSize": 540672,
+      "deviceTypeIdentifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+      "state": "Shutdown",
+      "name": "Aegis QA iPhone 17"
+    },
+    "original": {
+      "content-size": "large",
+      "appearance": "light"
+    },
+    "restored_readback": {
+      "appearance": "light",
+      "content-size": "large"
+    },
+    "only_selected_simulator_shutdown": true
+  },
+  "fixed_mac_app": {
+    "app_version": "2.1.0-dev.24",
+    "files_verified": 91,
+    "hashes_and_modes_unchanged": true
+  },
+  "ci_previous": {
+    "conclusion": "success",
+    "headSha": "485efe4f299debfe4b22978ed44280859971c7bc",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (macos-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Android companion (Kotlin)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS shell (native AX + SCK)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (ubuntu-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "部署自检",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Windows (native adapter + shell)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "MSRV 1.87",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "内核约束（guard-jail）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Shell front ends parse",
+        "status": "completed"
+      }
+    ],
+    "status": "completed"
+  },
+  "ci_baseline": {
+    "conclusion": "failure",
+    "headSha": "28fbfe56fa2f043027cf3f9b46943037bd392433",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "Shell front ends parse",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "内核约束（guard-jail）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Android companion (Kotlin)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "部署自检",
+        "status": "completed"
+      },
+      {
+        "conclusion": "failure",
+        "name": "macOS shell (native AX + SCK)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Windows (native adapter + shell)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (ubuntu-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "MSRV 1.87",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "test (macos-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed"
+      }
+    ],
+    "status": "completed"
+  },
+  "remaining": {
+    "full_native_accessibility_audit": "NOT_PASSED",
+    "I6": "NOT_PASSED",
+    "native_safari": "NOT_PASSED",
+    "device_voiceover_and_keyboard": "NOT_PASSED",
+    "testflight": "NOT_PASSED",
+    "AGD-027": "开发中，原预算未通过",
+    "F13": "暂缓、未验收",
+    "release": "No-Go"
+  },
+  "source_sha256": {
+    "apps/ios-webshield/App/Info.plist": "c3b197c2a138b38522f98dd480b4c7531048d3134df43f48667d95b82f4fbb2a",
+    "apps/ios-webshield/Extension/Info.plist": "c9288b5c21726a538bfc3190bc101d3af1dad5ee6e9221ac9a6940a12124fe47",
+    "apps/ios-webshield/App/Sources/ContentView.swift": "5e5eb84eec71a7f8a1b3c6a987b0b6298b9f6d24c53201d2bde493b69dc577af",
+    "apps/ios-webshield/Tests/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests.swift": "6c31377a04c546d9bcf82ab3729ec0b3ec785ddc0a3c2d94ac3bfa1015d8f51f",
+    "scripts/check-ios.sh": "fdd43f8b29399abbbc4f8e21792e989db8ff2816b00cf2a56e831f1d284cadde"
+  },
+  "artifact_root": ".artifacts/ios-native-accessibility-2026-09-17",
+  "artifact_sha256": {
+    "audit-test-before-isolation.swift": "89a4a2d402dcb28820c85665a2a6024b164903687e7e93b6588944ba3d088d92",
+    "body-export.log": "56c771decdc5580a7e17b6f6c98b6e4d1049fc51a697f8edddfe8348f3d49c22",
+    "body-standard-summary.json": "15a773b164ab6e3dbc7be2c6084e4d016f26c48160532bcd8fdcab73439d060d",
+    "body-standard.log": "0142aaff777a4ad0f28a9bd951a8b17425ba44c6cec5ef78614de9428032f4b8",
+    "ci-28fbfe5-status.json": "c80ebdec6853cae117cd65f6fba58cbeffb84f6dc1f3f8747e54a40d1f6f7c87",
+    "ci-485efe4-status.json": "50ab24d369e67456e9c1b94df89d2776f946ceef5d14179cce87215ec89e88d4",
+    "ci-macos-28fbfe5.log": "b223d3b06833a266f5fff46b7146b678be0bae48bc6ac0f8e36bfa16e08e0dd7",
+    "contrast-export.log": "fbb839e320072290d2d91f86f88226756d2ce636aeb6d74fba30e05d2ea879bb",
+    "contrast-standard-summary.json": "99c594398f5b660973fc8c067e25c036ac6d12ee4af6d2d55d989a5813a3ecf0",
+    "contrast-standard.log": "9977ede2077f18f7be8781751845d16caea82dbab1de17e731876a0e9eeb97f3",
+    "dark-standard-attachments/102004A9-4883-4B53-AE10-CF290738D5B7.png": "4c599a2719a4ce01f85d618d91100d538450bcb4cdc1bc3a301beef5f2b06a82",
+    "dark-standard-attachments/288A143A-2177-4CC6-88CB-298090E1F119.png": "dd159d606d95fddf762544d21e3312e0f7ff703c8ea34f3a66301fbfcde17510",
+    "dark-standard-attachments/3092879E-2838-488F-AD1C-6C3D089D1895.txt": "670eedb285ddbd96285802d41ce9e9fc87b9cf30617380b2e47ad2c29f51d0a7",
+    "dark-standard-attachments/4DF3CF46-6294-4F80-9DD3-1C2D3BBDD147.png": "c66f5c06eca24584561b84387c53b83429b68e76f19be7e223eaa56d07d8f056",
+    "dark-standard-attachments/570984CE-A326-4C7E-BCD4-8A52E1FC31DE.png": "4b922ffb37a3ada5640f9205b4151a600a4a6bd0a08a80886e6f324a5103c728",
+    "dark-standard-attachments/5A04C9F4-CFBA-40FD-83CE-912B8B71480B.txt": "42f7cdba0183101dc529bd66d4b62c720120164507ca8883776f34e9e280913b",
+    "dark-standard-attachments/73512CD4-FEC0-465E-83B1-15E8F704B56E.png": "7349e0ef7a79d11c5ace9c2e012104c0cafc0f6a02977e9fbe3f509a20b2dd2f",
+    "dark-standard-attachments/7C2A08AB-3D09-4192-BA1B-D2AA0BF7E165.txt": "3c61d40b0fffcbc3b636deff07477f8c73b5b5da40057615bbc7142d9f51758f",
+    "dark-standard-attachments/AA217410-4948-4B4F-8F55-ED3DFEF3ECB4.txt": "3ab611a68240c06724eb62ad62b66e26fd92df5853a3bc9431e0587c0d77b803",
+    "dark-standard-attachments/AFF83E3C-3D6C-429A-8FAE-832A8FE925B2.txt": "61c8b5afd9a299242521bf95220982be7f1fdf6c5eff67013a05e6280292aa5f",
+    "dark-standard-attachments/D3529348-7578-48F9-B0D5-8DCD0E282294.png": "647a893a731e41d5f813eaf67a98e9c0eecf0e19837c3bd7edf3c9ce4a522b6a",
+    "dark-standard-attachments/DB42AF2B-F55D-4527-9748-A609139F27F3.txt": "fb2fab131b183808778a416deece679a2875b74c5e58356ceadaee698e4f58c3",
+    "dark-standard-attachments/manifest.json": "c588f6c77b786854dc05c8201c07d57a7e6b066982dee3fa6277aba465543496",
+    "dark-standard-summary.json": "c8ae9a106ca009af3eda4878165500a99b902f44e690c861233853ab211f3cbf",
+    "dark-standard.log": "96a971fe49b20c5e7c89616aa45239e6fadde32c22468ff81a3b6fea0d5be32b",
+    "diagnostic-interruption.txt": "85188f7046ec46de7acb09edf2833617d7c903e3d71c84aaa45e56cac00d18b6",
+    "environment-restored.json": "2d5a0f4c5460da28b75f669c7abe66c0f4f479b92baf1929348ac87d9f9387a9",
+    "exploratory-ContentView.swift": "79753793e4d26d6a79789d4d78b038771fa32b7ad786639c46b636fd793737f4",
+    "final-gate-tests-summary.json": "12db8d3e261095adce4d0e44caba5a9ecf8a758232fe23732962fbdb5e5d8149",
+    "final-gate.log": "ac8355c54d865cf220cda5c09e795b84966c1c3e58c7f0936cdd29e7059bc752",
+    "final-standard-attachments/1B72FFED-D678-47DD-9640-2C9EE7D8FCD6.txt": "c1e4e517cfdfe1bdd2bccf408296216f6473e3cbed2b165d78e77a6e2eb1f6a2",
+    "final-standard-attachments/4CE0BAD4-95EB-45B6-B13D-0B158745F65E.txt": "0ff5ae5877013f6046cf47b1a7e835d140ca7b91a8505e0c29e11f79071b3976",
+    "final-standard-attachments/79269D27-8E45-45EA-AA93-D2762972A579.txt": "52a54cf2fe4b71ba851f1e47ebb3d9dcd94243309cf6f3e96de41c7dfdfbc3b0",
+    "final-standard-attachments/88ACF586-5A66-4844-AACD-AF00BAEE41EF.png": "b5a25a793190622f0c14b97fc9de6f2b4aff10463d6245423854b00ee07a5f93",
+    "final-standard-attachments/97A01A7A-0C8E-4CAF-873A-84B82E004005.txt": "870be93c0004306bda3a43496c73c90e427e7c48d0e4a8c60fd839c1f3100f87",
+    "final-standard-attachments/B74C6918-CFFA-405C-A470-6A7A8FD7E98B.txt": "11f0d8209f1394e1a3dc2fc2da8119b2bc4562a47648c5169e5c77d39fae52c1",
+    "final-standard-attachments/B78AB80F-7938-44ED-91B3-0234793E31FF.png": "7b1adc9413588684e992ddc6889085c999b33543e6b7120723f08ce430d2b552",
+    "final-standard-attachments/CA7CB841-4D41-41C8-A579-9ADB09456B7A.png": "607931631985bd10fa9102af2727039c1d4930a8d509d3a9ae2a4cf5dd390eba",
+    "final-standard-attachments/E44CE840-086A-4A5A-8F44-A36BB5F4A475.png": "68d5cfca94c6bc1dd5a0d8a1abd917a9fd821dceb347d859a5e8b13a2cc7d515",
+    "final-standard-attachments/E7E7416B-482F-40CE-9EC9-CA6ECA08DC4F.png": "92ee81263ab5886d551c16e621ecc0271f93f45adcb94928a3c3c803187ca39f",
+    "final-standard-attachments/F54F5F7D-FFB0-4388-B4CB-5A74FF6194A1.txt": "0e257048bfb0a8b9e854dcd26cc6e90372561cb5f96098fdd8f7b74813855864",
+    "final-standard-attachments/FA3B9E37-9E2F-45D2-90D8-F4C43E8BEB7E.png": "d5bd3e11606879fa86e97e74bc29b5202fc17eb96ad339d9910ba5663fb0c9aa",
+    "final-standard-attachments/manifest.json": "84f63af21e7ad6460523753f946927001c8de3e75c5f13c1562f97903c7bffdd",
+    "final-standard-export.log": "a3e845871f048ccb145345a2994e37231f12fa58ffb2aa39194d85f47a202472",
+    "fix-export.log": "1e783bcaa28dbafd75d615df771fa10e20f2ef30207b81b9db3430314e63c8c6",
+    "fix-interruption.txt": "84bad934028c66c58812b2772e7e4629a869a1538b26c5ce5784d4a02aae3922",
+    "fix-standard-summary.json": "afd5cbbc347f6885695f0092606473b4e0524ea4d99dc8339859f05841d9fb3e",
+    "fix-standard.log": "abfaca5a713567161669eb28c70c9ed7d718aafb412b42a1ceda470cd33cdd15",
+    "full-audit-test.swift": "3c4aea6f92f7beab912f531c4f1afe81a3e30e64e98df05de75b57e019f7cc29",
+    "gate-export.log": "354f80ee64492eaa3f0f799a01eb90888000cd5ac50dcdd545ef915047d69e77",
+    "gate-tests-summary.json": "1c5d32209372613e0b99b464b9646b10cf5f72d5f4c441a5bf277f9fb1218eb5",
+    "gate.log": "340433499bdae109d839f28c4e9a436bf2d97172ba37d056d2778c40585bb378",
+    "initial-activities.json": "b31fc7262212e2d94162371f6e5305cf90d8320325b7dab2998a1b13a00482df",
+    "initial-audit-summary.json": "d6ecbc6eaf79bc7df3ab1004b5aee125cb0ef7b68240ea4fbbe473e71f3a33ba",
+    "initial-audit.log": "48568c83a03a70ad35a698bcc6162fe34e15b116494746aeb83d96fb3627f721",
+    "initial-result.json": "9a9f197b6eda0b8d9fb52a74ee8bc08293ea603f65f3cc86ef6ae1a01d1a9976",
+    "isolated-lower-summary.json": "930d9867f79e26fad3c4bed435d9c8abaac88a9efe96876d3cf2547d7d5b1286",
+    "isolated-lower.log": "963fd2e78067e1dc2fb1ccf4a13dae3d4208b0018b7d11eef33d0f3fc8a20536",
+    "large-before.png": "228991662baded45f8a11b21de0897fd87659903812eaef470660053b6120e3d",
+    "layout-export.log": "4a6e2a02864a2e93e25b107576bb7fd77e456283f3b365022aad2a01c1c35543",
+    "layout-standard-summary.json": "8703831b17858862d03e6fe23bf012d8e3095d51af3f8bde54f02c8fcef23788",
+    "layout-standard.log": "6470554dc5bebc0fb4cd1266da624869907330e64952c0c5c630339ef0f6c015",
+    "macos-identity.json": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
+    "maximum-font-attachments/02DB43B8-CE41-439A-A266-A42F1113EB1E.png": "024a149c89476325a3186749f8e7bd73d313eb1e9c085fb4564c4b79dfd490f9",
+    "maximum-font-attachments/063D733E-421D-48B3-A32F-507350D74521.txt": "a3f6ceeef40d4fac3954b1e8329b2c2155957d97abd9fa6fb516b7774cb31595",
+    "maximum-font-attachments/09BC2ACF-617D-4601-88C3-73278FB41FBF.txt": "b740078c51137a3f39c37bb2994be40c4676a8198812988dffad74d54aa1ea20",
+    "maximum-font-attachments/0D12BBB4-B9BB-4A9F-A627-78B645A5D07C.txt": "a5e95ec08aa09f3f8f1abe3b3195ad8cd047a72d004696608efd2515614dc121",
+    "maximum-font-attachments/1E17B71E-9EF0-4275-99FC-0A3D8DE8DB38.txt": "3d5650694861bd997d39f5eb2f0557befad05256028f51ed8e38a907b6ad4f43",
+    "maximum-font-attachments/1E7FAB1F-F4C4-4C5F-86BB-418E9DB729E1.png": "f73888b56b1d59a46dc5d9fc5d118c98b4495b95a39cd1a2aa9f4fc0afc571b7",
+    "maximum-font-attachments/222A69EF-8FEF-44FF-91BD-AAC7C25B33DD.png": "7576875e358b580af989508a982220736f6f6b049ffa22375a615c531d3a0070",
+    "maximum-font-attachments/22D267DB-8777-44FF-AC85-5F43BB5E665D.png": "dfbcba07a2d8ec6e8bda66dabc01285db2c404e00ec0d6e60a4ea9f6fc9225fc",
+    "maximum-font-attachments/23DE8974-868A-41FA-AFD0-CE40BC3F21D7.png": "6fda3e7900f9fd9b389eaf6d2626bc7d461c71e887c64befc27258eea52cac69",
+    "maximum-font-attachments/350AAC91-240C-4D02-A8FB-8CB3B64451F2.png": "ee0d4ad8514ec82b6fe96eef8c0f7d59b76b116432ba9d7d582bdbda010e00de",
+    "maximum-font-attachments/3E412C15-06DB-46CF-89FD-95DBC0E91310.txt": "b1aa3ac1d15209c1c0474d4141a054d5104df8dd759f7fda43e2295465093fe7",
+    "maximum-font-attachments/3F1256BD-9B24-4723-9815-BB9C8E07B486.txt": "d6179a7934d5a65fbb01a5ce498814a1db194441a1c3c6f9152006200abbbdbe",
+    "maximum-font-attachments/407692CB-5615-4733-868B-67CB1458F2F6.png": "6ea1dea5fb29ed8a9f642a31303b31e8455d60e9778b2a5a3554e3e26f3507ce",
+    "maximum-font-attachments/454AD6ED-BBF1-4D24-89A4-5FE6D912FF34.png": "4433fae306fa13dc7f67c042e3fbd5cd331926bbd1ddc3d6c870484d046573a1",
+    "maximum-font-attachments/4A2B4C8A-B1E0-47AE-AD6D-542B34893382.png": "8ae4519d74911e1aa938612c19dc74e21b86970515ad2e33b367eb7bdf28176b",
+    "maximum-font-attachments/4D02C70F-AE8E-49F9-9D07-CDA1D135EEE9.png": "904f9eb2a9a5c05cd7189075715d8b559c80d81e50ee95bd167d2c6765b86371",
+    "maximum-font-attachments/500D23E5-DCDE-45E0-9812-7322701C0378.txt": "30f2e84fc2dd71f98e088dfc787040d3283b0959f7d15675bca3ac9f59bd2f1e",
+    "maximum-font-attachments/5DC8F111-6F61-43B8-A306-CEB20A136A1D.txt": "126a9cc0a78c353e77f38739c09f4a147fdd7b0f08f500859ae03e7a4ff84717",
+    "maximum-font-attachments/6B5DFFB6-238C-40E3-A0A8-1A8DA45C1D1B.png": "bc48e84a27da61e864dc358641c678dd765ca90a1630f428ccee03a179d9274f",
+    "maximum-font-attachments/6CD5F2CF-5C42-4FAD-B30B-07492AD1BB57.png": "03d800130b5e28e096420752c0c798b817f9d7b12041a5c12137e69cd545b8e3",
+    "maximum-font-attachments/73BABF70-BF1C-46FA-A628-6F02FC6760B5.png": "9ab33d183125ec1dfb2c00d5b691bae402f8dcd0146c8bab1c01ae65b46bbb1a",
+    "maximum-font-attachments/74CCD8CD-F48A-44E0-8551-A6F3FA0076E3.txt": "891e30aaff2c5b12598fb5cb945eb2c8b41bd539579a630a7ec0bc524ee4fc0d",
+    "maximum-font-attachments/87C7442F-E879-4F62-AB34-8E9D22004D70.txt": "4e32993d744f930e47363547a5f1fdd47970bc0706176902cb110e6bbeae0040",
+    "maximum-font-attachments/900EFB97-3DB1-4E2C-9113-C7134A12DA4E.txt": "01abfe6d82cd6200a7bde942543a5fdc0b947ebea16454b140231913f566d931",
+    "maximum-font-attachments/92A72193-F777-4F78-B145-23D6694EFBEB.txt": "31e78cc07ec87735f8090138b362a0f85185a9a658e394c4e7c37d00f9d2fd40",
+    "maximum-font-attachments/96DBA74C-3912-403D-B910-2833C8CDBF88.txt": "bc91dd7a1a2236b577bd3a976cce099d6f78e2fcce2bb0d5af74380a3ca3bf71",
+    "maximum-font-attachments/9851B797-8A20-4ECD-8BB3-E201AB161BD7.png": "a2097f7aaca249faa41a3108f91f20f8d8cfdab05df538726d0119c3a00aa297",
+    "maximum-font-attachments/9C4ED302-77A7-449D-9B67-40E102C2495C.png": "92fdee93efb752227727707c2d6ccd3c703c48fc35c5aae471ac8e9835421307",
+    "maximum-font-attachments/9E136DCA-3836-49E4-8365-AFE80EC4BE70.png": "08b9a96fccef19394b4afb7e8f3dd5ee1ad22fce384d5763559c176268b4820b",
+    "maximum-font-attachments/9E78DB52-B157-4B4B-895F-05AD06A6FA15.txt": "d08fa59b117e35d45ae2ca45eca0cfdb418b1b12ac05ed8aa96b36e85d4e88ce",
+    "maximum-font-attachments/A9FE883A-C4EE-4EB9-B044-9DDED32E9F52.txt": "45581e1596de2499bc9f3bc2b3f0d5b10a0cd2fc69af2cfd562cae129c4e897a",
+    "maximum-font-attachments/AC608CEF-4E44-45FD-89E0-95ACFCD55BF5.txt": "7633b26878db3ddf34653d5c4fffd558518748c15e1424ec082cafa3b1358346",
+    "maximum-font-attachments/B34DF3A2-E03F-4EB1-8A85-6D75DDE774AE.txt": "66fa680a1d3bbb109327dcdf20e0e9ad6e80c09b9f195abf255b225a0fccd0e3",
+    "maximum-font-attachments/BE9780BE-4FD1-43C3-8E4B-262AD8F303D5.txt": "2588124842453bb66dff27a64445be4cf414b86caab4182ac7af376d3dc89007",
+    "maximum-font-attachments/C66F7040-CEFD-4A20-86BD-74743C16003B.png": "92dba4b306bde76e4ad8e7ca69b0098d7723ccae10b1dbf95fc5044f0091494b",
+    "maximum-font-attachments/C73496AB-6789-42B7-90D6-7A3F8E8ECEC0.txt": "8def4f5a8ab306f9322bcd95eec8aff940090c14c0a02695415e7e0c1db71151",
+    "maximum-font-attachments/CE300E29-6B9A-4ED3-A0F1-2377B72A1AE1.txt": "25e455f6715e5c597a9142cb1c14d9c3302ebc91520914e649d3acc48d1e8d14",
+    "maximum-font-attachments/D9949577-694D-45A4-B0A4-FA1D6F3ABD66.txt": "3fce97d8bb7798c1659d58b1c8b71c020d1e1d1845dfc5b6fb0f9e8d53ff8890",
+    "maximum-font-attachments/DA090ADC-D456-4F28-89B0-C2DEE1EB475A.txt": "e68f622c8600f2bcf8de9b81bf7b566ea1fb138304eb2d68e5fed47862aba3dc",
+    "maximum-font-attachments/DB145A3F-51BA-44D4-BCC9-75B6A70EDA33.png": "b3c20c7dabe82a0308139038982c0f93c523e0a9536824fe4f34487f3e691f95",
+    "maximum-font-attachments/E21EE5D6-0A6F-4D32-8031-80AA9698619F.png": "1854d5db91c5c3c17e9797d6bca6d3241b770abcfc4f1962046dfbe01c7f0444",
+    "maximum-font-attachments/E346EA8C-36B3-4E1D-A4EF-8B6495802A23.txt": "d4eac6b00f486ce18c3175173da8bbc628a30998809a7599c637a649d525a80b",
+    "maximum-font-attachments/EA52C442-E5F8-4F91-8F1D-21AE6F6485B8.txt": "0ff06b542e85c6218d8e9987cdb3a85254ea9403b17946dcbed06dd4edcdd17e",
+    "maximum-font-attachments/EB4B8260-6741-46A6-86DD-6F3FE628B2CC.png": "8f4cb573fae40d3ac986bf05d1b61fdbdaa2ea5502afe636a5b8333b52f133aa",
+    "maximum-font-attachments/EBC54343-F1C8-4A22-A091-3C37BEBE30BC.png": "fbf58905f65190d961cf13303e8d7beb30e311bcaf9e3cec7cd5e87ed0b1676d",
+    "maximum-font-attachments/F484DA74-C4D0-487B-B376-3EBE1CD994A1.png": "574bcd7b7c2f195b80cd8e05467cb8e116096a6da46c95df4481588e43a58d99",
+    "maximum-font-attachments/F73E9C92-46F1-46B3-8556-09FA1564AE53.png": "3e21a84f1e0f6f2984c0897a90805bda7299cb30346f222b46f18f2325311b9a",
+    "maximum-font-attachments/FA463B1B-F1CB-4728-BBAF-2CF0FDC58C01.png": "4b59980215779b2c892dc48a8a3a4084b859feea72f8fa233b607c177903e1ee",
+    "maximum-font-attachments/FA887871-0895-4136-B762-40CB9DE940B2.txt": "f24dc773c8582f9c51447a4d763ad83ab522e18aba380b645885eb0121c5da79",
+    "maximum-font-attachments/FBB46400-B6B1-4549-9835-94D6C8B68FA7.png": "570ec33824331366fe0e4bf34be8ec86b8f43e30e8b376990162feaf0f6f6712",
+    "maximum-font-attachments/manifest.json": "cfb214d41bc8bfb52292d727194d38d31db3e8b398276f4090910d8370ff8f4e",
+    "maximum-font-export.log": "d33d983985f7f498e690476e0e15042a3e18f02ab48ec37cef53c89342bb9c4f",
+    "maximum-font-summary.json": "6cc5304d9434b837d3329cca5453c23a7fc91077e405e2c4779397abed8afcdb",
+    "maximum-font.log": "a882ded7251707e76cf4538f1b7b36908570329e0a62252e164ec754a39c87ff",
+    "original-appearance.txt": "00be490dace2ce959d7af6676ed67f78d1f9c8a58174447b1d6d96168f386166",
+    "original-content-size.txt": "9bfce334a37bd1bc1d36b0370195b31fe9a9389dd43d0873891a3544ef1140a1",
+    "product-identities.json": "5b6b19801cd988cfb08f10b39df354ec0a6b396251f4abd38acfcadbcee06617",
+    "repo-tests.log": "7d95156a62b220d7419932a3069197c9aa66777c3eec3d5852ed13c6863dc250",
+    "standard-audit-summary.json": "824912e84c28f796cdae454eadfe3b7d42f5b58f1dfaf1da9a9627fa45524cc7",
+    "standard-audit.log": "c75183771d23a966e57077af1d09803f264571ef7a77d17aad0d03a750d00282",
+    "standard-before.png": "bbf53c77a26606e40ac534e59b8ae22caa3e3fc1650121751fbe9d3832c362da",
+    "standard-export.log": "1856226f64455241841b4fc0131dcd5523f1f894790ffb4dbd11d791dff54639",
+    "xcodegen.log": "5b2af2f970b0b57b2e55accb6838db28544c6a807164fc2b0997128fa3749c1b"
+  }
+}

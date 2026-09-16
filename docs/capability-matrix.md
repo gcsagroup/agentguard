@@ -54,7 +54,7 @@
 | apps/android-companion/app/src/test | 72 | Kotlin JVM `@Test`(纯函数) |
 | apps/android-companion/app/src/test(Robolectric) | 31 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需设备) |
-| apps/ios-webshield | 23 | Swift `func test*(` |
+| apps/ios-webshield | 26 | Swift `func test*(` |
 | eval/scenarios | 135 | 离线评测场景(YAML) |
 | eval/capability-claims.yaml | 36 | 用户能力声明(每条挂证明测试) |
 

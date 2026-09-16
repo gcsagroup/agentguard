@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS native text contrast and scoped regression checks (2026-09-17)
+
+- Status text, explanations and section headings now use adaptive primary text color. Unavailable shared storage still leaves protection disabled. App and extension retain their names and IDs at 1.0.0 (13).
+- Added first-screen contrast and scrolling checks in three languages. The final development gate passed Node 26/26, Swift 26/26, strict Release builds and Analyze. Earlier full accessibility-audit failures remain open; Dynamic Type and later-page reports do not count as I6 acceptance.
+- Fixed macOS App 024 remains unchanged across 91 files and modes. The preceding CI passed 13/13; baseline CI ended with 12 successes and one unresolved macOS startup-wait failure. [Evidence and limits](docs/ios-native-contrast-2026-09-17.zh.md).
+
 ### AGD-027 minimal-process first-launch comparison (2026-09-17)
 
 - A new approximately 52 KB C control still took 434/591 ms to reach its first main operation, with repeat entries at 2.3–4.3 ms. Aligned parent/child clocks put log delivery at only 0.06–0.09 ms. Gateway behavior, original budgets and system protection are unchanged.

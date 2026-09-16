@@ -97,4 +97,8 @@ Keychain access group；完全关闭代码签名时 Keychain 与 App Group 会�
 
 ## 2026-09-17 键盘提示修正（构建 3）
 
-App 与 Extension 现为 1.0.0 (3)，名称和 Bundle ID 保持。风险提示关联三语标题和说明，Tab／Shift+Tab 留在关闭键；关闭或 Escape 返回此前仍连接的控件，重叠提示按层处理。没有新增放行或重放。四个新增回归在旧源码全部失败；修正后 Node 26／26、Swift 23／23、两种严格 Release 和 Analyze 通过，真实 Chromium DOM 的三语键盘操作无风险请求。原生桥为合成；真实 Safari、VoiceOver、动态字体与 TestFlight 未验收。前批 CI 另有 macOS 启动等待和 Windows 并发审计失败，仍待解决。 [记录](../../docs/ios-dialog-accessibility-2026-09-17.zh.md)。
+此前 App 与 Extension 为 1.0.0 (3)，名称和 Bundle ID 保持。风险提示关联三语标题和说明，Tab／Shift+Tab 留在关闭键；关闭或 Escape 返回此前仍连接的控件，重叠提示按层处理。没有新增放行或重放。四个新增回归在旧源码全部失败；修正后 Node 26／26、Swift 23／23、两种严格 Release 和 Analyze 通过，真实 Chromium DOM 的三语键盘操作无风险请求。原生桥为合成；真实 Safari、VoiceOver、动态字体与 TestFlight 未验收。前批 CI 另有 macOS 启动等待和 Windows 并发审计失败，仍待解决。 [记录](../../docs/ios-dialog-accessibility-2026-09-17.zh.md)。
+
+## 原生文字对比度（2026-09-17）
+
+当前 App／Extension 为 1.0.0 (13)，名称与 Bundle ID 保持。状态、说明和分组标题使用正文颜色；共享存储不可用时防护仍关闭。新增三语首屏对比度及滚动回归，开发门禁 Node 26／26、Swift 26／26、严格 Release 与 Analyze 通过。完整自动审计仍有动态字体、截断和后续页面报告，I6、真机 Safari 与 TestFlight 未通过；[证据与限制](../../docs/ios-native-contrast-2026-09-17.zh.md)。

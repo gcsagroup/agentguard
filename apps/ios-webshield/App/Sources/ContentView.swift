@@ -55,7 +55,7 @@ struct ContentView: View {
                         .font(.headline)
                     Text(statusKey)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.primary)
                         .accessibilityIdentifier("status.value")
                 }
             }
@@ -64,7 +64,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var protectionSection: some View {
-        Section("section_protection") {
+        Section {
             Toggle(
                 "privacy_consent",
                 isOn: Binding(
@@ -91,25 +91,31 @@ struct ContentView: View {
 
             Text("protection_note")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.primary)
+        } header: {
+            Text("section_protection").foregroundStyle(Color.primary)
         }
 
-        Section("scope_title") {
+        Section {
             Label("scope_body", systemImage: "safari")
                 .font(.callout)
                 .accessibilityIdentifier("scope.boundary")
+        } header: {
+            Text("scope_title").foregroundStyle(Color.primary)
         }
     }
 
     private var enablementSection: some View {
-        Section("section_enable") {
+        Section {
             Label("enable_step_1", systemImage: "1.circle")
                 .accessibilityIdentifier("enable.step1")
             Label("enable_step_2", systemImage: "2.circle")
             Label("enable_step_3", systemImage: "3.circle")
             Text("enable_status_note")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.primary)
+        } header: {
+            Text("section_enable").foregroundStyle(Color.primary)
         }
     }
 
@@ -117,7 +123,7 @@ struct ContentView: View {
         Section {
             if model.records.isEmpty {
                 Text("no_activity")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.primary)
                     .accessibilityIdentifier("audit.empty")
             } else {
                 ForEach(model.records.prefix(25)) { record in
@@ -131,21 +137,24 @@ struct ContentView: View {
             .disabled(!model.canClearHistory)
             .accessibilityIdentifier("audit.clear")
         } header: {
-            Text("section_activity")
+            Text("section_activity").foregroundStyle(Color.primary)
         } footer: {
-            Text("audit_description")
+            Text("audit_description").foregroundStyle(Color.primary)
         }
     }
 
     private var privacySection: some View {
-        Section("section_privacy") {
+        Section {
             Text("privacy_note")
                 .font(.callout)
+                .accessibilityIdentifier("privacy.note")
             if !model.storageAvailable {
                 Label("storage_unavailable", systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.primary)
                     .accessibilityIdentifier("storage.error")
             }
+        } header: {
+            Text("section_privacy").foregroundStyle(Color.primary)
         }
     }
 
