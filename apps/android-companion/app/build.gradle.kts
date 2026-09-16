@@ -14,8 +14,7 @@ android {
         targetSdk = 36
         versionCode = 1000001
         versionName = "1.0.0-rc.1"
-        // Relay v1 authenticates requests but not responses. Keep the production variant
-        // incapable of enabling it until Relay v2 response authentication is reviewed.
+        // v2 已加入双向认证；正式候选与真机验收完成前，Release 仍不能启用。
         buildConfigField("boolean", "EXPERIMENTAL_RELAY_ENABLED", "false")
     }
 
@@ -99,6 +98,16 @@ android {
     }
 }
 
+// 本地功能候选递增，正式元数据仍由统一发布计划控制；包名与安装路径保持。
+androidComponents {
+    onVariants(selector().withBuildType("debug")) { variant ->
+        variant.outputs.forEach { output ->
+            output.versionCode.set(1000008)
+            output.versionName.set("1.1.0-dev.8")
+        }
+    }
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
@@ -126,4 +135,5 @@ dependencies {
 // AndroidE2EContractTest 实际执行此脚本；脚本变化后不能复用旧测试结果。
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
     inputs.file(rootProject.file("../../scripts/acceptance/android-e2e.sh"))
+    inputs.file(rootProject.file("../../eval/fixtures/relay_response_v2.json"))
 }

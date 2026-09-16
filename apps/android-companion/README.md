@@ -4,7 +4,7 @@
 
 Android 伴生应用使用 Kotlin、Jetpack Compose 和 `AccessibilityService` 观察守护会话中的界面事件，执行本地启发式检查，并将最小化事件写成 JSONL。
 
-> 当前状态：源码、JVM 单元测试、Debug APK 和 API 36 模拟器权限生命周期已验证；尚无真机端到端验收、正式发布签名证据或 Google Play 发布记录。通知是事件发生后的提醒，不能暂停、撤销或阻止第三方应用已经执行的操作。Relay v1 的响应未认证，因此 Release 构建会强制禁用桌面中继；它只保留在 Debug 构建中用于协议开发。
+> 当前状态：源码、JVM 单元测试、Debug APK 和 API 36 模拟器权限生命周期已验证；尚无真机端到端验收、正式发布签名证据或 Google Play 发布记录。通知是事件发生后的提醒，不能暂停、撤销或阻止第三方应用已经执行的操作。Debug 现使用固定桌面公钥验证 Relay v2 响应；Release 在独立验收完成前仍强制关闭中继。历史 API 36 证据不代表本轮 v2 已通过真机或新版系统验收。
 
 ## 能做什么
 
@@ -12,7 +12,7 @@ Android 伴生应用使用 Kotlin、Jetpack Compose 和 `AccessibilityService` �
 - 检测支付/转账文字、隐私陷阱、非必要个人信息、提示词注入标记，以及界面文字里出现的可疑深层链接**字样**（`intent://` 一类）。它不观察深层链接本身——无障碍服务看不到 intent。
 - 调查可见的文本输入广播接收器及其他已启用的无障碍服务。
 - 将每个会话的信封追加到应用私有目录 `files/events/session-<id>.jsonl`。
-- Debug 构建可通过用户明确配置的 HTTP 中继联调桌面本地 API；Release 构建在响应认证完成前强制禁用该能力。
+- Debug 构建可通过 USB 回环 HTTP 或 HTTPS 联调 Relay v2；必须明确配置桌面公钥与令牌，先验签再接受判决。Release 仍禁用该能力。
 - 使用 Android Keystore 中不可导出的 ECDSA P-256 密钥为实际发送的 HTTP body 签名。
 
 ## 构建与测试
@@ -47,13 +47,18 @@ USB 调试路径示例：
 
 ```bash
 # 桌面端，在仓库根目录运行
-cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788
+mkdir -p -m 700 "$HOME/.agentguard-relay"
+cargo run -p guard-cli -- relay-keygen --key "$HOME/.agentguard-relay/response-key.json"
+# 将打印的公钥填入手机；先按下文登记手机公钥，再启动 API
+cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788 \
+  --relay-signing-key "$HOME/.agentguard-relay/response-key.json" \
+  --adapter-registry policies/adapter-registry.yaml
 
 # 让手机的 127.0.0.1:8788 转到桌面
 adb reverse tcp:8788 tcp:8788
 ```
 
-Debug 构建的默认中继地址是 `http://127.0.0.1:8788/v1/events`。该 HTTP 路径只用于本机开发，不得作为发布配置；不要把本地 API 无认证暴露到网络。
+Debug 构建的默认中继地址是 `http://127.0.0.1:8788/v2/events`。只允许字面的 `127.0.0.1` 走明文 HTTP；远程地址必须使用系统信任的 HTTPS。把桌面公钥、地址和令牌保存后，再单独开启转发。换地址或公钥需要重新输入令牌，旧启用状态不会迁移。签名不加密内容，详见[响应协议](../../docs/relay-v2.md)。
 
 可以通过 Android Studio Device File Explorer 或 `run-as` 读取应用私有目录中的 JSONL。每一行都是一个信封；将单行保存成 JSON 文件后可离线回放：
 
@@ -75,7 +80,7 @@ X-AgentGuard-Signature: <DER 签名十六进制>
 
 接线步骤：
 
-1. 开启应用中的桌面转发，点击“显示适配器公钥”，复制以 `04` 开头的 130 位 SEC1 十六进制公钥。
+1. 展开应用中的开发者设置，点击“显示适配器公钥”，复制以 `04` 开头的 130 位 SEC1 十六进制公钥。
 2. 在桌面仓库根目录生成注册卡：
 
    ```bash
@@ -87,7 +92,7 @@ X-AgentGuard-Signature: <DER 签名十六进制>
 
 3. 将输出合并到 `policies/adapter-registry.yaml`，重启桌面 API。
 
-未注册公钥时，桌面端把伴生应用的调查视为未签名：它可以增加风险，但不能用“环境干净”清除已存在的风险。该签名证明信封来自持有设备密钥的一方，不证明应用未被修改，也不替代 Play Integrity 或设备完整性证明。
+v2 会拒绝未注册、签名无效、过期或重放的请求；没有桌面响应密钥返回 503，手机不会降级到 v1。旧 `/v1/events` 的未认证调查仅增加风险行为保持兼容。该签名证明信封来自持有设备密钥的一方，不证明应用未被修改，也不替代 Play Integrity 或设备完整性证明。
 
 ## 环境调查的限制
 

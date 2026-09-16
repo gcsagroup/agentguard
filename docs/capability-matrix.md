@@ -31,12 +31,12 @@
 | crates/guard-gateway | 340 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-intel | 60 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-localapi | 17 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-localapi | 24 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-netmon | 2 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-nm-host | 27 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-overlay | 10 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-privacy | 109 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-schema | 186 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-schema | 187 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-shell | 42 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-sync | 6 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-trust | 6 | Rust `#[test]` / `#[tokio::test]` |
@@ -47,12 +47,12 @@
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-macos/src-tauri | 148 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合计** | **1750** | |
+| **Rust 合计** | **1758** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari 扩展 node `test(` |
 | eval/e2e-extension/run.mjs | 39 | 真浏览器 E2E 判据 `record(` |
-| apps/android-companion/app/src/test | 60 | Kotlin JVM `@Test`(纯函数) |
-| apps/android-companion/app/src/test(Robolectric) | 26 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
+| apps/android-companion/app/src/test | 71 | Kotlin JVM `@Test`(纯函数) |
+| apps/android-companion/app/src/test(Robolectric) | 28 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需设备) |
 | apps/ios-webshield | 22 | Swift `func test*(` |
 | eval/scenarios | 135 | 离线评测场景(YAML) |
@@ -77,5 +77,7 @@
 | Android minSdk | `26` |
 | Android targetSdk | `36` |
 | Android compileSdk | `36` |
+| Android Debug versionName | `1.1.0-dev.8` |
+| Android Debug versionCode | `1000008` |
 
 重新生成:`make capability-matrix`;核对:`python3 scripts/gen-capability-matrix.py --check`。

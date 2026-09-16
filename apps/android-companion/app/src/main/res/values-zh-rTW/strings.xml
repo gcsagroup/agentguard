@@ -14,7 +14,7 @@
     <string name="desktop_api_url">桌面 API 位址</string>
     <string name="bearer_token">Bearer 權杖（來自桌面 CLI）</string>
     <!-- 兩個雙短橫是 CLI 參數(bind / allow-lan 前綴)本身,不是排版破折號:換成 — 複製貼上就壞了。 -->
-    <string name="relay_help" tools:ignore="TypographyDashes">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi：api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <string name="relay_help" tools:ignore="TypographyDashes">USB：adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788/v2/events。遠端位址須使用 HTTPS 並固定桌面公鑰。</string>
     <string name="last_risk_none">最近風險：無</string>
     <string name="last_risk">最近風險：%1$s</string>
     <string name="last_risk_unavailable">最近風險詳細資料暫時無法使用</string>
@@ -71,5 +71,8 @@
     <string name="env_risk">偵測到裝置隱私風險。其他應用程式可能讀取文字或本機記錄；請先檢查輔助使用設定和已安裝的應用程式再繼續。</string>
     <string name="env_unknown">裝置隱私檢查未能完成，因此無法確認目前環境安全。</string>
     <string name="show_adapter_key">顯示轉接器公鑰</string>
-    <string name="adapter_key_help">把它填到 policies/adapter-registry.yaml 中 adapter_id: android-companion 那張卡上，並寫 key_algorithm: ecdsa-p256。不填的話桌面會把這個伴生應用程式的調查當成未簽章：可以增加風險，但清不掉風險。</string>
+    <string name="adapter_key_help">將此公鑰登記到 policies/adapter-registry.yaml，設定 adapter_id: android-companion 和 key_algorithm: ecdsa-p256。Relay v2 會拒絕未註冊或簽章無效的請求。</string>
+    <string name="relay_server_key">桌面回應公鑰</string>
+    <string name="relay_server_key_help">從已確認的桌面複製公鑰。儲存配對後轉送會關閉，請核對公鑰再啟用。</string>
+    <string name="relay_pairing_error">配對失敗，請檢查 v2 位址、桌面公鑰及已儲存的權杖。</string>
 </resources>

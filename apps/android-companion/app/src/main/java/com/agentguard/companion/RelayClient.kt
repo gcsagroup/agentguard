@@ -1,158 +1,150 @@
 package com.agentguard.companion
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.core.content.edit
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
-/**
- * Optional relay of event envelopes to the desktop local API.
- *
- * Expected topology: phone USB-connected, `adb reverse tcp:8788 tcp:8788`,
- * so the default URL `http://127.0.0.1:8788/v1/events` reaches the desktop
- * loopback API. Disabled by default; URL + bearer token live in prefs.
- */
+/** 用户明确配对的桌面中继；v2 不兼容未认证响应，也不自动迁移旧启用状态。 */
 object RelayClient {
     private const val PREFS = "agentguard"
-    private const val KEY_ENABLED = "relay_enabled"
-    private const val KEY_URL = "relay_url"
-    private const val KEY_LAST_OK = "relay_last_ok_ms"
-    const val DEFAULT_URL = "http://127.0.0.1:8788/v1/events"
+    private const val KEY_ENABLED = "relay_v2_enabled"
+    private const val KEY_URL = "relay_v2_url"
+    private const val KEY_SERVER = "relay_v2_server_key"
+    private const val KEY_LAST_OK = "relay_v2_last_ok_ms"
+    const val DEFAULT_URL = "http://127.0.0.1:8788/v2/events"
+    private val lock = Any()
+    private var generation = 0L
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val worker = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, ArrayBlockingQueue(32))
 
     fun isAvailable(): Boolean = BuildConfig.EXPERIMENTAL_RELAY_ENABLED
+    fun isEnabled(context: Context): Boolean = isAvailable() && prefs(context).getBoolean(KEY_ENABLED, false) &&
+        serverPublicKey(context).isNotEmpty()
+    fun url(context: Context): String = prefs(context).getString(KEY_URL, DEFAULT_URL) ?: DEFAULT_URL
+    fun serverPublicKey(context: Context): String = prefs(context).getString(KEY_SERVER, "") ?: ""
+    fun hasToken(context: Context): Boolean = TokenVault.isSet(context)
+    fun lastOkMs(context: Context): Long = prefs(context).getLong(KEY_LAST_OK, 0L)
 
-    fun isEnabled(context: Context): Boolean =
-        isAvailable() && prefs(context).getBoolean(KEY_ENABLED, false)
-
-    fun setEnabled(context: Context, enabled: Boolean) {
-        // A stale debug preference must not reactivate the unauthenticated response path when
-        // the same app data is upgraded to a release build.
-        prefs(context).edit { putBoolean(KEY_ENABLED, isAvailable() && enabled) }
+    fun setEnabled(context: Context, enabled: Boolean) = synchronized(lock) {
+        if (enabled) {
+            require(isAvailable()) { "此候选尚未开放桌面中继" }
+            RelayTransport.endpoint(url(context))
+            RelayResponse.decodePublicKey(serverPublicKey(context))
+            require(TokenVault.load(context).isNotEmpty()) { "请先保存中继令牌" }
+        }
+        generation++
+        prefs(context).edit { putBoolean(KEY_ENABLED, isAvailable() && enabled); remove(KEY_LAST_OK) }
     }
 
-    fun url(context: Context): String =
-        prefs(context).getString(KEY_URL, DEFAULT_URL) ?: DEFAULT_URL
-
-    /** URL 进 prefs;令牌进 Keystore 封装([TokenVault]),不再明文。空令牌 = 不改动已存的。 */
-    fun setEndpoint(context: Context, url: String, token: String) {
-        prefs(context).edit { putString(KEY_URL, url) }
-        if (token.isNotEmpty()) {
-            TokenVault.store(context, token)
+    /** 配对变化使在途响应失效并关闭转发；新目标或新密钥须同时提供令牌。 */
+    // 这里必须检查 commit 返回值；KTX edit 返回 Unit，无法保证旧配对已落盘关闭。
+    @android.annotation.SuppressLint("UseKtx")
+    fun setEndpoint(context: Context, url: String, token: String, publicKey: String) = synchronized(lock) {
+        val endpoint = RelayTransport.endpoint(url).toString()
+        val pinned = RelayResponse.canonicalPublicKey(publicKey)
+        require(token.isEmpty() || (token.isNotBlank() && !token.contains('\r') && !token.contains('\n'))) {
+            "中继令牌不能为空白或包含换行"
+        }
+        require(token.isNotBlank() || (endpoint == this.url(context) && pinned == serverPublicKey(context) && hasToken(context))) {
+            "新的桌面配对需要同时输入令牌"
+        }
+        generation++
+        check(prefs(context).edit().putBoolean(KEY_ENABLED, false).remove(KEY_LAST_OK).commit()) {
+            "关闭旧配对失败；未更换令牌"
+        }
+        if (token.isNotEmpty()) TokenVault.store(context, token)
+        check(prefs(context).edit().putString(KEY_URL, endpoint).putString(KEY_SERVER, pinned).commit()) {
+            "保存配对失败；中继保持关闭"
         }
     }
 
-    /** 是否已保存过令牌(界面不回显令牌本身,只说"已保存")。 */
-    fun hasToken(context: Context): Boolean = TokenVault.isSet(context)
-
-    fun clearToken(context: Context) = TokenVault.store(context, "")
-
-    /** 最近一次成功 POST 的时刻(0 = 没有)。空判决的成功也算成功。 */
-    fun lastOkMs(context: Context): Long = prefs(context).getLong(KEY_LAST_OK, 0L)
-
-    private fun recordOk(context: Context) {
-        prefs(context).edit { putLong(KEY_LAST_OK, System.currentTimeMillis()) }
+    fun clearToken(context: Context) = synchronized(lock) {
+        generation++
+        prefs(context).edit { putBoolean(KEY_ENABLED, false); remove(KEY_LAST_OK) }
+        TokenVault.store(context, "")
     }
 
-    /** One decision the engine returned for a posted event. */
-    data class Verdict(
-        val eventId: String,
-        val action: String,
-        val ruleId: String,
-        val severity: String,
-        val requireConfirm: Boolean,
-        val humanMessage: String,
-    )
+    data class Verdict(val eventId: String, val action: String, val ruleId: String, val severity: String,
+        val requireConfirm: Boolean, val humanMessage: String)
 
-    /**
-     * POST the envelope and **read the answer**.
-     *
-     * # Why this is no longer fire-and-forget
-     *
-     * The previous version drained `responseCode` and discarded it. That made confirmation a
-     * desktop-only feature: the phone could report a payment sheet, the engine could decide
-     * `Block` with `require_confirm`, and nothing on the phone would ever know. Aura's
-     * Critical Node gate counted as covered on Android on the strength of a local heuristic
-     * notification that had no connection to the engine's verdict.
-     *
-     * Still on a worker thread, and still best-effort: a relay that is not configured, or a
-     * desktop that is not listening, must not stop the companion from observing. The
-     * difference is that when there *is* an answer, [onVerdicts] receives it.
-     *
-     * [onVerdicts] runs on the worker thread. Callers that touch UI must post to the main
-     * looper themselves.
-     */
-    fun postAsync(
-        context: Context,
-        envelope: JSONObject,
-        onVerdicts: ((List<Verdict>) -> Unit)? = null,
-        onError: ((String) -> Unit)? = null,
-    ) {
-        if (!isEnabled(context)) return
-        val url = url(context)
-        val token = TokenVault.load(context)
-        val payload = envelope.toString()
-        // 签**实际要发出去的那串字节**,不是 payload 这个字符串再转一次 ——
-        // 两次转换只要有一次用了不同的字符集,签名就静默地验不过。
-        val bodyBytes = payload.toByteArray(Charsets.UTF_8)
-        // 签不出来(没建过密钥、Keystore 出错)时是 null。桌面侧会把它当成未签名,
-        // 也就是可以加风险、不能清风险 —— 失败往保守那边倒,而不是不发。
-        val signed = AdapterSigner.signBody(bodyBytes)
-        Thread {
-            val outcome = runCatching {
-                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 3000
-                    readTimeout = 3000
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json")
-                    if (token.isNotEmpty()) {
-                        setRequestProperty("Authorization", "Bearer $token")
-                    }
-                    // 适配器断言签名走请求头,不进 body。塞进 body 就必须先规范化
-                    // 那个 JSON,而这个设计刻意绕开了 JSON 规范化。
-                    if (signed != null) {
-                        setRequestProperty("X-AgentGuard-Adapter", AdapterSigner.ADAPTER_ID)
-                        setRequestProperty("X-AgentGuard-Timestamp", signed.first.toString())
-                        setRequestProperty("X-AgentGuard-Signature", signed.second)
-                    }
+    fun postAsync(context: Context, envelope: JSONObject, onVerdicts: ((List<Verdict>) -> Unit)? = null,
+        onError: ((String) -> Unit)? = null) {
+        val app = context.applicationContext
+        val session = SessionState.activeSessionId() ?: return
+        val events = envelope.optJSONArray("events")
+        val closing = events?.length() == 1 && events.optJSONObject(0)?.optString("type") == "session_end"
+        val queued = System.nanoTime()
+        val body = envelope.toString().toByteArray(Charsets.UTF_8)
+        val snapshot = synchronized(lock) {
+            if (!isEnabled(app)) return
+            Snapshot(generation, url(app), serverPublicKey(app))
+        }
+        fun current(allowClose: Boolean = false): Boolean = synchronized(lock) {
+            generation == snapshot.generation && isEnabled(app) &&
+                (SessionState.activeSessionId() == session || (allowClose && closing))
+        }
+        fun deliver(result: Result<List<Verdict>>) {
+            // 与会话停止和界面配对变更在主线程串行，旧会话的迟到响应不再显示通知。
+            mainHandler.post {
+                synchronized(lock) {
+                    if (current()) result.fold(
+                        onSuccess = { verdicts ->
+                            prefs(app).edit { putLong(KEY_LAST_OK, System.currentTimeMillis()) }
+                            EnvelopeSink.clearRelayError(app)
+                            if (verdicts.isNotEmpty()) onVerdicts?.invoke(verdicts)
+                        },
+                        onFailure = { onError?.invoke(it.message ?: "中继认证失败") },
+                    )
                 }
-                conn.outputStream.use { it.write(bodyBytes) }
-                val code = conn.responseCode
-                val body = if (code in 200..299) {
-                    conn.inputStream.bufferedReader().use { it.readText() }
-                } else {
-                    // Read the error stream too: a 401 from a wrong bearer token is the most
-                    // likely failure in the documented `adb reverse` topology, and swallowing
-                    // it leaves the user with a companion that looks connected and is not.
-                    val err = runCatching {
-                        conn.errorStream?.bufferedReader()?.use { it.readText() }
-                    }.getOrNull()
-                    throw IllegalStateException("relay returned HTTP $code${if (err != null) ": ${err.take(200)}" else ""}")
-                }
-                conn.disconnect()
-                parseVerdicts(body)
             }
-            outcome.fold(
-                onSuccess = { verdicts ->
-                    // P1-6:一次成功就是成功——空判决也清旧错误、也记时刻。以前只有带判决的
-                    // 成功才回调,于是中继恢复后界面仍停在上次的错误上。
-                    recordOk(context)
-                    EnvelopeSink.clearRelayError(context)
-                    if (verdicts.isNotEmpty()) onVerdicts?.invoke(verdicts)
-                },
-                onFailure = { e -> onError?.invoke(e.message ?: e.javaClass.simpleName) },
-            )
-        }.start()
+        }
+        if (body.size > RelayResponse.MAX_REQUEST_BYTES) {
+            deliver(Result.failure(IllegalArgumentException("中继请求过大；本次事件未转发")))
+            return
+        }
+        try {
+            worker.execute {
+                if (!current(allowClose = true)) return@execute
+                deliver(runCatching {
+                    require(System.nanoTime() - queued <= 10_000_000_000L) { "中继请求等待过期" }
+                    val token = synchronized(lock) {
+                        check(current(allowClose = true)) { "中继配对或会话已改变" }
+                        TokenVault.load(app)
+                    }
+                    val assertion = AdapterSigner.signBody(body) ?: error("设备请求签名不可用")
+                    val response = RelayTransport.post(snapshot.url, token, snapshot.publicKey, body, assertion)
+                    parseAuthenticatedVerdicts(response)
+                })
+            }
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            deliver(Result.failure(IllegalStateException("中继队列已满；本次事件未转发")))
+        }
     }
 
-    /**
-     * Parse the `/v1/events` response.
-     *
-     * Tolerant by design — a field the host does not send yet must not throw away the fields
-     * it does — but never inventing: an absent `require_confirm` is `false`, which is the
-     * reading that does *not* raise a confirmation prompt the engine never asked for.
-     */
+    private data class Snapshot(val generation: Long, val url: String, val publicKey: String)
+
+    internal fun parseAuthenticatedVerdicts(body: String): List<Verdict> {
+        val root = JSONObject(body)
+        require(root.getBoolean("ok")) { "桌面未完成判决" }
+        val identity = root.getJSONObject("adapter_identity")
+        require(identity.getString("state") == "verified" && identity.getString("adapter_id") == AdapterSigner.ADAPTER_ID) {
+            "桌面未确认此设备的请求签名"
+        }
+        val decisions = root.getJSONArray("decisions")
+        require(root.getInt("ingested") == decisions.length()) { "桌面判决数量不一致" }
+        for (i in 0 until decisions.length()) {
+            val decision = decisions.getJSONObject(i)
+            for (field in listOf("event_id", "action", "rule_id", "severity", "human_message")) decision.getString(field)
+            decision.getBoolean("require_confirm")
+        }
+        return parseVerdicts(body)
+    }
+
     fun parseVerdicts(body: String): List<Verdict> {
         val root = runCatching { JSONObject(body) }.getOrNull() ?: return emptyList()
         val arr = root.optJSONArray("decisions") ?: return emptyList()
@@ -173,6 +165,5 @@ object RelayClient {
         return out
     }
 
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 }

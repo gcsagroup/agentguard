@@ -596,6 +596,11 @@ enum Commands {
     /// "自己想一个"更短的路,否则运维会去加 `--insecure-token`。
     /// 输出只有令牌本身一行,方便 `AGENTGUARD_API_TOKEN=$(agentguard api-token)`。
     ApiToken,
+    /// 显式创建或读取桌面中继响应密钥；只打印用于手机配对的公钥。
+    RelayKeygen {
+        #[arg(long)]
+        key: PathBuf,
+    },
     /// Generate an Ed25519 identity keypair for an **agent** (Aura pillar i).
     ///
     /// Distinct from `audit-keygen`, which makes a *device* key: that one attributes
@@ -707,6 +712,9 @@ enum Commands {
         /// unsigned — tamper-evident, not attributed.
         #[arg(long)]
         audit_signing_key: Option<PathBuf>,
+        /// 桌面中继 v2 响应的独立 P-256 私钥（由 relay-keygen 创建）。
+        #[arg(long)]
+        relay_signing_key: Option<PathBuf>,
         /// Allow non-loopback bind (LAN). Requires explicit flag; bearer token
         /// stays mandatory on every /v1/* route.
         #[arg(long)]
@@ -2545,6 +2553,7 @@ fn run_cli() -> Result<()> {
             allow_lan,
             insecure_token,
             audit_signing_key,
+            relay_signing_key,
         } => {
             let addr: std::net::SocketAddr = bind.parse().context("parse --bind")?;
             if let Some(parent) = audit_db.parent() {
@@ -2608,9 +2617,14 @@ fn run_cli() -> Result<()> {
                     insecure_token,
                     audit_signing_key: signing,
                     reveal_token: token_generated,
+                    relay_signing_key,
                 },
                 None,
             )?;
+        }
+        Commands::RelayKeygen { key } => {
+            let key = guard_localapi::relay::RelayResponseKey::create_or_load(&key)?;
+            println!("{}", key.public_hex());
         }
         Commands::NetmonCheck { flow, intel, rules } => {
             let raw = std::fs::read_to_string(&flow)?;

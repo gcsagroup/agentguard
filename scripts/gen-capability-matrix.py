@@ -264,6 +264,10 @@ def versions() -> list[tuple[str, str]]:
     for key in ("versionName", "versionCode", "minSdk", "targetSdk", "compileSdk"):
         m = re.search(rf"^\s*{key}\s*=\s*\"?([^\"\n]+)\"?", gradle, re.M)
         rows.append((f"Android {key}", m.group(1).strip() if m else "?"))
+    for key in ("versionName", "versionCode"):
+        m = re.search(rf'output\.{key}\.set\("?([^"\)]+)"?\)', gradle)
+        if m:
+            rows.append((f"Android Debug {key}", m.group(1)))
     return rows
 
 

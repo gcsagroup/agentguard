@@ -189,6 +189,42 @@ class MainScreenComposeTest {
     }
 
     @Test
+    fun `pairing fields can be edited before enabling and release keeps them inaccessible`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        assertFalse(RelayClient.isEnabled(ctx))
+        if (RelayClient.isAvailable()) {
+            compose.onNodeWithTag("developer.toggle").performScrollTo().performClick()
+            compose.onNodeWithTag("relay.server-key").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText(ctx.getString(R.string.bearer_token)).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText(ctx.getString(R.string.relay_server_key_help)).performScrollTo().assertIsDisplayed()
+        } else {
+            assertEquals(0, compose.onAllNodesWithText(ctx.getString(R.string.relay_server_key)).fetchSemanticsNodes().size)
+        }
+    }
+
+    @Test
+    fun `authenticated success refreshes visible connection state without reopening the activity`() {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        if (!RelayClient.isAvailable()) {
+            assertFalse(RelayClient.isEnabled(ctx))
+            return
+        }
+        val prefs = ctx.getSharedPreferences("agentguard", android.content.Context.MODE_PRIVATE)
+        compose.activityRule.scenario.onActivity {
+            prefs.edit().putBoolean("relay_v2_enabled", true).putString("relay_v2_server_key", "仅界面测试的配对标记")
+                .remove("relay_v2_last_ok_ms").commit()
+        }
+        compose.onNodeWithTag("developer.toggle").performScrollTo().performClick()
+        compose.onNodeWithText(ctx.getString(R.string.relay_state_connecting)).performScrollTo().assertIsDisplayed()
+        val accepted = System.currentTimeMillis()
+        compose.activityRule.scenario.onActivity { prefs.edit().putLong("relay_v2_last_ok_ms", accepted).commit() }
+        compose.waitForIdle()
+        val text = ctx.getString(R.string.relay_state_connected, java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(accepted)))
+        compose.onNodeWithText(text).performScrollTo().assertIsDisplayed()
+        compose.activityRule.scenario.onActivity { prefs.edit().putBoolean("relay_v2_enabled", false).commit() }
+    }
+
+    @Test
     fun `deleting local records requires an explicit confirmation`() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.onNodeWithTag("events.clear").performScrollTo().performClick()

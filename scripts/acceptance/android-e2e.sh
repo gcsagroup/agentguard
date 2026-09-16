@@ -6,7 +6,7 @@
 # 一条 adb 驱动的验收流程,把 runbook 里"人照着做"的步骤变成机器判据:每一步打 PASS / FAIL /
 # BLOCKED(原因),证据写入本次新目录,开发结果标识为
 #   AGENTGUARD_ANDROID_RELAY_DEV=PASS|FAIL|BLOCKED device=<real|emulator>
-# Release 关闭尚未认证响应的 Relay v1,因此正式验收始终另报
+# Release 在 Relay v2 独立验收前保持关闭，因此正式验收始终另报
 #   AGENTGUARD_ANDROID_E2E=BLOCKED scope=release
 #
 # 它**不是**验收报告本身:报告(docs/acceptance-report-template.md)仍由人填、由
@@ -17,7 +17,7 @@
 #
 #   1. 在应用里点「显示适配器公钥」,把 04 开头的 130 位十六进制粘给脚本(私钥在 Keystore 里,
 #      adb 拿不到,这是设计使然);
-#   2. 在应用里填中继地址 + 脚本打印的 Bearer 令牌,开启桌面转发(令牌进 Keystore 封装,adb 写不进去);
+#   2. 在应用里填中继地址、桌面公钥和脚本打印的 Bearer 令牌，保存后开启桌面转发；
 #   3. 点「开始守护会话」。
 #   其余(装 APK、授权、开无障碍、adb reverse、开桌面 API、打开固件页、杀进程、读 prefs)脚本自己做。
 #
@@ -69,9 +69,9 @@ done
 
 # 在 adb 查询、安装和任何旧证据写入前明确开发范围。
 if [ "$DEVELOPMENT_RELAY" -ne 1 ]; then
-  echo "Release 尚未提供经认证的中继响应；正式 A1–A4 未通过。" >&2
+  echo "Relay v2 尚未完成正式候选验收；Release 中继关闭，正式 A1–A4 未通过。" >&2
   echo "仅复验开发中继时，显式传入 --development-relay --evidence 新目录。" >&2
-  echo "AGENTGUARD_ANDROID_E2E=BLOCKED scope=release reason=unauthenticated-relay-v1"
+  echo "AGENTGUARD_ANDROID_E2E=BLOCKED scope=release reason=relay-v2-not-accepted"
   exit 2
 fi
 if [ -z "$EVIDENCE" ]; then
@@ -99,7 +99,7 @@ finish() {
   echo
   echo "results: $RESULTS  (evidence in $EVIDENCE)"
   echo "AGENTGUARD_ANDROID_RELAY_DEV=$marker device=${DEVICE_KIND:-unknown}"
-  echo "AGENTGUARD_ANDROID_E2E=BLOCKED scope=release reason=unauthenticated-relay-v1"
+  echo "AGENTGUARD_ANDROID_E2E=BLOCKED scope=release reason=relay-v2-not-accepted"
   [ "$marker" = "PASS" ]
 }
 cleanup() {
@@ -110,6 +110,10 @@ cleanup() {
   fi
   if [ "${FIX_REVERSE_CREATED:-0}" -eq 1 ]; then
     "${ADB[@]}" reverse --remove tcp:$FIX_PORT >/dev/null 2>&1 || true
+  fi
+  if [ -n "${RELAY_KEY_DIR:-}" ]; then
+    rm -f "$RELAY_KEY_DIR/response-key.json"
+    rmdir "$RELAY_KEY_DIR" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -139,10 +143,13 @@ if [ "$QEMU" = "1" ] || printf '%s' "$CHARS" | grep -qi emulator; then DEVICE_KI
 record A0 PASS "device $MODEL (API $SDK, $DEVICE_KIND)"
 [ "$DEVICE_KIND" = "emulator" ] && echo "  ! 模拟器:runbook 要求真机,结果只能记 PASS (sim)。"
 
-GUARD_CLI="$REPO/target/release/guard-cli"
+GUARD_CLI="${AGENTGUARD_CLI:-$REPO/target/release/guard-cli}"
 if [ ! -x "$GUARD_CLI" ]; then
   echo "  building guard-cli (release)…"
   (cd "$REPO" && cargo build --release -p guard-cli >/dev/null) || { record A0 FAIL "cargo build guard-cli failed"; finish; exit 1; }
+fi
+if ! "$GUARD_CLI" relay-keygen --help >/dev/null 2>&1; then
+  record A0 "BLOCKED(outdated CLI)" "build current guard-cli and set AGENTGUARD_CLI to its exact path"; finish; exit 1
 fi
 command -v python3 >/dev/null 2>&1 || { record A0 "BLOCKED(python3 missing)" "needed for JSON parsing and the fixture server"; finish; exit 1; }
 json() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1]))' "$1" 2>/dev/null; }
@@ -186,11 +193,21 @@ fi
 # run-as 可用性:debug 构建 + 非受限 OEM 才行。不可用时依赖它的判据记 BLOCKED,不是 PASS。
 if "${ADB[@]}" shell run-as "$PKG" id >/dev/null 2>&1; then RUNAS=1; else RUNAS=0; echo "  ! run-as 不可用:读 prefs 的判据将记 BLOCKED"; fi
 prefs() { "${ADB[@]}" shell run-as "$PKG" cat shared_prefs/agentguard.xml 2>/dev/null | tr -d '\r'; }
+redact_prefs() {
+  # SharedPreferences 的字符串在元素正文中；同时遮盖旧明文和加密令牌。
+  python3 -c 'import sys,xml.etree.ElementTree as E
+root=E.fromstring(sys.stdin.read())
+for node in root:
+    if "token" in node.get("name", "").lower():
+        node.text="[redacted]"
+        node.attrib.pop("value", None)
+sys.stdout.write(E.tostring(root, encoding="unicode")+"\n")'
+}
 
 echo "== 2. 适配器公钥 → 注册表(A2 前置)"
 PUBKEY="${AGENTGUARD_ANDROID_PUBKEY:-}"
 if [ -z "$PUBKEY" ]; then
-  echo "  在手机上:打开 AgentGuard Companion → 开启「桌面转发」→「显示适配器公钥」→ 复制 04 开头的 130 位十六进制。"
+  echo "  在手机上:打开 AgentGuard Companion → 展开开发者设置 →「显示适配器公钥」→ 复制 04 开头的 130 位十六进制。"
   printf '  粘贴公钥并回车(留空 = 跳过,A2 记 BLOCKED):'
   read -r PUBKEY || PUBKEY=""
 fi
@@ -214,8 +231,13 @@ if awk '$2=="tcp:8788" || $2=="tcp:8790" { found=1 } END { exit !found }' "$EVID
   record A2c "BLOCKED(existing reverse mapping)" "ports 8788/8790 already mapped; preserve existing mappings"; finish; exit 1
 fi
 TOKEN=$("$GUARD_CLI" api-token)
+RELAY_KEY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/agentguard-relay-v2.XXXXXX") || exit 1
+if ! RELAY_PUBLIC=$("$GUARD_CLI" relay-keygen --key "$RELAY_KEY_DIR/response-key.json"); then
+  record A2b FAIL "cannot create isolated response signing key"; finish; exit 1
+fi
+printf '%s\n' "$RELAY_PUBLIC" > "$EVIDENCE/relay-public-key.txt"
 AUDIT_DB="$EVIDENCE/audit-e2e.db"
-API_ARGS=(api-serve --bind "127.0.0.1:$API_PORT" --audit-db "$AUDIT_DB" --token "$TOKEN" --rules "$REPO/crates/guard-schema/rules/p0_rules.yaml")
+API_ARGS=(api-serve --bind "127.0.0.1:$API_PORT" --audit-db "$AUDIT_DB" --token "$TOKEN" --rules "$REPO/crates/guard-schema/rules/p0_rules.yaml" --relay-signing-key "$RELAY_KEY_DIR/response-key.json")
 [ -f "$REGISTRY" ] && API_ARGS+=(--adapter-registry "$REGISTRY")
 (cd "$REPO" && "$GUARD_CLI" "${API_ARGS[@]}" > "$EVIDENCE/api-serve.log" 2>&1) &
 API_PID=$!
@@ -235,9 +257,10 @@ sleep 0.5
 V0=$(api /v1/status | json 'd["adapter_ingress"]["verified"]'); R0=$(api /v1/status | json 'd["adapter_ingress"]["rejected"]')
 
 echo "== 4. 在手机上配置中继并开始会话"
-echo "  中继地址:http://127.0.0.1:$API_PORT/v1/events"
+echo "  中继地址:http://127.0.0.1:$API_PORT/v2/events"
+echo "  桌面公钥:$RELAY_PUBLIC"
 echo "  Bearer 令牌:$TOKEN"
-echo "  在应用里:填地址与令牌 → 保存 → 开启「桌面转发」→ 点「开始守护会话」。"
+echo "  在应用里:填地址、桌面公钥与令牌 → 保存 → 开启「桌面转发」→ 点「开始守护会话」。"
 "${ADB[@]}" shell am start -n "$PKG/.MainActivity" >/dev/null 2>&1 || true
 deadline=$(( $(date +%s) + TIMEOUT_S ))
 STARTED=0
@@ -311,7 +334,16 @@ fi
 sleep 2
 "${ADB[@]}" shell dumpsys notification --noredact 2>/dev/null | tr -d '\r' > "$EVIDENCE/notifications-2.txt" || "${ADB[@]}" shell dumpsys notification | tr -d '\r' > "$EVIDENCE/notifications-2.txt"
 if [ "$RUNAS" -eq 1 ]; then
-  P=$(prefs); printf '%s\n' "$P" | sed -E 's/(relay_token_enc" value=")[^"]*/\1[redacted]/' > "$EVIDENCE/prefs-after.xml"
+  P=$(prefs)
+  if ! printf '%s\n' "$P" | redact_prefs > "$EVIDENCE/prefs-after.xml"; then
+    record S1 FAIL "cannot parse and redact device preferences"; finish; exit 1
+  fi
+  RELAY_OK=$(printf '%s' "$P" | python3 -c 'import sys,xml.etree.ElementTree as E; r=E.fromstring(sys.stdin.read()); print(next((e.get("value", "0") for e in r if e.get("name")=="relay_v2_last_ok_ms"), "0"))' 2>/dev/null)
+  if [ "${RELAY_OK:-0}" -ge "$T0" ]; then
+    record A4v2 PASS "device accepted a freshly authenticated v2 response after the fixture began"
+  else
+    record A4v2 FAIL "device has no current authenticated v2 response; stale or v1 success cannot count"
+  fi
   if [ -n "$RULE" ] && printf '%s' "$P" | grep -q "last_risk_json" && printf '%s' "$P" | grep -q "$RULE"; then
     if grep -A3 "pkg=$PKG" "$EVIDENCE/notifications-2.txt" | grep -q "id=1005\|id=0x3ed"; then
       record A4 PASS "device recorded $RULE in last_risk_json and posted the engine notification (id 1005)"

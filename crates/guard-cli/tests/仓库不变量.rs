@@ -1049,7 +1049,7 @@ fn 提交的基线不接受已知fail且保留未配置身份说明() {
 fn 中继头名两侧一致() {
     let rust = read("crates/guard-schema/src/adapter.rs");
     let kotlin =
-        read("apps/android-companion/app/src/main/java/com/agentguard/companion/RelayClient.kt");
+        read("apps/android-companion/app/src/main/java/com/agentguard/companion/RelayTransport.kt");
     let mut 对上的 = 0usize;
     for 常量 in [
         "ADAPTER_HEADER_ID",
@@ -1069,12 +1069,31 @@ fn 中继头名两侧一致() {
         );
         assert!(
             kotlin.contains(&format!("\"{name}\"")),
-            "Kotlin 的 RelayClient 里没有发送头 `{name}` —— 两侧的头名漂开了,\
+            "Kotlin 的 RelayTransport 里没有发送头 `{name}` —— 两侧的头名漂开了,\
              而那的表现是「签名静默地永远验不过」"
         );
         对上的 += 1;
     }
     assert_eq!(对上的, 3, "对上的头名数量不对");
+
+    let rust = read("crates/guard-schema/src/relay.rs");
+    let kotlin =
+        read("apps/android-companion/app/src/main/java/com/agentguard/companion/RelayResponse.kt");
+    for constant in [
+        "RELAY_NONCE_HEADER",
+        "RELAY_SIGNATURE_HEADER",
+        "RELAY_TIMESTAMP_HEADER",
+        "RELAY_KEY_HEADER",
+        "RELAY_VERSION_HEADER",
+    ] {
+        let needle = format!("pub const {constant}: &str = \"");
+        let rest = rust.split_once(&needle).expect("缺少 v2 响应头合同").1;
+        let name = rest.split_once('"').unwrap().0;
+        assert!(
+            kotlin.contains(&format!("\"{name}\"")),
+            "Kotlin 缺少 v2 头 {name}"
+        );
+    }
 }
 
 /// 发布版本不能再出现「核心是 RC、各客户端仍是 0.1.0」的漂移。

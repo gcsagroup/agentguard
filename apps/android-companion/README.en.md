@@ -4,7 +4,7 @@
 
 The Android companion uses Kotlin, Jetpack Compose, and an `AccessibilityService` to observe UI events during a guard session. It runs local heuristics and writes minimized JSONL event envelopes.
 
-> Current status: the source, JVM unit tests, Debug APK, and API 36 emulator permission lifecycle have been verified. There is no physical-device end-to-end acceptance record, release-signing evidence, or Google Play release. Notifications arrive after an event; they cannot pause, undo, or prevent an action already performed by a third-party app. Relay v1 responses are unauthenticated, so Release builds force the desktop relay off; it remains available only in Debug builds for protocol development.
+> Current status: the source, JVM unit tests, Debug APK, and API 36 emulator permission lifecycle have been verified. There is no physical-device end-to-end acceptance record, release-signing evidence, or Google Play release. Notifications arrive after an event; they cannot pause, undo, or prevent an action already performed by a third-party app. Debug now verifies Relay v2 responses against an explicitly pinned desktop key. Release keeps relay disabled pending independent acceptance. Earlier API 36 evidence does not establish v2 physical-device or newer-system acceptance.
 
 ## What it does
 
@@ -47,13 +47,18 @@ Example USB debugging path:
 
 ```bash
 # Desktop, from the repository root
-cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788
+mkdir -p -m 700 "$HOME/.agentguard-relay"
+cargo run -p guard-cli -- relay-keygen --key "$HOME/.agentguard-relay/response-key.json"
+# Pin the printed public key on the phone; register its device key below first
+cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788 \
+  --relay-signing-key "$HOME/.agentguard-relay/response-key.json" \
+  --adapter-registry policies/adapter-registry.yaml
 
 # Forward the phone's 127.0.0.1:8788 to the desktop
 adb reverse tcp:8788 tcp:8788
 ```
 
-The Debug relay endpoint defaults to `http://127.0.0.1:8788/v1/events`. This HTTP path is for local development only and must not be used as a release configuration. Never expose the local API to a network without authentication.
+The Debug relay endpoint defaults to `http://127.0.0.1:8788/v2/events`. Cleartext HTTP is allowed only for literal `127.0.0.1`; remote endpoints require platform-trusted HTTPS. Save the desktop public key, URL and token, then enable relay separately. Changing the URL or public key requires token re-entry; old enablement is not migrated. Signatures do not encrypt content; see the [response protocol](../../docs/relay-v2.md).
 
 Use Android Studio's Device File Explorer or `run-as` to read JSONL from the app-private directory. Each line is one envelope; save one line as a JSON file for offline replay:
 
@@ -75,7 +80,7 @@ Android Keystore manages the key and does not expose its private material throug
 
 To wire the device key into the desktop verifier:
 
-1. Enable desktop relay in the app, tap **Show adapter public key**, and copy the 130-character SEC1 hex public key beginning with `04`.
+1. Expand developer settings in the app, tap **Show adapter public key**, and copy the 130-character SEC1 hex public key beginning with `04`.
 2. From the desktop repository root, generate a registry card:
 
    ```bash
@@ -87,7 +92,7 @@ To wire the device key into the desktop verifier:
 
 3. Merge the output into `policies/adapter-registry.yaml` and restart the desktop API.
 
-Without the registered public key, the desktop treats companion surveys as unsigned: they may add risk but cannot use a "clean environment" assertion to clear existing risk. This signature attributes the envelope to a holder of the device key; it does not prove that the app is unmodified and does not replace Play Integrity or device-integrity attestation.
+v2 rejects unregistered, invalid, stale or replayed device requests. Missing desktop response keys return 503; the phone never falls back to v1. Legacy `/v1/events` retains its conservative unsigned-survey behavior. This signature attributes the envelope to a holder of the device key; it does not prove that the app is unmodified and does not replace Play Integrity or device-integrity attestation.
 
 ## Environment-survey limits
 

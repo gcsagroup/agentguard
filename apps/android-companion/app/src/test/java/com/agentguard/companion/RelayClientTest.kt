@@ -17,6 +17,25 @@ import org.junit.Test
 class RelayClientTest {
 
     @Test
+    fun `v2 refuses missing identity incorrect identity and incomplete decisions`() {
+        val valid = org.json.JSONObject("""{"ok":true,"ingested":1,"adapter_identity":{"state":"verified","adapter_id":"android-companion"},"decisions":[{"event_id":"a","action":"Block","rule_id":"CRIT-001","severity":"Critical","require_confirm":true,"human_message":"测试"}]}""")
+        assertEquals("CRIT-001", RelayClient.parseAuthenticatedVerdicts(valid.toString()).single().ruleId)
+        for (state in listOf("unsigned", "replayed", "bad_signature")) {
+            val altered = org.json.JSONObject(valid.toString())
+            altered.getJSONObject("adapter_identity").put("state", state)
+            org.junit.Assert.assertThrows(Exception::class.java) { RelayClient.parseAuthenticatedVerdicts(altered.toString()) }
+        }
+        for (change in listOf<(org.json.JSONObject) -> Unit>(
+            { it.remove("adapter_identity") }, { it.put("ok", false) }, { it.put("ingested", 0) },
+            { it.getJSONObject("adapter_identity").put("adapter_id", "other-device") },
+            { it.getJSONArray("decisions").getJSONObject(0).remove("require_confirm") },
+        )) {
+            val altered = org.json.JSONObject(valid.toString()); change(altered)
+            org.junit.Assert.assertThrows(Exception::class.java) { RelayClient.parseAuthenticatedVerdicts(altered.toString()) }
+        }
+    }
+
+    @Test
     fun `a confirm verdict is read out of the response`() {
         val body = """
             {"ok":true,"ingested":1,"decisions":[

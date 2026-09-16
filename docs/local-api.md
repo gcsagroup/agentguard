@@ -24,7 +24,7 @@ cargo run -p guard-cli -- api-serve \
   共享路径。默认改为用户私有数据目录(0700),并在打开前检查:是符号链接 → 拒;不是普通文件 → 拒;
   所在目录**其他人可写**(`/tmp` 这类 sticky 目录)→ 拒并告知默认私有位置。打开后文件权限设 0600。
   非 Unix 平台做符号链接/文件类型检查,不做权限位检查(没有那个概念)。
-* **请求体上限** 256 KiB:`/v1/confirm`、`/v1/events` 超限回 **413**。多读一个字节判"超了",不是全读再量。
+* **请求体上限** 256 KiB:`/v1/confirm`、`/v1/events`、`/v2/events` 超限回 **413**。多读一个字节判"超了",不是全读再量。
 * **`limit` 上限** 1000:`/v1/audit/recent?limit=…` 与 `/v1/audit/report?limit=…` 被夹到上限,
   不再可能把整张审计表拉进内存。
 * **令牌不进 stderr**:显式或环境变量给的令牌启动时只打脱敏形式;只有本次随机生成的令牌才完整打印一次
@@ -54,7 +54,7 @@ cargo run -p guard-cli -- api-serve \
 | Path | Auth |
 |------|------|
 | `GET /health` | none |
-| `/v1/*` | `Authorization: Bearer <token>` required |
+| `/v1/*`、`/v2/*` | `Authorization: Bearer <token>` required |
 
 Missing/invalid token → **401**.
 
@@ -70,10 +70,11 @@ Missing/invalid token → **401**.
 | POST | `/v1/resume` | Resume engine |
 | POST | `/v1/confirm` | Body `{"approve":true\|false}` → resume/pause |
 | POST | `/v1/events` | Android 伴生应用的信封入口 —— **能清除已锁存的 Critical 环境风险**。除 bearer 令牌外,还验证一层**适配器签名**(未签名的调查只能**加**风险、不能清;适配器注册表未配时没有任何断言能清风险)。 |
+| POST | `/v2/events` | Android 响应认证入口：Bearer、已注册适配器签名和一次请求 nonce 必需；使用独立桌面密钥签完整响应及请求摘要。未配响应密钥返回 503，不降级到 v1。 |
 
 **默认只绑 127.0.0.1;非回环绑定被拒。** 例外:`--allow-lan` 显式允许绑到非回环地址
 (Android↔桌面走 Wi-Fi),但这是**明文 HTTP**,bearer 令牌在每条路由上仍然强制 —— 只在
-可信 LAN 上用。`/v1/events` 尤其要留意:它是唯一能**移除**风险的入站面。
+可信 LAN 上用。事件入口尤其要留意：经认证的调查可以移除环境风险。新 Android v2 客户端拒绝远端明文 HTTP，远程还需独立 HTTPS 入口；详见 [Relay v2](relay-v2.md)。
 
 ## Example
 

@@ -1,7 +1,9 @@
 //! Local loopback HTTP API for AgentGuard status / audit / confirm hooks.
 //!
 //! Intended for first-party agents and desktop companions on `127.0.0.1` only.
-//! All `/v1/*` routes require `Authorization: Bearer <token>` (`/health` is open).
+//! `/v1/*` 与 `/v2/*` 都需要 bearer；v2 还要求已注册设备签名并返回已签名响应。
+
+pub mod relay;
 
 use anyhow::{bail, Context, Result};
 use guard_audit::{AuditStore, SessionReport};
@@ -150,6 +152,8 @@ pub struct ApiConfig {
     /// record and decision receipt written by this server is signed. `None` =
     /// hash chain only: tamper-evident, but not attributed to anyone.
     pub audit_signing_key: Option<PathBuf>,
+    /// Android v2 响应的独立 P-256 私钥；未配置时拒绝 v2，不影响旧本地接口。
+    pub relay_signing_key: Option<PathBuf>,
     /// Known-app registry for verified app identity (AgentScan §3.5 package-name
     /// forgery). `None` = no identity verification at all: a registered app's
     /// deeplink allow-list and HIGH-tier flow clearance then rest on a name, which
@@ -551,6 +555,11 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
         eprintln!("warning: {weak};已被 --insecure-token 明确覆盖");
     }
     let token = cfg.token.clone();
+    let relay_signer = cfg
+        .relay_signing_key
+        .as_deref()
+        .map(relay::RelayResponseKey::load)
+        .transpose()?;
     let state = Arc::new(ApiState::from_config(&cfg)?);
     let server = tiny_http::Server::http(cfg.bind).map_err(|e| anyhow::anyhow!("bind: {e}"))?;
     eprintln!("guard local API on http://{}/v1/status", cfg.bind);
@@ -584,7 +593,7 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
         let method = request.method().clone();
         let path = url.split('?').next().unwrap_or(&url);
 
-        if path.starts_with("/v1/") && !bearer_ok(&request, &token) {
+        if (path.starts_with("/v1/") || path.starts_with("/v2/")) && !bearer_ok(&request, &token) {
             let _ = request.respond(json_error(401, "unauthorized"));
             continue;
         }
@@ -675,7 +684,56 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                     Err(e) => json_error(body_error_status(&e), &e.to_string()),
                 }
             }
-            (Method::Post, "/v1/events") | (Method::Post, "/v1/events/") => {
+            (Method::Post, "/v1/events")
+            | (Method::Post, "/v1/events/")
+            | (Method::Post, "/v2/events") => {
+                let relay_nonce = if path == "/v2/events" {
+                    if relay_signer.is_none() {
+                        let _ = request
+                            .respond(json_error(503, "relay response key is not configured"));
+                        continue;
+                    }
+                    // 不接受重复头、非规范 nonce 或带查询串的目标，避免不同解析器各取一值。
+                    let values: Vec<_> = request
+                        .headers()
+                        .iter()
+                        .filter(|h| h.field.equiv(guard_schema::relay::RELAY_NONCE_HEADER))
+                        .map(|h| h.value.as_str())
+                        .collect();
+                    if url != "/v2/events"
+                        || values.len() != 1
+                        || values[0].len() != 64
+                        || !values[0]
+                            .bytes()
+                            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+                    {
+                        let _ = request.respond(json_error(400, "invalid relay nonce or target"));
+                        continue;
+                    }
+                    let bytes = hex::decode(values[0]).expect("已核对十六进制 nonce");
+                    if [
+                        "Authorization",
+                        guard_schema::ADAPTER_HEADER_ID,
+                        guard_schema::ADAPTER_HEADER_TIMESTAMP,
+                        guard_schema::ADAPTER_HEADER_SIGNATURE,
+                    ]
+                    .iter()
+                    .any(|name| {
+                        request
+                            .headers()
+                            .iter()
+                            .filter(|h| h.field.as_str().as_str().eq_ignore_ascii_case(name))
+                            .count()
+                            != 1
+                    }) {
+                        let _ = request
+                            .respond(json_error(403, "ambiguous or missing relay authentication"));
+                        continue;
+                    }
+                    Some(<[u8; 32]>::try_from(bytes.as_slice()).expect("已核对 nonce 长度"))
+                } else {
+                    None
+                };
                 // Android companion envelope ingress (companion → desktop over
                 // `adb reverse tcp:8788 tcp:8788`, stays loopback on the host).
                 // 适配器签名走**请求头**,不进 body。签名要签的就是 body 的原始字节,
@@ -690,8 +748,58 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                 if let Err(e) = read_body_capped(&mut request, &mut body) {
                     json_error(body_error_status(&e), &e.to_string())
                 } else {
+                    let verify_identity =
+                        |engine: &mut Engine| match (&sig_adapter, &sig_value, sig_ts) {
+                            (Some(id), Some(sig), Some(ts)) => engine.verify_adapter_body(
+                                id,
+                                guard_schema::ANDROID_ENVELOPE_FORMAT,
+                                "android",
+                                ts,
+                                body.as_bytes(),
+                                sig,
+                            ),
+                            _ => guard_schema::AdapterIdentity::Unsigned,
+                        };
+                    // v2 必须先认证再改动适配器；否则拒绝的请求也会污染会话与序号。
+                    let relay_identity = if relay_nonce.is_some() {
+                        let identity = match state.engine.lock() {
+                            Ok(mut engine) => verify_identity(&mut engine),
+                            Err(_) => {
+                                let _ = request.respond(json_error(500, "engine lock"));
+                                continue;
+                            }
+                        };
+                        if !identity.may_grant_trust() {
+                            if let Ok(mut ingress) = state.adapter_ingress.lock() {
+                                let now_ms = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .map(|d| d.as_millis() as i64)
+                                    .unwrap_or(0);
+                                ingress.record(AdapterIngressRecord::from_identity(
+                                    &identity, now_ms, 0,
+                                ));
+                            }
+                            let _ = request
+                                .respond(json_error(403, "relay adapter authentication failed"));
+                            continue;
+                        }
+                        Some(identity)
+                    } else {
+                        None
+                    };
                     let parsed = match state.android.lock() {
-                        Ok(mut adapter) => adapter.parse_envelope(&body),
+                        Ok(mut adapter) => {
+                            if relay_nonce.is_some() {
+                                serde_json::from_str::<android_adapter::AndroidEnvelope>(&body)
+                                    .map_err(anyhow::Error::from)
+                                    .and_then(|envelope| {
+                                        adapter.set_session(envelope.session_id.clone());
+                                        adapter.convert_envelope(&envelope)
+                                    })
+                            } else {
+                                adapter.parse_envelope(&body)
+                            }
+                        }
                         Err(_) => {
                             let _ = request.respond(json_error(500, "adapter lock"));
                             continue;
@@ -709,17 +817,8 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                                 // —— 验的是**线上那串字节**,在解析之前就已经拿到了。
                                 // 验不过一律退化成"未签名":适配器时钟偏了、注册表还没配、
                                 // 旧版本适配器,都不该让守卫瞎掉。
-                                let adapter_identity = match (&sig_adapter, &sig_value, sig_ts) {
-                                    (Some(id), Some(sig), Some(ts)) => engine.verify_adapter_body(
-                                        id,
-                                        guard_schema::ANDROID_ENVELOPE_FORMAT,
-                                        "android",
-                                        ts,
-                                        body.as_bytes(),
-                                        sig,
-                                    ),
-                                    _ => guard_schema::AdapterIdentity::Unsigned,
-                                };
+                                let adapter_identity =
+                                    relay_identity.unwrap_or_else(|| verify_identity(&mut engine));
                                 let mut outcomes = Vec::new();
                                 let mut failed = None;
                                 for ev in &events {
@@ -760,7 +859,7 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                                         outcomes.len(),
                                     );
                                     eprintln!(
-                                        "api-serve: /v1/events adapter={} identity={} events={}",
+                                        "api-serve: {path} adapter={} identity={} events={}",
                                         rec.adapter_id.as_deref().unwrap_or("-"),
                                         rec.state,
                                         rec.events
@@ -768,16 +867,44 @@ pub fn serve(cfg: ApiConfig, shutdown: Option<Arc<AtomicBool>>) -> Result<()> {
                                     if let Ok(mut st) = state.adapter_ingress.lock() {
                                         st.record(rec.clone());
                                     }
-                                    json_response(
-                                        200,
-                                        &serde_json::json!({
-                                            "ok": true,
-                                            "ingested": outcomes.len(),
-                                            "decisions": outcomes,
-                                            "adapter_identity": rec,
-                                        })
-                                        .to_string(),
-                                    )
+                                    let response_body = serde_json::json!({
+                                        "ok": true,
+                                        "ingested": outcomes.len(),
+                                        "decisions": outcomes,
+                                        "adapter_identity": rec,
+                                    })
+                                    .to_string();
+                                    if let Some(nonce) = relay_nonce {
+                                        match relay_signer
+                                            .as_ref()
+                                            .expect("v2 已核对响应密钥")
+                                            .response_headers(
+                                                &nonce,
+                                                body.as_bytes(),
+                                                now_ms,
+                                                response_body.as_bytes(),
+                                            ) {
+                                            Ok(headers) => {
+                                                let mut response =
+                                                    json_response(200, &response_body);
+                                                for (name, value) in headers {
+                                                    response.add_header(
+                                                        Header::from_bytes(
+                                                            name.as_bytes(),
+                                                            value.as_bytes(),
+                                                        )
+                                                        .expect("固定响应签名头"),
+                                                    );
+                                                }
+                                                response
+                                            }
+                                            Err(_) => {
+                                                json_error(500, "relay response signing failed")
+                                            }
+                                        }
+                                    } else {
+                                        json_response(200, &response_body)
+                                    }
                                 }
                             }
                         },
@@ -1036,6 +1163,7 @@ mod tests {
                     token: token.clone(),
                     allow_lan: false,
                     audit_signing_key: None,
+                    relay_signing_key: None,
                     known_apps: None,
                     task_plans: None,
                     agent_registry: None,
@@ -1101,6 +1229,7 @@ mod tests {
                     token: token.clone(),
                     allow_lan: false,
                     audit_signing_key: None,
+                    relay_signing_key: None,
                     known_apps: None,
                     task_plans: None,
                     agent_registry: None,
@@ -1152,6 +1281,7 @@ mod tests {
                     token: "tok-0123456789abcdef0123456789".into(),
                     allow_lan: false,
                     audit_signing_key: None,
+                    relay_signing_key: None,
                     known_apps: None,
                     task_plans: None,
                     agent_registry: None,
@@ -1219,6 +1349,7 @@ mod tests {
                 insecure_token: false,
                 reveal_token: false,
                 audit_signing_key: None,
+                relay_signing_key: None,
                 known_apps: None,
                 task_plans: None,
                 agent_registry: None,
@@ -1250,6 +1381,7 @@ mod tests {
                 token: "tok-0123456789abcdef0123456789".into(),
                 allow_lan: true,
                 audit_signing_key: None,
+                relay_signing_key: None,
                 known_apps: None,
                 task_plans: None,
                 agent_registry: None,
@@ -1349,6 +1481,7 @@ mod tests {
                     token: t2,
                     allow_lan: false,
                     audit_signing_key: None,
+                    relay_signing_key: None,
                     known_apps: None,
                     task_plans: None,
                     agent_registry: None,
@@ -1565,6 +1698,7 @@ mod tests {
                 token: "dev-secret".into(),
                 allow_lan: false,
                 audit_signing_key: None,
+                relay_signing_key: None,
                 known_apps: None,
                 task_plans: None,
                 agent_registry: None,
@@ -1605,6 +1739,7 @@ mod tests {
                 token: "dev-secret".into(),
                 allow_lan: false,
                 audit_signing_key: None,
+                relay_signing_key: None,
                 known_apps: None,
                 task_plans: None,
                 agent_registry: None,
@@ -1632,6 +1767,7 @@ mod tests {
             token: "test-token-rc1-0123456789abcdef".into(),
             allow_lan: false,
             audit_signing_key: None,
+            relay_signing_key: None,
             known_apps: None,
             task_plans: None,
             agent_registry: None,

@@ -4,7 +4,7 @@
 
 Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityService` 觀察守護工作階段中的介面事件，執行本機啟發式檢查，並將最小化事件寫成 JSONL。
 
-> 目前狀態：原始碼、JVM 單元測試、Debug APK 與 API 36 模擬器權限生命週期已驗證；尚無實機端到端驗收、正式發布簽章證據或 Google Play 發布記錄。通知是在事件發生後提醒，不能暫停、撤銷或阻止第三方應用程式已經執行的操作。Relay v1 回應尚未驗證，因此 Release 建置會強制停用桌面中繼；該能力只保留於 Debug 建置供協定開發。
+> 目前狀態：原始碼、JVM 單元測試、Debug APK 與 API 36 模擬器權限生命週期已驗證；尚無實機端到端驗收、正式發布簽章證據或 Google Play 發布記錄。通知是在事件發生後提醒，不能暫停、撤銷或阻止第三方應用程式已經執行的操作。Debug 現在使用固定桌面公鑰驗證 Relay v2 回應；Release 在獨立驗收完成前仍強制關閉中繼。歷史 API 36 證據不代表本輪 v2 已通過實機或新版系統驗收。
 
 ## 能做什麼
 
@@ -12,7 +12,7 @@ Android 伴生應用程式使用 Kotlin、Jetpack Compose 與 `AccessibilityServ
 - 偵測付款/轉帳文字、隱私陷阱、非必要個資、提示詞注入標記，以及介面文字裡出現的可疑深層連結**字樣**（`intent://` 一類）。它不觀察深層連結本身——輔助使用服務看不到 intent。
 - 調查可見的文字輸入廣播接收器及其他已啟用的輔助使用服務。
 - 將每個工作階段的信封附加到應用程式私有目錄 `files/events/session-<id>.jsonl`。
-- Debug 建置可透過使用者明確設定的 HTTP 中繼聯調桌面本機 API；Release 建置在回應驗證完成前強制停用此能力。
+- Debug 建置可使用 USB 回環 HTTP 或 HTTPS，必須固定桌面公鑰並設定權杖；Release 在獨立驗收前保持關閉。
 - 使用 Android Keystore 中不可匯出的 ECDSA P-256 金鑰，為實際送出的 HTTP body 簽章。
 
 ## 建置與測試
@@ -47,13 +47,18 @@ USB 除錯路徑範例：
 
 ```bash
 # 桌面端，在儲存庫根目錄執行
-cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788
+mkdir -p -m 700 "$HOME/.agentguard-relay"
+cargo run -p guard-cli -- relay-keygen --key "$HOME/.agentguard-relay/response-key.json"
+# 將輸出的公鑰填入手機，先依下文登記手機公鑰
+cargo run -p guard-cli -- api-serve --bind 127.0.0.1:8788 \
+  --relay-signing-key "$HOME/.agentguard-relay/response-key.json" \
+  --adapter-registry policies/adapter-registry.yaml
 
 # 讓手機的 127.0.0.1:8788 轉到桌面
 adb reverse tcp:8788 tcp:8788
 ```
 
-Debug 建置的預設中繼位址是 `http://127.0.0.1:8788/v1/events`。此 HTTP 路徑僅供本機開發，不得作為發布設定；不要把本機 API 無驗證暴露到網路。
+Debug 建置的預設中繼位址是 `http://127.0.0.1:8788/v2/events`。只有字面的 `127.0.0.1` 允許明文 HTTP；遠端必須使用系統信任的 HTTPS。儲存桌面公鑰、位址與權杖後，再單獨啟用。更換位址或公鑰必須重新輸入權杖，舊啟用狀態不會遷移。簽章不加密內容，見[回應協定](../../docs/relay-v2.md)。
 
 可透過 Android Studio Device File Explorer 或 `run-as` 讀取應用程式私有目錄中的 JSONL。每一行都是一個信封；將單行另存成 JSON 檔案後可離線重播：
 
@@ -75,7 +80,7 @@ X-AgentGuard-Signature: <DER 簽章十六進位>
 
 接線步驟：
 
-1. 開啟應用程式中的桌面轉送，點選「顯示介面卡公開金鑰」，複製以 `04` 開頭的 130 位 SEC1 十六進位公開金鑰。
+1. 展開應用程式中的開發者設定，點選「顯示介面卡公開金鑰」，複製以 `04` 開頭的 130 位 SEC1 十六進位公開金鑰。
 2. 在桌面儲存庫根目錄產生註冊卡：
 
    ```bash
@@ -87,7 +92,7 @@ X-AgentGuard-Signature: <DER 簽章十六進位>
 
 3. 將輸出合併到 `policies/adapter-registry.yaml`，重新啟動桌面 API。
 
-未註冊公開金鑰時，桌面端會把伴生應用程式的調查視為未簽章：它可以增加風險，但不能用「環境乾淨」清除既有風險。此簽章證明信封來自持有裝置金鑰的一方，不證明應用程式未被修改，也不取代 Play Integrity 或裝置完整性證明。
+v2 會拒絕未註冊、簽章無效、過期或重播的請求。未設定桌面回應金鑰回傳 503，手機不會降級到 v1。舊 `/v1/events` 的未驗證調查只能增加風險行為保持相容。此簽章證明信封來自持有裝置金鑰的一方，不證明應用程式未被修改，也不取代 Play Integrity 或裝置完整性證明。
 
 ## 環境調查的限制
 

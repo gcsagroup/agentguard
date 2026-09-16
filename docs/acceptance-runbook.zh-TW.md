@@ -154,7 +154,7 @@ Screen Recording 權限，再依 capability 報告、真實 AX 事件、擷取�
 
 ## 5. 平台 D：Android 伴生應用程式
 
-**目前正式驗收受阻：** Release 強制關閉回應未驗證的 Relay v1，下列正式 A1–A4 仍未通過。簽章材料及真機齊備也不能自動解決此程式條件；必須先完成回應驗證與重播防護的獨立驗收，不得以 Debug 結果取代或刪除原要求。
+**目前正式驗收受阻：** Debug 已接入固定公鑰的 Relay v2，Release 在獨立驗收前仍強制關閉中繼，下列正式 A1–A4 仍未通過。簽章材料及真機齊備也不能自動解決此程式條件；必須先完成回應驗證與重播防護的獨立驗收，不得以 Debug 結果取代或刪除原要求。
 
 依 [Android 伴生應用程式 README](../apps/android-companion/README.zh-TW.md) 建置並安裝候選，在真實裝置上啟用通知與
 AccessibilityService，透過 `adb reverse tcp:8788 tcp:8788` 連接桌面本機 API。把裝置顯示的 P-256 公鑰登錄到
@@ -167,7 +167,7 @@ PASS 需要同時證明：事件來自目標真實裝置、HTTP body 的簽署�
 **僅供開發複驗：** `scripts/acceptance/android-e2e.sh --development-relay --evidence .artifacts/android-relay-dev-新編號`（需要 adb、已確認的測試裝置及 python3）執行 Debug 中繼檢查。必須指定尚不存在的證據目錄；預設呼叫會在任何裝置操作前回報正式驗收受阻。
 它安裝 APK、授予通知權限、啟用無障礙服務、`adb reverse`、以一次性令牌啟動桌面 API、把你從應用程式貼來的 P-256 公鑰寫成
 本輪證據目錄的 `adapter-registry.yaml`、在手機瀏覽器開啟付款固件頁，然後核對：A1（安裝／授權／普通常駐工作階段通知 id 1001）、
-A2（桌面 `/v1/status` 的 `adapter_ingress.verified` 增加且 `rejected` 不增加——`/v1/events` 現在把每份 body 的簽章結論
+A2（桌面 `/v1/status` 的 `adapter_ingress.verified` 增加且 `rejected` 不增加——`/v2/events` 把每份已驗證 body 的簽章結論
 寫進回應、狀態與 stderr，以前這條在桌面側沒有任何可讀證據）、A3（稽核出現 `platform=android` 的 `CRIT-*` 判決）、
 A4（裝置 prefs 的 `last_risk_json` 帶同一 rule_id 且引擎通知 id 1005 存在）、L（`am crash` 殺掉處理程序並明確重新開啟應用程式後處理程序回來、
 `session_requested` 為 false、舊工作階段通知不復活、無障礙仍啟用且必須由使用者明確重開工作階段——報告 P0-3）、S（prefs 無明文 `relay_token`、有 `relay_token_enc`；

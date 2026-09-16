@@ -16,7 +16,7 @@ Observe Android AI-agent sessions and notify users after payment, privacy, or UI
 
 After the user explicitly enables the Accessibility service and starts a guard session, AgentGuard Companion observes UI text, form fills, permission dialogs, and window overlays. It can identify payment or transfer prompts, privacy traps, unnecessary personal-data entry, suspicious deep-link strings appearing in on-screen text, and prompt-injection markers, then record events and display risk notifications on the device. It does not observe deep links themselves (an Accessibility service does not see intents); the events each platform actually emits are listed in the generated [docs/capability-matrix.en.md](../../docs/capability-matrix.en.md), and store copy must not claim beyond it.
 
-The current Release build does not expose desktop relay. Debug builds retain relay wiring for development, but Relay v1 responses are unauthenticated and therefore cannot ship. The feature may re-enter release scope only after independent acceptance of response authentication and replay protection.
+The current Release build does not expose desktop relay. Debug now implements Relay v2 with a pinned key, request binding and replay protection. The feature remains outside store scope until independent security and release-candidate acceptance are complete.
 
 **Important boundary:** the Android companion observes and notifies after an event. It cannot pause, undo, or prevent a payment, transfer, or other action already performed by a third-party app, and it must not be described as a system-level interceptor.
 

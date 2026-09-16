@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Android Relay v2 and native status refresh (2026-09-16)
+
+- Added a separate desktop response key, explicitly pinned pairing and request-bound response verification. Rejects invalid, expired, replayed, redirected and oversized responses; ended sessions cannot accept late verdicts. Fixed stale connection UI after background success and token redaction in exported acceptance preferences.
+- Fixed Debug 1.1.0-dev.8 passed connection, wrong-key and post-unbind late-response checks on the dedicated API 26 emulator. Both variants passed 100 tests and lint; Rust workspace passed 1,543 tests. Failures remain recorded. Regenerated all three capability matrices; Release relay, formal A1–A4 and physical-device acceptance remain open. See the [record](docs/agd-032-android-relay-v2-2026-09-16.zh.md). Fixed macOS App 023 was not rebuilt; its timestamped, observation-only installation-text records were visually rechecked.
+
+
 ### Android development acceptance boundary (2026-09-16)
 
 - Default invocations cannot treat Debug relay checks as release acceptance. Development results have a separate marker; formal A1–A4 remain BLOCKED. Preserved previous evidence and existing reverse mappings, and corrected macOS millisecond timestamps and the target SDK 36 check.

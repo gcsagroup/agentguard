@@ -172,7 +172,7 @@ with six checks (see the Windows W8 note); only a printed `AGENTGUARD_ACCEPTANCE
 
 ## 5. Platform D: Android Companion
 
-**Release acceptance is currently blocked:** Release disables Relay v1 because its responses are unauthenticated. The original A1–A4 requirements below remain unmet. Signing materials and a physical device alone cannot resolve this code prerequisite: response authentication and replay protection need independent acceptance. Do not substitute Debug results or remove the requirements.
+**Release acceptance is currently blocked:** Debug now uses Relay v2 with a pinned desktop key; Release keeps relay disabled pending independent acceptance. The original A1–A4 requirements below remain unmet. Signing materials and a physical device alone cannot resolve this code prerequisite: response authentication and replay protection need independent acceptance. Do not substitute Debug results or remove the requirements.
 
 Follow the [Android companion README](../apps/android-companion/README.en.md) to build and install the candidate.
 On a real device, enable notifications and the AccessibilityService, then connect to the desktop local API with
@@ -189,7 +189,7 @@ replay does not replace this real-device E2E. Record `BLOCKED (specific reason)`
 accessibility service, sets up `adb reverse`, starts the desktop API with a one-off token, writes the P-256 public key you
 paste from the app into `adapter-registry.yaml` in the new evidence directory, opens the payment fixture page in the phone browser and
 then checks: A1 (install / permissions / ordinary ongoing session notification id 1001), A2 (desktop `/v1/status`
-`adapter_ingress.verified` increases and `rejected` does not — `/v1/events` now writes each body's signature outcome into
+`adapter_ingress.verified` increases and `rejected` does not — `/v2/events` writes each authenticated body's signature outcome into
 the response, the status snapshot and stderr; previously A2 had no readable desktop-side evidence at all), A3 (a
 `platform=android` `CRIT-*` verdict appears in the audit), A4 (the device's `last_risk_json` carries the same rule_id and the
 engine notification id 1005 is present), L (after `am crash` and an explicit app relaunch, the process returns,

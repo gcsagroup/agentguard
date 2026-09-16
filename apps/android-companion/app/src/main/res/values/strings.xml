@@ -14,7 +14,7 @@
     <string name="desktop_api_url">Desktop API URL</string>
     <string name="bearer_token">Bearer token (from desktop CLI)</string>
     <!-- The two double dashes are literal CLI flags (bind / allow-lan), not typography: an em dash would break copy-paste. -->
-    <string name="relay_help" tools:ignore="TypographyDashes">USB: adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788 · Wi-Fi: api-serve --bind 0.0.0.0:8788 --allow-lan</string>
+    <string name="relay_help" tools:ignore="TypographyDashes">USB: adb reverse tcp:8788 tcp:8788 → 127.0.0.1:8788/v2/events. Remote endpoints require HTTPS and the pinned desktop key.</string>
     <string name="last_risk_none">Last risk: none</string>
     <string name="last_risk">Last risk: %1$s</string>
     <string name="last_risk_unavailable">Last risk details are unavailable</string>
@@ -72,5 +72,8 @@
     <string name="env_risk">Device privacy risk detected. Another app may be able to read text or local logs; review Accessibility settings and installed apps before continuing.</string>
     <string name="env_unknown">The device privacy check could not be completed, so the environment cannot be confirmed as clear.</string>
     <string name="show_adapter_key">Show adapter public key</string>
-    <string name="adapter_key_help">Put this in policies/adapter-registry.yaml under adapter_id: android-companion, with key_algorithm: ecdsa-p256. Without it the desktop treats this companion\'s surveys as unsigned: they can raise risk but cannot clear it.</string>
+    <string name="adapter_key_help">Register this public key in policies/adapter-registry.yaml with adapter_id: android-companion and key_algorithm: ecdsa-p256. Relay v2 rejects unregistered or invalidly signed requests.</string>
+    <string name="relay_server_key">Desktop response public key</string>
+    <string name="relay_server_key_help">Copy the public key from your verified desktop. Saving a pairing switches relay off; enable it after checking the key.</string>
+    <string name="relay_pairing_error">Pairing failed. Check the v2 address, desktop public key and saved token.</string>
 </resources>

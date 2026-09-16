@@ -6,6 +6,7 @@ pub mod events;
 pub mod execution;
 pub mod plan;
 pub mod policy;
+pub mod relay;
 pub mod rules;
 pub mod text;
 pub mod tool_registry;

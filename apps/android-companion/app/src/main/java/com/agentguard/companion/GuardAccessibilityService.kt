@@ -176,7 +176,7 @@ class GuardAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * The engine's verdicts, arriving on the relay's worker thread.
+     * v2 验签及当前会话核对完成后，在主线程交付引擎判决。
      *
      * A `require_confirm` verdict is the Critical Node gate reaching the phone for the first
      * time. It raises a high-importance notification naming the engine's rule — not the local

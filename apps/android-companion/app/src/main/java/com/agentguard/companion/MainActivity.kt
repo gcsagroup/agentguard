@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,13 @@ class MainActivity : ComponentActivity() {
     private val sessionActiveUi = mutableStateOf(false)
     private val lastRiskUi = mutableStateOf<String?>(null)
     private val relayErrorUi = mutableStateOf<String?>(null)
+    private val relayLastOkUi = mutableLongStateOf(0L)
+    private val relayLastErrorMsUi = mutableLongStateOf(0L)
+    private val relayEnabledUi = mutableStateOf(false)
+    private val foregroundUi = mutableStateOf(false)
+    private val preferenceListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        runOnUiThread { refreshPersistedState() }
+    }
     private val notificationsGrantedUi = mutableStateOf(true)
     private val sessionListener: (Boolean, String) -> Unit = { active, _ ->
         runOnUiThread {
@@ -154,14 +162,22 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         // P0-3 / P1-6:「已启动 / 已连接」由状态机推出来,不是几个布尔各拼一句。
-                        val relayOnNow = RelayClient.isEnabled(this@MainActivity)
+                        var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                        val foreground = foregroundUi.value
+                        LaunchedEffect(sessionActive, foreground) {
+                            // 活跃会话即使没有界面事件，过期状态也需更新；离开页面时自动取消。
+                            while (sessionActive && foreground) {
+                                nowMs = System.currentTimeMillis()
+                                kotlinx.coroutines.delay(1000)
+                            }
+                        }
                         val derived = ProtectionState.derive(
                             sessionActive = sessionActive,
                             accessibilityBound = GuardAccessibilityService.isBound(),
-                            relayEnabled = relayOnNow,
-                            relayLastOkMs = RelayClient.lastOkMs(this@MainActivity),
-                            relayLastErrorMs = EnvelopeSink.lastRelayErrorMs(this@MainActivity),
-                            nowMs = System.currentTimeMillis(),
+                            relayEnabled = relayEnabledUi.value,
+                            relayLastOkMs = relayLastOkUi.longValue,
+                            relayLastErrorMs = relayLastErrorMsUi.longValue,
+                            nowMs = nowMs,
                             notificationsGranted = notificationsGranted,
                         )
                         Text(
@@ -347,27 +363,35 @@ class MainActivity : ComponentActivity() {
                                 mutableStateOf(RelayClient.url(this@MainActivity))
                             }
                             var relayToken by remember { mutableStateOf("") }
+                            var relayPublicKey by remember { mutableStateOf(RelayClient.serverPublicKey(this@MainActivity)) }
+                            var pairingError by remember { mutableStateOf<String?>(null) }
                             Button(
                                 onClick = {
-                                    relayOn = !relayOn
-                                    RelayClient.setEnabled(this@MainActivity, relayOn)
-                                    if (relayOn) {
-                                        RelayClient.setEndpoint(this@MainActivity, relayUrl, "")
-                                    }
+                                    runCatching { RelayClient.setEnabled(this@MainActivity, !relayOn) }
+                                        .onSuccess {
+                                            relayOn = RelayClient.isEnabled(this@MainActivity)
+                                            pairingError = null
+                                        }
+                                        .onFailure { pairingError = getString(R.string.relay_pairing_error) }
                                 },
                             ) {
                                 Text(stringResource(if (relayOn) R.string.relay_on else R.string.relay_off))
                             }
-                            if (relayOn) {
+                            run {
                                 OutlinedTextField(
                                     value = relayUrl,
-                                    onValueChange = {
-                                        relayUrl = it
-                                        RelayClient.setEndpoint(this@MainActivity, it, "")
-                                    },
+                                    onValueChange = { relayUrl = it },
                                     label = { Text(stringResource(R.string.desktop_api_url)) },
                                     singleLine = true,
                                 )
+                                OutlinedTextField(
+                                    value = relayPublicKey,
+                                    onValueChange = { relayPublicKey = it },
+                                    label = { Text(stringResource(R.string.relay_server_key)) },
+                                    modifier = Modifier.testTag("relay.server-key"),
+                                    singleLine = true,
+                                )
+                                Text(stringResource(R.string.relay_server_key_help), style = MaterialTheme.typography.labelSmall)
                                 // P1-6:令牌不回显。输入框永远空着,保存后只说"已保存(加密)";
                                 // 存进 Keystore 封装(TokenVault),不再是明文 prefs。
                                 var tokenSaved by remember {
@@ -383,14 +407,21 @@ class MainActivity : ComponentActivity() {
                                 )
                                 Button(
                                     onClick = {
-                                        RelayClient.setEndpoint(this@MainActivity, relayUrl, relayToken)
-                                        relayToken = ""
-                                        tokenSaved = RelayClient.hasToken(this@MainActivity)
+                                        runCatching {
+                                            RelayClient.setEndpoint(this@MainActivity, relayUrl, relayToken, relayPublicKey)
+                                        }.onSuccess {
+                                            relayToken = ""
+                                            relayPublicKey = RelayClient.serverPublicKey(this@MainActivity)
+                                            relayOn = false
+                                            tokenSaved = RelayClient.hasToken(this@MainActivity)
+                                            pairingError = null
+                                        }.onFailure { pairingError = getString(R.string.relay_pairing_error) }
                                     },
-                                    enabled = relayToken.isNotBlank(),
+                                    enabled = relayUrl.isNotBlank() && relayPublicKey.isNotBlank() && (relayToken.isNotBlank() || tokenSaved),
                                 ) {
                                     Text(stringResource(R.string.save))
                                 }
+                                pairingError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                                 Text(
                                     stringResource(if (tokenSaved) R.string.token_saved else R.string.token_missing),
                                     style = MaterialTheme.typography.labelSmall,
@@ -429,6 +460,9 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         SessionState.addListener(sessionListener)
+        foregroundUi.value = true
+        getSharedPreferences("agentguard", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(preferenceListener)
+        refreshPersistedState()
     }
 
     override fun onResume() {
@@ -443,6 +477,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         SessionState.removeListener(sessionListener)
+        foregroundUi.value = false
+        getSharedPreferences("agentguard", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(preferenceListener)
         super.onStop()
     }
 
@@ -450,6 +486,9 @@ class MainActivity : ComponentActivity() {
     private fun refreshPersistedState() {
         lastRiskUi.value = EnvelopeSink.lastRiskJson(this)
         relayErrorUi.value = EnvelopeSink.lastRelayError(this)
+        relayLastOkUi.longValue = RelayClient.lastOkMs(this)
+        relayLastErrorMsUi.longValue = EnvelopeSink.lastRelayErrorMs(this)
+        relayEnabledUi.value = RelayClient.isEnabled(this)
     }
 
     internal fun localizedReason(reason: ProtectionState.Reason): String = getString(
