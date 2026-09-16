@@ -12,6 +12,8 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 - Independently checked 49 execution audit rows and 17 signature results; four altered evidence cases were rejected. The original 50 complete tasks passed. Fixed App 020, all 91 bundle files and its organization signature are unchanged; no rebuild.
 - The 100 cycles passed; the 30-minute run and remaining joint regressions are pending. Principal key revocation requires stopping the old host and reloading configuration. See the [record](docs/agd-027-m3-joint-2026-09-16.zh.md); deferred F13 and release No-Go remain unchanged.
 
+- Fixed intermittent macOS governance CI failures caused by accepted test sockets inheriting nonblocking mode. A split-body regression reproduced the failure before the fix; all 134 desktop and 23 repository tests now pass. The change is test-only; App 020 bytes and signature are unchanged.
+
 ### AGD-026 native memory and delegation governance (2026-09-16)
 
 - Added source/version inspection, quarantine, revocation, historical restoration and branch stopping. Full previews and single-use approval bind the session and current version; restoration preserves provenance and restrictive labels. Completed external effects are not reversed.

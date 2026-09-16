@@ -514,6 +514,9 @@ mod tests {
                         Err(e) => panic!("未收到预期请求 {path}: {e}"),
                     }
                 };
+                // macOS 接收的连接继承监听器的非阻塞状态；读取超时不会改回阻塞。
+                // HTTP 请求可能分段到达，连接必须等待余下正文而非立即 WouldBlock。
+                socket.set_nonblocking(false).unwrap();
                 socket
                     .set_read_timeout(Some(Duration::from_secs(2)))
                     .unwrap();
@@ -553,6 +556,40 @@ mod tests {
             bodies
         });
         (state, worker)
+    }
+
+    #[test]
+    fn 测试网关等待分段发送的请求正文() {
+        let expected = json!({"text": "分段发送的中文正文"});
+        let body = expected.to_string();
+        let (manager, worker) = wire(vec![("POST /memory/list ", Some(json!({"ok": true})))]);
+        let port = manager.0.lock().unwrap().as_ref().unwrap().port;
+        let mut socket = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_millis(500)))
+            .unwrap();
+        write!(
+            socket,
+            "POST /memory/list HTTP/1.1\r\nAuthorization: Bearer {}\r\nContent-Length: {}\r\n\r\n",
+            "a".repeat(32),
+            body.len()
+        )
+        .unwrap();
+        // 正文尚未送齐时，服务端应继续等待，不能关闭连接或提前返回响应。
+        socket.write_all(&body.as_bytes()[..10]).unwrap();
+        let error = socket.read(&mut [0; 1]).unwrap_err();
+        assert!(matches!(
+            error.kind(),
+            std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+        ));
+        socket.write_all(&body.as_bytes()[10..]).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .unwrap();
+        let mut response = String::new();
+        socket.read_to_string(&mut response).unwrap();
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert_eq!(worker.join().unwrap(), vec![expected]);
     }
 
     #[test]

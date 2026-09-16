@@ -45,9 +45,9 @@
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/mac-adapter | 30 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 145 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 146 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust 合计** | **1727** | |
+| **Rust 合计** | **1728** | |
 | apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 18 | Safari 扩展 node `test(` |
 | eval/e2e-extension/run.mjs | 39 | 真浏览器 E2E 判据 `record(` |
