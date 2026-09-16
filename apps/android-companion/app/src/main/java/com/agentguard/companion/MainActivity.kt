@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             notificationsGrantedUi.value = granted
+            if (granted) GuardSessionNotification.show(this)
         }
 
     private fun ensureNotificationPermission() {
@@ -472,6 +473,8 @@ class MainActivity : ComponentActivity() {
             notificationsGrantedUi.value =
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         }
+        // 系统设置补授权后补回持续通知；show 会核对当前会话和观察器，不恢复已结束会话。
+        if (notificationsGrantedUi.value) GuardSessionNotification.show(this)
         refreshPersistedState()
     }
 

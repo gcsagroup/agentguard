@@ -1,0 +1,135 @@
+{
+  "date": "2026-09-17",
+  "baseline": "174d9ab8f5ff861ce3e53c191ff3256f1238e861",
+  "scope": "Android Debug API 35 模拟器兼容性与补授权通知修复；不是正式发布验收",
+  "version": "1.1.0-dev.11",
+  "version_code": 1000011,
+  "target_sdk": 36,
+  "apk_sha256": "c640a004ca16a1bdc34f3de8634d1c23f1fcad72887ea3b61bf0e9d6d7b0cd85",
+  "source_manifest_files": 96,
+  "old_code_regression": {
+    "tests": 3,
+    "passed": 2,
+    "failed": 1
+  },
+  "initial_full_test_run": "两项 Compose 空闲等待失败后终止；保留线程与日志，不计完整结果；改用既有 Compose 规则后完整重跑",
+  "final_tests": {
+    "Debug": {
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": 17,
+      "lint_issues": 0
+    },
+    "Release": {
+      "tests": 104,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": 17,
+      "lint_issues": 0
+    }
+  },
+  "repository_invariants_passed": 23,
+  "native": {
+    "device": {
+      "ro.build.version.sdk": "35",
+      "ro.build.fingerprint": "google/sdk_gphone64_arm64/emu64a:15/AE3A.240806.043/12960925:userdebug/dev-keys",
+      "ro.kernel.qemu": "1",
+      "avd": "AgentGuard_API35",
+      "font_scale": "1.0"
+    },
+    "session": {
+      "state": {
+        "session_requested": "false",
+        "session_id": "cdda27fd-a403-48d4-a8bb-eeae886ae5f0",
+        "session_started_ms": "1789585005364"
+      },
+      "counts": {
+        "session_start": 1,
+        "env_survey": 1,
+        "ui_text": 10,
+        "session_end": 1
+      },
+      "window_texts_redacted": true,
+      "install_evidence": 0
+    },
+    "notification_restored": true,
+    "stopped_and_relaunched_without_notification": true,
+    "stopped_log_unchanged": true,
+    "crash_buffer_fatal_exception": false
+  },
+  "cleanup": {
+    "font_scale": "1.0",
+    "enabled_accessibility_services": "null",
+    "accessibility_enabled": "0",
+    "remove_helper": "Success",
+    "stop_emulator": "OK: killing emulator, bye bye\nOK"
+  },
+  "macos_024_unchanged_files": 91,
+  "preceding_ci": [
+    {
+      "url": "https://github.com/gcsagroup/agentguard/actions/runs/35134084036",
+      "commit": "c6e59ba129caebbb422c3e938e7bd8b1a2ae2b1b",
+      "jobs_passed": 13
+    },
+    {
+      "url": "https://github.com/gcsagroup/agentguard/actions/runs/35134990178",
+      "commit": "174d9ab8f5ff861ce3e53c191ff3256f1238e861",
+      "jobs_passed": 13
+    }
+  ],
+  "historical_ci_root_causes": "UNRESOLVED",
+  "release_status": "NO_GO",
+  "remaining_scope": [
+    "正式 Release 签名与 A1–A4/T",
+    "TalkBack 与 OEM 真机",
+    "HTTPS 中继、独立认证复核",
+    "AGD-027 原性能预算",
+    "F13 用户暂缓",
+    "AGD-031 外部需求条件",
+    "AGD-032 原 19 类正式材料"
+  ],
+  "artifact_root": ".artifacts/android-api35-2026-09-17",
+  "artifact_count": 312,
+  "artifacts": {
+    "artifact-manifest.json": "f91bc3346d08d7c53fa0b646032c3219ea46f7e7d7758b1dd2e4a5eca4f93061",
+    "source-manifest.json": "22d0ed81084ab14ec553072cd0d2c8f250816b658fcf8e601d2d3fed50b84f55",
+    "notification-regression-old-with-rule.log": "696acdd3120ae94797fd9bf0e08d8fb7b7c56aca6d2d6e34f86b2ebc24dc65e4",
+    "notification-regression-old-with-rule.xml": "e2cafaad3439330c0427a0389f8eaf6a1e9a2ca1366f6772383005e82146a717",
+    "android-first-checks-interrupted.log": "71af52d0d02365a84d0ebae09895c0e71f9e2f0365a27a32ee37508311dbd2ee",
+    "first-test-thread-dump.txt": "d20e7d5e168640a795cd334cb9ac1c6f7da61b6da9e02092c73afe0b045db511",
+    "android-final-checks.log": "f0c38219116d3076572575d093133dd47dde25e705e4f98178160a4e63dbaf23",
+    "final-test-counts.json": "96fc810b1fb9ad7637dbad935e8343d6f9fa817428cd08272a809cd16b6635f8",
+    "repository-final-tests.log": "2a11a6a2dc757fa3526f9b81f61670e271dca1316df03cda5b0d9c98071c897e",
+    "final-native-verification.json": "d04e9e1948de08891806d50fa983a69f19353a89e5cd384e9628166f8a56a4fe",
+    "cleanup.json": "61c628eb6cb0ece9c950713f37e80a59aef297b9b305287f74721dcb60975000",
+    "mac-app-unchanged.json": "31316bf2a53fc71c565f96791653e2bcf59a8fa9d6aef6dd21b5fef5f0dd0e82",
+    "dev10.apk": "321ccf9b71b355d41f8f5b4078dd59f6aedf0bb317b06bf872b53ae7e90f7157",
+    "dev11.apk": "c640a004ca16a1bdc34f3de8634d1c23f1fcad72887ea3b61bf0e9d6d7b0cd85",
+    "dev11-apk-signature.txt": "ace24cd5363c96b6532c9c550abc6d312c252da046c2596d0aa25fa96ac20d96",
+    "dev11-package.txt": "1014fb183ae27814b7fe5f0164a40a941403cb30098383047d6745d69f416d3d",
+    "notifications-after-grant.txt": "4c6dcde167644ee52d4423e622dbeba8a4eb22e6c714b1fc0605b56734908ce7",
+    "dev11-notifications-after-grant.txt": "e84afa2609eeadc4ad60bb5784ca33ad0edaea5ddf0b6f48ceb2c4857f708503",
+    "dev11-notification-shade.png": "334c0b9abbd3eaf7719b16cd576b543e1db93dca4bd1240e0a4a0497c903b94f",
+    "dev11-large-en.png": "5fc7f1e220b5fb59e36dbb401fb0a16307f38ab46c6b174a7618c5e0d4fe3907",
+    "dev11-large-en-scrolled.png": "5cc6f350336d00cf65eb9f9762d3fd3d0296c039cb07a3fa815309c13a9a24f7",
+    "dev11-large-cn.png": "19677459c6f7bbda4eff7c7c61273ab01b4e43870b29f8c43e82589d6b9cec63",
+    "dev11-large-tw.png": "3ac74dceb3e8fba484ffc117d408aa7cd8a5376f11200373bfc6237650f3cfc6",
+    "dev11-stopped-settled.json": "c2a6f33d62200371737d58fc435404bd7f28d6452729b61de255ddb35cfb6882",
+    "dev11-relaunch.json": "c2a6f33d62200371737d58fc435404bd7f28d6452729b61de255ddb35cfb6882",
+    "dev11-relaunch.jsonl": "7db2c734eef155c6fbfbaac0bc36ae84fa3b240b71dc033e38fa7dc3d53220ca",
+    "final-crash.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-logcat.txt": "1a4719f428c5de4128898011b9461a902da987db83e9ec590adf0117b3ae11e1",
+    "interrupted-logcat.txt": "42d74401b9aee357ef9746ab37d3a92c1ea4a76beefb7c957b48d86c8e5cd06c",
+    "interrupted-session.jsonl": "e6ef3cc41dd0d787a735bd9df8782dac91254f752304b03663df1afcb3a9947e",
+    "android-qa.py": "49da2436a8b6990c3d6dfc327a3199f3bb72b78df6b88fec106edc7bc2a071ef",
+    "collect-session.py": "84836c3481a05ea6e52226fbd60e679db3c84fd34880186210020e83ffba6252",
+    "ui-reader/src/com/agentguard/qa/uireader/UiReader.java": "a16814612eb899d0f895ba43185e995f6d94145873bb64c281e95254029d65d5",
+    "ui-reader/AndroidManifest.xml": "036833b49278938b6dfb1f21eb1c4101ab2c5805eb0f3ce10eacc0cb88ff2a63",
+    "ui-reader/android-ui-reader.apk": "a1e51dbb492ecc5f639b627d0cf0a668161cc89b69b8314654f0fdbb1b1925d1",
+    "ios-focus-ci-latest.json": "e9ba1b2c17277f6f0544a544f06de06baea638b0a1e929c30fc65a51b49ed18d",
+    "audit-diagnostics-ci-latest.json": "f2415a4c8c445c8b546f7eecaa94fea92a715d760703e7739d6ad90068842f81"
+  }
+}

@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Android API 35 notification recovery after permission grant (2026-09-17)
+
+- Native API 35 checks found that granting notification permission restored the Protecting label without restoring the ongoing notification. Permission callbacks and foreground resume now post it only for an active session with a bound observer; stopped or unbound sessions remain stopped.
+- Upgraded the same package to dev.11 and checked the system notification, stop/relaunch, and English/Simplified/Traditional Chinese at 2× font scale. The old code fails one of three new regressions; final Debug and Release each pass 104 tests with clean lint. The initial test-fixture failures are retained.
+- Both preceding CI runs now report 13/13 success; historical intermittent root causes remain unresolved. Fixed macOS App 024 is unchanged. These API 35 emulator checks do not replace formal signing, TalkBack/OEM or physical-device acceptance; see the [evidence record](docs/android-api35-notification-2026-09-17.zh.md).
+
 ### Windows concurrent-audit failure diagnostics (2026-09-17)
 
 - The original test discarded append errors. It now retains error chains, SQLite codes, timing and database configuration, and reports row count, chain integrity and duplicate sequence numbers on failure. The original all-50-records assertions and product behavior remain unchanged.

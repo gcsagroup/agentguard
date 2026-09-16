@@ -52,7 +52,7 @@
 | apps/ios-webshield/Tests/ExtensionTests | 26 | Safari 延伸功能 node `test(` |
 | eval/e2e-extension/run.mjs | 39 | 真瀏覽器 E2E 判據 `record(` |
 | apps/android-companion/app/src/test | 72 | Kotlin JVM `@Test`(纯函数) |
-| apps/android-companion/app/src/test(Robolectric) | 28 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
+| apps/android-companion/app/src/test(Robolectric) | 31 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test`(需裝置) |
 | apps/ios-webshield | 23 | Swift `func test*(` |
 | eval/scenarios | 135 | 離線評測場景(YAML) |
@@ -77,7 +77,7 @@
 | Android minSdk | `26` |
 | Android targetSdk | `36` |
 | Android compileSdk | `36` |
-| Android Debug versionName | `1.1.0-dev.10` |
-| Android Debug versionCode | `1000010` |
+| Android Debug versionName | `1.1.0-dev.11` |
+| Android Debug versionCode | `1000011` |
 
 重新產生:`make capability-matrix`;核對:`python3 scripts/gen-capability-matrix.py --check`。
