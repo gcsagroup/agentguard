@@ -105,4 +105,4 @@ TestFlight 都尚未驗證。設定 Team/App IDs/profiles 並完成上述驗收�
 
 ## 舊工具鏈相容（2026-09-17）
 
-目前 App／Extension 為 **1.0.0 (22)**，沿用相同名稱與識別碼。逐頁版面與多行文字修正見[建置 21 記錄](../../docs/ios-page-audit-2026-09-17.zh.md)；該提交在 CI 的 Xcode 16.4 因新 API 不存在而編譯失敗。建置 22 補充編譯期隔離，本機完整門禁通過，舊 SDK 分支仍待修正提交 CI。最大字體、真機 Safari、VoiceOver 與 TestFlight 尚未驗收；見[修正與證據邊界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。
+目前 App／Extension 為 **1.0.0 (22)**，沿用相同名稱與識別碼。逐頁版面與多行文字修正見[建置 21 記錄](../../docs/ios-page-audit-2026-09-17.zh.md)；該提交在 CI 的 Xcode 16.4 因新 API 不存在而編譯失敗。建置 22 補充編譯期隔離，本機完整門禁通過，準確提交 `b458ca5` 的 CI 已 13／13 成功；Xcode 16.4／iOS 18.5 的 Node 26／26、Swift 26／26、嚴格 Release 與 Analyze 通過。最大字體、真機 Safari、VoiceOver 與 TestFlight 尚未驗收；見[修正與證據邊界](../../docs/ios-sdk-compatibility-2026-09-17.zh.md)。

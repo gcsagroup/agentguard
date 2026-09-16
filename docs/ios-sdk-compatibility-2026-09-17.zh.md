@@ -21,6 +21,16 @@
 
 本机只执行新版工具链分支。**旧 SDK 分支须以修正提交的 CI 结果证明**，不能从条件编译文字推断通过。最大字号完整审计此前的失败保留，本批不计 I6、真实 Safari、VoiceOver 或 TestFlight 验收。
 
+## 修正提交的 CI 读回
+
+准确提交 `b458ca5b618ae01d22c931c72cb4abac01a55bcc` 的 [CI 35151291981](https://github.com/gcsagroup/agentguard/actions/runs/35151291981) 已终态成功，13 项作业全部通过。此前 `8b55a0e` 的两项失败仍保留。
+
+- iOS 作业实际使用 Xcode 16.4 和 iPhone 16 Pro／iOS 18.5（22F77）模拟器，Node 26／26、Swift 26／26、无跳过；严格 Release 模拟器／未签名设备目标及 Analyze 通过。下载原始 xcresult，逐张核对三语共 6 张截图，正文可读且均滚动到末尾。旧 SDK 编译分支已获得运行证明。
+- Windows 的 HTTP 控制入口 15／15 通过，包含此前失败的销毁监听入口场景；桌面壳 29／29 及 Release 审计门禁通过。这一次通过不能证明间歇性端口释放根因已修复。
+- macOS 桌面壳 136 通过、11 忽略，另一个真实网关副作用回归通过。先前启动等待问题仍未关闭。
+
+本次 CI 是标准字号及共享存储不可用的开发检查，不覆盖最大辅助字号、真实 Safari、真机 VoiceOver 或 TestFlight。
+
 ## Windows 失败定位
 
 同一基线的 Windows 作业在 `dropping_idle_or_unstarted_listener_releases_port_and_workers` 失败：销毁入口后，首次 TCP 连接探测仍成功；该文件 14 项通过、1 项失败。原日志没有区分未启动／已启动分支，也没有探测连接的两端地址，暂不能归因为监听泄漏或端口复用。

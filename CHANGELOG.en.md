@@ -6,9 +6,15 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Maximum-text contrast diagnosis and CI readback (2026-09-17)
+
+- Exact correction commit `b458ca5` passed all 13 CI jobs, closing the older-SDK iOS compilation gap. Historical Windows/macOS intermittent root causes remain open.
+- Diagnostic copy 23 ran contrast alone: 1 passed, 2 failed. Three Chinese text reports straddle the navigation boundary with unchanged before/after frames. Visual readability was not treated as a pass and no exception was broadened.
+- Production source and full audits remain at build 22. The simulator was restored to that build, normal text size and light appearance, then shut down. Fixed macOS app 024 is unchanged; desktop observation 12/12 and repository invariants 23/23 passed. [Diagnosis](docs/ios-max-audit-diagnosis-2026-09-17.zh.md).
+
 ### iOS older-SDK compilation and Windows close diagnostics (2026-09-17)
 
-- Compile-time guard for the iOS 26 API preserves modern rendering and the iOS 17 deployment target; app/extension build 22. Local Node 26/26, Swift 26/26, strict Release and Analyze passed; the older toolchain still requires the correction commit CI.
+- Compile-time guard for the iOS 26 API preserves modern rendering and the iOS 17 deployment target; app/extension build 22. Local Node 26/26, Swift 26/26, strict Release and Analyze passed; CI for exact correction commit `b458ca5` passed all 13 jobs, including the full Xcode 16.4/iOS 18.5 gate.
 - Baseline CI ended with 11 successes and 2 failures. Windows close assertions retain the first-probe requirement and now report phase and connection details. All 16 macOS cases passed; a live-listener counterexample correctly failed. The Windows root cause remains open.
 - Fixed macOS app 024, maximum-size audit and formal native/release gaps remain unchanged. [Record](docs/ios-sdk-compatibility-2026-09-17.zh.md).
 

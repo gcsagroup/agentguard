@@ -1,0 +1,187 @@
+{
+  "baseline": "b458ca5b618ae01d22c931c72cb4abac01a55bcc",
+  "diagnostic_build": "1.0.0 (23)",
+  "formal_build_retained": "1.0.0 (22)",
+  "scope": "隔离副本仅运行 contrast 类别并记录审计前后状态；不用于全类别或 I6 通过。",
+  "product_source_changed": false,
+  "main_test_changed": false,
+  "exit_code": 65,
+  "result": {
+    "passed": 1,
+    "failed": 2,
+    "skipped": 0,
+    "pages": {
+      "en": 11,
+      "zh-Hans": 7,
+      "zh-Hant": 8
+    },
+    "contrast_reports_not_exempted": 3,
+    "strict_inactive_clear_exceptions": 4
+  },
+  "issues": [
+    {
+      "page": "zh-Hans-page-1",
+      "target": "protection.toggle",
+      "frame_before": "{{32.0, 50.0}, {338.0, 127.3}}",
+      "frame_after": "{{32.0, 50.0}, {338.0, 127.3}}",
+      "navigation_frame": "{{0.0, 62.0}, {402.0, 54.0}}",
+      "report": [
+        "Contrast failed",
+        "Contrast failed for SwiftUI.AccessibilityNode",
+        "Optional(Attributes: StaticText, 0x113835a40, {{32.0, 50.0}, {251.0, 127.3}}, label: '启用 Safari 门控', Disabled"
+      ],
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/14C4CC25-BC64-44AF-A0A6-51E399E296AD.txt"
+    },
+    {
+      "page": "zh-Hant-page-7",
+      "target": "privacy.note",
+      "frame_before": "{{32.0, -88.7}, {338.0, 433.0}}",
+      "frame_after": "{{32.0, -88.7}, {338.0, 433.0}}",
+      "navigation_frame": "{{0.0, 62.0}, {402.0, 54.0}}",
+      "report": [
+        "Contrast failed",
+        "Contrast failed for SwiftUI.AccessibilityNode",
+        "Optional(Attributes: StaticText, 0x113a84f00, {{32.0, -88.7}, {338.0, 433.0}}, identifier: 'privacy.note', label: '處理與稽核儲存都留在本機；不儲存或上傳原始網頁文字、表單值、URL 路徑、查詢參數與片段。'"
+      ],
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/8B5289DB-7D49-443A-A54E-42174DC08B92.txt"
+    },
+    {
+      "page": "zh-Hant-page-5",
+      "target": "enable.note",
+      "frame_before": "{{32.0, -145.7}, {334.0, 322.7}}",
+      "frame_after": "{{32.0, -145.7}, {334.0, 322.7}}",
+      "navigation_frame": "{{0.0, 62.0}, {402.0, 54.0}}",
+      "report": [
+        "Contrast failed",
+        "Contrast failed for SwiftUI.AccessibilityNode",
+        "Optional(Attributes: StaticText, 0x113a86800, {{32.0, -145.7}, {334.0, 322.7}}, identifier: 'enable.note', label: '本 App 無法在所有支援的 iOS 版本上讀取 Safari 開關。授權後請返回這裡，並保持本機閘門開啟。'"
+      ],
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/088866E7-5CD4-414A-8E37-22752E3D4C27.txt"
+    }
+  ],
+  "inference": "简繁中文在独立 contrast 中仍失败，目标审计前后坐标相同；不能用全类别审计改变滚动位置解释全部失败。三处均有文字在导航栏上方或下面，裁剪和遮挡是后续待验证因素，不宣布系统误报。",
+  "screenshots_reviewed": [
+    {
+      "name": "zh-Hans-page-1",
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/F06FF452-4EAF-468F-ADF9-DC3DB9820157.png",
+      "sha256": "fc9812af6533468ed5746eca0f602991ef9cc5f07227f170351ea82d60f8725c"
+    },
+    {
+      "name": "zh-Hans-page-1-after",
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/27032547-A266-4300-BDF5-70F6B385F2FF.png",
+      "sha256": "3e983b978c93794df28e24a06817eac65481ee7b6ec8a4dd8d102a521f3a44a4"
+    },
+    {
+      "name": "zh-Hant-page-5",
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/A0641832-E117-4D7F-BDF7-63A7BB2AA6C9.png",
+      "sha256": "d3f4a41c45995976b873f586d96d9459624d0fffb192250b9fd9b49982046623"
+    },
+    {
+      "name": "zh-Hant-page-5-after",
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/F47E02B2-2555-4D28-BBF2-A74D45368FC2.png",
+      "sha256": "d3f4a41c45995976b873f586d96d9459624d0fffb192250b9fd9b49982046623"
+    },
+    {
+      "name": "zh-Hant-page-7",
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/49A89123-EC5E-48D8-9445-6B131F830BE4.png",
+      "sha256": "2f17c879f9bd30185359adce1aa5eca5adfd0f41a40cb75427f5705da8eb5a09"
+    },
+    {
+      "name": "zh-Hant-page-7-after",
+      "path": ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-23/5550802D-CE6A-43E4-A1CD-C62570855255.png",
+      "sha256": "2f17c879f9bd30185359adce1aa5eca5adfd0f41a40cb75427f5705da8eb5a09"
+    }
+  ],
+  "attachments_total": 250,
+  "files": {
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachment-hashes.json": {
+      "sha256": "8eb58a94cdb5d18950b2ddf8593b2f67abec737b22a9a6132bac5703a9618ce2",
+      "bytes": 36230
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/attachments-export.log": {
+      "sha256": "d87a33f432deae137d63cbb5e32b4bd71240eb638275d770b4ecc883cdefa457",
+      "bytes": 29645
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/contrast-23.log": {
+      "sha256": "b9f2cc273503b0f61e939fd53f96313010f0efd3cd99e2914c1d5850893cd791",
+      "bytes": 7071
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/diagnostic-collection-stop.json": {
+      "sha256": "e9596e978902d320253f833f5468e95ddbb168b73b22b8f400e10539333a7383",
+      "bytes": 600
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/diagnostic-test.patch": {
+      "sha256": "260f110d6b44d29acce045c0d68bfa90915e0028ec2f0fe965ef7cfdeb59456d",
+      "bytes": 1386
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/experiment.json": {
+      "sha256": "1d4067e50000d3dd885560230e7e8a16f5eb6e5502a1dd32bd45e741e156a4c0",
+      "bytes": 377
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/index-diagnosis.py": {
+      "sha256": "f44c79feb25682f9a57425681f36ac0e83e10c439db12f3b955f007d72247cc0",
+      "bytes": 4676
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/partial-summary-error.log": {
+      "sha256": "84f50922ff010dcb1922865dc6a61a200c4ba5b761fe183222b1502012804615",
+      "bytes": 375
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/partial-summary.json": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/repository-final-tests.log": {
+      "sha256": "32cb161a463960a7832326f4668bddad547260d3cc13c3fa21bd7e7bfe0438df",
+      "bytes": 2904
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/restored-state.json": {
+      "sha256": "8a7b26595a1735f41e8c18660fe3eaef52e1c6d617d230aee95cdc957d4b71f1",
+      "bytes": 574
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/screenshots-reviewed.json": {
+      "sha256": "ac1e55943eee4fe8185c08bdf080d4efb86e57bcaa813bd446bf3e91a5d4f698",
+      "bytes": 951
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/summary-23.json": {
+      "sha256": "f49c4451bd0ad4201eba8bfbe8c81b7b67ca6137dbf2a09d7e0c0b5ebdaae7df",
+      "bytes": 2111
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/test-output-before-finalization.log": {
+      "sha256": "b77a015c61f35c87059957d36d8d00bb48c7184eadc173a4a871b0cf6ab4ae6b",
+      "bytes": 99645
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/xcodebuild-wait.sample.log": {
+      "sha256": "8ce3d545ca6e3a1510a05291c547a48680aa6908c290a760ffec14b1a820a747",
+      "bytes": 248
+    },
+    ".artifacts/ios-max-audit-diagnosis-2026-09-17/xcodebuild-wait.sample.txt": {
+      "sha256": "4af841355134c66d26fb93e3b725a0310af55d2703a948301734b6e4af60e2b7",
+      "bytes": 198572
+    }
+  },
+  "diagnostic_collection": "测试结束后辅助 simctl diagnose 等待超过四分钟；保存测试输出和父进程采样后只中止附属收集，xcresult 正常导出且失败结论保留。完整系统诊断收集未完成。",
+  "restored": {
+    "device": "Aegis QA iPhone 17",
+    "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+    "state": "Shutdown",
+    "settings": {
+      "content_size": "large",
+      "appearance": "light"
+    },
+    "restored_products": [
+      {
+        "id": "com.agentguard.webshield",
+        "build": "22",
+        "sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "id": "com.agentguard.webshield.extension",
+        "build": "22",
+        "sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      }
+    ],
+    "product_source_changed": false
+  },
+  "i6_complete": false,
+  "release_go": false
+}

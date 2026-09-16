@@ -343,10 +343,65 @@
     ".artifacts/ios-sdk-compatibility-2026-09-17/verify-products.py": {
       "sha256": "51ea6f897d99456eac396cdb13877ad2bcc60fd2728304801f367e5ad219c5dc",
       "bytes": 2056
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/append-ci-readback.py": {
+      "sha256": "c71960f27b395e53a7cba30fcd7dd7e37c35e0c771785d902ce94b30081bf63b",
+      "bytes": 2484
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/chrome-native-retry.json": {
+      "sha256": "bde88332f4d671a678ba9e6446fbe477ec729b05a48412ac9f7f766d2f72d9f2",
+      "bytes": 603
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-b458ca5-status.json": {
+      "sha256": "fe09473260e6d1ee23a0f0d93f69884bce08da9d5a09b523ee617f69bdfab08b",
+      "bytes": 36199
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-b458ca5-watch.log": {
+      "sha256": "9486d7937a0c3450e2b58508c6886e0ae5665b110c6722bf90ab23efa5b06baa",
+      "bytes": 109004
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-current.json": {
+      "sha256": "90462b595dc17d2f11d673472cc99d9019c9c24bcdf86e96db07eb51449b0d1e",
+      "bytes": 36716
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-after.log": {
+      "sha256": "0577e862f5d5c192b69c1cd2d7ffe8bd273f56de457a0c094c06992b489dceb0",
+      "bytes": 34672
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments.log": {
+      "sha256": "0b5a3f2283d826d1961ec29900d78dc86dea9ea60407e7e58826510ed5c82905",
+      "bytes": 6059
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-summary.json": {
+      "sha256": "0dbea87d7014287854e9dbbe01f720ee0bccf4edd035d3690b98a585c9229d30",
+      "bytes": 1213
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-macos-after.log": {
+      "sha256": "22dbf2fdc1ae637d1e95a876d0c3a8522ec4155a49657327bfcf6a73549eab3f",
+      "bytes": 317877
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-windows-after.log": {
+      "sha256": "ae145bcff3ecc7bc99b39846419a9d39b4c744a6a9f0ca0a74e7172af98f1e2f",
+      "bytes": 573455
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/ci-windows-log-not-ready.log": {
+      "sha256": "4f1f517535e138ce67f10c640cc596029f451d258a4096794b8b87bf5f57418f",
+      "bytes": 215
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/desktop-observation-recheck-pinned.log": {
+      "sha256": "adaf11d9c3787dda68bd4e875d0db343fa38f796c5a29a215dd62d1c480336df",
+      "bytes": 1440
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/desktop-observation-recheck.log": {
+      "sha256": "8bc120d3d0cea04e174a826725c544fcc38c919b6968c4daebf5c1020db28f51",
+      "bytes": 63
+    },
+    ".artifacts/ios-sdk-compatibility-2026-09-17/repository-readback-tests.log": {
+      "sha256": "1746651fb0970ce613bc60f4e98631413a705a98546582c9c4e69edf8ec91d6f",
+      "bytes": 2904
     }
   },
   "limitations": [
-    "旧 SDK 分支须等待新提交 CI；本地新版工具链不替代旧版证明。",
     "最大字号完整审计之前失败，I6 未完成。",
     "Windows 端口释放、之前 Windows 并发审计及 macOS 启动等待的间歇性根因仍未关闭。",
     "共享能力、真机 Safari、VoiceOver、TestFlight、签名与正式发布材料仍待完成。"
@@ -358,5 +413,217 @@
     "conditional": 1,
     "in_development": 1,
     "not_started": 2
+  },
+  "correction_ci": {
+    "commit": "b458ca5b618ae01d22c931c72cb4abac01a55bcc",
+    "run": 35151291981,
+    "status": "completed",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Windows (native adapter + shell)",
+        "conclusion": "success"
+      },
+      {
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "conclusion": "success"
+      },
+      {
+        "name": "Android companion (Kotlin)",
+        "conclusion": "success"
+      },
+      {
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "conclusion": "success"
+      },
+      {
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS shell (native AX + SCK)",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS 专属代码路径能编译",
+        "conclusion": "success"
+      },
+      {
+        "name": "部署自检",
+        "conclusion": "success"
+      },
+      {
+        "name": "Shell front ends parse",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (ubuntu-latest)",
+        "conclusion": "success"
+      },
+      {
+        "name": "MSRV 1.87",
+        "conclusion": "success"
+      },
+      {
+        "name": "内核约束（guard-jail）",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (macos-latest)",
+        "conclusion": "success"
+      }
+    ],
+    "ios": {
+      "xcode": "16.4",
+      "device": {
+        "architecture": "arm64",
+        "deviceId": "DC4CD8B3-4457-4153-9087-A0D7A2F9BFD9",
+        "deviceName": "iPhone 16 Pro",
+        "modelName": "iPhone 16 Pro",
+        "osBuildNumber": "22F77",
+        "osVersion": "18.5",
+        "platform": "iOS Simulator"
+      },
+      "node_passed": 26,
+      "swift_passed": 26,
+      "swift_failed": 0,
+      "swift_skipped": 0,
+      "release_simulator": "passed",
+      "release_unsigned_device": "passed",
+      "analyze": "passed",
+      "screenshots_reviewed": 6
+    },
+    "windows_control_http_passed": 15,
+    "windows_shell_passed": 29,
+    "macos_shell_passed": 136,
+    "macos_shell_ignored": 11,
+    "attachments": [
+      {
+        "name": "en-page-1-inactive-clear-contrast-exception_0_B1C30564-E912-4BA8-93FD-5619A33EC8E1.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/E251B25B-1FE8-42A1-9DF6-959B53B7FC75.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224"
+      },
+      {
+        "name": "en-page-1-issue_0_C2E929A7-6546-466B-BF46-7449790FA2AF.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/57C2EC1C-DD93-4D2B-A906-8133687947AB.txt",
+        "sha256": "0b532d0ec8566c0dcab54870d39d4653b9d52b60119f04ac3f9dcd5d42c96430"
+      },
+      {
+        "name": "en-page-1-bounds_0_A3B36E43-20D8-4DCF-BFDA-2F469978E24F.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/0C0AC4B3-51B0-4475-97F1-711D85C92569.txt",
+        "sha256": "ac55dbe071607429bbbc3ddd60a17dc5a2be3ee2c6fe13c263afdcf803b42ac1"
+      },
+      {
+        "name": "en-page-1_0_9206B451-E336-4D5E-8C59-A3B90787906E.png",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/A9114EFC-D3D3-4005-A05C-4100468323B0.png",
+        "sha256": "1188fa5f8604ff39f5741d9c1befea98620fd52c19b48dbc8d8030c5df73451c"
+      },
+      {
+        "name": "en-page-1-tree_0_E487D86F-CC45-40E2-BCC6-D012CE327D45.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/E5507CF8-6B33-42DB-B527-56B10C20DAE8.txt",
+        "sha256": "cfb1315b9029969647858d4309a0767a896211a09093f0067fb2786325a2658a"
+      },
+      {
+        "name": "en-page-0-bounds_0_0C9C06A7-109B-433C-A8CF-BD54C9FFC747.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/C37FB2A3-31FD-464A-87EC-74FB5173C638.txt",
+        "sha256": "5a776c4b01d2ab483a80c4c8e2210f3c94f243647e6f4355b6797b2756eec127"
+      },
+      {
+        "name": "en-page-0_0_4C9F0B17-F37F-4C60-AA2D-ABCC6A8C4CA6.png",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/411AB834-7950-4446-909C-457CCB9C4C23.png",
+        "sha256": "7e27f5c45153983aec942d315ec7110bb58960bf1679b90a0356bfe281961ac0"
+      },
+      {
+        "name": "en-page-0-tree_0_4E8E224E-6AC7-4C17-AEFF-4C6810E9D38C.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/28785768-EEED-45B4-A2E4-09062D0B1985.txt",
+        "sha256": "df4c7b26bdf241db36d063ba1f9b7edcfa0d48f2ca30b533e806eebb719f82e3"
+      },
+      {
+        "name": "zh-Hans-page-1-inactive-clear-contrast-exception_0_EAB80864-20F7-4A5D-859C-3A742E0BCB2D.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/1EFE7BF0-E9F8-4E9E-B1E1-9A499FB1F924.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224"
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_9ECF21E5-7CE4-4F58-AA04-4E87E6FE3AFF.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/62172C37-46CF-43C9-8972-489B76032FAB.txt",
+        "sha256": "483aec930a33b628decd5dc2aa71299405af1ec2fa612bc9a21f0aaf738c4294"
+      },
+      {
+        "name": "zh-Hans-page-1-bounds_0_10E2DCED-D516-4AF1-8C64-BFD42835150A.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/571E3183-A167-4AD3-89EC-D2F10ACCCCA6.txt",
+        "sha256": "cc27b297ee393ea4a425fbb71f8441e20c106436214fb1cc2249cfa23f7cdbfa"
+      },
+      {
+        "name": "zh-Hans-page-1_0_94C02DA6-FD44-49BB-BBD0-22B6C7B7F801.png",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/570CDE00-DFC3-46B2-B034-4B612C572924.png",
+        "sha256": "2b2319e99fc5b4cb946453c997ca9b77af5097b41fcb2b0dcda972fc75421217"
+      },
+      {
+        "name": "zh-Hans-page-1-tree_0_959423FB-A4D8-4039-91A5-4208EB4255E3.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/C19F1C1E-F45E-4449-B420-8B299426B674.txt",
+        "sha256": "9c60829f29d3253a045e4329fb25e2bbafe19f0e03b1f1b5a780ff9d15dd3af7"
+      },
+      {
+        "name": "zh-Hans-page-0-bounds_0_82376635-6E6F-4E95-81BF-0FE481F3E09C.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/EBC81810-16F2-4D29-A6E1-8348104B795F.txt",
+        "sha256": "ec5546463e46ac840aca489f613003ac72064908b97f003719890921ffb35dd8"
+      },
+      {
+        "name": "zh-Hans-page-0_0_47B980B8-1B4A-405A-9580-30E7E46F9B15.png",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/4C157FE5-3042-468E-BE45-DA0F3AFC2022.png",
+        "sha256": "2ed43bb8aab81bf363f16c9af3b52acb71c94107dea213618ed1ec38f55ce7b0"
+      },
+      {
+        "name": "zh-Hans-page-0-tree_0_7D9B0A4E-2870-4832-9181-FDDD7CAE6867.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/FAE88A33-B493-49DF-AEC8-6F07AEFB9D38.txt",
+        "sha256": "aca34cfa563592880e08fc629c7ef67fa16c18157ee01ffa9f8bdd01d401607d"
+      },
+      {
+        "name": "zh-Hant-page-1-inactive-clear-contrast-exception_0_7E960B1F-9E31-45DC-8FE9-CD3B9677A7E1.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/C685F930-FFC3-4053-A117-41F3D503E8BA.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224"
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_B9990127-D0D0-4104-ACB5-768A2AAB4B0B.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/153D09DC-BC11-4432-8D67-8232E7DBD3C7.txt",
+        "sha256": "f128f759fe649cbf1e6fc409f388ed4516aecb702d36033d91c0b12ab5578f75"
+      },
+      {
+        "name": "zh-Hant-page-1-bounds_0_47E428B6-FBE4-4297-BB49-CA0771D79F7F.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/D2780491-7599-4A8D-AFF5-E98CB2CFE80D.txt",
+        "sha256": "703f8802ece7d75e2929fdd886f2bb8967d20afeb8c45d5bb4569bd06a034c99"
+      },
+      {
+        "name": "zh-Hant-page-1_0_C24F9068-FA10-4C7C-8AD0-256B0AC1C71F.png",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/13AD1B69-83C6-495C-B8DC-D815C1497FDE.png",
+        "sha256": "be2433546262c57d47e6ae8bfae8a05455b9924a6ac510032217dfb70dbbc0c0"
+      },
+      {
+        "name": "zh-Hant-page-1-tree_0_23767FF3-74C5-4278-AA6E-FBE559CFBE11.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/108B0E8C-52B6-4699-994A-A7FE38D26CAC.txt",
+        "sha256": "028bb8e98e1fb02b09a4314d9814da7e9f310b7199b3979c1f8e297ddc563c6d"
+      },
+      {
+        "name": "zh-Hant-page-0-bounds_0_6386C3FC-A0A5-4695-8EC8-3AC807B2F027.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/D4D26244-C8E5-4D71-A721-C0140C3A655B.txt",
+        "sha256": "9265bb186e95baba12fe3b9c994b31c1a1a23524f9c17ac3b500652f50b18624"
+      },
+      {
+        "name": "zh-Hant-page-0_0_2EAB97EB-00B4-4AC1-BA7C-6143F55C60EE.png",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/7464DFE8-B245-4CF8-9EC0-3EADDB1DC65E.png",
+        "sha256": "7f0d1049dba69dfaba4b38caa615cf5fe8418e93a6552e2fa239dd395388c094"
+      },
+      {
+        "name": "zh-Hant-page-0-tree_0_3DF639E9-7416-431A-90B2-EA15DA863805.txt",
+        "path": ".artifacts/ios-sdk-compatibility-2026-09-17/ci-ios-attachments/AAD027B6-D4E8-4F07-9F74-ACCF77E361B6.txt",
+        "sha256": "f0a00e5ce7beedc74fe7e6589c43ba47832e755f2015d328c1fe7c968226c453"
+      }
+    ]
+  },
+  "current_desktop_recheck": {
+    "tests_passed": 12,
+    "macos_024_files_and_modes_unchanged": 91,
+    "scope": "当前源码定向测试及冻结包逐文件复核；没有重新开启原生观察会话。",
+    "first_attempt": "首次工具路径不存在，未开始测试；改用仓库固定工具链脚本后 12 项通过。"
   }
 }
