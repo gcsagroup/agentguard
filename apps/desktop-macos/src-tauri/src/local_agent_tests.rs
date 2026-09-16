@@ -286,6 +286,21 @@ fn 启动工具列表损坏会回收已创建网关() {
 }
 
 #[test]
+fn 固定回环模型和网关启动不依赖反向域名解析() {
+    let directory = TestDirectory::new();
+    let model = ModelFixture::new();
+    let manager = AgentManager::default();
+    let control = GatewayConfirm::default();
+    let run = start_fixture(&manager, &control, &directory, &model, "dns-forbidden");
+    model.loaded();
+    model.request("/v1/chat/completions");
+    model.reply(json!({"choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"回环启动完成。"}}]}));
+    wait_for(|| !run.worker.load(Ordering::SeqCst));
+    assert_eq!(run.view().unwrap().answer, "回环启动完成。");
+    run.control("stop").unwrap();
+}
+
+#[test]
 fn 同一网关会话完成后可明确追加第二轮模型请求() {
     let directory = TestDirectory::new();
     let model = ModelFixture::new();
@@ -761,9 +776,13 @@ fn 浏览器网络等待可暂停且迟到成功不触发后续工具() {
 }
 
 const GATEWAY_FIXTURE: &str = r#"#!/usr/bin/python3
-import json, os, sys, threading, time
+import json, os, socket, sys, threading, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import TCPServer
 MODE = "__MODE__"
+if MODE == 'dns-forbidden':
+    def forbidden_lookup(*args): raise RuntimeError('固定回环夹具不得执行 DNS 查询')
+    socket.getfqdn = forbidden_lookup
 args = sys.argv[1:]
 def flag(name): return args[args.index(name) + 1]
 root = os.path.dirname(os.path.realpath(__file__))
@@ -800,7 +819,13 @@ class Handler(BaseHTTPRequestHandler):
             deadline = time.monotonic() + 8
             while not os.path.exists(os.path.join(root,'release-control')) and time.monotonic() < deadline: time.sleep(0.01)
         self.reply(identity())
-server = HTTPServer(('127.0.0.1',0), Handler)
+# 标准 HTTPServer.server_bind 会调用 getfqdn；固定回环协议夹具不需要 DNS。
+class LoopbackHTTPServer(HTTPServer):
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        self.server_name = '127.0.0.1'
+        self.server_port = self.server_address[1]
+server = LoopbackHTTPServer(('127.0.0.1',0), Handler)
 port = server.server_address[1]
 with open(os.open(flag('--control-file'),os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as output:
     json.dump({'service':'agentguard-mcp','confirm_protocol':2,'url':'http://127.0.0.1:'+str(port),'port':port,'instance_id':'b'*32,'token':'a'*32},output)

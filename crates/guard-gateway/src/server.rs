@@ -1281,7 +1281,13 @@ impl Server {
             self.terminal_recorded = paired;
             match source {
                 Ok(source) => {
-                    if output.ok && !output.truncated && matches!(call, ToolCall::ReadFile { .. }) {
+                    if output.ok
+                        && !output.truncated
+                        && matches!(
+                            call,
+                            ToolCall::ReadFile { .. } | ToolCall::ParseDocument { .. }
+                        )
+                    {
                         self.last_read_content = Some(observed_content);
                     }
                     self.last_output_source = Some(source);
@@ -1311,6 +1317,14 @@ impl Server {
         let (name, mut parameters) = match call {
             ToolCall::RunShell { argv, cwd } => ("run_shell", json!({ "argv": argv, "cwd": cwd })),
             ToolCall::ReadFile { path } => ("read_file", json!({ "path": path })),
+            ToolCall::ParseDocument { path, format } => (
+                "read_file",
+                json!({
+                    "path": path, "operation": "parse_document", "format": format,
+                    "parser_sha256": crate::document::parser_sha256(),
+                    "input_bytes_limit": crate::document::MAX_INPUT,
+                }),
+            ),
             ToolCall::SearchFile { path, query } => {
                 ("search_file", json!({ "path": path, "query": query }))
             }
@@ -1353,6 +1367,7 @@ impl Server {
             target: match call {
                 ToolCall::RunShell { argv, .. } => argv.first().cloned().unwrap_or_default(),
                 ToolCall::ReadFile { path }
+                | ToolCall::ParseDocument { path, .. }
                 | ToolCall::SearchFile { path, .. }
                 | ToolCall::WriteFile { path, .. }
                 | ToolCall::DeleteFile { path } => path.to_string_lossy().into_owned(),

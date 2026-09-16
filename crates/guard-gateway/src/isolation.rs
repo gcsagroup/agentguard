@@ -47,6 +47,21 @@ fn random_id() -> String {
 }
 
 impl DockerExecutor {
+    pub(crate) fn image_id(&self) -> &str {
+        &self.image
+    }
+
+    fn document_input(&self, path: &Path, strict_file_scope: bool) -> Result<Vec<u8>> {
+        for mount in &self.mounts {
+            for target in std::iter::once(&mount.target).chain(mount.aliases.iter()) {
+                if let Ok(relative) = path.strip_prefix(target) {
+                    return read_document_below(&mount.source, relative, strict_file_scope);
+                }
+            }
+        }
+        bail!("文档不在已授权工作区副本内");
+    }
+
     /// 仅向受控服务启动器交付已建立的副本挂载；不暴露宿主原工作区挂载。
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(crate) fn service_mounts(
@@ -295,6 +310,27 @@ impl DockerExecutor {
         let request_root = self.snapshot_root.join(format!("request-{}", random_id()));
         let result = (|| -> Result<ExecOutput> {
             create_private_dir(&request_root)?;
+            // 在授权副本内逐级持有句柄，复制准确字节后再交给解析容器。
+            // 解析器只能看到这一份只读输入，不挂载其它工作区或宿主原文件。
+            let document_digest = if let ToolCall::ParseDocument { path, format } = call {
+                anyhow::ensure!(
+                    matches!(
+                        format.as_str(),
+                        "pdf" | "docx" | "xlsx" | "pptx" | "png" | "jpeg"
+                    ),
+                    "文档格式未支持"
+                );
+                let input = self.document_input(path, strict_file_scope)?;
+                let digest = crate::tool_registry::digest(&input);
+                fs::write(request_root.join("document-source"), &input)?;
+                fs::write(
+                    request_root.join("document_parser.py"),
+                    crate::document::PARSER,
+                )?;
+                Some((digest, input.len()))
+            } else {
+                None
+            };
             let mut request = serde_json::to_value(call)?;
             if strict_file_scope {
                 request["__agentguard_single_link"] = json!(true);
@@ -332,6 +368,9 @@ impl DockerExecutor {
             );
             command.args(["--user", &format!("{}:{}", self.uid, self.gid)]);
             for mount in &self.mounts {
+                if document_digest.is_some() {
+                    break;
+                }
                 for target in std::iter::once(&mount.target).chain(mount.aliases.iter()) {
                     let option = format!(
                         "type=bind,src={},dst={}{}",
@@ -383,7 +422,28 @@ impl DockerExecutor {
             if matches!(call, ToolCall::RunShell { .. }) {
                 return Ok(output);
             }
-            Ok(decode_file_reply(output))
+            let mut decoded = decode_file_reply_limit(
+                output,
+                if document_digest.is_some() {
+                    crate::document::MAX_RECEIPT
+                } else {
+                    MAX_OUTPUT_BYTES
+                },
+            );
+            if let Some((expected, bytes)) = document_digest {
+                if decoded.ok {
+                    let valid =
+                        serde_json::from_str::<Value>(&decoded.detail).is_ok_and(|receipt| {
+                            receipt.get("source_sha256") == Some(&json!(expected))
+                                && receipt.get("source_bytes") == Some(&json!(bytes))
+                        });
+                    if !valid {
+                        decoded = ExecOutput::err("解析回执与宿主冻结的原始文件不一致，结果未知")
+                            .with_state(ExecutionOutcome::Unknown, true);
+                    }
+                }
+            }
+            Ok(decoded)
         })();
         let _ = fs::remove_dir_all(request_root);
         result.unwrap_or_else(|e| {
@@ -393,7 +453,72 @@ impl DockerExecutor {
     }
 }
 
+/// 从已建立的私有副本打开普通文件；父链接、末级链接与特殊文件一律拒绝。
+#[cfg(unix)]
+fn read_document_below(root: &Path, relative: &Path, single_link: bool) -> Result<Vec<u8>> {
+    use std::ffi::CString;
+    use std::io::Read;
+    use std::os::unix::{ffi::OsStrExt, fs::MetadataExt};
+    use std::path::Component;
+    let parts = relative
+        .components()
+        .map(|part| match part {
+            Component::Normal(name) => CString::new(name.as_bytes()).map_err(anyhow::Error::from),
+            _ => anyhow::bail!("文档相对路径不规范"),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    anyhow::ensure!(!parts.is_empty(), "文档路径不能是工作区根目录");
+    let mut file = open_absolute_dir(root)?;
+    for (index, part) in parts.iter().enumerate() {
+        let flags = libc::O_RDONLY
+            | libc::O_NOFOLLOW
+            | libc::O_NONBLOCK
+            | libc::O_CLOEXEC
+            | if index + 1 < parts.len() {
+                libc::O_DIRECTORY
+            } else {
+                0
+            };
+        file = open_at(&file, part, flags)?;
+    }
+    let before = file.metadata()?;
+    anyhow::ensure!(
+        before.is_file() && (!single_link || before.nlink() == 1),
+        "文档必须为符合链接限制的普通文件"
+    );
+    anyhow::ensure!(
+        before.len() <= crate::document::MAX_INPUT as u64,
+        "原始文档超过 8 MiB 上限"
+    );
+    let mut bytes = Vec::new();
+    (&mut file)
+        .take(crate::document::MAX_INPUT as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    let after = file.metadata()?;
+    anyhow::ensure!(
+        bytes.len() <= crate::document::MAX_INPUT
+            && bytes.len() as u64 == before.len()
+            && before.len() == after.len()
+            && before.mtime() == after.mtime()
+            && before.mtime_nsec() == after.mtime_nsec()
+            && before.ctime() == after.ctime()
+            && before.ctime_nsec() == after.ctime_nsec(),
+        "冻结文档时文件发生变化，拒绝不一致快照"
+    );
+    Ok(bytes)
+}
+
+#[cfg(not(unix))]
+fn read_document_below(_root: &Path, _relative: &Path, _single_link: bool) -> Result<Vec<u8>> {
+    bail!("当前平台未支持隔离文档快照");
+}
+
+#[cfg(test)]
 fn decode_file_reply(output: ExecOutput) -> ExecOutput {
+    decode_file_reply_limit(output, MAX_OUTPUT_BYTES)
+}
+
+fn decode_file_reply_limit(output: ExecOutput, limit: usize) -> ExecOutput {
     // 私有包络可能包含整段原始捕获；错误、截断或子进程异常时也不能原样返回模型。
     let unknown = || {
         ExecOutput::err("隔离文件工具回执不完整或格式无效，实际结果未知，不自动重试")
@@ -408,9 +533,7 @@ fn decode_file_reply(output: ExecOutput) -> ExecOutput {
         return unknown();
     }
     match serde_json::from_str::<ExecOutput>(&output.detail) {
-        Ok(decoded) if decoded.detail.len() <= MAX_OUTPUT_BYTES && (!decoded.ok || output.ok) => {
-            decoded
-        }
+        Ok(decoded) if decoded.detail.len() <= limit && (!decoded.ok || output.ok) => decoded,
         _ => unknown(),
     }
 }
@@ -774,6 +897,37 @@ fn copy_tree(source: &File, target: &Path, original: &Path, budget: &mut CopyBud
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 文档冻结只接受授权副本普通文件且拒绝链接目录和超限() {
+        let root = temporary();
+        fs::create_dir(root.join("nested")).unwrap();
+        fs::write(root.join("nested/source.pdf"), b"synthetic").unwrap();
+        assert_eq!(
+            read_document_below(&root, Path::new("nested/source.pdf"), true).unwrap(),
+            b"synthetic"
+        );
+        std::os::unix::fs::symlink(root.join("nested"), root.join("parent-link")).unwrap();
+        std::os::unix::fs::symlink(root.join("nested/source.pdf"), root.join("file-link.pdf"))
+            .unwrap();
+        fs::hard_link(root.join("nested/source.pdf"), root.join("hard-link.pdf")).unwrap();
+        for path in [
+            "../outside.pdf",
+            "parent-link/source.pdf",
+            "file-link.pdf",
+            "nested",
+            "hard-link.pdf",
+        ] {
+            assert!(
+                read_document_below(&root, Path::new(path), true).is_err(),
+                "{path}"
+            );
+        }
+        let file = File::create(root.join("large.pdf")).unwrap();
+        file.set_len(crate::document::MAX_INPUT as u64 + 1).unwrap();
+        assert!(read_document_below(&root, Path::new("large.pdf"), false).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn 文件执行器异常时私有捕获包络不得作为工具正文返回() {

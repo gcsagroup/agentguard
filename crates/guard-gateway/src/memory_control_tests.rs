@@ -957,6 +957,48 @@ fn 见证失效返回未知并停止会话且审计不谎报未派发() {
 }
 
 #[test]
+fn 二进制导入禁止原生解析和客户端自报解析结果() {
+    let fixture = Fixture::new();
+    let mut server = fixture.server(true);
+    let path = fixture.root.join("work/manual.pdf");
+    fs::write(&path, b"%PDF-synthetic").unwrap();
+    let args =
+        json!({"key":"资料","expected_version":0,"path":path,"expires_at_ms":now_ms()+60_000});
+    let response = call(&mut server, "rag_import", args.clone(), None);
+    assert_eq!(response["isError"], true);
+    assert!(response.to_string().contains("隔离后端"));
+    for field in ["document", "parser_sha256", "format", "trusted"] {
+        let mut forged = args.clone();
+        forged[field] = json!("客户端声明");
+        assert_eq!(
+            call(&mut server, "rag_import", forged, None)["isError"],
+            true
+        );
+    }
+    assert!(server
+        .parse_tool(
+            "read_file",
+            &json!({"path":path,"operation":"parse_document"})
+        )
+        .is_err());
+    assert!(server.pending.peek().is_none());
+    assert!(server
+        .memory
+        .as_ref()
+        .unwrap()
+        .store
+        .history()
+        .unwrap()
+        .is_empty());
+    let output = ToolCall::ParseDocument {
+        path,
+        format: "pdf".into(),
+    }
+    .execute();
+    assert!(!output.ok && !output.dispatched);
+}
+
+#[test]
 fn 超过文档限额和无效检索参数拒绝且不保存() {
     let fixture = Fixture::new();
     let path = fixture.root.join("work/large.md");

@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "task": "AGD-028",
+  "date": "2026-09-16",
+  "status": "gateway_rag_verified_native_and_resource_acceptance_pending",
+  "base_commit": "9d9c83326f8fcb972f3136b54841fb70536ee2bf",
+  "artifact_root": ".artifacts/media-rag-2026-09-16",
+  "candidate": {
+    "passed": true,
+    "processes": 4,
+    "formats": 6,
+    "signed_memory_rows": 10,
+    "approved_versions": 9,
+    "injection_signed_rows": 1,
+    "execution_audit_rows": 211,
+    "injection_audit_rows": 7,
+    "source_files": 213,
+    "gateway_sha256": "97376378f6a24a07ba23c72cc1fbe598793d3018afccaba76fe7bcb012ff4ecd",
+    "scope": "合成文档的真实网关 RAG；独立脚本批准，不代表原生、中文 OCR 或模型任务验收"
+  },
+  "tests": {
+    "workspace_passed": 1524,
+    "workspace_ignored": 17,
+    "gateway_library_passed": 244,
+    "gateway_library_ignored": 6,
+    "sqlcipher_feature_memory_passed": 21,
+    "desktop_passed": 135,
+    "desktop_ignored": 11,
+    "repository_passed": 23,
+    "clippy_passed": true,
+    "report_tampering_rejected": 5
+  },
+  "selected_business_run": "rag-06",
+  "previous_ci": {
+    "run": 35043899188,
+    "commit": "9d9c833",
+    "success": 12,
+    "failed": 1,
+    "local_fixture_fix_verified": true,
+    "new_commit_ci": "pending"
+  },
+  "boundaries": [
+    "App 020 未更新，91 个文件与严格签名保持；默认镜像和日常记忆库未改变",
+    "四进程均为合成资料及宿主脚本批准；真实 CLI 记忆明确为 plaintext_test",
+    "中文 OCR、实际解析崩溃／超时、外部关系、模型消费和原生验收仍待完成",
+    "来源图上限未改变；历史拒绝不能冒充注入检测通过",
+    "F13 暂缓未验收，M3 性能未通过，整个计划未完成，发布 No-Go"
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/media-rag-2026-09-16/app-unchanged.json",
+      "sha256": "f84c3153c92d0739e2cd5acce00d0ecc53cc2af8d0619935adf9acf190d2a0c5",
+      "bytes": 314
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/approved-inputs/normal.docx",
+      "sha256": "800fc2bde67bd507973e7bbe43e8a2d5e0a306217b35bcef3e2328e5f322dc56",
+      "bytes": 557
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/approved-inputs/normal.jpeg",
+      "sha256": "ce158fc5678c1779c473ca99398ec93e60d0cb13a18bb7cc2a5de29da5dbec56",
+      "bytes": 7602
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/approved-inputs/normal.pdf",
+      "sha256": "81b360c2157220f97fc94f25ef9786c93c31385c019be7c44e7dc7878bb1ad6c",
+      "bytes": 1545
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/approved-inputs/normal.png",
+      "sha256": "d5496833c22ef3a4f7c4413f60d4812949b436edd6a0e82f418bc7f77452bb1c",
+      "bytes": 5927
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/approved-inputs/normal.pptx",
+      "sha256": "992ddd8497e0c6dfb56a008ef7c439e4c571357e353395d772e4dcef6afc8b3f",
+      "bytes": 788
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/approved-inputs/normal.xlsx",
+      "sha256": "822756a1f4e95c9943bebc5c0c7dd8700234a74554761fe09f96bbb52a040b55",
+      "bytes": 1152
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/build-01.log",
+      "sha256": "0e854e82b9ad70775a78c5ade71b9bf991f36ebceb48c1a1ba43522bd3e74909",
+      "bytes": 419
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/ci-9d9c833-failure.log",
+      "sha256": "46a7e20da10ce715520f3d463c3d2915c0162f0b5363a65e4ad88629f6a7bb89",
+      "bytes": 98914
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/ci-9d9c833.json",
+      "sha256": "c11ada0c8e970d331742e49ecf4739a0cf165714e0da37278e6e024f63bf7390",
+      "bytes": 36028
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/clippy-01.log",
+      "sha256": "38fe24070e5edca648df192edbe0c74d411557f558af1f4a1718a44b2f27f1a4",
+      "bytes": 600
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/desktop-agent-tests-01.log",
+      "sha256": "b5ed39f7a7c78587b1c9490ad92e59db7cb4c18dec1a7a5d62164387fc15c09f",
+      "bytes": 5123
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/desktop-tests-01.log",
+      "sha256": "5453bacff005343e4a44a9973cb983bb4271101f6ab8cfda24e52d862280b347",
+      "bytes": 16476
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/dns-calibration.json",
+      "sha256": "55899022ee189485d338d65ef8f5382a9e87b2b94824da886e570f2079d8d346",
+      "bytes": 435
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/frozen-01/build-inputs.json",
+      "sha256": "23545fe2185e34acf1c4dc9586b815c74167e598d00e435e88210b8a68dd6ed6",
+      "bytes": 32427
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/gateway-tests-01.log",
+      "sha256": "2e8acb195b1d3833cb46c656ce3a397b9cd419b22ce4c34a4654a22019d4e619",
+      "bytes": 23547
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/harness-source/agd-document-rag.mjs",
+      "sha256": "4d1d84ec9cf03d6fe204eabce5d696bf434e79ff9d4d62776e111ee8bd37eaf0",
+      "bytes": 14817
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/harness-source/local_agent_tests.rs",
+      "sha256": "7a802cb2d5a842adc9b7e3267c66836fe22b5ac91cf03da3a29752bad127dda3",
+      "bytes": 86425
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/harness-source/verify-document-rag.py",
+      "sha256": "62b562e200a94ea21f08e168f5f30e086e4c44c3435f534296b24491dc72ce35",
+      "bytes": 10809
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/independent-verification-01.json",
+      "sha256": "79c435bc5835a20d1e0902cd97b9b493d93931d4be56cefd8fbb792084d3f194",
+      "bytes": 430
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-01/harness.mjs",
+      "sha256": "44c1b3683da4c5f7ba479d9b98749bdae1e9c70befba7bbdc2ff208b1c1f6b11",
+      "bytes": 11600
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-01/report.json",
+      "sha256": "c47e065e1976d543ba2c1bf1898623cb2de59a938c84f0fe8dc86ab7be8cb0e1",
+      "bytes": 169186
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-02/harness.mjs",
+      "sha256": "c521f445fffb08ae907d330fc0dc36be863cec3ec17b323e02a64e6a42fe90ff",
+      "bytes": 12660
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-02/report.json",
+      "sha256": "d6b28abc9e4ea56662522bfda1a8b5948065778870938c38c3a75e3573718468",
+      "bytes": 167128
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-03/harness.mjs",
+      "sha256": "eee017727bc39e1dcc9c980544c3d3c94f6564135664ac8193c81386eaa2b684",
+      "bytes": 12927
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-03/report.json",
+      "sha256": "b17f9d68754ae9f5bf063d693e91e6af75f7c5ead329c9f5adb8d35c7bfcec9c",
+      "bytes": 173385
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-04/harness.mjs",
+      "sha256": "b008844a218bc6acb2fa0d4953f097e349ad4acf763067ae80709b5954af7ec6",
+      "bytes": 13881
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-04/report.json",
+      "sha256": "cf88405874e7de813efb51e3a5235e74f7b2bc768156e7b3b9c5088648116f47",
+      "bytes": 174401
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-05/harness.mjs",
+      "sha256": "a1743eed8ab111a3f286bba74c21300d223e281832fb59f0a26c4ba212e6a35e",
+      "bytes": 14817
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-05/report.json",
+      "sha256": "d54dbb6494813b4c82b80a29644c888c89ad57ba3d586c69e1c1330501e31544",
+      "bytes": 175178
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-06/harness.mjs",
+      "sha256": "4d1d84ec9cf03d6fe204eabce5d696bf434e79ff9d4d62776e111ee8bd37eaf0",
+      "bytes": 14817
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/rag-06/report.json",
+      "sha256": "8dc0589387560cbdef9634b41946104a9a8ce6d643feb000159fe3179aaabb39",
+      "bytes": 174909
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/repository-tests-02.log",
+      "sha256": "1e7ab26b62244fff471de0a497f2319e2968de3c040340b161fa12a11089951e",
+      "bytes": 2883
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/audit.db",
+      "sha256": "ee40af0b40747bd3e0434c15cf6c8c51419364d984967f58ab89dde7a032eed4",
+      "bytes": 1273856
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/head.json",
+      "sha256": "707ec530e2fe2b124f5a02c293a025d7f55b715951faca9a8780a1e58568e693",
+      "bytes": 283
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/injection-audit.db",
+      "sha256": "b5097b303283b15f81a5007b8cf65296d7339e93bdd004d1070390a7648822ee",
+      "bytes": 69632
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/injection-head.json",
+      "sha256": "08839e2c62912fbb0e566d8cba777ae1c52cdaca726c5a4fc4074dd7bea0e13e",
+      "bytes": 286
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/injection-memory.db",
+      "sha256": "f5e1a51b48560668c31b2e5ed1c658f57ea9d76d1a48a117d4d887c549efa1d4",
+      "bytes": 57344
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/memory.db",
+      "sha256": "476ca4a92882c0154cdae2aa4b8bf39170a04ab854ff1a6e8f8bd3b582b52101",
+      "bytes": 196608
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sealed/public.hex",
+      "sha256": "81d68b5f20f22a946af5367a81b5a9a0d8be7216a9f0ad7ea5b70c70ff8c951d",
+      "bytes": 64
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/sqlcipher-memory-tests-01.log",
+      "sha256": "640e113d98ff19432f4b705709fed2ed18309318883c70030a5ff0eeb5453c45",
+      "bytes": 3003
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/verifier-negative.json",
+      "sha256": "27e9c7d184faf2b47ccbfb6660dbfbcd001bd9335269a33fc0628c02545ffc39",
+      "bytes": 383
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/workspace-tests-01.log",
+      "sha256": "d6fbd1e240e0d12bde382778bf99130031259915624ae348c18c4dfd67c7f2d1",
+      "bytes": 19726
+    },
+    {
+      "path": ".artifacts/media-rag-2026-09-16/workspace-tests-02.log",
+      "sha256": "664270b29e108a60b00a8b763bf48a460b2fd8e4e0da1a54b17aed24617b2719",
+      "bytes": 125923
+    }
+  ]
+}

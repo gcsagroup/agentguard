@@ -56,7 +56,18 @@ def main():
     path = args['path']
     truncated = False
     capture = None
-    if name in ('ReadFile', 'SearchFile'):
+    if name == 'ParseDocument':
+        import runpy
+        parser = runpy.run_path('/run/agentguard-request/document_parser.py')
+        with os.fdopen(regular('/run/agentguard-request/document-source', os.O_RDONLY), 'rb') as stream:
+            raw = stream.read(8 * 1024 * 1024 + 1)
+        report = parser['parse_bytes'](raw, args['format'])
+        detail = json.dumps(report, ensure_ascii=False)
+        ok = report['status'] in ('parsed', 'partial')
+        print(json.dumps({'ok': ok, 'detail': detail, 'truncated': False,
+                         'outcome': 'success' if ok else 'failed', 'dispatched': True}, ensure_ascii=False))
+        return
+    elif name in ('ReadFile', 'SearchFile'):
         scan_limit = LIMIT if name == 'ReadFile' else 4 * 1024 * 1024
         with os.fdopen(regular(path, os.O_RDONLY, single_link=single_link), 'rb') as stream:
             raw = stream.read(scan_limit + 1)

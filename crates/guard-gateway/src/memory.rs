@@ -1,4 +1,4 @@
-//! 宿主记忆与 UTF-8 文档检索；只从已验证的最新版本读取，不维护另一个正文缓存。
+//! 宿主记忆与文档检索；只从已验证的最新版本读取，不维护另一个正文缓存。
 use anyhow::{ensure, Result};
 use guard_audit::{MemoryEntry, MemoryStore};
 use guard_privacy::{Confidentiality, Integrity, Label, MemoryDraft, MemoryState};
@@ -22,12 +22,24 @@ pub(crate) enum Material {
         document_sha256: Sha256Digest,
         text: String,
     },
+    ParsedDocument {
+        path: String,
+        document: Box<crate::document::ParsedDocument>,
+    },
 }
 
 impl Material {
     pub(crate) fn validate(&self) -> Result<()> {
         let text = match self {
             Self::Note { text } => text,
+            Self::ParsedDocument { path, document } => {
+                ensure!(
+                    std::path::Path::new(path).is_absolute() && path.len() <= 4096,
+                    "文档出处必须为有界绝对路径"
+                );
+                document.validate()?;
+                &document.text
+            }
             Self::Document {
                 path,
                 document_sha256,
@@ -85,6 +97,8 @@ impl MemoryRuntime {
         json!({"enabled":true,"storage":"signed_sqlite","scope_id":self.scope,
             "read_authorized":self.allow_read,"write_authorized":self.allow_write,
             "document_formats":["utf8_txt","utf8_md"],"retrieval":"bounded_keyword",
+            "isolated_document_formats":["pdf","docx","xlsx","pptx","png","jpeg"],
+            "isolated_document_note":"附加格式须由宿主配置含解析依赖的不可变镜像；仅保存经独立批准的提取层，遗漏内容保持未知",
             "coverage_note":"只覆盖本宿主配置的记忆与文档存储；第三方不可访问的内部记忆未覆盖",
             "third_party_internal_memory":"uncovered","instruction_authority":"none"})
     }
@@ -248,13 +262,20 @@ impl MemoryRuntime {
             {
                 continue;
             }
-            let Material::Document {
-                path,
-                document_sha256,
-                text,
-            } = material(&entry)?
-            else {
-                continue;
+            let material = material(&entry)?;
+            let (path, document_sha256, text, parsed) = match &material {
+                Material::Document {
+                    path,
+                    document_sha256,
+                    text,
+                } => (path, document_sha256, text, None),
+                Material::ParsedDocument { path, document } => (
+                    path,
+                    &document.source_sha256,
+                    &document.text,
+                    Some(document),
+                ),
+                Material::Note { .. } => continue,
             };
             let lower = text.to_lowercase();
             if !terms.iter().all(|term| lower.contains(term)) {
@@ -279,6 +300,17 @@ impl MemoryRuntime {
             let mut hit = reference(&entry)?;
             hit["document"] = json!({"path":path,"document_sha256":document_sha256,"start_line":first+1,"end_line":last_line,
                 "text":excerpt,"truncated":bounded_end<end});
+            if let Some(document) = parsed {
+                hit["document"]["line_basis"] = json!("extracted_text");
+                hit["document"]["parsing"] = json!({
+                    "format":document.format,"status":document.status,"source_bytes":document.source_bytes,
+                    "text_sha256":document.text_sha256,"receipt_sha256":document.receipt_sha256,
+                    "parser_version":document.parser_version,"parser_sha256":document.parser_sha256,
+                    "image_sha256":document.image_sha256,"coverage":document.coverage,
+                    "locations":document.segments.iter().filter(|s|s.start_byte < bounded_end && s.end_byte > start).collect::<Vec<_>>(),
+                    "instruction_authority":"none"
+                });
+            }
             found.push((entry, hit));
             if found.len() == limit {
                 break;
@@ -320,7 +352,7 @@ pub(crate) fn tools() -> Vec<Value> {
         tool("memory_revoke", "提议撤销一个记忆或文档的当前版本，须独立批准", json!({"key":key,"expected_version":version}), json!(["key","expected_version"])),
         tool("memory_quarantine", "提议隔离当前记忆或文档；新任务不再读取，保留历史及来源，须独立批准", json!({"key":key,"expected_version":version}), json!(["key","expected_version"])),
         tool("memory_restore", "提议从指定历史内容创建新的有效版本；保留全部来源限制，须独立批准完整正文和新期限", json!({"key":key,"expected_version":version,"source_version":{"type":"integer","minimum":1},"expires_at_ms":deadline}), json!(["key","expected_version","source_version","expires_at_ms"])),
-        tool("rag_import", "从已授权工作区读取 UTF-8 txt/md 文档快照，再批准保存正文和出处", json!({"key":key,"expected_version":version,"path":{"type":"string","maxLength":4096},"expires_at_ms":deadline}), json!(["key","expected_version","path","expires_at_ms"])),
+        tool("rag_import", "从已授权工作区导入文档并独立批准：UTF-8 txt/md 直接读取；PDF、DOCX、XLSX、PPTX、PNG、JPEG 需宿主配置隔离解析运行时，保留原始摘要、提取出处和覆盖缺口；失败不入库", json!({"key":key,"expected_version":version,"path":{"type":"string","maxLength":4096},"expires_at_ms":deadline}), json!(["key","expected_version","path","expires_at_ms"])),
         tool("rag_search", "在当前有效文档中检索关键词，返回有界原文、行号、出处、版本和标签；第三方内部记忆未覆盖", json!({"query":{"type":"string","minLength":1,"maxLength":256},"limit":{"type":"integer","minimum":1,"maximum":4}}), json!(["query","limit"])),
     ]
 }

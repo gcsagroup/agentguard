@@ -79,6 +79,11 @@ pub enum ToolCall {
     ReadFile {
         path: PathBuf,
     },
+    /// 仅由 RAG 导入构造；原生执行器不解析二进制文档。
+    ParseDocument {
+        path: PathBuf,
+        format: String,
+    },
     SearchFile {
         path: PathBuf,
         query: String,
@@ -123,6 +128,12 @@ impl ToolCall {
                     .unwrap_or_default()
             ),
             ToolCall::ReadFile { path } => format!("read {}", path.display()),
+            ToolCall::ParseDocument { path, format } => {
+                format!(
+                    "隔离解析 {format} 文档 {}，不执行文件中的指令",
+                    path.display()
+                )
+            }
             ToolCall::SearchFile { path, query } => {
                 format!("search {:?} in {}", query, path.display())
             }
@@ -168,6 +179,8 @@ impl ToolCall {
                 .with_state(ExecutionOutcome::Cancelled, false);
         }
         match self {
+            ToolCall::ParseDocument { .. } => ExecOutput::err("文档解析必须使用隔离后端")
+                .with_state(ExecutionOutcome::Refused, false),
             ToolCall::RunShell { argv, cwd } => {
                 run_argv_with_cancel(argv, cwd.as_deref(), EXEC_TIMEOUT, cancelled)
             }

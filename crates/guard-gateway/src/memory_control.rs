@@ -251,6 +251,7 @@ impl Server {
             )
         } else {
             let args: ImportArgs = serde_json::from_value(args.clone())?;
+            let parsed_format = crate::document::format(&args.path);
             ensure!(
                 args.path.is_absolute() && args.path.to_string_lossy().len() <= 4096,
                 "文档必须为有界绝对路径"
@@ -263,19 +264,30 @@ impl Server {
                         .map(str::to_ascii_lowercase)
                         .as_deref(),
                     Some("txt" | "md")
-                ),
-                "只支持 UTF-8 txt/md 文本文档"
+                ) || parsed_format.is_some(),
+                "只支持 UTF-8 txt/md 及隔离解析的 PDF、DOCX、XLSX、PPTX、PNG、JPEG"
             );
-            let (call, action) = self
+            let (mut call, action) = self
                 .parse_tool("read_file", &json!({"path":args.path}))
                 .map_err(anyhow::Error::msg)?;
+            if let Some(format) = parsed_format {
+                ensure!(self.isolation.is_some(), "二进制文档必须在隔离后端解析");
+                let ToolCall::ReadFile { path } = call else {
+                    unreachable!()
+                };
+                call = ToolCall::ParseDocument {
+                    path,
+                    format: format.into(),
+                };
+            }
             let output = match self.gate_and_run(call, action) {
                 Handled::Executed { output } => output,
                 Handled::Refused { reason } => anyhow::bail!("文档读取被拒绝：{reason}"),
             };
             ensure!(
                 output.ok && !output.truncated && output.outcome == ExecutionOutcome::Success,
-                "文档未完整读取，不保存部分文档"
+                "文档读取或解析失败，不保存不完整回执：{}",
+                output.detail
             );
             let text = self
                 .last_read_content
@@ -286,14 +298,30 @@ impl Server {
                 .as_ref()
                 .context("文档缺少宿主来源")?;
             let hash = crate::tool_registry::digest(text.as_bytes());
+            let expected_entry = if parsed_format.is_some() {
+                SourceEntryPoint::ToolOutput
+            } else {
+                SourceEntryPoint::FileRead
+            };
             ensure!(
-                matches!(&source.observation, guard_schema::SourceObservation::Observed { entry:SourceEntryPoint::FileRead, content_sha256, .. } if content_sha256 == &hash),
+                matches!(&source.observation, guard_schema::SourceObservation::Observed { entry, content_sha256, .. } if entry == &expected_entry && content_sha256 == &hash),
                 "文档正文和已观察来源摘要不一致"
             );
-            let material = Material::Document {
-                path: args.path.to_string_lossy().into_owned(),
-                document_sha256: hash,
-                text,
+            let material = if let Some(format) = parsed_format {
+                Material::ParsedDocument {
+                    path: args.path.to_string_lossy().into_owned(),
+                    document: Box::new(crate::document::ParsedDocument::from_receipt(
+                        &text,
+                        format,
+                        self.isolation.as_ref().context("隔离后端缺失")?.image_id(),
+                    )?),
+                }
+            } else {
+                Material::Document {
+                    path: args.path.to_string_lossy().into_owned(),
+                    document_sha256: hash,
+                    text,
+                }
             };
             material.validate()?;
             (

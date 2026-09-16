@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-028 isolated documents in controlled RAG (2026-09-16)
+
+- Six formats now pass path authorization and a host-frozen byte snapshot before parsing in an offline container mounted with only that input. Independent approval binds text, provenance, parser, image and coverage gaps; native execution and client-supplied parsing claims cannot bypass this path.
+- A separate material type retains original and extracted digests, extracted line numbers and component locations. Four real CLI processes covered legacy Markdown, denial, restart, revocation and restoration with the original proof. An independent injection document triggered INTEL-INJECT without a memory write.
+- Independent verification checked 11 signatures and 218 audit rows; five report tampering cases were rejected. Workspace tests passed 1,524 cases, the gateway library 244, and memory regressions with the SQLCipher feature 21. Failed attempts remain documented in the [gateway record](docs/agd-028-media-rag-2026-09-16.zh.md).
+- The macOS synthetic startup timeout in 9d9c833 CI remains recorded. Removed a reproduced reverse-DNS dependency from the loopback fixture without changing the eight-second limit. All 91 App 020 files and its signature remain unchanged. Plan v0.57 retains 25 complete, one conditional, two in progress and four pending; Chinese OCR, resource faults and native acceptance remain outstanding. Release stays No-Go.
+
 ### AGD-028 isolated parser component in progress (2026-09-16)
 
 - Added offline PDF, DOCX, XLSX, PPTX, PNG and JPEG parsing with separate original-file and extracted-text digests and explicit coverage limits. Macros, formulas and external relationships are not executed; empty, missing-dependency, malformed and over-limit results do not imply safety.

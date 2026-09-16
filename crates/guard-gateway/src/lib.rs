@@ -28,6 +28,7 @@ pub mod delegation;
 pub mod delegation_budget;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub mod delegation_governance;
+mod document;
 pub mod egress;
 pub mod egress_journal;
 pub mod exec;
