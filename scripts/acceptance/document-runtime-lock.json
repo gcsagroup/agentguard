@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "base_image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+  "architecture": "arm64",
+  "python": "3.11",
+  "scope": "本地解析候选；APT 通过 Debian 签名索引下载，离线构建；不是发布供应链验收",
+  "apt_requested": [
+    "tesseract-ocr=5.3.0-2",
+    "tesseract-ocr-eng=1:4.1.0-2",
+    "tesseract-ocr-chi-sim=1:4.1.0-2",
+    "tesseract-ocr-chi-tra=1:4.1.0-2"
+  ],
+  "packages": [
+    {
+      "path": "wheels/defusedxml-0.7.1-py2.py3-none-any.whl",
+      "sha256": "a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61",
+      "bytes": 25604,
+      "url": "https://files.pythonhosted.org/packages/07/6c/aa3f2f849e01cb6a001cd8554a88d4c77c5c1a31c95bdf1cf9301e6d9ef4/defusedxml-0.7.1-py2.py3-none-any.whl"
+    },
+    {
+      "path": "wheels/pillow-12.3.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "bcb46e2f9feff8d06323983bd83ed00c201fdcab3d74973e7072a889b3979fcd",
+      "bytes": 6263814,
+      "url": "https://files.pythonhosted.org/packages/c8/98/766667a4be768150a202836acd9fad19c06824ca86c4286d3cf6b274964e/pillow-12.3.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl"
+    },
+    {
+      "path": "wheels/pypdf-6.18.1-py3-none-any.whl",
+      "sha256": "ee93a2665670ecf57ee81d197a4ca548f3dc15f9cefc56e59b8140866aaa3de5",
+      "bytes": 394327,
+      "url": "https://files.pythonhosted.org/packages/58/13/645df3995075112cb3cce15e8797c205f0f88fb50acc11012b84b071bc22/pypdf-6.18.1-py3-none-any.whl"
+    },
+    {
+      "path": "debs/libarchive13_3.6.2-1+deb12u5_arm64.deb",
+      "sha256": "0be76b2a5c9f1ff3f97ed44731175a5bf69fe0b89a8ebfb3cee7ad77777ee918",
+      "bytes": 318348
+    },
+    {
+      "path": "debs/libgif7_5.2.1-2.5+deb12u1_arm64.deb",
+      "sha256": "be2d59e3e3f630391b72fd5c4a3430dbd6eb6d98c6b6012082135aff860ae580",
+      "bytes": 42572
+    },
+    {
+      "path": "debs/liblept5_1.82.0-3+b3_arm64.deb",
+      "sha256": "8558ed0ca34daace46cedebb8f13374d4248c4f47faf337c736f1ad1dfcc23fd",
+      "bytes": 972528
+    },
+    {
+      "path": "debs/libtesseract5_5.3.0-2_arm64.deb",
+      "sha256": "d6c8de87768190ab1adfc9a9954bfb3c79c9dbd51b43eab06812db471f4ad1c3",
+      "bytes": 1122688
+    },
+    {
+      "path": "debs/tesseract-ocr-chi-sim_1%3a4.1.0-2_all.deb",
+      "sha256": "035f20a3e317343c1b88f6db546225eda9b5857078729c009662e0b3e0fb5d57",
+      "bytes": 1636436
+    },
+    {
+      "path": "debs/tesseract-ocr-chi-tra_1%3a4.1.0-2_all.deb",
+      "sha256": "b4b08ba6e2b90cf1b6b472ae770a1dea26c03f003183862440e535f74cb7d45d",
+      "bytes": 1587616
+    },
+    {
+      "path": "debs/tesseract-ocr-eng_1%3a4.1.0-2_all.deb",
+      "sha256": "9242d054563262398f8cf41fbd96fcc72f9dde70db16de18539882a6cff74f9d",
+      "bytes": 1593640
+    },
+    {
+      "path": "debs/tesseract-ocr-osd_1%3a4.1.0-2_all.deb",
+      "sha256": "72cc0ba5a04e4d38e5d7901ae2f0319f4941fddaa4a77d1a86110909c036bacb",
+      "bytes": 2992152
+    },
+    {
+      "path": "debs/tesseract-ocr_5.3.0-2_arm64.deb",
+      "sha256": "b547619f12d974916322ca9a2c7628dff8fbcb4b097adc8e277891b03239a6c1",
+      "bytes": 363072
+    }
+  ]
+}

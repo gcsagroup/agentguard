@@ -307,6 +307,57 @@
       "path": ".artifacts/m3-performance-diagnosis-2026-09-16/repository-tests.log",
       "sha256": "31f680687fe9399e95737e360859f64ad340dff94107efba235f194d1aff4616",
       "bytes": 3337
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/plan.json",
+      "sha256": "c2e67e65260cfd5a2830dd408da2aedc61b821dcd4449a550a7ec6f11a66a7c6",
+      "bytes": 660
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/run.json",
+      "sha256": "b676f5a35854591ca7fe9639b131aaa304855982f3d1a6d1a5b372aae64eec34",
+      "bytes": 811
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/diagnostic.mjs",
+      "sha256": "3a27e6aa5c42b452fbfb5a9ca35300dc88997a806a272bf7a43595f855ce2f4f",
+      "bytes": 11939
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/diagnostic.log",
+      "sha256": "66691e9179a64c17fe92ec091d265062ca8b9155aa330fe01fcdcca4857caae3",
+      "bytes": 579
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/bin/docker",
+      "sha256": "90a3c4d5f96313e84b76f8622f339ee22d54699891d8a6db3a22428d7e2e425a",
+      "bytes": 765
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/docker-commands.jsonl",
+      "sha256": "d68c8a1350c33926f17287caba94997248fe59093a8d80528eb0349db3741896",
+      "bytes": 13140
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/container-events.json",
+      "sha256": "fe3411eb73d06975a8d6b6e393305f03835fb7353273968721b83f1bdd957821",
+      "bytes": 37875
+    },
+    {
+      "path": ".artifacts/m3-runtime-timing-2026-09-16/timing-summary.json",
+      "sha256": "af62c595753df65eb180d80d43bf67e62a0eeb276eb672a8edf3c66514e5b5b2",
+      "bytes": 20267
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/ci-fcc33de-final.json",
+      "sha256": "c2d9c67eb950f669770b15a9daae66ccb4dcd263f80fe634c6dadf0f8a8a7456",
+      "bytes": 36362
     }
-  ]
+  ],
+  "ci": {
+    "commit": "fcc33de03b617848e84c06f5873a2aa6058d328b",
+    "run": 35041304617,
+    "status": "completed",
+    "passed_jobs": 13
+  }
 }

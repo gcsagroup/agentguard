@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-028 isolated parser component in progress (2026-09-16)
+
+- Added offline PDF, DOCX, XLSX, PPTX, PNG and JPEG parsing with separate original-file and extracted-text digests and explicit coverage limits. Macros, formulas and external relationships are not executed; empty, missing-dependency, malformed and over-limit results do not imply safety.
+- Built one fixed document runtime from the existing image using 12 hash-pinned packages and an offline build. Passed 36 component cases in a constrained container and eight real entrypoint cases. Retained the wheel-platform and pixel-limit classification failures.
+- Controlled RAG approval, provenance/revocation and fixed-App integration remain pending, as do Chinese OCR, real crash/timeout and native acceptance. See the [component record](docs/agd-028-media-parser-2026-09-16.zh.md). Plan v0.56 retains 25 complete, one conditionally complete, two in progress and four pending tasks.
+- AGD-027 now also records 36 owned-container lifecycles; its performance gate remains unmet. Index commit fcc33de passed all 13 GitHub CI jobs. App 020, the existing default image, deferred F13 and release No-Go are unchanged.
+
 ### Audit sequence indexes and upgrade compatibility (2026-09-16)
 
 - Removed the full-history scan from each `MAX(seq)` append lookup: 2,048 records now require zero full-scan steps instead of 2,047. Historical signatures, receipts, sequence values and read-only behavior remain intact, including compatibility with databases lacking sequence columns.
