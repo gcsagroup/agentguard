@@ -1,59 +1,26 @@
-# Agent identity cards (Aura pillar i, §4.1 / §4.4.6).
+# Agent 身份注册表。默认不预置任何公钥；登记名称不等于身份已验证。
 #
-# An agent proves it holds the private key for a registered `agent_id` by signing its
-# session-start payload; everything in that session is then attributable to that
-# agent, and `task_profiles` says what that agent is allowed to declare.
+# 为真实部署启用身份归属时，用 agentguard agent-keygen 生成各自的密钥，
+# 私钥仅由对应 Agent 持有，将公钥填入其 public_key 字段。
+# 不可把 eval/fixtures 中的公开测试密钥复制到此处。
+# 历史默认模板的两把公开密钥保留在 eval/fixtures/public-agent-registry.yaml，
+# 仍由判决层识别为 PubliclyKnownKey，不能产生 Verified。
 #
-# Why this exists: iteration 7 added per-record audit signing, but with a **device**
-# key — it attributes an action to the machine, not to the agent that took it.
-# Iteration 13 verified third-party *app* identity. Nothing attested which *agent*
-# was acting, so two agents on one device were indistinguishable and
-# `agent_context_id` was a string the agent chose.
-#
-# ─────────────────────────────────────────────────────────────────────────────
-# FIXTURE KEYS. These are derived from all-one-byte Ed25519 seeds (0xa1…, 0xb2…)
-# so the eval corpus can present a genuinely valid signature deterministically.
-# Their private halves are in the repo history and in the test helper — they
-# attest nothing.
-#
-# A real deployment replaces them. `agentguard agent-keygen` prints a fresh pair;
-# the public half goes here, the private half stays with the agent. A registry
-# pinning a key whose private half is public is worse than no registry: it verifies
-# a signature anybody can produce.
-# ─────────────────────────────────────────────────────────────────────────────
-#
-# `require_attestation: false` — no shipped adapter signs a session yet, so turning
-# this on globally would refuse every session every adapter opens. With it off,
-# identity is still resolved and a *forged* or *replayed* attestation is still
-# refused; what changes is whether an unsigned session may proceed. Turn it on once
-# the agents in the deployment sign.
+# 当前已发布适配器并非全部支持会话签名，因此沿用可选认证设置。
+# 无公钥时仅显示 NoKeyOnRecord，不能获得已验证身份；如果开启
+# require_attestation，未完成实际密钥配置的会话会被拒绝。
 require_attestation: false
 agents:
   - agent_id: claude-desktop
     display_name: Claude Desktop
-    public_key: "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5"
-    # Enumerated, not left empty. An empty `task_profiles` means "any", and "any"
-    # includes profiles the plan library has never heard of — which, with
-    # `require_plan: false`, leaves the session `unplanned` and switches trajectory
-    # alignment off for it. A card that restricts nothing therefore also opts out of the
-    # check that would have caught the agent going off-plan. Every profile listed here
-    # has a plan in policies/task-plans.yaml, and a test asserts that for every card
-    # holding a key.
     task_profiles: [book_hotel, order_food, preference_save, navigation_jump]
-    notes: "General assistant; every plan in the shipped library."
+    notes: "待配置真实公钥；名称本身不授予身份或权限。"
 
   - agent_id: shopping-helper
     display_name: Shopping Helper
-    public_key: "55154f42065ea5a1bea05463826be2684eb92df92c100027aabaae57ca554207"
-    # A capability boundary on the card itself: this agent is verified, and still may
-    # not declare a funds transfer. Refused before its trajectory plan is consulted.
     task_profiles: [order_food, book_hotel, navigation_jump]
-    notes: "Retail tasks only."
+    notes: "仅列出零售任务范围；待配置真实公钥。"
 
-  # Registered with no key on record. Kept deliberately: a registry in the field will
-  # have entries like this, and the engine must report NoKeyOnRecord rather than
-  # treating "cannot verify" as "verified" — the mistake the app registry made with an
-  # empty signers list.
   - agent_id: legacy-macro-bot
     display_name: Legacy Macro Bot
-    notes: "Pre-attestation automation; cannot be verified."
+    notes: "未配置签名身份，不能验证。"

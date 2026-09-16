@@ -11,7 +11,11 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 > **当前状态：`1.0.0-rc.1` 是源码候选版，不是生产安装包发布。**
 > 仓库尚未提供本次发布所需的代码签名、公证、商店发布及真实设备端到端验收证据，生产发布判断仍为 **No-Go**。
 
-本次 M0／M1 源码整合新增受保护本地 Agent：模型数据授权、隔离副本、命令及差异批准、实际回写、持久审计和专用浏览器统一会话。Ver 1.0（010）已有后台与原生逐项验收记录；F13 按用户要求暂缓；[F14 Docker 虚拟链路](docs/agd-f14-docker-network-2026-09-14.zh.md)已通过，[AGD-014 来源框架与持久恢复](docs/agd-014-source-provenance-2026-09-14.zh.md)以及 [AGD-015 原始内容与检测视图](docs/agd-015-content-views-2026-09-14.zh.md)已完成；[AGD-016 工具登记与变更复核](docs/agd-016-tool-registry-2026-09-15.zh.md)也已完成（最新 CI 13/13），[AGD-017 有限第三方代理](docs/agd-017-remote-product-2026-09-15.zh.md)已按限定范围完成：本地与远程生产 CLI 的登记、逐次批准、来源及恢复接通，真实联合 33 项、本地回归 21 项通过，143 条审计验链；[AGD-018 规则包生命周期](docs/agd-018-package-lifecycle-2026-09-15.zh.md)正在推进：签名格式、持久仓库和管理 CLI 已通过 20 项实操，生产网关接线尚待完成。完整原 M1 未通过。见[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)、[010 验收](docs/agd-m1-pending-draft-010-2026-09-11.zh.md)和[源码整合记录](docs/agentguard-source-merge-2026-09-14.zh.md)。
+当前开发已接通受保护本地任务的模型数据授权、隔离副本、命令与差异批准、实际回写及持久审计，并完成来源与工具治理、[记忆与委托治理](docs/agd-026-memory-governance-2026-09-16.zh.md)、[受限媒体解析](docs/agd-028-native-media-2026-09-16.zh.md)等任务的限定验收。记忆、委托和媒体通过显式网关配置接入，内置模型表单尚未自动启用这些能力。
+
+固定开发 App 为 **AgentGuard Local Agent Test，Ver 2.1（022）**。活动时间线已显示时间，普通安装说明和输入框观察误报已修复；[022 原生记录](docs/native-form-observation-022-2026-09-16.zh.md)及[窗口读取恢复](docs/native-ax-recovery-022-2026-09-16.zh.md)记录了准确候选的验证范围。App 名称、路径、Bundle ID 与签名身份保持固定，版本号不追加到文件名。
+
+**整个计划仍未完成。** AGD-027 的 M3 性能验收尚未通过；F13 按用户要求暂缓、未验收；AGD-031 等待外部共享需求，AGD-032 仍待前置验收和正式发布材料。最新任务状态与逐项证据以[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)为准，不用早期 010 或后续单项通过代替完整 M1、M3 或发布结论。
 
 ## 能做什么
 
@@ -29,7 +33,7 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 - **大部分控制是合作式的。** Agent 如果绕过网关直接执行命令，网关无法阻止。
 - **不是通用沙箱、EDR、防火墙或 DLP。** Linux `guard-jail` 只约束它启动的进程；网络端口天花板是可选能力，声明后若所选后端无法强制会拒绝启动。
 - **浏览器控制有明确范围。** DOM 风险动作只阻断，网页内没有放行；页面提示只是可被页面影响的信息层，用户若坚持继续只能从浏览器扩展管理页停用或移除保护后自行重做。静态 DNR 不检查 body，也不覆盖自定义别名或其他未声明表面；GA manifest 禁用 Native Messaging。Android 高风险提示仍发生在事件之后。
-- 首个 GA 的浏览器包只支持共用 Chromium 包的 Chrome / Edge；Firefox 仅保留源码原型，不打包、不作为验收门。iOS WebShield/Safari Extension 是首发正式产品范围内的独立 Xcode/Swift 受限 SKU，不是未来可选项。旧 ad-hoc macOS 候选曾在本机通过启动、TCC 探测和 AXObserver 推送流程检查，但本轮最新 universal `.app` 尚未完成全量复验，签名/公证后的全新安装与升级验收也仍缺失。Windows 历史候选 `89dadf9` 已取得真实 Windows 11 上的启动、连续观测与风险确认界面部分证据，但当前安全构建、签名安装包及全新安装/升级/卸载仍待重新验收。iOS 已有可构建的受限 Safari WebShield App/扩展/Core 工程并通过无签名模拟器测试，但未接 Rust 引擎，生产签名、真机 Safari 与 TestFlight 仍未完成。
+- 首个 GA 的浏览器包只支持共用 Chromium 包的 Chrome / Edge；Firefox 仅保留源码原型，不打包、不作为验收门。iOS WebShield/Safari Extension 是首发正式产品范围内的独立 Xcode/Swift 受限 SKU，不是未来可选项。固定 macOS 开发 App 022 已有组织签名及限定原生验收；它不替代正式 universal 安装包的签名、公证、全新安装、升级与卸载验收。Windows 历史候选 `89dadf9` 已取得真实 Windows 11 上的启动、连续观测与风险确认界面部分证据，但当前安全构建、签名安装包及全新安装/升级/卸载仍待重新验收。iOS 已有可构建的受限 Safari WebShield App/扩展/Core 工程并通过无签名模拟器测试，但未接 Rust 引擎，生产签名、真机 Safari 与 TestFlight 仍未完成。
 - **各端真正观察什么，以源码生成的 [docs/capability-matrix.md](docs/capability-matrix.md) 为准。** 上面"分析深链"说的是引擎能力（离线语料与适配器格式带 `deeplink` 事件）；目前没有任何一端的观察器在真机上发出深链事件——Android 只报界面文字里的深链字样。
 
 适用对象是研究与评测、开发或预发环境，以及知情运维控制下的内部试点；不应把当前 RC 作为面向消费者或受监管环境的强制安全控制。

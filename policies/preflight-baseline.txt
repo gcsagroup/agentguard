@@ -4,11 +4,11 @@
 ENV api.token.*
 ENV jail.*
 ENV license.pubkey.*
-FAIL agent.keys.publicly_known [claude-desktop(仓库夹具密钥，种子为 0xa1 重复 32 次),shopping-helper(仓库夹具密钥，种子为 0xb2 重复 32 次)]
 INFO adapters.asymmetric_trust
-INFO agent.keys.absent [legacy-macro-bot]
+INFO agent.keys.absent [claude-desktop,legacy-macro-bot,shopping-helper]
 INFO gateway.cooperative
 PASS adapter.keys.present
+PASS agent.keys.private
 PASS intel.secret.absent
 PASS intel.verified
 PASS license.secret.absent

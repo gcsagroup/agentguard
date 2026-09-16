@@ -225,7 +225,7 @@ gate "部署自检结论与基线一致"                make preflight
 gate "MSRV 1.87"                            make check-msrv
 if [ "$STRICT" -eq 1 ]; then
   # baseline 只适合日常发现漂移。正式发布不能把已知 FAIL 叫作“符合基线”，
-  # 所以 strict 再跑一次没有 baseline 的生产语义；当前夹具密钥会如实阻塞。
+  # 所以 strict 再跑一次没有 baseline 的生产语义；旧公开密钥等错误会如实阻塞。
   gate "生产部署自检(零 FAIL,无 baseline)"    cargo run --quiet -p guard-cli -- preflight
 fi
 
@@ -400,11 +400,11 @@ if [ $((PASS + FAIL + ${#UNVERIFIED_NAMES[@]})) -ne $((EXPECTED_GATES + EXPECTED
   exit 2
 fi
 
-head2 "四、已知的、刻意保留的 FAIL"
-say "  preflight 报 agent.keys.publicly_known(FAIL)。"
-say "  这**不是**遗漏:发布注册表钉的是仓库夹具密钥,私钥是公开的。判决层已经把这些"
-say "  会话判成 AGENT-KEY-PUBLICLY-KNOWN 而不是 Verified,所以它们没被授予任何东西。"
-say "  真发布之前必须 agent-keygen 换掉。软模式用基线盯漂移;strict 的生产自检会让它直接失败。"
+head2 "四、身份配置边界"
+say "  默认 Agent 身份卡不预置公钥；未配置时不能证明 Agent 身份。"
+say "  需要身份认证时，必须配置实际公钥并由对应 Agent 签署会话，再验证 require_attestation。"
+say "  使用旧公开测试密钥的配置仍会触发 agent.keys.publicly_known(FAIL)。"
+say "  软模式只核对基线漂移；strict 要求生产自检零 FAIL，剩余 WARN 与发布证据必须分别处理。"
 
 head2 "结果"
 say "自动检查:$PASS 通过 / $FAIL 失败"

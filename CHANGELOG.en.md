@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Default identity template and release preparation (2026-09-16)
+
+- Default Agent cards no longer pin public test keys. The historical configuration remains a negative fixture, with its rejection checks retained. Preflight accurately reports 0/3 configured keys; the baseline accepts no FAIL. Unconfigured cards never obtain verified identity and mandatory attestation rejects them. See the [record](docs/agd-032-default-identity-2026-09-16.zh.md).
+- Passed four old/new CLI preflight combinations, 12 identity combinations, 1,534 workspace tests and Clippy; 17 tests remain ignored. All three READMEs now describe App 022 and the bounded memory, delegation and media scope. The fixed App was not rebuilt.
+- Six preflight warnings remain; the complete release gate was not run. AGD-027, F13 and release-evidence gaps remain open. Plan v0.70 preserves the task counts.
+
 ### AGD-027 session-cache write comparison (2026-09-16)
 
 - Verified 420 reads and 1,684 audit records across four diagnostic rounds; four negative cases were rejected. Fewer cache writes showed a possible benefit, but baseline variability prevents a stable performance conclusion. The compatibility-breaking experiment was not adopted; see the [record](docs/agd-027-cache-write-2026-09-16.zh.md).

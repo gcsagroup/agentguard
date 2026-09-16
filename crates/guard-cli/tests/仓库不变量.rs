@@ -1009,35 +1009,34 @@ fn preflight能发出的结论id集合被钉住() {
     );
 }
 
-/// 提交进仓库的那份基线里,**恰好一条 FAIL**,而且是已知的那一条。
+/// 默认模板已移除公开密钥，基线不再接受任何已知 FAIL。
 ///
 /// 一次独立复核指出:`--write-baseline` 的更新流程唯一的把关是"有人读 diff",
 /// 而 `ENV_DEPENDENT_PREFIXES` 那张表**有**一条单元测试盯着(所以放宽它必须改测试)。
 /// 基线里"有几条 FAIL、是哪几条"这个更重要的不变量,反倒没有任何东西盯着。
 ///
-/// 现在盯上了:多一条 FAIL 就是新出现的部署故障被顺手接受了。
+/// 任意新增 FAIL 都是新出现的部署故障被顺手接受，不能靠重写基线掩盖。
 #[test]
-fn 提交的基线里只有一条已知的fail() {
+fn 提交的基线不接受已知fail且保留未配置身份说明() {
     let base = read("policies/preflight-baseline.txt");
     let fails: Vec<&str> = base
         .lines()
         .map(str::trim)
         .filter(|l| l.starts_with("FAIL "))
         .collect();
-    assert_eq!(
-        fails.len(),
-        1,
-        "提交的基线里有 {} 条 FAIL,期望恰好 1 条:\n  {}\n\
-         多出来的那条意味着有人跑了 `make preflight-baseline` 把一个新故障接受掉了。",
-        fails.len(),
+    assert!(
+        fails.is_empty(),
+        "基线不得接受已知部署故障，也不能用 make preflight-baseline 掩盖新 FAIL:\n  {}",
         fails.join("\n  ")
     );
     assert!(
-        fails[0].starts_with("FAIL agent.keys.publicly_known"),
-        "基线里那条 FAIL 变了:{}\n\
-         唯一**刻意保留**的 FAIL 是 agent.keys.publicly_known(仓库钉的是夹具密钥)。",
-        fails[0]
+        base.lines().any(|line| line
+            == "INFO agent.keys.absent [claude-desktop,legacy-macro-bot,shopping-helper]"),
+        "移除公开公钥不能被写成身份已经配置"
     );
+    assert!(base
+        .lines()
+        .any(|line| line == "WARN agent.attestation.optional"));
 }
 
 /// 中继那三个 HTTP 头的名字,Kotlin 侧和 Rust 侧必须一致。

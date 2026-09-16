@@ -251,23 +251,13 @@ therefore with this hole; it now enumerates, and
 `every_task_a_shipped_card_may_declare_has_a_plan` asserts the invariant for every
 key-holding card in the shipped registry.
 
-## The shipped keys are fixtures
+## 默认身份模板不预置公钥
 
-`policies/agent-registry.yaml` pins keys derived from all-one-byte seeds (`0xa1…`,
-`0xb2…`) so the eval corpus can present a genuinely valid signature deterministically.
-Their private halves are in the test file. **A registry pinning a key whose private
-half is public verifies a signature anybody can produce** — the registry says so in a
-banner, and a test asserts the banner is there.
+`policies/agent-registry.yaml` 保留 Agent 名称及任务范围，不再预置公钥。配置真实公钥之前，卡片只会得到 `NoKeyOnRecord`，不能获得 `Verified`；名称或附带一个签名都不会改变这一点。部署方需要给各 Agent 生成并安全保管自己的私钥，将对应公钥配置到卡片中。
 
-`require_attestation` is `false`, for the same reason as the app registry's: no shipped
-adapter signs a session, so switching it on globally would refuse every session every
-adapter opens. With it off, forged and replayed attestations are still refused; what
-changes is whether an unsigned session may proceed.
+历史默认模板的 `0xa1`／`0xb2` 公开密钥已移到 `eval/fixtures/public-agent-registry.yaml`，只用于负例。若旧部署仍配置这些密钥，引擎继续返回 `PubliclyKnownKey`，自检继续报 `agent.keys.publicly_known`；移除默认公钥没有删除旧配置的拒绝能力。另一份 `eval/fixtures/agent-registry.yaml` 继续使用专门的评测身份，覆盖成功认证之后的重放与任务权限检查，不能用于真实部署。
 
-That is an operator setting, and no test pins it. One did, and it was the wrong shape of
-test: hardening a deployment would have broken `cargo test`. What is asserted instead is
-the behaviour that must hold at *either* setting —
-`a_forged_attestation_is_refused_whether_or_not_attestation_is_required`.
+`require_attestation` 默认仍为 `false`，因为已发布适配器并非全部支持会话签名。未配置身份的会话可以继续，但不取得认证身份；开启后，未完成配钥的会话会被拒绝。已配置真实公钥的错误签名、重放及任务越权在两种模式下都继续拒绝。自检中“0/3 张卡配置了公钥”只说明没有预置公钥，不证明身份认证已可用，也不等于发布验收通过。
 
 ## What this is not
 

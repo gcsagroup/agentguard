@@ -1,0 +1,375 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-16",
+  "scope": "默认身份模板与部署自检的发布前置准备，不是正式发布验收",
+  "source": {
+    "base_commit": "217e184604fc7f4eaec0fb6bed3390ba3c8bddb0",
+    "patch_sha256": "f9062823a56f08a683af1881402d6b9d80a27ac03829826b99bcceba055af561",
+    "files": [
+      {
+        "path": "crates/guard-cli/src/main.rs",
+        "sha256": "57441efc90e768ee0228aa2d42963ed941d0d63baaecd568d8c5139ac92ebf65"
+      },
+      {
+        "path": "crates/guard-cli/src/preflight.rs",
+        "sha256": "f68c2d44f305e0c14c8203c1cb3bf1bc64501f3db1ef1fafa4ae69bb93a3dadf"
+      },
+      {
+        "path": "crates/guard-cli/tests/仓库不变量.rs",
+        "sha256": "91a48cb7a21dbaa1607359bd749102484df39bc1fd3d4adbf49fd29a51b70fad"
+      },
+      {
+        "path": "crates/guard-core/src/lib.rs",
+        "sha256": "33b7ef110572a5f1cfc1053a615cc53d0030bd50214132cb38efa6353a16ad99"
+      },
+      {
+        "path": "crates/guard-schema/src/agent.rs",
+        "sha256": "cd9e560405eac1e50568ab93de56172a56666f2ab5e5f474cd0421fbe54dec3e"
+      },
+      {
+        "path": "policies/adapter-registry.yaml",
+        "sha256": "bd46723af8d36880da319374b1d7a17446bfa0135c375b05f025702ce9b751aa"
+      },
+      {
+        "path": "policies/agent-registry.yaml",
+        "sha256": "0b7ce7732bd08be067b490d03376bf89e604c6530abaf7265aa6be23234aa6c8"
+      },
+      {
+        "path": "policies/preflight-baseline.txt",
+        "sha256": "0c2e836d4858df440c98eda7eb08defae7a7a0e3afb629cb08097a1d4aedd4d1"
+      },
+      {
+        "path": "scripts/release-gate.sh",
+        "sha256": "a2b20244a9c6474bc9c2634ff776ece5ffe1a4aae9f76642409d4dea80263750"
+      },
+      {
+        "path": "eval/fixtures/public-agent-registry.yaml",
+        "sha256": "61c376dc946640ca4d919c359072468427ad800508846f1b0c5bdd178c67ab56"
+      }
+    ]
+  },
+  "default_identity": {
+    "cards": 3,
+    "configured_keys": 0,
+    "require_attestation": false,
+    "verified_identity_granted": false,
+    "legacy_fixture_exact_after_one_comment": true
+  },
+  "preflight": {
+    "baseline": {
+      "PASS": 7,
+      "FAIL": 1,
+      "WARN": 6,
+      "INFO": 4
+    },
+    "updated": {
+      "PASS": 8,
+      "WARN": 6,
+      "INFO": 4,
+      "FAIL": 0
+    },
+    "remaining_warning_ids": [
+      "agent.attestation.optional",
+      "adapter.keys.absent",
+      "apps.signers.absent",
+      "audit.unsigned",
+      "license.pubkey.fixture",
+      "jail.unavailable"
+    ]
+  },
+  "cli_compatibility": {
+    "compatibility_verified": true,
+    "cases": [
+      {
+        "binary": "old",
+        "binary_sha256": "1b3adcc7874b83f7b15b711e3285303dde0f95999a69dcdc729128d96c0412ed",
+        "policy": "default",
+        "policy_sha256": "0b7ce7732bd08be067b490d03376bf89e604c6530abaf7265aa6be23234aa6c8",
+        "exit_code": 0,
+        "failures": [],
+        "raw_report": "old-default.json",
+        "raw_sha256": "7d22d6405b364225791ecaecb20bc08c7ccceeb9701bf68221cd6a4dc5318667"
+      },
+      {
+        "binary": "old",
+        "binary_sha256": "1b3adcc7874b83f7b15b711e3285303dde0f95999a69dcdc729128d96c0412ed",
+        "policy": "legacy_fixture",
+        "policy_sha256": "61c376dc946640ca4d919c359072468427ad800508846f1b0c5bdd178c67ab56",
+        "exit_code": 1,
+        "failures": [
+          "agent.keys.publicly_known"
+        ],
+        "raw_report": "old-legacy_fixture.json",
+        "raw_sha256": "f408dab78c2ae35eddcfc0b80c8e3712b5453a304ccd62dc8f596e07853ef62c"
+      },
+      {
+        "binary": "new",
+        "binary_sha256": "5172a2b9434ff0bae0e54ae205045b2f0cdad37e08d780795a9d45c87cd5558e",
+        "policy": "default",
+        "policy_sha256": "0b7ce7732bd08be067b490d03376bf89e604c6530abaf7265aa6be23234aa6c8",
+        "exit_code": 0,
+        "failures": [],
+        "raw_report": "new-default.json",
+        "raw_sha256": "6b363317917c70e85a92dceb6fdf703a96c51a0bf73d861f35d8dcea1ac86beb"
+      },
+      {
+        "binary": "new",
+        "binary_sha256": "5172a2b9434ff0bae0e54ae205045b2f0cdad37e08d780795a9d45c87cd5558e",
+        "policy": "legacy_fixture",
+        "policy_sha256": "61c376dc946640ca4d919c359072468427ad800508846f1b0c5bdd178c67ab56",
+        "exit_code": 1,
+        "failures": [
+          "agent.keys.publicly_known"
+        ],
+        "raw_report": "new-legacy_fixture.json",
+        "raw_sha256": "f408dab78c2ae35eddcfc0b80c8e3712b5453a304ccd62dc8f596e07853ef62c"
+      }
+    ],
+    "known_failure_preserved": true,
+    "default_has_zero_failures": true,
+    "default_baseline_matches": true,
+    "release_passed": false
+  },
+  "tests": {
+    "passed": 1534,
+    "failed": 0,
+    "ignored": 17,
+    "test_groups": 63,
+    "identity_combinations": 12,
+    "identity_test_functions": 1,
+    "final_identity_test_rerun_passed": true,
+    "clippy_workspace_all_targets_passed": true,
+    "repository_checks_passed": 23,
+    "counts_not_added_across_repeated_runs": true
+  },
+  "fixed_app": {
+    "baseline_rows": 15,
+    "candidate_rows": 44,
+    "normal_install_logonly": true,
+    "field_observations_logonly": 3,
+    "cross_app_false_alerts": 0,
+    "risk_rule": "OVL-004",
+    "risk_confirmation_correlated": true,
+    "risk_response": "approve（不是本轮工具点击）",
+    "candidate_scope_only": true,
+    "tampered_cases_rejected": 3,
+    "app_files_verified": 91,
+    "version": "2.1.0-dev.22",
+    "bundle_version": "22",
+    "rebuilt": false,
+    "new_native_observation": false
+  },
+  "release_inputs": {
+    "expected_rc_evidence": 12,
+    "expected_ga_additional_evidence": 7,
+    "configured_inputs": [
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_CHROME",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_EDGE",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS_TESTFLIGHT",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_ANDROID_SIGN",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_BETA_14D",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_CHANNEL_SMOKE",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_DUAL_RC",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_PRIVACY_STORE",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_ROLLOUT",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_SBOM_LICENSE",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_GA_SIGNOFF",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_IOS_CODESIGN",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_MACOS_CODESIGN",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_MACOS_NOTARIZE",
+        "configured": false
+      },
+      {
+        "variable": "AGENTGUARD_EVIDENCE_WINDOWS_SIGN",
+        "configured": false
+      }
+    ],
+    "evidence_directory_present_in_frozen_checkout": false,
+    "final_artifact_set_frozen": false,
+    "scope": "本轮候选与输入的清点，不表示已搜索用户所有外部证据位置，也未运行完整 strict/ga 门禁。"
+  },
+  "previous_ci": {
+    "commit": "217e184604fc7f4eaec0fb6bed3390ba3c8bddb0",
+    "run_id": 35073374021,
+    "passed_jobs": 13,
+    "is_current_patch_ci": false
+  },
+  "artifacts": {
+    "directory": ".artifacts/m3-release-precheck-2026-09-16",
+    "files": [
+      {
+        "path": "baseline.json",
+        "sha256": "2cbb6481e9863ca55473671a0c01dfaaee3a0aa73ad1014f21e5566b81bf84fc"
+      },
+      {
+        "path": "changed-inputs.json",
+        "sha256": "95d5966f11b2800155abd3739febdfc3d09895d5be69f369b6f819fe0599b17f"
+      },
+      {
+        "path": "runtime-and-tests.patch",
+        "sha256": "f9062823a56f08a683af1881402d6b9d80a27ac03829826b99bcceba055af561"
+      },
+      {
+        "path": "compatibility.py",
+        "sha256": "ca18f29e9d64adef9e528e73c0a68189e98cdd6b9d2484772cfa3be694885545"
+      },
+      {
+        "path": "compatibility.json",
+        "sha256": "512f1f3ac4a2bef2040c80e108dff32ec19d1ec969ef898d49d470629af2819c"
+      },
+      {
+        "path": "production-preflight.json",
+        "sha256": "f408dab78c2ae35eddcfc0b80c8e3712b5453a304ccd62dc8f596e07853ef62c"
+      },
+      {
+        "path": "old-default.json",
+        "sha256": "7d22d6405b364225791ecaecb20bc08c7ccceeb9701bf68221cd6a4dc5318667"
+      },
+      {
+        "path": "old-legacy_fixture.json",
+        "sha256": "f408dab78c2ae35eddcfc0b80c8e3712b5453a304ccd62dc8f596e07853ef62c"
+      },
+      {
+        "path": "new-default.json",
+        "sha256": "6b363317917c70e85a92dceb6fdf703a96c51a0bf73d861f35d8dcea1ac86beb"
+      },
+      {
+        "path": "new-legacy_fixture.json",
+        "sha256": "f408dab78c2ae35eddcfc0b80c8e3712b5453a304ccd62dc8f596e07853ef62c"
+      },
+      {
+        "path": "release-inputs.json",
+        "sha256": "b839b6c179fd40f85f3dfea987a5f95a6974a424ba21ddc46c779480a7793fbd"
+      },
+      {
+        "path": "workspace-tests.log",
+        "sha256": "396cc678647dc66a634c6adbeae9aac2914d799eb7c0c23f815a88eb1e6f5c4f"
+      },
+      {
+        "path": "workspace-summary.json",
+        "sha256": "69ff7ac884dfbea5900ddac62bb5f6d161f1818cc7104f814e97abee3d15be87"
+      },
+      {
+        "path": "identity-final-tests.log",
+        "sha256": "fc8b036bc4f02d4ff4d1d86e462682732fd2e47b987fb417450544535f178f2c"
+      },
+      {
+        "path": "repository-tests.log",
+        "sha256": "8d57747b9b6e83d2cf5f38401b5a6f917f11e1350784e342a829483951039a86"
+      },
+      {
+        "path": "clippy.log",
+        "sha256": "4650300138c132183518b4f59bc79cbad0f2c7851420d122406313b7ea3076f1"
+      },
+      {
+        "path": "app-verification.json",
+        "sha256": "18ec27478b5681d48649f0c9a50d0c34f20b76ea262a693167202b0e39613acd"
+      },
+      {
+        "path": "ci-217e184-final.json",
+        "sha256": "fb7b5237c54743bde1c684ca697c37689031dc915460b09bcc600120740aa503"
+      },
+      {
+        "path": "schema-tests.log",
+        "sha256": "f1f13eb727ddba946eb7aa59ba8292da771992a8f5ff26c3373b85ff12ed5040"
+      },
+      {
+        "path": "core-tests.log",
+        "sha256": "8815eb1b2acef53d54e975b9ee6e65b0e4fb3cdadc3700e87f21371c1c3574a3"
+      },
+      {
+        "path": "preflight-tests-initial.log",
+        "sha256": "d07fd5ad14bfccd001e7237ddadbfeefa042b15dec878c4ab8cb326b12d8e624"
+      },
+      {
+        "path": "workspace-tests-initial.log",
+        "sha256": "42810ae895d5d414f5fd344923358ef98402328a528800315cdf0768fa6a32e9"
+      },
+      {
+        "path": "workspace-tests-baseline-failure.log",
+        "sha256": "53b5a99d6630b12ba0716dde75f147a4fc33913ff9dc371eb331d0eb31f78e44"
+      },
+      {
+        "path": "clippy-initial.log",
+        "sha256": "c2aa14ed5445e2639d489fd68c80576dcc64b0fbb9bfca8862ebe380316afae7"
+      },
+      {
+        "path": "identity-filter-missed.log",
+        "sha256": "a24605d7f4bc39ab4e1ff9c188cf456ab36c4fc96b447b035ba909d88841e43e"
+      },
+      {
+        "path": "repository-final-tests.log",
+        "sha256": "4ad6fda6c53eafe1091f9dc52839ac4aaa648b28693e3915e6e4022dc0ceaf23"
+      }
+    ]
+  },
+  "boundaries": {
+    "formal_release_gate_run": false,
+    "agd_027_performance_passed": false,
+    "agd_032_complete": false,
+    "f13": "暂缓且未验收",
+    "task_counts": {
+      "completed": 28,
+      "conditional": 1,
+      "developing": 1,
+      "not_started": 2
+    },
+    "app_configuration_updated": false
+  }
+}

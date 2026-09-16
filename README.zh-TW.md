@@ -11,7 +11,11 @@ AgentGuard 是面向第三方 GUI Agent 的本機優先安全觀測與稽核系�
 > **目前狀態：`1.0.0-rc.1` 是原始碼候選版，不是正式環境安裝套件。**
 > 儲存庫尚未提供本次發佈所需的程式碼簽署、公證、商店發佈與真實裝置端對端驗收證據，正式環境發佈判斷仍為 **No-Go**。
 
-本次 M0／M1 原始碼整合新增受保護本機 Agent：模型資料授權、隔離副本、命令與差異批准、實際回寫、持久稽核和專用瀏覽器統一工作階段。Ver 1.0（010）已有後台與原生逐項驗收記錄；F13 依使用者要求暫緩；[F14 Docker 虛擬鏈路（簡體）](docs/agd-f14-docker-network-2026-09-14.zh.md)已通過，[AGD-014 來源框架與持久恢復（簡體）](docs/agd-014-source-provenance-2026-09-14.zh.md)以及 [AGD-015 原始內容與檢測視圖（簡體）](docs/agd-015-content-views-2026-09-14.zh.md)已完成；[AGD-016 工具登記與變更複核（簡體）](docs/agd-016-tool-registry-2026-09-15.zh.md)也已完成，接續 AGD-017 有限第三方代理。完整原 M1 未通過。見[開發計畫（簡體）](docs/agentguard-development-plan-2026-09-09.zh.md)、[010 驗收（簡體）](docs/agd-m1-pending-draft-010-2026-09-11.zh.md)與[原始碼整合記錄（簡體）](docs/agentguard-source-merge-2026-09-14.zh.md)。
+目前開發已接通受保護本機工作的模型資料授權、隔離副本、命令與差異批准、實際回寫及持久稽核，並完成來源與工具治理、[記憶與委派治理（簡體）](docs/agd-026-memory-governance-2026-09-16.zh.md)、[受限媒體解析（簡體）](docs/agd-028-native-media-2026-09-16.zh.md)等工作的限定驗收。記憶、委派和媒體透過明確的閘道設定接入，內建模型表單尚未自動啟用這些能力。
+
+固定開發 App 為 **AgentGuard Local Agent Test，Ver 2.1（022）**。活動時間軸已顯示時間，一般安裝說明和輸入框觀察誤報已修復；[022 原生記錄（簡體）](docs/native-form-observation-022-2026-09-16.zh.md)及[視窗讀取恢復（簡體）](docs/native-ax-recovery-022-2026-09-16.zh.md)記錄了準確候選的驗證範圍。App 名稱、路徑、Bundle ID 與簽署身分保持固定，版本號不附加至檔名。
+
+**整個計畫仍未完成。** AGD-027 的 M3 效能驗收尚未通過；F13 依使用者要求暫緩、未驗收；AGD-031 等待外部共享需求，AGD-032 仍待前置驗收與正式發佈材料。最新工作狀態與逐項證據以[開發計畫（簡體）](docs/agentguard-development-plan-2026-09-09.zh.md)為準，不用早期 010 或後續單項通過代替完整 M1、M3 或發佈結論。
 
 ## 能做什麼
 
@@ -29,7 +33,7 @@ AgentGuard 是面向第三方 GUI Agent 的本機優先安全觀測與稽核系�
 - **大部分控制是協作式的。** Agent 若繞過閘道直接執行命令，閘道無法阻止。
 - **不是通用沙箱、EDR、防火牆或 DLP。** Linux `guard-jail` 只約束它啟動的程序；網路連接埠天花板是選用能力，宣告後若所選後端無法強制，便會拒絕啟動。
 - **瀏覽器控制有明確範圍。** DOM 風險動作只阻斷，網頁內沒有放行；頁面提示只是可被頁面影響的資訊層，使用者若堅持繼續，只能從瀏覽器擴充功能管理頁停用或移除保護後自行重做。靜態 DNR 不檢查 body，也不涵蓋自訂別名或其他未聲明表面；GA manifest 停用 Native Messaging。Android 高風險提示仍發生在事件之後。
-- 首個 GA 的瀏覽器套件只支援共用 Chromium 套件的 Chrome / Edge；Firefox 僅保留原始碼原型，不封裝、不作為驗收門。iOS WebShield/Safari Extension 是首發正式產品範圍內的獨立 Xcode/Swift 受限 SKU，不是未來選項。舊 ad-hoc macOS 候選曾在本機通過啟動、TCC 探測與 AXObserver 推送流程檢查，但本輪最新 universal `.app` 尚未完成全量複驗，簽署／公證後的全新安裝與升級驗收也仍缺失。Windows 歷史候選 `89dadf9` 已取得真實 Windows 11 上的啟動、連續觀測與風險確認介面部分證據，但目前安全建置、簽署安裝套件及全新安裝/升級/解除安裝仍待重新驗收。iOS 已有可建置的受限 Safari WebShield App/延伸功能/Core 工程並通過無簽署模擬器測試，但未接 Rust 引擎，正式簽署、真機 Safari 與 TestFlight 仍未完成。
+- 首個 GA 的瀏覽器套件只支援共用 Chromium 套件的 Chrome / Edge；Firefox 僅保留原始碼原型，不封裝、不作為驗收門。iOS WebShield/Safari Extension 是首發正式產品範圍內的獨立 Xcode/Swift 受限 SKU，不是未來選項。固定 macOS 開發 App 022 已有組織簽署與限定原生驗收；它不替代正式 universal 安裝套件的簽署、公證、全新安裝、升級與解除安裝驗收。Windows 歷史候選 `89dadf9` 已取得真實 Windows 11 上的啟動、連續觀測與風險確認介面部分證據，但目前安全建置、簽署安裝套件及全新安裝/升級/解除安裝仍待重新驗收。iOS 已有可建置的受限 Safari WebShield App/延伸功能/Core 工程並通過無簽署模擬器測試，但未接 Rust 引擎，正式簽署、真機 Safari 與 TestFlight 仍未完成。
 - **各端真正觀察什麼，以原始碼產生的 [docs/capability-matrix.zh-TW.md](docs/capability-matrix.zh-TW.md) 為準。** 上面「分析深層連結」說的是引擎能力（離線語料與適配器格式帶 `deeplink` 事件）；目前沒有任何一端的觀察器在真機上發出深層連結事件——Android 只回報介面文字裡的深層連結字樣。
 
 適用對象是研究與評測、開發或預備環境，以及知情維運控制下的內部試點；不應把目前 RC 當作面向消費者或受監管環境的強制安全控制。

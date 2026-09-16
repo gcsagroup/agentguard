@@ -10313,6 +10313,57 @@ rules:
         assert!(!e.agent_identity().is_verified());
     }
 
+    /// 默认卡片只是待配置模板；名字、旧夹具签名都不能取得可信身份。
+    #[test]
+    fn 默认身份卡在配钥前不授予身份且强制认证时拒绝会话() {
+        let raw = include_str!("../../../policies/agent-registry.yaml");
+        for require in [false, true] {
+            for agent in ["claude-desktop", "shopping-helper", "legacy-macro-bot"] {
+                for signed in [false, true] {
+                    let mut registry = guard_schema::AgentRegistry::from_yaml_str(raw).unwrap();
+                    registry.require_attestation = require;
+                    let mut engine =
+                        Engine::new(empty_rules(), GuardContract::default()).with_agents(registry);
+                    let mut start = event(
+                        EventType::AgentSessionStart,
+                        "Claimed Agent",
+                        &[
+                            ("agent_id", agent),
+                            ("session_id", "s1"),
+                            ("task_profile", "book_hotel"),
+                        ],
+                    );
+                    if signed {
+                        let key =
+                            guard_audit::FileDeviceKey::from_secret_hex(SHIPPED_FIXTURE_SECRET)
+                                .unwrap();
+                        let message = guard_schema::session_attestation_message(
+                            agent,
+                            "s1",
+                            "book_hotel",
+                            "n1",
+                        );
+                        let signature =
+                            guard_audit::AuditSigner::sign_message(&key, &message).unwrap();
+                        start.metadata.insert("attest_nonce".into(), "n1".into());
+                        start.metadata.insert("attest_sig".into(), signature);
+                    }
+                    let decision = engine.process(&start).unwrap();
+                    assert!(matches!(
+                        engine.agent_identity(),
+                        guard_schema::AgentIdentity::NoKeyOnRecord { .. }
+                    ));
+                    assert!(!engine.agent_identity().is_verified());
+                    assert_eq!(
+                        decision.action == DecisionAction::Block,
+                        require,
+                        "agent={agent}, signed={signed}, require={require}: {decision:?}"
+                    );
+                }
+            }
+        }
+    }
+
     // -----------------------------------------------------------------------
     // 发布阻塞项:发布注册表里的夹具密钥
     // -----------------------------------------------------------------------

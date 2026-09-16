@@ -6,8 +6,8 @@
 //! 发布阻塞项清理的过程里出现了它的一个变体 —— 代码确实有那个性质,
 //! 但只写在 YAML 注释和 `docs/` 里,而运维不读它们。两个具体例子:
 //!
-//!   - `policies/agent-registry.yaml` 顶部有整整一段横线框住的 "FIXTURE KEYS"
-//!     告示,说清了"真实部署请替换"。它没有拦住任何东西。
+//!   - 历史 `policies/agent-registry.yaml` 用 "FIXTURE KEYS" 告示要求部署前换钥，
+//!     单靠告示没有拦住任何东西。如今默认模板不含公钥，原配置留作负例夹具。
 //!   - `docs/local-api.md` 写着 `export AGENTGUARD_API_TOKEN='dev-secret'`,
 //!     而 `make api-serve` 的默认值就是它。文档同时是问题的来源和它的说明书。
 //!
@@ -245,9 +245,17 @@ fn check_agent_registry(path: &Path) -> Vec<Finding> {
     let mut out = Vec::new();
     let fixtures = reg.publicly_known_key_cards();
     if fixtures.is_empty() {
+        let pinned = reg
+            .agents
+            .iter()
+            .filter(|card| card.public_key.is_some())
+            .count();
         out.push(Finding::pass(
             "agent.keys.private",
-            format!("{} 张卡钉的密钥都不是已知的公开密钥", reg.agents.len()),
+            format!(
+                "{pinned}/{} 张卡配置了公钥，所配公钥不在已知公开密钥表中；这不证明私钥保密",
+                reg.agents.len()
+            ),
         ));
     } else {
         let names: Vec<String> = fixtures
@@ -796,15 +804,11 @@ mod tests {
         }
     }
 
-    /// 仓库自带的这套策略,自检必须报 FAIL —— 因为它就是不该上线的。
-    ///
-    /// 这条测试是整个命令的意义所在。发布注册表钉的是夹具密钥,所以
-    /// 「照着仓库跑」和「可以上线」之间必须有一个能被看见的差别。
-    /// 如果哪天有人把这条测试改成期望 PASS,那就是把陷阱又埋回去了。
+    /// 默认模板不含公开测试密钥，但身份仍未配置；旧模板的 FAIL 必须继续可复现。
     #[test]
-    fn 仓库自带的策略自检不通过() {
+    fn 默认身份模板不含公钥且旧公开密钥仍导致自检失败() {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let inputs = Inputs {
+        let mut inputs = Inputs {
             rules: root.join("crates/guard-schema/rules/p0_rules.yaml"),
             agent_registry: root.join("policies/agent-registry.yaml"),
             adapter_registry: root.join("policies/adapter-registry.yaml"),
@@ -813,10 +817,24 @@ mod tests {
             intel: root.join("intel/bundle.json"),
             audit_signing_key: None,
         };
+        let defaults = check_agent_registry(&inputs.agent_registry);
+        assert!(!has_failure(&defaults), "{}", render(&defaults));
+        assert!(defaults.iter().any(|f| f.id == "agent.keys.private"
+            && f.level == Level::Pass
+            && f.detail.starts_with("0/3")));
+        let absent = defaults
+            .iter()
+            .find(|f| f.id == "agent.keys.absent")
+            .unwrap();
+        assert_eq!(
+            absent.items,
+            ["claude-desktop", "legacy-macro-bot", "shopping-helper"]
+        );
+        inputs.agent_registry = root.join("eval/fixtures/public-agent-registry.yaml");
         let findings = run(&inputs);
         assert!(
             has_failure(&findings),
-            "仓库自带的策略应该报 FAIL:\n{}",
+            "历史公开密钥夹具仍应报 FAIL:\n{}",
             render(&findings)
         );
         let ids: Vec<&str> = findings

@@ -249,7 +249,7 @@ pub fn is_anchored_session_id(session_id: &str) -> bool {
 
 /// Ed25519 公钥，其私钥半边是公开的。
 ///
-/// 这些是仓库自带的夹具密钥（`policies/agent-registry.yaml`、评测语料、单元测试
+/// 这些是历史默认模板中的夹具密钥（现存于 `eval/fixtures/public-agent-registry.yaml`、单元测试
 /// 里都用它们），种子是单字节重复，任何人都能在一行里重算出私钥。
 ///
 /// **为什么要在代码里硬编码这张表。** 原先这件事只写在 YAML 的注释里：
@@ -676,7 +676,7 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_registry_is_valid_and_says_its_keys_are_fixtures() {
+    fn 默认身份模板不预置密钥且保留任务范围() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../policies/agent-registry.yaml");
         let raw = std::fs::read_to_string(&path).unwrap();
@@ -690,9 +690,10 @@ mod tests {
         // `guard_core` proves at both settings
         // (`a_forged_attestation_is_refused_whether_or_not_attestation_is_required`).
         assert!(
-            raw.contains("FIXTURE KEYS"),
-            "the registry must say plainly that its keys are fixtures"
+            r.agents.iter().all(|card| card.public_key.is_none()),
+            "默认模板不能预置公开测试密钥或替部署方决定可信身份"
         );
+        assert!(r.publicly_known_key_cards().is_empty());
         // At least one card must restrict its task profiles, or the capability check
         // is untested by the shipped policy.
         assert!(
@@ -701,21 +702,11 @@ mod tests {
         );
     }
 
-    /// 发布注册表里钉的每一把公钥,都必须在 `PUBLICLY_KNOWN_AGENT_KEYS` 里。
-    ///
-    /// 方向是刻意反着的。这不是在要求"发布的密钥必须是假的",而是在守一个不变量:
-    /// **本仓库自带的示例注册表用的全是夹具密钥**,所以每一把都必须被判决层认出来
-    /// 并降级为"无法验证"。
-    ///
-    /// 没有这条测试,以后有人往示例注册表里加一张新卡、配一把新的夹具密钥,
-    /// 却忘了同步那张表 —— 那把钥匙就会变成一把**能通过验签**的钥匙,
-    /// 而它的私钥就在同一次提交里。测试仍然全绿,因为现有测试查的是那两把老钥匙。
-    ///
-    /// 真实部署会把这个文件替换成自己的密钥;这条测试只对仓库里提交的这一份生效。
+    /// 保留历史默认模板作为负例，确保移除默认公钥不会删掉旧配置的拒绝覆盖。
     #[test]
-    fn 发布注册表钉的密钥必须全部可被识别为夹具密钥() {
+    fn 历史默认模板的公开密钥仍全部可识别() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../policies/agent-registry.yaml");
+            .join("../../eval/fixtures/public-agent-registry.yaml");
         let r = AgentRegistry::from_yaml_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         let pinned: Vec<&AgentCard> = r.agents.iter().filter(|a| a.public_key.is_some()).collect();
         assert!(!pinned.is_empty(), "示例注册表至少要有一张钉了密钥的卡");
@@ -737,7 +728,7 @@ mod tests {
 
     /// 评测注册表钉的密钥必须**全部不在**那张表里 —— 边界的另一半。
     ///
-    /// 上一条守的是"发布模板里的密钥都拦得住"。这一条守的是"评测语料还走得到
+    /// 上一条守的是"历史模板里的密钥都拦得住"。这一条守的是"评测语料还走得到
     /// `Verified` 之后的检查"。两条缺任何一条,机制都会静默退化:
     ///
     ///   - 少了上一条:新加的夹具密钥变成一把真能验签的钥匙,而私钥在同一次提交里。
@@ -785,7 +776,12 @@ mod tests {
             &std::fs::read_to_string(root.join("policies/task-plans.yaml")).unwrap(),
         )
         .unwrap();
-        for card in registry.agents.iter().filter(|a| a.public_key.is_some()) {
+        // 默认尚未配钥匙，声明了任务范围的卡也要核对，避免变成空循环。
+        for card in registry
+            .agents
+            .iter()
+            .filter(|a| a.public_key.is_some() || !a.task_profiles.is_empty())
+        {
             assert!(
                 !card.task_profiles.is_empty(),
                 "'{}' holds a key and restricts nothing, so it may declare a task with no plan",
