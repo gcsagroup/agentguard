@@ -1,0 +1,345 @@
+{
+  "baseline": "776c8c18ab3966cabddda434c842fe5280985bae",
+  "app_build": "1.0.0 (3)",
+  "source_scope": "iOS 内容脚本可读名称与键盘焦点、构建元数据和回归；macOS App 未重建",
+  "old_node": {
+    "passed": 22,
+    "failed": 4
+  },
+  "node": {
+    "passed": 26,
+    "failed": 0
+  },
+  "swift": {
+    "core_passed": 21,
+    "ui_passed": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "release_builds": [
+    "Simulator",
+    "unsigned device"
+  ],
+  "analyze": "passed",
+  "dom": {
+    "browser": "141.0.7390.37",
+    "native_bridge": "synthetic",
+    "safari_native": false,
+    "viewports": [
+      "393x852",
+      "1280x800"
+    ],
+    "results": [
+      {
+        "case": "en",
+        "initial": {
+          "dialogs": [
+            {
+              "name": "Payment action blocked",
+              "description": "This click or submission appears to place an order or confirm payment and was blocked. Closing this notice will not perform the action."
+            }
+          ],
+          "focused": [
+            {
+              "role": "RootWebArea",
+              "name": "AgentGuard iOS DOM 回归"
+            },
+            {
+              "role": "button",
+              "name": "Close"
+            }
+          ],
+          "active": "DIV"
+        },
+        "tab_cycle": true,
+        "escape_and_close_restore": true,
+        "stacked_dialogs": true,
+        "removed_control": true,
+        "shadow_focus_restore": true,
+        "risk_requests": 0,
+        "ordinary_requests": 1
+      },
+      {
+        "case": "zh_CN",
+        "initial": {
+          "dialogs": [
+            {
+              "name": "已阻止付款操作",
+              "description": "这次点击或提交可能会下单或确认付款，已被阻止。关闭提示不会执行原操作。"
+            }
+          ],
+          "focused": [
+            {
+              "role": "RootWebArea",
+              "name": "AgentGuard iOS DOM 回归"
+            },
+            {
+              "role": "button",
+              "name": "关闭"
+            }
+          ],
+          "active": "DIV"
+        },
+        "tab_cycle": true,
+        "escape_and_close_restore": true,
+        "stacked_dialogs": true,
+        "removed_control": true,
+        "shadow_focus_restore": true,
+        "risk_requests": 0,
+        "ordinary_requests": 1
+      },
+      {
+        "case": "zh_TW",
+        "initial": {
+          "dialogs": [
+            {
+              "name": "已阻止付款操作",
+              "description": "這次點擊或提交可能會下單或確認付款，已被阻止。關閉提示不會執行原操作。"
+            }
+          ],
+          "focused": [
+            {
+              "role": "RootWebArea",
+              "name": "AgentGuard iOS DOM 回归"
+            },
+            {
+              "role": "button",
+              "name": "關閉"
+            }
+          ],
+          "active": "DIV"
+        },
+        "tab_cycle": true,
+        "escape_and_close_restore": true,
+        "stacked_dialogs": true,
+        "removed_control": true,
+        "shadow_focus_restore": true,
+        "risk_requests": 0,
+        "ordinary_requests": 1
+      },
+      {
+        "case": "unknown",
+        "initial": {
+          "dialogs": [
+            {
+              "name": "Protection status unavailable",
+              "description": "This potentially risky action was stopped because AgentGuard could not confirm the local protection status. Open the app or extension and try again."
+            }
+          ],
+          "focused": [
+            {
+              "role": "RootWebArea",
+              "name": "AgentGuard iOS DOM 回归"
+            },
+            {
+              "role": "button",
+              "name": "Close"
+            }
+          ],
+          "active": "DIV"
+        },
+        "tab_cycle": true,
+        "focus_restore": true,
+        "risk_requests": 0
+      },
+      {
+        "case": "unavailable",
+        "initial": {
+          "dialogs": [
+            {
+              "name": "Protection status unavailable",
+              "description": "This potentially risky action was stopped because AgentGuard could not confirm the local protection status. Open the app or extension and try again."
+            }
+          ],
+          "focused": [
+            {
+              "role": "RootWebArea",
+              "name": "AgentGuard iOS DOM 回归"
+            },
+            {
+              "role": "button",
+              "name": "Close"
+            }
+          ],
+          "active": "DIV"
+        },
+        "tab_cycle": true,
+        "focus_restore": true,
+        "risk_requests": 0
+      }
+    ],
+    "hits": [
+      {
+        "method": "POST",
+        "path": "/effect/ordinary"
+      },
+      {
+        "method": "POST",
+        "path": "/effect/ordinary"
+      },
+      {
+        "method": "POST",
+        "path": "/effect/ordinary"
+      }
+    ],
+    "errors": [],
+    "screenshots": "/tmp/agentguard-ios-dialog-accessibility-2026-09-17"
+  },
+  "before_dom": {
+    "browser": "141.0.7390.37",
+    "native_bridge": "synthetic",
+    "safari_native": false,
+    "initial": {
+      "dialogs": [
+        {
+          "name": ""
+        }
+      ],
+      "focused": [
+        {
+          "role": "RootWebArea",
+          "name": "AgentGuard iOS DOM 回归"
+        },
+        {
+          "role": "button",
+          "name": "关闭"
+        }
+      ],
+      "active": "DIV"
+    },
+    "tab": {
+      "dialogs": [
+        {
+          "name": ""
+        }
+      ],
+      "focused": [],
+      "active": "BODY"
+    },
+    "shiftTab": {
+      "dialogs": [
+        {
+          "name": ""
+        }
+      ],
+      "focused": [
+        {
+          "role": "RootWebArea",
+          "name": "AgentGuard iOS DOM 回归"
+        },
+        {
+          "role": "button",
+          "name": "关闭"
+        }
+      ],
+      "active": "DIV"
+    },
+    "closed": {
+      "dialogs": [],
+      "focused": [
+        {
+          "role": "RootWebArea",
+          "name": "AgentGuard iOS DOM 回归"
+        }
+      ],
+      "active": "BODY"
+    },
+    "effects": {
+      "payment": 0,
+      "form": 0,
+      "ordinary": 0
+    },
+    "hits": [],
+    "errors": []
+  },
+  "products": {
+    "release-simulator-app": {
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "3",
+      "executable_sha256": "54819026b68d476ee9bd1896125d90350c29adfc22bc9c4f8aaa50c4b99ea7ef",
+      "sdk": "iphonesimulator27.0",
+      "files": 29,
+      "signature_description_exit": 0
+    },
+    "release-simulator-extension": {
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "3",
+      "executable_sha256": "5207cea911f2d0db27c706b6c5fc4aca1db0b4089c1d00a666fdef81714409b5",
+      "sdk": "iphonesimulator27.0",
+      "files": 19,
+      "signature_description_exit": 0
+    },
+    "release-device-app": {
+      "bundle_id": "com.agentguard.webshield",
+      "version": "1.0.0",
+      "build": "3",
+      "executable_sha256": "8c40199348185726fba5bf479e55b317506cb4323bbec93176272e2db4dee312",
+      "sdk": "iphoneos27.0",
+      "files": 29,
+      "signature_description_exit": 1
+    },
+    "release-device-extension": {
+      "bundle_id": "com.agentguard.webshield.extension",
+      "version": "1.0.0",
+      "build": "3",
+      "executable_sha256": "cecff18e71f5f0dff0528376c6e1bda2c3a4a1e2afd63e5e63009754da321adb",
+      "sdk": "iphoneos27.0",
+      "files": 19,
+      "signature_description_exit": 1
+    }
+  },
+  "fixed_mac_app_unchanged_files": 91,
+  "simulator_restored_shutdown": true,
+  "repository_invariants_passed": 23,
+  "previous_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35132513654",
+    "status": "completed",
+    "conclusion": "failure",
+    "successful_jobs": 11,
+    "failed_jobs": [
+      "macOS shell (native AX + SCK)",
+      "Windows (native adapter + shell)"
+    ]
+  },
+  "native_safari_acceptance": "NOT_PASSED",
+  "voiceover_dynamic_type": "NOT_PASSED",
+  "testflight": "NOT_PASSED",
+  "release": "No-Go",
+  "artifact_root": ".artifacts/ios-dialog-accessibility-2026-09-17",
+  "artifact_sha256": {
+    "before-result.json": "eb9ef1702cf479e63e7b391f38a4dc298f455afe51ccace7692985295c41b6db",
+    "cleanup.json": "7d0b84cb73014f86431d0da80f4c3f418da28cbe2bfb4d40ac7026790de0030c",
+    "content-before.js": "4e5def995f2156c2ec9a45a7a54fa53a0b800a8ad59b0d3df582f6a3bd490c73",
+    "ios-gate.log": "81a6216fd1d6a729558847e40def416b14ad7b458f17d1febb948f5075b15111",
+    "node-after.log": "93a5eeba5faacd5706740ab555402e8e947fe9a0912b3a2d5a54ab7245272baf",
+    "node-before.log": "588054fa3f66333277bc237d72eb604b4ca21babb06503ee0c1ec7be74642394",
+    "previous-ci-failed-jobs.json": "6e5b94125d205289a2412c5a2e3362248bddbfb75be7abf33aa6b240efe43ae2",
+    "previous-ci-final-readback.json": "f2bb1dd14b66a221c2236af20be2c84150d0e92ebd1aa50f98aa125235e71789",
+    "previous-ci-macos.log": "1673ff1b487d1204e40af41cf727806bb065eb68d2f261fbc24493833783165d",
+    "previous-ci-windows.log": "a2394ae1ce9389ad5cba7ad3869ecc1af09b17b47db67c76cf4348383d0d89b0",
+    "previous-ci.json": "8bc962c356a50c7ae914685498b9e465f78c6b5dacea299fbff89a961ce7375e",
+    "products.json": "8f3a27d5ed635bdedc1cb659d0350caf6616ce53ae36e440ed208d43bd9e9477",
+    "release-device-app-signing.txt": "f76f658c486496a5052bcc1245036e8a2a314bb00227b8299bfb29cdc8fc0e74",
+    "release-device-extension-signing.txt": "1d12c15e8b6440d2468d78b205c017700ca24ee28af6775c25c828d7e36f31c8",
+    "release-simulator-app-signing.txt": "2ecd2059829f952110e1fdb1c08ab4199dfd799f12ba11581735cd13f5951b2f",
+    "release-simulator-extension-signing.txt": "70bff3f43ea04bf387af3810470d154c3bccb716e21fe5dba5426715a629231e",
+    "render-before.mjs": "c28a7ecde725e9187f9e3d2b1b4725882922bfc4f688be4f5acfb1b7a893df67",
+    "render-check.mjs": "d541635ad480502f94d9ccad2860b96da81da050009bfc457f819ec37543019a",
+    "render-result.json": "61d6c0d123bb97affb3ec410622cb1c3c6a5c2c96dfb7713307fa088e0d673a9",
+    "repository-invariants-toolchain-failure.log": "0e82087873d603ffe8dacc60429efe6cd3f8bc00e674a4d4f1f7abae4ca94967",
+    "repository-invariants.log": "b5fc1a285948061c8f83ef4adbd791f4b8dcf41d54f52a6dbd76eb017c7711f5",
+    "source-files.json": "0bd6388e32e134884887b7aed397637f4ed3756f3d708d45ae3201066a4a62a8",
+    "source.patch": "d891b9f3535684d0aa0029e938ba25a14efd8a1713ee00ee7308c5e9672d3df3",
+    "swift-tests.json": "fe41c288fdd7cfc9233cca23252f073508e3a1d0573a4a14cdf7e35b478fbaed",
+    "verification-notes.txt": "5e4d01287cb14957ba6fba2d35136463c73cb09ebea3fe7cb2360d57267c479b",
+    "verify-products.py": "f2be64bccee7591478f5858762b11ec9c1ec1af163054b690044fdb6a0a7d2f6",
+    "screenshots/after-en.png": "6ae90baa25cee12ab79b96cdb6be1f60d492db66a60ca1fff094abb852e331bf",
+    "screenshots/after-unavailable.png": "9f50a2ec6e7bba47950dc62c1cc67561d41c3c8017a74c2651aa0117cc2d1c60",
+    "screenshots/after-unknown.png": "9f50a2ec6e7bba47950dc62c1cc67561d41c3c8017a74c2651aa0117cc2d1c60",
+    "screenshots/after-zh_CN.png": "342a0639bbea0a4f673e7487a02f64e6a24b197fb2881194b3422a58a2459505",
+    "screenshots/after-zh_TW.png": "a10ada0437168d7de71c5f4d5337fe61d536fbc5278dbf1b76292b52564e7f94",
+    "screenshots/before-zh_CN.png": "342a0639bbea0a4f673e7487a02f64e6a24b197fb2881194b3422a58a2459505"
+  }
+}

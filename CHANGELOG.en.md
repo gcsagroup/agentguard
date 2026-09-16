@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS risk-dialog names and keyboard focus (2026-09-17)
+
+- Fixed unnamed dialogs, Tab leaving notices and lost focus after closing. Localized names/descriptions, focus cycling and restoration cover stacked notices and removed controls without adding authorization.
+- Incremented build number to 3. Node 26/26, Swift 23/23, both strict Release builds, Analyze and real DOM regressions passed. Fixed macOS App 024 is unchanged; device Safari, VoiceOver, Dynamic Type and TestFlight remain unverified.
+- Preserved unresolved macOS startup-wait and Windows concurrent-audit failures from CI for `776c8c1`; see the [verification and gaps](docs/ios-dialog-accessibility-2026-09-17.zh.md).
+
 ### iOS blocking contract and forged-overlay bypass correction (2026-09-17)
 
 - Aligned behavior with acceptance I3: removed allow-once and action replay. Risk notices only close, and blocking emits `blocked` while preserving historical records. Page-defined overlay attributes no longer skip checks. Ordinary actions and new actions after explicit native disablement retain their behavior.

@@ -51,4 +51,8 @@
 
 ## 2026-09-17 阻斷合約修正
 
-App 與 Extension 建置號同為 2，名稱與 Bundle ID 保持。移除頁面內的一次放行與重放，修正網頁偽造提示屬性繞過；新事件記為 `blocked`，舊 `allowed`／`cancelled` 保留原含義。新增四個擴充功能回歸在舊程式碼全部失敗，修正後 Node 22／22、Swift Core 21／21 與 UI 2／2 通過；Xcode 27 嚴格 Release 模擬器／無簽章裝置建置及 Analyze 通過。真實 Chromium DOM 測試頁驗證三語提示與零風險請求，但原生狀態為合成，不能替代真機 Safari 或 TestFlight。詳見[本輪記錄](ios-block-only-2026-09-17.zh.md)。
+上一輪 App 與 Extension 建置號同為 2，名稱與 Bundle ID 保持。移除頁面內的一次放行與重放，修正網頁偽造提示屬性繞過；新事件記為 `blocked`，舊 `allowed`／`cancelled` 保留原含義。新增四個擴充功能回歸在舊程式碼全部失敗，修正後 Node 22／22、Swift Core 21／21 與 UI 2／2 通過；Xcode 27 嚴格 Release 模擬器／無簽章裝置建置及 Analyze 通過。真實 Chromium DOM 測試頁驗證三語提示與零風險請求，但原生狀態為合成，不能替代真機 Safari 或 TestFlight。詳見[本輪記錄](ios-block-only-2026-09-17.zh.md)。
+
+## 2026-09-17 鍵盤提示修正（建置 3）
+
+App 與 Extension 現為 1.0.0 (3)，名稱與 Bundle ID 保持。風險提示關聯三語標題與說明，Tab／Shift+Tab 留在關閉鍵；關閉或 Escape 返回此前仍連接的控制項，重疊提示按層處理。未新增放行或重放。四個新增回歸在舊原始碼全部失敗；修正後 Node 26／26、Swift 23／23、兩種嚴格 Release 與 Analyze 通過，真實 Chromium DOM 的三語鍵盤操作無風險請求。原生橋為合成；真實 Safari、VoiceOver、動態字體與 TestFlight 未驗收。前批 CI 另有 macOS 啟動等待與 Windows 並行稽核失敗，仍待解決。 [記錄](ios-dialog-accessibility-2026-09-17.zh.md)。

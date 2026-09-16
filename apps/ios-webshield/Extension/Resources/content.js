@@ -10,6 +10,7 @@
   const pending = new WeakSet();
   const installedRoots = new WeakSet();
   const overlayHosts = new WeakSet();
+  const dialogStack = [];
 
   function i18n(key) {
     return globalThis.browser.i18n.getMessage(key) || key;
@@ -90,6 +91,8 @@
 
   function showDialog(finding, stateKnown) {
     return new Promise((resolve) => {
+      let previousFocus = document.activeElement;
+      while (previousFocus?.shadowRoot?.activeElement) previousFocus = previousFocus.shadowRoot.activeElement;
       const host = document.createElement("div");
       overlayHosts.add(host);
       host.dataset.agentguardWebshieldOverlay = "true";
@@ -100,11 +103,15 @@
       const dialog = document.createElement("section");
       dialog.setAttribute("role", "dialog");
       dialog.setAttribute("aria-modal", "true");
+      dialog.setAttribute("aria-labelledby", "agentguard-dialog-title");
+      dialog.setAttribute("aria-describedby", "agentguard-dialog-body");
       dialog.style.cssText = "box-sizing:border-box;width:min(420px,100%);padding:22px;border-radius:18px;background:#fff;color:#101828;box-shadow:0 24px 80px rgba(0,0,0,.3)";
       const title = document.createElement("h2");
+      title.id = "agentguard-dialog-title";
       title.textContent = i18n(stateKnown ? `modal_title_${finding.kind}` : "modal_title_unavailable");
       title.style.cssText = "margin:0 0 8px;font-size:21px;line-height:1.25";
       const body = document.createElement("p");
+      body.id = "agentguard-dialog-body";
       body.textContent = i18n(stateKnown ? `modal_body_${finding.kind}` : "modal_body_unavailable");
       body.style.cssText = "margin:0 0 18px;color:#475467;font-size:15px;line-height:1.5";
       const actions = document.createElement("div");
@@ -113,13 +120,31 @@
       cancel.type = "button";
       cancel.textContent = i18n("modal_close");
       cancel.style.cssText = "border:0;border-radius:10px;padding:10px 16px;background:#d92d20;color:#fff;font:600 15px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      const entry = { focus: () => cancel.focus() };
+      let closed = false;
       function finish() {
+        if (closed) return;
+        closed = true;
+        const wasTop = dialogStack.at(-1) === entry;
+        const index = dialogStack.indexOf(entry);
+        if (index >= 0) dialogStack.splice(index, 1);
         document.removeEventListener("keydown", onKeyDown, true);
         host.remove();
+        if (wasTop) {
+          const remaining = dialogStack.at(-1);
+          if (remaining) remaining.focus();
+          else if (previousFocus?.isConnected) previousFocus.focus();
+        }
         resolve();
       }
       function onKeyDown(event) {
+        if (dialogStack.at(-1) !== entry) return;
+        if (event.key !== "Escape" && event.key !== "Tab") return;
+        // 当前提示只有关闭键；键盘操作不应穿透到后面的网页。
+        event.preventDefault();
+        event.stopImmediatePropagation();
         if (event.key === "Escape") finish();
+        else cancel.focus();
       }
       cancel.addEventListener("click", finish);
       document.addEventListener("keydown", onKeyDown, true);
@@ -133,6 +158,7 @@
         return;
       }
       mount.append(host);
+      dialogStack.push(entry);
       cancel.focus();
     });
   }

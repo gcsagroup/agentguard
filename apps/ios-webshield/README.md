@@ -93,4 +93,8 @@ Keychain access group；完全关闭代码签名时 Keychain 与 App Group 会�
 
 ## 2026-09-17 阻断合同修正
 
-App 与 Extension 构建号同为 2，名称和 Bundle ID 保持。移除页面内的一次放行及重放，修正网页伪造提示属性绕过；新事件记为 `blocked`，旧 `allowed`／`cancelled` 保留原含义。新增四个扩展回归在旧代码全部失败，修正后 Node 22／22、Swift Core 21／21 和 UI 2／2 通过；Xcode 27 严格 Release 模拟器／无签名设备构建及 Analyze 通过。真实 Chromium DOM 夹具验证了三语提示和零风险请求，但原生状态是合成的，不能代替真机 Safari 或 TestFlight。详见[本轮记录](../../docs/ios-block-only-2026-09-17.zh.md)。
+上一轮 App 与 Extension 构建号同为 2，名称和 Bundle ID 保持。移除页面内的一次放行及重放，修正网页伪造提示属性绕过；新事件记为 `blocked`，旧 `allowed`／`cancelled` 保留原含义。新增四个扩展回归在旧代码全部失败，修正后 Node 22／22、Swift Core 21／21 和 UI 2／2 通过；Xcode 27 严格 Release 模拟器／无签名设备构建及 Analyze 通过。真实 Chromium DOM 夹具验证了三语提示和零风险请求，但原生状态是合成的，不能代替真机 Safari 或 TestFlight。详见[本轮记录](../../docs/ios-block-only-2026-09-17.zh.md)。
+
+## 2026-09-17 键盘提示修正（构建 3）
+
+App 与 Extension 现为 1.0.0 (3)，名称和 Bundle ID 保持。风险提示关联三语标题和说明，Tab／Shift+Tab 留在关闭键；关闭或 Escape 返回此前仍连接的控件，重叠提示按层处理。没有新增放行或重放。四个新增回归在旧源码全部失败；修正后 Node 26／26、Swift 23／23、两种严格 Release 和 Analyze 通过，真实 Chromium DOM 的三语键盘操作无风险请求。原生桥为合成；真实 Safari、VoiceOver、动态字体与 TestFlight 未验收。前批 CI 另有 macOS 启动等待和 Windows 并发审计失败，仍待解决。 [记录](../../docs/ios-dialog-accessibility-2026-09-17.zh.md)。

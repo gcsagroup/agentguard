@@ -144,7 +144,22 @@ function createHarness(statusPromise, options = {}) {
       this.parentElement = null;
     }
 
-    focus() {}
+    get isConnected() {
+      if (this === document.documentElement) return true;
+      if (this.parentElement) return this.parentElement.isConnected;
+      return this._root instanceof ShadowRoot && this._root.host.isConnected;
+    }
+
+    focus() {
+      const root = this.getRootNode();
+      if (root instanceof ShadowRoot) {
+        root.activeElement = this;
+        document.activeElement = root.host;
+      } else {
+        document.activeElement = this;
+      }
+      document.focusedElement = this;
+    }
 
     click() { return click(this); }
   }
@@ -193,6 +208,8 @@ function createHarness(statusPromise, options = {}) {
       this.body = new HTMLElement("body");
       this.documentElement.setRoot(this);
       this.documentElement.append(this.body);
+      this.activeElement = this.body;
+      this.focusedElement = this.body;
     }
 
     createElement(tagName) {
@@ -312,6 +329,8 @@ function createHarness(statusPromise, options = {}) {
     emitStatus,
     runtimeMessages,
     // 夹具保留自己创建的封闭根；页面代码本身不能读取它。
+    dialogElements: () => shadows.filter((root) => root.mode === "closed" && root.host.parentElement)
+      .flatMap((root) => root.querySelectorAll("*")),
     dialogButtons: () => shadows.filter((root) => root.mode === "closed" && root.host.parentElement)
       .flatMap((root) => root.querySelectorAll("*").filter((element) => element.tagName === "BUTTON"))
   };
@@ -417,7 +436,7 @@ test("Escape 只关闭提示，后续关闭防护也不会重放此前被拦的�
   await settle();
   const button = harness.button();
   harness.click(button);
-  harness.document.dispatch("keydown", { key: "Escape" });
+  harness.document.dispatch("keydown", { ...harness.eventFor(button), key: "Escape" });
   await settle();
   assert.equal(harness.dialogButtons().length, 0);
   assert.equal(harness.document.listenerCount("keydown"), 0);
@@ -474,4 +493,88 @@ test("dangerous click and submit inside an open shadow root are gated", () => {
   const form = harness.sensitiveForm(harness.openShadow);
   const submit = harness.submit(form, harness.openShadow, [form, harness.openShadow]);
   assert.equal(submit.defaultPrevented, true);
+});
+
+
+test("提示关联可读标题与解释，关闭后焦点回到原控件且不执行", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const button = harness.button();
+  button.focus();
+  harness.click(button);
+  const elements = harness.dialogElements();
+  const dialog = elements.find((element) => element.getAttribute("role") === "dialog");
+  const title = elements.find((element) => element.id === dialog.getAttribute("aria-labelledby"));
+  const body = elements.find((element) => element.id === dialog.getAttribute("aria-describedby"));
+  assert.ok(title?.textContent.startsWith("modal_title_"));
+  assert.ok(body?.textContent.startsWith("modal_body_"));
+  harness.click(harness.dialogButtons()[0]);
+  await settle();
+  assert.equal(harness.document.focusedElement, button);
+  assert.equal(button.activations, 0);
+});
+
+test("Tab 与 Shift+Tab 留在提示内，Escape 返回开放阴影根中的原焦点", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }), { openShadow: true });
+  await settle();
+  const button = harness.button("Pay now", harness.openShadow);
+  button.focus();
+  harness.click(button, [button, harness.openShadow, harness.openShadow.host, harness.document]);
+  const close = harness.dialogButtons()[0];
+  for (const shiftKey of [false, true]) {
+    const event = { ...harness.eventFor(close), key: "Tab", shiftKey };
+    harness.document.dispatch("keydown", event);
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(event.immediatePropagationStopped, true);
+    assert.equal(harness.document.focusedElement, close);
+  }
+  const escape = { ...harness.eventFor(close), key: "Escape" };
+  harness.document.dispatch("keydown", escape);
+  await settle();
+  assert.equal(escape.defaultPrevented, true);
+  assert.equal(escape.immediatePropagationStopped, true);
+  assert.equal(harness.document.focusedElement, button);
+  assert.equal(button.activations, 0);
+  assert.equal(harness.document.listenerCount("keydown"), 0);
+});
+
+test("原控件被页面移除后关闭提示，不尝试恢复已断开的焦点", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const button = harness.button();
+  button.focus();
+  harness.click(button);
+  button.remove();
+  button.focus = () => assert.fail("不得聚焦已移除的控件");
+  const escape = { ...harness.eventFor(button), key: "Escape" };
+  harness.document.dispatch("keydown", escape);
+  await settle();
+  assert.equal(escape.defaultPrevented, true);
+  assert.equal(harness.dialogButtons().length, 0);
+  assert.equal(button.activations, 0);
+});
+
+test("不同风险重叠时只处理最上层提示，依次关闭后返回最初焦点", async () => {
+  const harness = createHarness(Promise.resolve({ state: "enabled", enabled: true, privacyAccepted: true, nativeAvailable: true }));
+  await settle();
+  const first = harness.button();
+  const second = harness.button();
+  first.focus();
+  harness.click(first);
+  const firstClose = harness.dialogButtons()[0];
+  harness.click(second);
+  const secondClose = harness.dialogButtons()[1];
+  const tab = { ...harness.eventFor(secondClose), key: "Tab" };
+  harness.document.dispatch("keydown", tab);
+  assert.equal(tab.defaultPrevented, true);
+  assert.equal(harness.document.focusedElement, secondClose);
+  harness.document.dispatch("keydown", { ...harness.eventFor(secondClose), key: "Escape" });
+  await settle();
+  assert.deepEqual(harness.dialogButtons(), [firstClose]);
+  assert.equal(harness.document.focusedElement, firstClose);
+  harness.document.dispatch("keydown", { ...harness.eventFor(firstClose), key: "Escape" });
+  await settle();
+  assert.equal(harness.document.focusedElement, first);
+  assert.equal(harness.document.listenerCount("keydown"), 0);
+  assert.equal(first.activations + second.activations, 0);
 });

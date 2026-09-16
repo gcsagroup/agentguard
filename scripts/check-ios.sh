@@ -97,5 +97,5 @@ xcodebuild analyze -quiet "${COMMON[@]}" \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath "$RESULT_ROOT/analyze-derived"
 
-echo "iOS limited SKU: Node 22/22, Swift 23/23, strict Release Simulator/device build + Analyze PASS"
+echo "iOS limited SKU: Node 26/26, Swift 23/23, strict Release Simulator/device build + Analyze PASS"
 echo "Evidence: $RESULT_ROOT"
