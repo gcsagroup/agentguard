@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Audit sequence indexes and upgrade compatibility (2026-09-16)
+
+- Removed the full-history scan from each `MAX(seq)` append lookup: 2,048 records now require zero full-scan steps instead of 2,047. Historical signatures, receipts, sequence values and read-only behavior remain intact, including compatibility with databases lacking sequence columns.
+- Three real CLI processes (old, indexed, old) passed 51 upgrade/rollback checks, retaining independent review after binary changes. Five real audit-fault scenarios passed another 51 checks. Workspace 1,518 tests, SQLCipher 119 tests and strict Clippy passed.
+- The four original-budget runs passed only 4/6, 3/6, 4/6 and 4/6 budgets; performance remains unaccepted. Initial failures are retained. Fixed App 020 was not rebuilt; its timeline display and signature were rechecked. See the [diagnosis and evidence](docs/agd-027-m3-performance-2026-09-16.zh.md). Plan v0.55 retains 25 complete, one conditionally complete, one in progress and five pending tasks. F13 and release status are unchanged.
+
 ### AGD-027 joint acceptance in progress (2026-09-16)
 
 - Added a real four-process crash/restart and principal key revocation workflow. Approved memory survives, unapproved content is not stored, the old key fails with valid new-session metadata, and the replacement key succeeds on the same message. Removed principals cannot receive new delegation.

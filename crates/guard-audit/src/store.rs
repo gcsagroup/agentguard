@@ -675,6 +675,12 @@ impl AuditStore {
         self.conn.execute_batch(SCHEMA)?;
         self.ensure_chain_columns()?;
         self.ensure_signature_columns()?;
+        // MAX(seq) 每次追加都会调用。索引避免日志增长后反复扫描全部记录；
+        // 放在兼容列补齐之后，旧库缺少 seq 时也能打开，不重排或重写历史。
+        self.conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_audit_seq ON audit_events(seq);
+             CREATE INDEX IF NOT EXISTS idx_receipt_seq ON decision_receipts(seq);",
+        )?;
         self.ensure_attribution_column()?;
         self.ensure_log_id()?;
         tx.commit().context("commit audit schema migration")?;
@@ -3137,6 +3143,103 @@ mod b6_并发与见证复核 {
             event_json: "{}".into(),
             attributed_agent: None,
         }
+    }
+
+    #[test]
+    fn 追加序号查询不随历史条数全表扫描() {
+        let store = AuditStore::open_in_memory().unwrap();
+        let records = (0..2048).map(rec).collect::<Vec<_>>();
+        store.append_batch(&records).unwrap();
+        for record in &records {
+            store
+                .set_user_decision_at(&record.id, UserDecision::Approve, 1)
+                .unwrap();
+        }
+        for table in ["audit_events", "decision_receipts"] {
+            let mut query = store
+                .conn
+                .prepare(&format!("SELECT COALESCE(MAX(seq), 0) + 1 FROM {table}"))
+                .unwrap();
+            assert_eq!(query.query_row([], |r| r.get::<_, i64>(0)).unwrap(), 2049);
+            assert_eq!(
+                query.get_status(rusqlite::StatementStatus::FullscanStep),
+                0,
+                "{table} 的序号查询不能扫描全部历史记录"
+            );
+        }
+        assert!(store.verify_chain().unwrap().ok);
+        assert!(store.verify_receipts().unwrap().ok);
+    }
+
+    #[test]
+    fn 序号索引不改历史签名且只读打开不补索引() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("audit.db");
+        let signer = crate::signing::FileDeviceKey::generate();
+        let public = signer.verifying_key();
+        let store = AuditStore::open(&path)
+            .unwrap()
+            .with_signer(Box::new(signer))
+            .unwrap();
+        for i in 0..3 {
+            store.append(&rec(i)).unwrap();
+            store
+                .set_user_decision_at(&rec(i).id, UserDecision::Approve, 1)
+                .unwrap();
+        }
+        let records = store.export_jsonl(100).unwrap();
+        let head = serde_json::to_value(store.head().unwrap()).unwrap();
+        store
+            .conn
+            .execute_batch("DROP INDEX idx_audit_seq; DROP INDEX idx_receipt_seq;")
+            .unwrap();
+        drop(store);
+        let indexes = |store: &AuditStore| -> i64 {
+            store.conn.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name IN ('idx_audit_seq','idx_receipt_seq')", [], |r| r.get(0)).unwrap()
+        };
+        let reader = AuditStore::open_read_only(&path).unwrap();
+        assert_eq!(indexes(&reader), 0);
+        assert_eq!(reader.export_jsonl(100).unwrap(), records);
+        assert_eq!(serde_json::to_value(reader.head().unwrap()).unwrap(), head);
+        drop(reader);
+        let reopened = AuditStore::open(&path).unwrap();
+        assert_eq!(indexes(&reopened), 2);
+        assert_eq!(reopened.export_jsonl(100).unwrap(), records);
+        assert_eq!(
+            serde_json::to_value(reopened.head().unwrap()).unwrap(),
+            head
+        );
+        assert!(reopened.verify_chain().unwrap().ok);
+        assert!(reopened.verify_receipts().unwrap().ok);
+        assert!(reopened
+            .verify_record_signatures(&public)
+            .unwrap()
+            .fully_covered());
+        assert!(reopened
+            .verify_receipt_signatures(&public)
+            .unwrap()
+            .fully_covered());
+        assert_eq!(reopened.next_seq("audit_events").unwrap(), 4);
+        assert_eq!(reopened.next_seq("decision_receipts").unwrap(), 4);
+    }
+
+    #[test]
+    fn 缺少序号列的旧表先补列再建立索引() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(&SCHEMA.replace(",\n  seq INTEGER NOT NULL DEFAULT 0", ""))
+            .unwrap();
+        let store = AuditStore { conn, signer: None };
+        assert!(!store.has_column("audit_events", "seq").unwrap());
+        assert!(!store.has_column("decision_receipts", "seq").unwrap());
+        store.migrate().unwrap();
+        store.append(&rec(0)).unwrap();
+        store
+            .set_user_decision_at("id-0", UserDecision::Approve, 1)
+            .unwrap();
+        assert_eq!(store.next_seq("audit_events").unwrap(), 2);
+        assert_eq!(store.next_seq("decision_receipts").unwrap(), 2);
+        assert!(store.verify_chain().unwrap().ok);
+        assert!(store.verify_receipts().unwrap().ok);
     }
 
     /// 两个**并发写者**不能把哈希链弄断,而且绝不能静默地弄断。

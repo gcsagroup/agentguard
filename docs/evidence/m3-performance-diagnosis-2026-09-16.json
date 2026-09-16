@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "task": "AGD-027",
+  "date": "2026-09-16",
+  "status": "index_fix_verified_performance_not_accepted",
+  "base_commit": "a0b0735fd8fcf9772109457f4b275cb368736004",
+  "artifact_root": ".artifacts/m3-performance-diagnosis-2026-09-16",
+  "candidate": {
+    "cli_sha256": "a527a5ed53395303b3311411afa5c684e19d063bf0b52ee97c6b2f25c4e1878c",
+    "frozen_inputs": 211,
+    "changed_product_files": [
+      "crates/guard-audit/src/store.rs"
+    ],
+    "app_build_unchanged": 20,
+    "app_files_unchanged": 91
+  },
+  "results": {
+    "workspace_passed": 1518,
+    "workspace_ignored": 17,
+    "audit_default_passed": 110,
+    "audit_default_ignored": 2,
+    "audit_sqlcipher_passed": 119,
+    "audit_sqlcipher_ignored": 2,
+    "clippy_passed": true,
+    "compatibility_processes": 3,
+    "compatibility_checks": 51,
+    "compatibility_rows": 13,
+    "actual_fault_cases": 5,
+    "actual_fault_checks": 51,
+    "history_size": 2048,
+    "fullscan_steps_before": 2047,
+    "fullscan_steps_after": 0,
+    "performance_passing_budgets": [
+      4,
+      3,
+      4,
+      4
+    ],
+    "repository_passed": 23,
+    "fmt_passed": true
+  },
+  "boundaries": [
+    "短任务读取性能与启动仍有失败；不调整门槛或降低持久化要求",
+    "旧候选完整 M3 功能结果不自动转记至新二进制",
+    "固定 App 未重建，CLI 修改未打入 App；Safari 完整正文读取仍未验收",
+    "F13 暂缓未验收；整个计划未完成，发布 No-Go"
+  ],
+  "prior_ci": [
+    {
+      "commit": "84b6a38",
+      "run": 35038753030,
+      "passed_jobs": 13
+    },
+    {
+      "commit": "a0b0735",
+      "run": 35039467785,
+      "passed_jobs": 13
+    }
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/plan.json",
+      "sha256": "325bd340bd2a203ce987fca8a718748692d730e95416b419982a23a935d5c923",
+      "bytes": 489
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/native.sample.txt",
+      "sha256": "c0d894157fd48fd9227f6a492d00fce8abc86b81d6f670676f77ee4b23f2cd23",
+      "bytes": 227278
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/profile-driver.mjs",
+      "sha256": "b9d987d072f084771cf6e30d957ca1d316ddb55730edeb1c195033fd70b331cd",
+      "bytes": 12461
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/profile.log",
+      "sha256": "ffba37dec3c9728decef1109ce3f8f665f16ce3dc135cc2aeabfd1ac1e0dea9b",
+      "bytes": 1142
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/docker-wrapper-first-failed.cjs",
+      "sha256": "59872f338f90bb82cd312889d4050e643653a6272313b83d097a7615ccbe4d1b",
+      "bytes": 620
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/bin/docker",
+      "sha256": "fcd9b3cdbae194d926bcfd0338650d4d617bd7c98daa1752f46d3201a76684a1",
+      "bytes": 680
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/profile-isolated.mjs",
+      "sha256": "517db3fe3eca45c4a28758df85933a347a3580529ec8fb21347ae1debc8d675d",
+      "bytes": 12418
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/profile-isolated.log",
+      "sha256": "850e6fccea5a4ed9c3748a8de0686c6827216e15b9fb248f0914c0c3bc74febd",
+      "bytes": 578
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/docker.jsonl",
+      "sha256": "1316afddc76856aa4c925e390baae5ec211fea75ce63af4a52736a20aa5f9cfd",
+      "bytes": 7238
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/index-before.log",
+      "sha256": "90ad6bea680ad2f072acca333408adca298f3b014695106d51a445f278017e40",
+      "bytes": 1332
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-after.log",
+      "sha256": "71b33b456eab113bf681daee2896101d19ce5e8a7e02284fc4e120af90641714",
+      "bytes": 9459
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/build-indexed.log",
+      "sha256": "5cd0cab661158467351ea47109b7375fa94e4e1c0e676b26b0cd2bd8a8cc1a4f",
+      "bytes": 600
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/frozen-indexed-01/build-inputs.json",
+      "sha256": "8a9b97ddafadfadcd0f3ff1907c0f51dab4066672e85df52b0df982057360747",
+      "bytes": 32349
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/candidate-source-delta.json",
+      "sha256": "2c73c5caca818393818fb4bdabcd0082f67a64a68d679dcb3d092705c8a8b098",
+      "bytes": 239
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/indexed-performance-plan.json",
+      "sha256": "4f3e3256267b3904ba3b3b9ab2588b4f8953d947ed380639b0e0ff3f4e5d72bb",
+      "bytes": 856
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/run-indexed-comparison.py",
+      "sha256": "8c5026a4806006c123f44868081d31290f6d9635be3c767c16a241f0f4a69bc3",
+      "bytes": 2522
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/indexed-performance.json",
+      "sha256": "636d2c624f9765d3e1d072b1ee271cc4e900a2703cc7b8f06e8f1a3522850742",
+      "bytes": 7988
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/indexed-comparison.log",
+      "sha256": "8cceb6e3202ea56b93f3e5a424f6d8daa8db370b935a89c8bc09fbdc8bac9540",
+      "bytes": 116
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/workspace-tests.log",
+      "sha256": "9d2336c1ea6eb4c7063023db9aa6a4efb3f9954107d887dc3a9eff48734e257e",
+      "bytes": 126066
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/clippy.log",
+      "sha256": "51ca76b0b972cde49cbde1ee05b715277f89f5b752e2ccae6e94926d22d35f58",
+      "bytes": 2132
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/sqlcipher-tests.log",
+      "sha256": "e997289fdbb45f8d8c4fb2d82c7faf0d330a83354dbb28da255e6a1ffc471299",
+      "bytes": 10182
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/fmt-check.log",
+      "sha256": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907",
+      "bytes": 254
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-01.log",
+      "sha256": "3d2f46e692cb327ce675d27d0a2bb0d2d18e99b0ad8d04b23fd223a2090aa179",
+      "bytes": 778
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-01/report.json",
+      "sha256": "ef6637ceb5ff4f09c5f2f8dfdaaa1aa77bd35557dd57cb80255f59989b3cecad",
+      "bytes": 32061
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-02.log",
+      "sha256": "cff43c57a59a1f5523ee4a3b55445a03915219788013b32b3228b68c382cf67d",
+      "bytes": 62
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-02/report.json",
+      "sha256": "a3cd182ac96893e6337e2d2641880718a04f789b2d2495619633ad4da55087ca",
+      "bytes": 117840
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-02/audit.db",
+      "sha256": "2b3dc08105a930d19cc4a68c7ebdd5e5c3d356e7b908858aecce3346720c6011",
+      "bytes": 81920
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-02/audit.db.sources.db",
+      "sha256": "8cfebe864e0ee5c7d79fdaa5b3d0086989384ba13f441159d66dbf108a55747a",
+      "bytes": 49152
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/compatibility-02/audit.db.tools.db",
+      "sha256": "26f96c95e74065d737e19fb6df99e6ca27e2f316e9f36c0e19c0964d04715169",
+      "bytes": 90112
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01.log",
+      "sha256": "1c4ce3a1cca53964f15cb5a8a9806f569351fbf2c4d1e60d897cd8baee7cd31b",
+      "bytes": 697
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/report.json",
+      "sha256": "9eb5716a39292cb062a5073bee34c9fa914e7cd8c7dba065a806a14b0728995f",
+      "bytes": 859
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/harness-inputs.json",
+      "sha256": "d87654c721e5ca2c65ce9943bdde70db4fa5e8a1fb49aa4574626c354f0a213f",
+      "bytes": 601
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/checkpoint-verification.json",
+      "sha256": "eb0beefa18b8541ac7816398a990d015e08bb55a64a0cbb4d4730f37176a889b",
+      "bytes": 453
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/ci-84b6a38-final.json",
+      "sha256": "e90004a46889dab249bbbbd519743b585351378af28affe13e3172bf41a395d1",
+      "bytes": 36236
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/ci-a0b0735-final.json",
+      "sha256": "c3c2007855ac318043429607702a0e021ada26709ee9d0cb032c4e2b4aabd408",
+      "bytes": 36362
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T002754052Z-66690-benchmark/report.json",
+      "sha256": "d22e84993813cde165b1f650b6e7a4668d6890f27ea283854e9546e8ca673793",
+      "bytes": 26998
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T002814340Z-67611-benchmark/report.json",
+      "sha256": "e989af90c1c84d12bfdf8dbd0d738b2467c1554d3421cf1a9dd4261d7cb1a22b",
+      "bytes": 27054
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T002841088Z-68919-benchmark/report.json",
+      "sha256": "0ce5d8d5886c86454d32cf97f4a64cdb5364b4494f3b4228f37b6b25db85eedb",
+      "bytes": 27037
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T002905279Z-70045-benchmark/report.json",
+      "sha256": "6c0561d8904edad527a741c9b75a03cafa692bf385c13b38283fc928ae1a00b3",
+      "bytes": 26998
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/success/result.json",
+      "sha256": "aff68d95657736fca45eadda4906c0caaaa9eaec434631ebe8f54794976c5ad2",
+      "bytes": 31506
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/success/audit.db",
+      "sha256": "bdc69cd4c11fd7a3fe4b553271d5f82f9f32ac18d0c97751471d5947bb3935b3",
+      "bytes": 73728
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/decision-failure/result.json",
+      "sha256": "dc20b349395caec0a17257a4834bcf9b17b20b7944327653aa3633a46b1a5e74",
+      "bytes": 5284
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/decision-failure/audit.db",
+      "sha256": "6e0bb43657adc89c20c9ebc16952d0e1ba4efde7940006c8a6b1a4d37a6c30b1",
+      "bytes": 57344
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/start-failure/result.json",
+      "sha256": "11bceb8fa2c13d06d64e8a09fdec6fa893cdb7e1bf6729b95208d191d6f335e9",
+      "bytes": 5281
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/start-failure/audit.db",
+      "sha256": "cf35df557465e476be3709314488581de4a8e7cf69b5bd97659c323e1e4d6325",
+      "bytes": 57344
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/source-failure/result.json",
+      "sha256": "f96106bcde666d2922c251937789d91cd45387150fe74a083fd8168991a575a5",
+      "bytes": 18763
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/source-failure/audit.db",
+      "sha256": "e40cb293c608c4197a0f6a92da742d261ceceeacbb150b493c9f59357e06775c",
+      "bytes": 65536
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/finish-failure/result.json",
+      "sha256": "2633b0882615c6560c8b7cb929863164c6b1a6ef993b83f2ecb35508948b06ce",
+      "bytes": 18763
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/audit-faults-01/finish-failure/audit.db",
+      "sha256": "dec0708783367c36cf8f41676be59b7c23b7f723d4ed514f1e6707c528743229",
+      "bytes": 65536
+    },
+    {
+      "path": ".artifacts/m3-performance-diagnosis-2026-09-16/repository-tests.log",
+      "sha256": "31f680687fe9399e95737e360859f64ad340dff94107efba235f194d1aff4616",
+      "bytes": 3337
+    }
+  ]
+}
