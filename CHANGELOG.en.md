@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Fixed App 022: passive fields no longer imply cross-app writes (2026-09-16)
+
+- Native field observations no longer create profile provenance, cross-app taint or agent-fill scores. Actual writes, explicit injection and privacy-trap checks remain protected.
+- Updated the same App path to Ver 2.1 (022). Native Finder/Safari fields, installation prose and an injection control were exercised; both permissions survived restart. See the [native record](docs/native-form-observation-022-2026-09-16.zh.md).
+- Passed 274 core, 136 desktop (11 ignored), 133 frontend and 23 repository checks. Historical trace coverage failures and platform, performance and deferred F13 gaps remain open; this is not full-plan or release approval.
+
 ### AGD-030 platform APIs and native file grants (2026-09-16)
 
 - Completed the API, signing, permission, compatibility and device inventory for four platforms, with nine follow-up tickets; current source and historical device evidence remain distinct. See the [platform report](docs/agd-030-platform-api-2026-09-16.zh.md).

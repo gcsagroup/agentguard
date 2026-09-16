@@ -835,9 +835,9 @@ impl Engine {
             matches!(event.platform.as_str(), "macos" | "windows")
                 && matches!(
                     event.event_type,
-                    EventType::UiTreeDelta | EventType::ScreenFrame
+                    EventType::UiTreeDelta | EventType::ScreenFrame | EventType::FormFill
                 ),
-            "桌面观察入口只接受窗口或屏幕事件"
+            "桌面观察入口只接受窗口、屏幕或输入框观察事件"
         );
         self.process_with_memory_backend(event, None, true)
     }
@@ -964,8 +964,12 @@ impl Engine {
         let scope_finding = self.check_agent_session_scope(event);
         // 可信持久记忆路径中的正文是保存／读取资料，不是安装动作。
         // 只排除基础安装文字规则；继续走记忆契约、注入检测和后续独立策略。
-        let decision =
-            self.decide_with_memory_backend(event, persistent, persistent.then_some("CRIT-005"))?;
+        let decision = self.decide_with_memory_backend(
+            event,
+            persistent,
+            persistent.then_some("CRIT-005"),
+            desktop_observation,
+        )?;
         // 在合并其它风险、受控规则包和企业策略之前限定基础文字规则的含义。
         // 不能在最终判决上降级，否则会一并抹去身份冒充、明确注入等独立发现。
         let decision = if desktop_observation {
@@ -993,7 +997,7 @@ impl Engine {
         let decision = match self.rule_package.as_mut() {
             Some(package) => constrain_with_package(
                 decision,
-                package.decide_with_memory_backend(event, persistent, None)?,
+                package.decide_with_memory_backend(event, persistent, None, desktop_observation)?,
             ),
             None => decision,
         };
@@ -1363,7 +1367,7 @@ impl Engine {
     }
 
     fn decide(&mut self, event: &GuardEvent) -> Result<Decision> {
-        self.decide_with_memory_backend(event, false, None)
+        self.decide_with_memory_backend(event, false, None, false)
     }
 
     fn decide_with_memory_backend(
@@ -1371,6 +1375,7 @@ impl Engine {
         event: &GuardEvent,
         persistent: bool,
         excluded_text_rule: Option<&str>,
+        desktop_observation: bool,
     ) -> Result<Decision> {
         // Ingest point for untrusted provenance. Done before rule matching
         // because those arms return early: an event that trips an injection rule
@@ -1908,6 +1913,28 @@ impl Engine {
             }
             EventType::FormFill => {
                 let fill = form_fill_from_event(event, &self.privacy.contract);
+                if desktop_observation {
+                    // AX/UIA 只证明输入框当前有内容，不证明智能体执行过写入，也不证明
+                    // 两个应用里的同名字段来自同一个值。保留字段风险判断，但不得据此
+                    // 生成 Profile 来源、跨应用污点或智能体填写评分。
+                    let mut decision = self.privacy.decide_form_fill(&fill);
+                    if decision.action == DecisionAction::Allow {
+                        return Ok(Decision {
+                            action: DecisionAction::LogOnly,
+                            severity: Severity::Info,
+                            rule_id: "UI-FIELD-OBSERVED".into(),
+                            human_message: "窗口输入框已有内容；未确认由智能体填写或发生跨应用传输"
+                                .into(),
+                            require_confirm: false,
+                        });
+                    }
+                    decision.human_message = match decision.rule_id.as_str() {
+                        "PRIV-TRAP" => "观察到隐私陷阱字段已有内容；请核对，尚不能确定填写者或是否已提交",
+                        "PRIV-FM" => "观察到非必需的个人信息字段已有内容；请核对，尚不能确定填写者或是否已提交",
+                        _ => "输入框内容触发隐私风险；请核对，尚不能确定填写者或是否已提交",
+                    }.into();
+                    return Ok(decision);
+                }
                 let is_high = matches!(fill.field.tier, guard_schema::DataTier::High)
                     && fill.field.value_filled;
                 // Seed the lattice from the profile store so the two mechanisms

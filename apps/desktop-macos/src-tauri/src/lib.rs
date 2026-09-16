@@ -2025,6 +2025,7 @@ fn inject_demo_threat(
             &mut engine,
             &event,
             approve,
+            false,
         )?]);
     }
     if kind == "netmon" {
@@ -2058,6 +2059,7 @@ fn inject_demo_threat(
             &mut engine,
             &event,
             approve,
+            false,
         )?]);
     }
 
@@ -3250,14 +3252,16 @@ fn process_one(
     engine: &mut Engine,
     event: &guard_schema::GuardEvent,
     approve: bool,
+    native_observation: bool,
 ) -> Result<DecisionDto, String> {
     // 此入口收到的是桌面事后观察，没有待执行动作或绑定到动作的授权快照。
     // 普通 OCR/窗口文字变化不能冒充 TOCTOU。真实执行路径继续使用引擎的
     // process_with_revalidate，以该动作的决策快照和执行前快照做比较。
-    let observed = matches!(
-        event.event_type,
-        EventType::UiTreeDelta | EventType::ScreenFrame
-    );
+    let observed = native_observation
+        || matches!(
+            event.event_type,
+            EventType::UiTreeDelta | EventType::ScreenFrame
+        );
     if approve && !observed {
         let d = engine
             .process_gated(event, &AutoApprove)
@@ -3309,7 +3313,7 @@ fn process_events(state: &AppState, events: Vec<GuardEvent>) -> Result<Vec<Decis
     let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for event in events {
-        out.push(process_one(state, &mut engine, &event, approve)?);
+        out.push(process_one(state, &mut engine, &event, approve, false)?);
     }
     Ok(out)
 }
@@ -3360,7 +3364,7 @@ fn process_observed_events(
     let approve = *state.auto_approve.lock().map_err(|e| e.to_string())?;
     let mut out = Vec::with_capacity(to_process.len());
     for event in &to_process {
-        out.push(process_one(state, &mut engine, event, approve)?);
+        out.push(process_one(state, &mut engine, event, approve, true)?);
     }
     Ok((out, suppressed, summaries))
 }
@@ -4811,6 +4815,31 @@ mod 桌面被动观察回归 {
                     let rows = engine.audit().unwrap().list_recent(1).unwrap();
                     assert_eq!(rows[0].action, "LogOnly");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn 原生输入框观察不制造跨应用确认且普通事件仍受保护() {
+        let state = state();
+        for (index, app) in ["Finder", "Safari"].into_iter().enumerate() {
+            let mut e = event(EventType::FormFill, "", index as i64);
+            e.source_app = app.into();
+            e.metadata = HashMap::from([
+                ("profile_key".into(), "unknown".into()),
+                ("value_filled".into(), "true".into()),
+                ("required".into(), "true".into()),
+            ]);
+            let (decisions, _, _) = process_observed_events(&state, vec![e.clone()]).unwrap();
+            assert_eq!(decisions[0].rule_id, "UI-FIELD-OBSERVED");
+            assert!(state.pending.lock().unwrap().is_empty());
+            // 通过普通入口的同形事件不能继承观察器的上下文。
+            e.metadata.insert("observed_only".into(), "true".into());
+            let decisions = process_events(&state, vec![e]).unwrap();
+            if index == 1 {
+                assert_eq!(decisions[0].rule_id, "PRIV-XAPP");
+                assert!(decisions[0].require_confirm);
+                assert_eq!(state.pending.lock().unwrap().len(), 1);
             }
         }
     }

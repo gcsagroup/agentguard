@@ -1,0 +1,273 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "5028b0757fac16cbe98221dd508f8f0d29cd2b35",
+  "scope": "macOS 固定 App 输入框观察误报修复；两个本机合成 Safari 正文实际读取，不是全产品或发布验收",
+  "app": {
+    "path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "version": "2.1.0-dev.22",
+    "build": 22,
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "profile": "local-agent-20260910",
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44",
+    "binary_sha256": "a8344b37471f4dda415edc6f11e563c8d8b20b40c879705d7838fd85c5a64ca5",
+    "files_verified": 91,
+    "strict_deep_signature_verified": true,
+    "setup_assets_unchanged": 29,
+    "packaged_browser_sources_match": [
+      "cli.mjs",
+      "guardian.mjs"
+    ],
+    "packaged_gateway_updated": false,
+    "same_path_update": true,
+    "accessibility_authorized_on_update_and_restart": true,
+    "screen_recording_authorized_on_update_and_restart": true,
+    "final_guarding": false
+  },
+  "source_sha256": {
+    "crates/guard-core/src/lib.rs": "78010c4025f9c0a8bd3b03d7645dafe5705de4287c577fd2dc9c96abe4a9a214",
+    "crates/guard-core/tests/桌面观察告警.rs": "b4fdbfefd38c1fb88dc511154d8f40f4ae113d191e9e9c5043de6a9ac3aca7d2",
+    "apps/desktop-macos/src-tauri/src/lib.rs": "9f6b58361d19f18c3ede37395f7c1c9b95420b760079df43dcb054ebaf00d125",
+    "apps/desktop-macos/src-tauri/tauri.conf.json": "cfff3176a12795d9eae6cec3bbb31e75b6b0203f927b2473eafc460b194f4ee3",
+    "apps/desktop-macos/src-tauri/tauri.local-agent.conf.json": "6f1d30827782bfa39003a6b2cbcbc9d108c0794870e607e3a6b3f2a97f45891f",
+    "apps/desktop-macos/src/workspace-i18n.js": "9028162123757f774ddbef31a05538a37ab57b16ccf10c099db6ba7aeccca6d9",
+    "apps/protected-browser/cli.mjs": "22600f913b8c2e5b423da8099f694287a5089830b26283d5d2b6e8bb05409939",
+    "apps/protected-browser/guardian.mjs": "71f319391bc7f2a69d76f398ec9d3dbef5544782641a368a1af9d18fc913b998"
+  },
+  "tests": {
+    "core": {
+      "passed": 274,
+      "failed": 0,
+      "ignored": 0,
+      "focused_observation": 8,
+      "clippy_deny_warnings": true
+    },
+    "desktop_macos": {
+      "passed": 136,
+      "failed": 0,
+      "ignored": 11,
+      "focused_observation": 3
+    },
+    "repository": {
+      "first_passed": 22,
+      "first_failed": 1,
+      "final_passed": 23,
+      "final_failed": 0
+    },
+    "frontend_stub": {
+      "checks_passed": 133,
+      "page_errors": 0,
+      "native_permission_proof": false
+    },
+    "browser_lifecycle": {
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "native": {
+    "baseline": {
+      "version": "2.1.0-dev.21",
+      "seq_start": 698,
+      "seq_end": 712,
+      "false_alert_seq": 709
+    },
+    "candidate": {
+      "version": "2.1.0-dev.22",
+      "seq_start": 713,
+      "seq_end": 756,
+      "records": 44
+    },
+    "selected_records": [
+      {
+        "seq": 708,
+        "timestamp_ms": 1789535385095,
+        "event_type": "UiTreeDelta",
+        "source_app": "app:sha256:fa02f319c906e761fe052e416a123b10",
+        "rule_id": "CRIT-005",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "d4fe71af3c898c75765c090e251cf81a30e951ad4fc353adc5c7ddbb3206200e"
+      },
+      {
+        "seq": 709,
+        "timestamp_ms": 1789535385095,
+        "event_type": "FormFill",
+        "source_app": "app:sha256:fa02f319c906e761fe052e416a123b10",
+        "rule_id": "PRIV-XAPP",
+        "severity": "High",
+        "action": "Block",
+        "user_decision": "approve",
+        "record_hash": "13735c118d812dd11d202ae22dbb2f8e2e9f1250abd9c3810e750c31a987eccc"
+      },
+      {
+        "seq": 713,
+        "timestamp_ms": 1789539798119,
+        "event_type": "AgentSessionStart",
+        "source_app": "app:sha256:0615570f9ea136946c5dc08a25001032",
+        "rule_id": "SESSION-START",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "bf895b25e3a5cada525c0a845191bdc71cf9a014bcb287d2bbfb8cc39aedecd0"
+      },
+      {
+        "seq": 716,
+        "timestamp_ms": 1789539799270,
+        "event_type": "FormFill",
+        "source_app": "app:sha256:2df09f0faa23fe6da6fb58f0801c80bb",
+        "rule_id": "UI-FIELD-OBSERVED",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "247e20308067a80b215e0543041341aa215a8752369df1975452c118f28d5cde"
+      },
+      {
+        "seq": 721,
+        "timestamp_ms": 1789539830219,
+        "event_type": "UiTreeDelta",
+        "source_app": "app:sha256:fa02f319c906e761fe052e416a123b10",
+        "rule_id": "CRIT-005",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "719d7da38817af7a1cab8fb7676926c348a256c230b4fbcfa43171043942a2c1"
+      },
+      {
+        "seq": 722,
+        "timestamp_ms": 1789539830219,
+        "event_type": "FormFill",
+        "source_app": "app:sha256:fa02f319c906e761fe052e416a123b10",
+        "rule_id": "UI-FIELD-OBSERVED",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "81873102a155c2737a606eb345f690fb38108abb4b9ab683cca08d517dcccfd7"
+      },
+      {
+        "seq": 746,
+        "timestamp_ms": 1789539945550,
+        "event_type": "UiTreeDelta",
+        "source_app": "app:sha256:fa02f319c906e761fe052e416a123b10",
+        "rule_id": "OVL-004",
+        "severity": "Critical",
+        "action": "Block",
+        "user_decision": "approve",
+        "record_hash": "5326f7c7c3eb0bd76788cc45959e52655d5560086e3bdc28edf4b12766f0283c"
+      },
+      {
+        "seq": 747,
+        "timestamp_ms": 1789539945550,
+        "event_type": "FormFill",
+        "source_app": "app:sha256:fa02f319c906e761fe052e416a123b10",
+        "rule_id": "UI-FIELD-OBSERVED",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "34ca9d332951c25c15f59ebfb626e4c9ce1c935d838eb0add82d58ea91f1da8a"
+      },
+      {
+        "seq": 756,
+        "timestamp_ms": 1789540010369,
+        "event_type": "AgentSessionEnd",
+        "source_app": "app:sha256:0615570f9ea136946c5dc08a25001032",
+        "rule_id": "SESSION-END",
+        "severity": "Info",
+        "action": "LogOnly",
+        "user_decision": null,
+        "record_hash": "3ab0bcd38b2dd7723d7ddcc90733a5ee677c6e9f6ecd9e3732effff43ee46a37"
+      }
+    ],
+    "candidate_verification": {
+      "baseline_rows": 15,
+      "candidate_rows": 44,
+      "normal_install_logonly": true,
+      "field_observations_logonly": 3,
+      "cross_app_false_alerts": 0,
+      "risk_rule": "OVL-004",
+      "risk_confirmation_correlated": true,
+      "risk_response": "approve（不是本轮工具点击）",
+      "candidate_scope_only": true,
+      "tampered_cases_rejected": 3,
+      "app_files_verified": 91
+    },
+    "timestamp_visible": "原生时间线显示日期、秒和 GMT+8；正常安装 14:23:50，风险对照 14:25:45",
+    "risk_confirmation": "同一条 OVL-004 审计对应入队、显示及继续监控回执；本轮工具未点击该确认，不声称工具完成拒绝测试",
+    "content_scope": "触发词只在合成短正文，页面标题与 URL 无触发词；不外推任意网页完整读取或真实超时恢复",
+    "ui_method": "Computer Use，准确固定 App；页面桩测试与原生观察分开"
+  },
+  "historical_trace_gate": {
+    "passed": 4,
+    "total": 6,
+    "all_pass": false,
+    "failed_checks": [
+      "本轮 trace 无法覆盖数据库的全部历史会话",
+      "历史确认不在本轮 trace 内"
+    ],
+    "historical_records_deleted": false,
+    "current_session_verifier_is_separate": true
+  },
+  "audit_integrity": {
+    "records": 756,
+    "receipts": 13,
+    "chains_and_signatures_verified": true,
+    "public_key": "数据库内嵌公钥；本轮未使用库外公钥，不能证明密钥替换防护"
+  },
+  "recovery": {
+    "previous_app_archive": "fixed-app-021.tar",
+    "previous_files_verified": 91,
+    "generated_package_files_moved": 3,
+    "profile_storage_migrated": false,
+    "temporary_http_server_stopped": true,
+    "test_safari_tab_and_finder_window_closed": true,
+    "user_original_windows_preserved": true,
+    "temporary_trace_environment_removed": true
+  },
+  "preserved_failures": [
+    "首轮版本编辑错误工作目录，停止构建并确认旧包未变",
+    "扩展生成物被打包，移出后重签",
+    "能力表计数过期 22/23，重建后 23/23",
+    "系统 Rust/LLVM 动态库失败，改用仓库固定工具链",
+    "全历史 trace 4/6，保留旧记录",
+    "Safari 粘贴及 Dock 查询工具超时，检查状态后继续"
+  ],
+  "remaining": [
+    "真实 AX 超时恢复",
+    "AGD-027 性能",
+    "Windows 与移动端原生和发布条件",
+    "F13 暂缓且未验收",
+    "完整开发计划及发布未通过"
+  ],
+  "local_artifact_root": ".artifacts/ax-frontmost-021-2026-09-16",
+  "local_artifact_sha256": {
+    "core-all.log": "c75aac7ab530c0974d0709c34472220ffdc3e069318263394ecf351cebb29c51",
+    "core-focused.log": "55b6b62723e406953f85158f581c728635d19a9104e33117172f16c65d6a4701",
+    "core-clippy.log": "d188c4bd2025a39081734a78c68437ed35d954e9fe1c70f254edffa3c10c4421",
+    "desktop-all.log": "e733b8e978eca58844c6eec0571224b72f016f038e0bc097ad8bf55a5a24c6ca",
+    "desktop-focused.log": "813afa9ad26704f52ca99cee7b6cc26d36e3edf2b9db845f9dcea7f82c7d052c",
+    "repository-tests.log": "84e06d89533b8e1629be38092c74af6349f857522f26b821a1e63b30d999eb09",
+    "repository-tests-fixed.log": "18f72426a07598508f44db7a8110202b777c274715effe823711ef666afc17e0",
+    "frontend.log": "6077cafa9e36b59290b5d36f1d51c6c62d9c3d911028dc6c0b8b06d1e8cb9697",
+    "browser-lifecycle.log": "3e3c61f39ad2b678aebf3d21079557f21165ac2e3c30572764487d1291b256c3",
+    "build-preflight-failed.log": "60aa12d96b15dc898687bec4d491e3e9d3d163b4f5cfadcc447b020efbb1a715",
+    "build-022.log": "d668ffa526cd938abdd0f4b5a942f7cfc8c55de9849f3b3dd0312d87f34eac8d",
+    "capability-matrix.log": "ad41d7c52d1ce11cd1cc2cc15faa396815e3dcf5f52556b21c50909e25801071",
+    "capability-matrix-fixed.log": "43ab3f58e724886461e809f36a4a990ec1bc920dffad56f65a22895f126fde78",
+    "sign-022.log": "89f2c599e2a13e419b16079fbb05c49d7cdbd830e0e62411c30c6a73d9da837b",
+    "verify-signature-022.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "certificate-022.log": "cf50f83ea183abc300854610e7e098ba67795472031ce94c43dcbf8d40e76ca9",
+    "audit-verify.log": "038a13901b98c4870b7cdaf6246433a5c4a95093999b3cd72b32b97f0c6bb41a",
+    "trace.jsonl": "2a33759f611af705bf582bcb009f182e0003fc635f4d8cdbad20c361880237bd",
+    "trace-022.jsonl": "b05ab189a1ae26e9722ac23e4c53a99d1e170326e4d8e1a26edb630d7bb2f95f",
+    "trace-check-022.json": "0b65ee0beff4818268fea8316af9fc2f8993a04faa4e710778c1f31282d32360",
+    "session-verification.json": "18ec27478b5681d48649f0c9a50d0c34f20b76ea262a693167202b0e39613acd",
+    "verify-session.py": "d5ebcf64beaed1072e5d443e9b82a92936bfdca2415b004d7982e107900ff4e1",
+    "app-021-manifest.json": "e9a6262aa2326d44926ba6fad1a1d7848f18c624c7c86f3a260f4f70e27c372b",
+    "app-022.json": "8c54c91bf2cf278c7cfca1f4af9ec3a41c2e137ae48c703e0469d893af6f5123",
+    "setup-assets-before.json": "5f418b3bdab715d86da0cdbd8d11ac8f1885e23e3c8e18468600a62829d80f01",
+    "fixed-app-021.tar": "b391a6e680573d13979c2dc0e37392deac64471d562ccc0197ee0ed8f6c15050",
+    "excluded-package-generated/manifest.json": "5e2028e9079d1971cb74a2b96e8ba890006f138a50e45cebf6bfaef3b6b69a6f",
+    "normal.html": "4e9d33d280a5438f6c052b2ce1f4f068e9e6651f3240f9d788f9ce49bf8deaa0",
+    "risk.html": "c2dddc6644dd0eb2d522eb6f331971fc06005059a5517099cb045ba0aafd32df",
+    "repository-final.log": "9e6db54ff3cb6791d76e6408e4c5ce851411c6d6498bc01ca01605a26a9e2d67"
+  }
+}
