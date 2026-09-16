@@ -1,6 +1,6 @@
 {
   "productName": "AgentGuard Local Agent Test",
-  "version": "2.1.0-dev.20",
+  "version": "2.1.0-dev.21",
   "identifier": "com.agentguard.desktop.macos.localagenttest",
   "app": {
     "windows": [

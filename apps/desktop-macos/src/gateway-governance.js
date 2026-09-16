@@ -1,4 +1,5 @@
 import { uiText } from "./workspace-i18n.js";
+import { renderMemoryContent } from "./memory-content.js";
 
 const el = (id) => document.getElementById(`governance-${id}`);
 const node = (tag, text, className = "") => {
@@ -85,7 +86,7 @@ export function initializeGatewayGovernance(invoke, getConnection) {
       box.append(node("h4", `${selected} · ${uiText("governanceVersion")} ${version.version}`),
         node("p", `${stateText(version.state)} · ${time(version.committed_at_ms)} · ${uiText("governanceValidUntil")}: ${time(version.expires_at_ms)}`),
         node("p", `${uiText("governanceLabel")}: ${version.label.integrity} / ${version.label.confidentiality}`),
-        node("pre", JSON.stringify(version.content, null, 2), "gateway-request-text"),
+        renderMemoryContent(version.content),
         details(`${uiText("governanceSources")} (${version.sources.length})`, version.sources),
         details(uiText("governanceEvidence"), { entry_sha256: version.entry_sha256, approval: version.approval, instruction_authority: version.instruction_authority }));
       el("history").append(box);
@@ -124,7 +125,7 @@ export function initializeGatewayGovernance(invoke, getConnection) {
       el("review-body").append(node("h4", `${draft.key} · ${stateText(draft.state)} · ${uiText("governanceVersion")} ${draft.version}`),
         node("p", `${uiText("governanceLabel")}: ${draft.label.integrity} / ${draft.label.confidentiality}`),
         node("p", `${uiText("governanceValidUntil")}: ${time(draft.expires_at_ms)}`),
-        node("pre", draft.content, "gateway-request-text"),
+        renderMemoryContent(draft.content),
         details(`${uiText("governanceSources")} (${draft.sources.length})`, draft.sources),
         details(uiText("governanceEvidence"), { session_id: data.session_id, target: data.target, review_sha256: data.review_sha256, previous_sha256: draft.previous_sha256, policy_version: data.policy_version }));
   }

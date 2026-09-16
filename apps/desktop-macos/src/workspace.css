@@ -134,6 +134,8 @@ textarea { resize: vertical; }
 .gateway-connection-fields input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; }
 .gateway-connection-fields input:focus-visible, .gateway-review-check input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .gateway-request-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; padding: 16px; background: var(--sidebar); }
+.memory-content { overflow-wrap: anywhere; }
+.memory-content h5 { font-size: 0.95em; margin: 18px 0 8px; }
 #gateway-findings { overflow-wrap: anywhere; }
 .gateway-review-check { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0; }
 .gateway-review-check input { width: auto; margin-top: 4px; }

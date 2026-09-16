@@ -187,7 +187,7 @@ fn 前端不出现把字符串当代码的写法() {
     // 新增前端文件时要一起改这个数,而那一改会出现在 diff 里,于是有人会看一眼
     // 那个新文件有没有 sink。
     // 已检查 workspace、三语词表、gateway-confirmation、codex-setup、local-agent、knowledge、execution-records、gateway-governance 及三个邮件模块/测试；正文不用代码 sink。
-    const 前端文件数: usize = 30;
+    const 前端文件数: usize = 31;
     assert_eq!(
         文件.len(),
         前端文件数,

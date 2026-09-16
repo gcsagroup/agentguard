@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-028 media preview and native approval (2026-09-16)
+
+- Updated the fixed App in place to Ver 2.1 (021), with full extracted text, provenance, coverage limits and empty pages. Native approval, denial and reopening were verified; both system permissions remained granted. Independent checks cover 3 signed records and 48 audit rows; see the [acceptance record](docs/agd-028-native-media-2026-09-16.zh.md).
+- Fixed a separate gateway false positive that treated compact serialized parameters as an oversized token. Text, source and explicit-injection checks and independent approval remain enforced. The fixed App was retested with the final gateway. Six-format regression, 1,530 workspace tests and 17/16/133 UI checks passed; initial failures and candidate boundaries are retained.
+- AGD-028 is complete within its limited integration scope; audio/video has a separate 12–18 person-day estimate. Plan v0.61 has 26 complete, 1 conditional, 1 in progress and 4 pending tasks. The App's old packaged gateway was not replaced; AGD-027 performance, F13 and release gates remain open.
+
 ### AGD-028 installation-document false positive and model consumption (2026-09-16)
 
 - A real flow found CRIT-005 refusing an ordinary installation document during persistence after successful OCR. Only the trusted memory entrypoint excludes the base installation-text rule; storage still needs independent approval. Execution, self-declared fields, explicit injection and additional policy constraints remain covered, with original failures retained.

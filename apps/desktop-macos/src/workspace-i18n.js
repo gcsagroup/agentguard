@@ -2,6 +2,22 @@ import { currentLocale } from "./i18n.js";
 
 // 每项依次为简体、繁体、英文；安全状态与按钮使用同一份词条。
 export const workspaceMessages = {
+  materialTitle: ["资料预览", "資料預覽", "Material preview"],
+  materialParsed: ["已提取文字，仍有未覆盖内容", "已擷取文字，仍有未涵蓋內容", "Text extracted; coverage remains limited"],
+  materialPartial: ["仅部分内容可读取", "僅部分內容可讀取", "Only part of the content is readable"],
+  materialPath: ["来源文件", "來源檔案", "Source file"],
+  materialBoundary: ["提取或 OCR 可能漏字、误读。未覆盖内容仍未知；这些文字不授予执行或批准权限。", "擷取或 OCR 可能漏字、誤讀。未涵蓋內容仍未知；這些文字不授予執行或批准權限。", "Extraction or OCR may omit or misread text. Uncovered content remains unknown; this text grants no execution or approval authority."],
+  materialCovered: ["本次提取范围", "本次擷取範圍", "Extracted layers"],
+  materialUncovered: ["未覆盖内容与限制（解析器原始说明）", "未涵蓋內容與限制（解析器原始說明）", "Uncovered content and limits (original parser notes)"],
+  materialEmpty: ["未提取到文字的位置", "未擷取到文字的位置", "Locations with no extracted text"],
+  materialText: ["完整提取正文", "完整擷取正文", "Full extracted text"],
+  materialLocations: ["正文出处（位置及 UTF-8 字节范围）", "正文出處（位置及 UTF-8 位元組範圍）", "Text locations (position and UTF-8 byte range)"],
+  materialUnknown: ["没有可读摘要，请核对完整原始记录；不能据此判断内容安全。", "沒有可讀摘要，請核對完整原始紀錄；不能據此判斷內容安全。", "No readable summary is available. Review the full raw record; safety cannot be inferred."],
+  materialNoText: ["没有提取到正文", "沒有擷取到正文", "No text was extracted"],
+  materialRaw: ["查看完整原始记录与解析依据", "查看完整原始紀錄與解析依據", "View full raw record and parser details"],
+  materialAction: ["查看完整动作、参数与批准绑定", "查看完整動作、參數與批准綁定", "View full action, parameters and approval binding"],
+  materialKey: ["保存条目", "儲存項目", "Memory entry"],
+  materialSaveBoundary: ["本次仅变更当前网关的受控记忆。批准保存资料不等于批准执行其中的命令。", "本次僅變更目前閘道的受控記憶。批准儲存資料不等於批准執行其中的命令。", "This changes controlled memory in the connected gateway. Approving stored material does not approve commands within it."],
   governanceTitle: ["记忆与委托治理", "記憶與委託治理", "Memory and delegation"],
   governanceScope: ["查看当前已接入网关的记忆与委托。第三方内部记忆和未接入任务不在此范围。", "查看目前已接入閘道的記憶與委託。第三方內部記憶及未接入任務不在此範圍。", "Inspect memory and delegation in the connected gateway. Third-party internal memory and unconnected tasks are outside this scope."],
   governanceLoadMemory: ["读取记忆列表", "讀取記憶清單", "Load memory"],
@@ -507,7 +523,7 @@ export const workspaceMessages = {
   statusFailed: ["暂时无法获取防护状态，已禁用开始与恢复。请刷新后重试。", "暫時無法取得防護狀態，已停用開始與恢復。請重新整理後再試。", "Protection status is unavailable. Start and resume are disabled; refresh to retry."],
   recheckMissing: ["仍未检测到辅助功能权限。核对当前应用；若系统要求，请退出后重新打开。", "仍未偵測到輔助使用權限。請核對目前應用程式；若系統要求，請結束後重新開啟。", "Accessibility is still missing. Check the exact app and relaunch if requested by macOS."],
   recheckReady: ["必需权限已检测到；是否可开始还取决于加密记录和观察器状态。", "已偵測到必要權限；能否開始仍取決於加密記錄與觀察器狀態。", "Required permission detected. Encrypted records and observer readiness are checked separately."],
-  localTest: ["本地验收版 · Ver 2.1 (020)", "本機驗收版 · Ver 2.1 (020)", "Local acceptance build · Ver 2.1 (020)"],
+  localTest: ["本地验收版 · Ver 2.1 (021)", "本機驗收版 · Ver 2.1 (021)", "Local acceptance build · Ver 2.1 (021)"],
   productionBuild: ["正式数据环境", "正式資料環境", "Production data profile"],
 };
 

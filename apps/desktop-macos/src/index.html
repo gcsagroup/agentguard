@@ -114,7 +114,8 @@
             <p id="gateway-answer-feedback" role="status"></p>
             <section id="gateway-pending" hidden aria-labelledby="gateway-pending-title"><h3 id="gateway-pending-title" tabindex="-1" data-ui="gatewayReview"></h3>
               <p id="gateway-request-id"></p><p id="gateway-countdown"></p><p class="boundary" data-ui="gatewayUntrusted"></p>
-              <pre id="gateway-request-what" class="gateway-request-text"></pre><ul id="gateway-findings"></ul>
+              <div id="gateway-memory-preview"></div>
+              <details id="gateway-action-details" open><summary data-ui="materialAction"></summary><pre id="gateway-request-what" class="gateway-request-text"></pre></details><ul id="gateway-findings"></ul>
               <label class="gateway-review-check"><input id="gateway-reviewed" type="checkbox"><span data-ui="gatewayReviewed"></span></label>
               <div class="btn-row wrap"><button id="gateway-deny" data-ui="gatewayDeny" disabled></button><button id="gateway-approve" class="secondary" data-ui="gatewayApprove" disabled></button></div>
             </section>

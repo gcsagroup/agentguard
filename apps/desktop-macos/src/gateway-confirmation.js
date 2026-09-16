@@ -1,5 +1,6 @@
 import { initializeGatewayGovernance } from "./gateway-governance.js";
 import { uiText } from "./workspace-i18n.js";
+import { renderPendingMemory } from "./memory-content.js";
 const el = (id) => document.getElementById(id);
 const setText = (id, value) => { if (el(id).textContent !== value) el(id).textContent = value; };
 
@@ -40,6 +41,8 @@ export function initializeGatewayConfirmation(invoke) {
     deadline = 0;
     el("gateway-reviewed").checked = false;
     el("gateway-request-what").textContent = "";
+    el("gateway-memory-preview").replaceChildren();
+    el("gateway-action-details").open = true;
     el("gateway-findings").replaceChildren();
   }
   function render() {
@@ -80,6 +83,7 @@ export function initializeGatewayConfirmation(invoke) {
         feedbackKey = ""; // 上一条回执不能出现在新请求上方，造成处置归属混淆。
         el("gateway-request-id").textContent = pending.id;
         el("gateway-request-what").textContent = formatGatewayAction(pending);
+        showMemory();
         for (const finding of pending.findings) {
           const li = document.createElement("li");
           li.textContent = `${finding.rule_id} · ${finding.severity} · ${finding.message}`;
@@ -91,6 +95,11 @@ export function initializeGatewayConfirmation(invoke) {
     deadline = started + view.remaining_ms;
     statusKey = pending ? "gatewayWaiting" : "gatewayConnected";
     render();
+  }
+  function showMemory() {
+    const preview = renderPendingMemory(pending?.action);
+    el("gateway-memory-preview").replaceChildren(...(preview ? [preview] : []));
+    el("gateway-action-details").open = !preview;
   }
   async function drop(key) {
     const previous = connection;
@@ -187,7 +196,7 @@ export function initializeGatewayConfirmation(invoke) {
   el("gateway-approve").onclick = () => answer(true);
   window.addEventListener("focus", poll);
   window.addEventListener("agentguard-locale-change", () => {
-    if (pending) el("gateway-request-what").textContent = formatGatewayAction(pending);
+    if (pending) { el("gateway-request-what").textContent = formatGatewayAction(pending); showMemory(); }
     render();
   });
   window.setInterval(poll, 1000);
