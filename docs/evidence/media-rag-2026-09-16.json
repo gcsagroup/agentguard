@@ -267,5 +267,12 @@
       "sha256": "664270b29e108a60b00a8b763bf48a460b2fd8e4e0da1a54b17aed24617b2719",
       "bytes": 125923
     }
-  ]
+  ],
+  "follow_up": {
+    "evidence": "media-document-extended-2026-09-16.json",
+    "ci_commit": "8a7a70d",
+    "ci_run": 35045938964,
+    "ci_success": 13,
+    "note": "本索引的候选结论与边界保留原验收时点；资源故障及中文 OCR 的后续结果见新索引。"
+  }
 }

@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-028 parser faults and Chinese OCR evaluation (2026-09-16)
+
+- Two real parser container faults produced dispatched/unknown outcomes with no memory writes. A paused container was removed at the original execution deadline after about 30.13 seconds; explicitly initiated subsequent imports succeeded. Empty PDFs were refused, partial PDFs retained blank-page coverage, and tested external relationships caused no observed side effects.
+- Independently verified 5 signatures and 69 audit entries; seven report mutations were rejected. Four clear Chinese images had 11.36%–15.91% character error rates. Language, layout, and official accuracy-model comparisons all missed the original 5% threshold; failures are retained and the product image is unchanged. See the [verification record](docs/agd-028-document-faults-2026-09-16.zh.md).
+- Previous commit 8a7a70d passed all 13 GitHub CI jobs. App 020 was not rebuilt and retains its fixed identity. Plan v0.58 remains at 25 complete, 1 conditionally complete, 2 in progress, and 4 pending; F13 remains deferred and release remains No-Go.
+
 ### AGD-028 isolated documents in controlled RAG (2026-09-16)
 
 - Six formats now pass path authorization and a host-frozen byte snapshot before parsing in an offline container mounted with only that input. Independent approval binds text, provenance, parser, image and coverage gaps; native execution and client-supplied parsing claims cannot bypass this path.
