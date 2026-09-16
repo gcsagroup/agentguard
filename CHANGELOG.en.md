@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Audit database WAL-reset fix (2026-09-16)
+
+- Upgraded bundled SQLite to 3.53.2 and SQLCipher to 4.14.0 (SQLite 3.51.3), both containing the upstream WAL-reset fix. Updated all three lockfiles and added an actual linked-version check. Database format, signing and durable synchronization requirements remain unchanged.
+- Verified 384 signed audit rows across four old/new round trips; wrong keys were rejected. Passed 111 plain-audit, 120 encrypted-audit and 136 macOS-shell tests, with ignored cases counted separately. See the [record](docs/agd-027-sqlite-wal-2026-09-16.zh.md).
+- Workspace tests passed 1,535 cases with 17 ignored on both Rust 1.95 and MSRV 1.87; workspace and macOS static checks passed. Repeated runs are not added together.
+- File-sync and old diagnostic-gateway measurements from the same period do not pass performance acceptance. Fixed App 022 was not rebuilt, and the earlier macOS CI synthetic startup timeout remains recorded. Plan v0.71 retains task counts and release No-Go.
+
 ### Default identity template and release preparation (2026-09-16)
 
 - Default Agent cards no longer pin public test keys. The historical configuration remains a negative fixture, with its rejection checks retained. Preflight accurately reports 0/3 configured keys; the baseline accepts no FAIL. Unconfigured cards never obtain verified identity and mandatory attestation rejects them. See the [record](docs/agd-032-default-identity-2026-09-16.zh.md).

@@ -1,0 +1,865 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-16",
+  "scope": "内置数据库 WAL-reset 修复、合成数据兼容与同步诊断；不是已安装 App 或正式性能验收",
+  "source": {
+    "base_commit": "b5980082944ed2153706ba5809f9483cacad22b9",
+    "patch": {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/runtime.patch",
+      "sha256": "906d71f2794a510d88a6701452b6775ae45d02a9d8742c3700456cc623487cc9"
+    },
+    "files": [
+      {
+        "path": "Cargo.toml",
+        "sha256": "db1ed112ff81ae659aab5693a62e8d4c760061d5e3af9e506b238b253f2afd93"
+      },
+      {
+        "path": "Cargo.lock",
+        "sha256": "d19bb2b33c280d8c1adf442e8067c838e33e4e0896b277a1574e5004e5c05372"
+      },
+      {
+        "path": "apps/desktop-macos/src-tauri/Cargo.lock",
+        "sha256": "4cf7584de9e52fbbc85fe3695df6faec1c797c8b56d88136359a46d19f119304"
+      },
+      {
+        "path": "apps/desktop-windows/src-tauri/Cargo.lock",
+        "sha256": "de842ba333513205a368442e7ea42b7b3edece00291191bd174ccc417944c933"
+      },
+      {
+        "path": "crates/guard-audit/src/recovery.rs",
+        "sha256": "f636182b5f765e79aaa3f796ae29cb24a00323caa0e7d6aa4cf77aca90030b1e"
+      },
+      {
+        "path": "crates/guard-audit/src/store.rs",
+        "sha256": "fc0322c1facb1e138acaae16153a84ecab1199527279cb7837b33b01fcb9726c"
+      }
+    ]
+  },
+  "upstream": {
+    "wal_reset_reference": "https://www.sqlite.org/wal.html",
+    "fixed_sqlite_version": "3.51.3",
+    "race_reproduced": false,
+    "user_corruption_observed": false,
+    "basis": "官方影响范围与实际链接版本，未用普通压力测试冒充罕见竞态复现"
+  },
+  "dependencies": {
+    "rusqlite": "0.40.2",
+    "libsqlite3-sys": "0.38.2",
+    "lockfiles_updated": 3,
+    "unsigned_integer_conversion_retained": true,
+    "bundled_versions": [
+      {
+        "name": "old-plain",
+        "sha256": "0638e665afd48c1351bfa89948ed42cf0cdc487ba684a2b9653f9f5f0f1c7e4a",
+        "manifest_sha256": "5cd84ffd45901b4da0ecb6d59e83790eb8ca65a0b0ec68e211d04eb18c032a9f",
+        "version": {
+          "sqlcipher": null,
+          "sqlite": "3.46.0"
+        }
+      },
+      {
+        "name": "old-secure",
+        "sha256": "ecf6ee4fa0cab896fcdc5137427c297a58bcab512b10b2a3651652f88047282c",
+        "manifest_sha256": "5cd84ffd45901b4da0ecb6d59e83790eb8ca65a0b0ec68e211d04eb18c032a9f",
+        "version": {
+          "sqlcipher": "4.5.7 community",
+          "sqlite": "3.45.3"
+        }
+      },
+      {
+        "name": "new-plain",
+        "sha256": "07d9df2bb04940e92c4b6f3cb2709f13686dc86454d3783850ba81eae6da9dc2",
+        "manifest_sha256": "c5f78f2e77f1df0f7f9eee42660723ecc57015a173843977361046fcf3238525",
+        "version": {
+          "sqlcipher": null,
+          "sqlite": "3.53.2"
+        }
+      },
+      {
+        "name": "new-secure",
+        "sha256": "64e0de1ffcf71a60bebb6884963c7da87a537b64218706c4afbdf9c0166307ee",
+        "manifest_sha256": "c5f78f2e77f1df0f7f9eee42660723ecc57015a173843977361046fcf3238525",
+        "version": {
+          "sqlcipher": "4.14.0 community",
+          "sqlite": "3.51.3"
+        }
+      }
+    ]
+  },
+  "compatibility": {
+    "completed": true,
+    "cases": [
+      {
+        "format": "plain",
+        "order": [
+          "old",
+          "new",
+          "old"
+        ],
+        "rows": 96,
+        "steps": [
+          {
+            "binary": "old-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "append",
+              "rows": 32,
+              "signatures": true,
+              "sqlite": "3.46.0"
+            }
+          },
+          {
+            "binary": "new-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "append",
+              "rows": 64,
+              "signatures": true,
+              "sqlite": "3.53.2"
+            }
+          },
+          {
+            "binary": "old-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "append",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.46.0"
+            }
+          },
+          {
+            "binary": "old-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.46.0"
+            }
+          },
+          {
+            "binary": "new-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.53.2"
+            }
+          }
+        ],
+        "verification_kept_bytes": true,
+        "encrypted_header": false,
+        "file": "compat-plain-old.db",
+        "sha256": "cccb6b953e2874ef97d4b08e73c13f4b866ae7a764e498b21e0e451a3ea8ec36"
+      },
+      {
+        "format": "plain",
+        "order": [
+          "new",
+          "old",
+          "new"
+        ],
+        "rows": 96,
+        "steps": [
+          {
+            "binary": "new-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "append",
+              "rows": 32,
+              "signatures": true,
+              "sqlite": "3.53.2"
+            }
+          },
+          {
+            "binary": "old-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "append",
+              "rows": 64,
+              "signatures": true,
+              "sqlite": "3.46.0"
+            }
+          },
+          {
+            "binary": "new-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "append",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.53.2"
+            }
+          },
+          {
+            "binary": "old-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.46.0"
+            }
+          },
+          {
+            "binary": "new-plain",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": false,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.53.2"
+            }
+          }
+        ],
+        "verification_kept_bytes": true,
+        "encrypted_header": false,
+        "file": "compat-plain-new.db",
+        "sha256": "d5dfb8af1d36c6e15826e3f5d6db8f454c2781a26cf9d374feb0ba978539eca2"
+      },
+      {
+        "format": "secure",
+        "order": [
+          "old",
+          "new",
+          "old"
+        ],
+        "rows": 96,
+        "steps": [
+          {
+            "binary": "old-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "append",
+              "rows": 32,
+              "signatures": true,
+              "sqlite": "3.45.3"
+            }
+          },
+          {
+            "binary": "new-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "append",
+              "rows": 64,
+              "signatures": true,
+              "sqlite": "3.51.3"
+            }
+          },
+          {
+            "binary": "old-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "append",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.45.3"
+            }
+          },
+          {
+            "binary": "old-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.45.3"
+            }
+          },
+          {
+            "binary": "old-secure",
+            "response": {
+              "wrong_key_rejected": true
+            }
+          },
+          {
+            "binary": "new-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.51.3"
+            }
+          },
+          {
+            "binary": "new-secure",
+            "response": {
+              "wrong_key_rejected": true
+            }
+          }
+        ],
+        "verification_kept_bytes": true,
+        "encrypted_header": true,
+        "file": "compat-secure-old.db",
+        "sha256": "4d5b6a72ef3676b4bd37a29ea1b72428c357468057e09ba2a58d538269c78d5f"
+      },
+      {
+        "format": "secure",
+        "order": [
+          "new",
+          "old",
+          "new"
+        ],
+        "rows": 96,
+        "steps": [
+          {
+            "binary": "new-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "append",
+              "rows": 32,
+              "signatures": true,
+              "sqlite": "3.51.3"
+            }
+          },
+          {
+            "binary": "old-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "append",
+              "rows": 64,
+              "signatures": true,
+              "sqlite": "3.45.3"
+            }
+          },
+          {
+            "binary": "new-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "append",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.51.3"
+            }
+          },
+          {
+            "binary": "old-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.45.3"
+            }
+          },
+          {
+            "binary": "old-secure",
+            "response": {
+              "wrong_key_rejected": true
+            }
+          },
+          {
+            "binary": "new-secure",
+            "response": {
+              "chain": true,
+              "content": true,
+              "encrypted": true,
+              "operation": "verify",
+              "rows": 96,
+              "signatures": true,
+              "sqlite": "3.51.3"
+            }
+          },
+          {
+            "binary": "new-secure",
+            "response": {
+              "wrong_key_rejected": true
+            }
+          }
+        ],
+        "verification_kept_bytes": true,
+        "encrypted_header": true,
+        "file": "compat-secure-new.db",
+        "sha256": "8161d32d494a2d905ad6b72f0e7916eb7612d0a51381d6a8c4d0ba50be20707b"
+      }
+    ],
+    "signed_rows": 384,
+    "wrong_key_rejections": 4,
+    "synthetic_only": true,
+    "user_database_opened_or_migrated": false,
+    "old_source_commit": "217e184604fc7f4eaec0fb6bed3390ba3c8bddb0",
+    "old_audit_source_matches_pre_upgrade": true
+  },
+  "tests": {
+    "workspace_rust_1_95": {
+      "passed": 1535,
+      "failed": 0,
+      "ignored": 17,
+      "groups": 63,
+      "log": {
+        "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/workspace-tests.log",
+        "sha256": "4068b8e6cda635aaf71921065bc5501db2f065c3bd7841bffc4674068ebf8944"
+      }
+    },
+    "workspace_msrv_1_87": {
+      "passed": 1535,
+      "failed": 0,
+      "ignored": 17,
+      "groups": 63,
+      "log": {
+        "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/msrv-tests.log",
+        "sha256": "ae7732e34fe4452bf04f5be3cd0d35eeb9d8cc8f6a32a0d5dc471841678e7f53"
+      }
+    },
+    "audit_plain": {
+      "passed": 111,
+      "failed": 0,
+      "ignored": 2,
+      "groups": 1,
+      "log": {
+        "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/audit-plain.log",
+        "sha256": "97697de39ca975de0a6ff16d5bc3a6d35021df95b4272721c53050631345a14b"
+      }
+    },
+    "audit_sqlcipher": {
+      "passed": 120,
+      "failed": 0,
+      "ignored": 2,
+      "groups": 1,
+      "log": {
+        "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/audit-sqlcipher.log",
+        "sha256": "f97322601e7d079e1cad9dcef9398a054d0db9311ab21683724a54361f65443c"
+      }
+    },
+    "macos_shell_serial": {
+      "passed": 136,
+      "failed": 0,
+      "ignored": 11,
+      "groups": 1,
+      "log": {
+        "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/macos-tests.log",
+        "sha256": "c103cbed82a0180d9830588db9aa04336773c862b825ac61c4c2b2449f62ec2c"
+      }
+    },
+    "workspace_clippy_passed": true,
+    "macos_clippy_passed": true,
+    "format_and_generated_matrix_check_passed": true,
+    "counts_not_added_across_repeated_runs": true
+  },
+  "fixed_app": {
+    "app_files_verified": 91,
+    "version": "2.1.0-dev.22",
+    "bundle_version": "22",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "codesign_strict_passed": true,
+    "rebuilt": false,
+    "new_native_observation": false,
+    "dependency_upgrade_installed": false
+  },
+  "fullsync_diagnostic": {
+    "plan": {
+      "created_at": "2026-09-16T09:10:19.181708+00:00",
+      "base_commit": "b5980082944ed2153706ba5809f9483cacad22b9",
+      "purpose": "比较两次最小文件持久同步与同一旧诊断网关的同期耗时；只定位，不作产品优化或正式验收",
+      "measured": 100,
+      "warmup": 5,
+      "order": [
+        {
+          "kind": "raw",
+          "round": 1,
+          "bytes_per_half": 4096
+        },
+        {
+          "kind": "gateway",
+          "round": 1
+        },
+        {
+          "kind": "raw",
+          "round": 2,
+          "bytes_per_half": 57680
+        },
+        {
+          "kind": "raw",
+          "round": 3,
+          "bytes_per_half": 57680
+        },
+        {
+          "kind": "gateway",
+          "round": 2
+        },
+        {
+          "kind": "raw",
+          "round": 4,
+          "bytes_per_half": 4096
+        }
+      ],
+      "gateway_binary": ".artifacts/m3-performance-current-2026-09-16/frozen-timing/agentguard-mcp",
+      "gateway_sha256": "75163aa945b75ae8f6d18eb51892029a82a6c6680a9352c37f66a2d316f81292",
+      "gateway_original_base_commit": "a3917b34e84ddcc861c77a782abf432c92e2c09b",
+      "gateway_diagnostic_patch_sha256": "d2ccfb3908481362e172c62bbb369604298863e0d12a3cdc7a1919107ffc17a7",
+      "harnesses": {
+        "probe.py": "766308bd74dbab444d40a2e2068dc786174df17183de848ea3bf4f9d31d4b57e",
+        "gateway.mjs": "eca795aab03e0e01086e6cae262e0ecd1ae5fff825955e523334781a6a49f491",
+        "timing-plan.json": "63ba2f8c496a6021fb75c9f32fd17b808e4aeccc84550f9f713f58cdd2609ba9"
+      },
+      "controls": [
+        "每半写入调用一次 F_FULLFSYNC；失败不降级为普通 fsync",
+        "每轮独立新文件，全部字节回读",
+        "不同时运行本任务编译或其他测试",
+        "保留全部样本、初轮及尾部失败，不为过线重复"
+      ],
+      "interpretation": "若原始两次同步本身的 p95 接近或超过 10ms，说明此条件下同步成本已经挤占原生读取预算；不能由合成文件推断网关性能必然不可优化，也不能据此改预算。57,680字节为14个4,096字节WAL页加页头的量级对照，非复刻实际页分布。",
+      "formal_acceptance": false
+    },
+    "verified": {
+      "evidence_verified": true,
+      "raw": [
+        {
+          "round": 1,
+          "bytes_per_half": 4096,
+          "pairs_verified": 105,
+          "fullsync_calls_verified": 210,
+          "pair_sync_p50_ms": 7.795916999999999,
+          "pair_sync_p95_ms": 7.994667,
+          "pair_total_p95_ms": 8.131083,
+          "sync_pairs_over_10ms": 0
+        },
+        {
+          "round": 2,
+          "bytes_per_half": 57680,
+          "pairs_verified": 105,
+          "fullsync_calls_verified": 210,
+          "pair_sync_p50_ms": 7.792959,
+          "pair_sync_p95_ms": 8.045625,
+          "pair_total_p95_ms": 8.207292,
+          "sync_pairs_over_10ms": 0
+        },
+        {
+          "round": 3,
+          "bytes_per_half": 57680,
+          "pairs_verified": 105,
+          "fullsync_calls_verified": 210,
+          "pair_sync_p50_ms": 7.8299375,
+          "pair_sync_p95_ms": 8.033,
+          "pair_total_p95_ms": 8.184667,
+          "sync_pairs_over_10ms": 0
+        },
+        {
+          "round": 4,
+          "bytes_per_half": 4096,
+          "pairs_verified": 105,
+          "fullsync_calls_verified": 210,
+          "pair_sync_p50_ms": 7.8191455,
+          "pair_sync_p95_ms": 7.9695,
+          "pair_total_p95_ms": 8.088459,
+          "sync_pairs_over_10ms": 0
+        }
+      ],
+      "gateway": [
+        {
+          "round": 1,
+          "records_verified": 421,
+          "spawn_to_main_ms": 8.419207999999998,
+          "main_to_ready_ms": 31.633584,
+          "commit_fraction": 0.8611150812705608,
+          "sql_mean_ms": 0.26735573,
+          "two_commits_p95_ms": 9.335501,
+          "request_p95_ms": 10.630708999999968,
+          "wal_transition_sample_indices": [
+            40,
+            41,
+            72,
+            73,
+            104
+          ],
+          "ordinary_samples": 95,
+          "ordinary_p95_ms": 9.910875000000004,
+          "wal_transition_samples": 5,
+          "wal_transition_max_ms": 19.2025000000001
+        },
+        {
+          "round": 2,
+          "records_verified": 421,
+          "spawn_to_main_ms": 4.456042,
+          "main_to_ready_ms": 29.312125,
+          "commit_fraction": 0.860687739001264,
+          "sql_mean_ms": 0.27188251,
+          "two_commits_p95_ms": 8.271042,
+          "request_p95_ms": 9.715374999999995,
+          "wal_transition_sample_indices": [
+            40,
+            41,
+            73
+          ],
+          "ordinary_samples": 97,
+          "ordinary_p95_ms": 9.539708000000019,
+          "wal_transition_samples": 3,
+          "wal_transition_max_ms": 16.798083999999903
+        }
+      ],
+      "formal_acceptance": false
+    },
+    "verifier_tests_passed": 5,
+    "negative_cases": 4,
+    "gateway_signed": false,
+    "gateway_uses_upgraded_sqlite": false,
+    "formal_acceptance": false
+  },
+  "baseline_ci": {
+    "commit": "b5980082944ed2153706ba5809f9483cacad22b9",
+    "run_id": 35077443418,
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35077443418",
+    "conclusion": "failure",
+    "jobs": [
+      {
+        "name": "Windows (native adapter + shell)",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS shell (native AX + SCK)",
+        "conclusion": "failure"
+      },
+      {
+        "name": "test (ubuntu-latest)",
+        "conclusion": "success"
+      },
+      {
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "conclusion": "success"
+      },
+      {
+        "name": "Android companion (Kotlin)",
+        "conclusion": "success"
+      },
+      {
+        "name": "Shell front ends parse",
+        "conclusion": "success"
+      },
+      {
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "conclusion": "success"
+      },
+      {
+        "name": "test (macos-latest)",
+        "conclusion": "success"
+      },
+      {
+        "name": "部署自检",
+        "conclusion": "success"
+      },
+      {
+        "name": "MSRV 1.87",
+        "conclusion": "success"
+      },
+      {
+        "name": "内核约束（guard-jail）",
+        "conclusion": "success"
+      },
+      {
+        "name": "macOS 专属代码路径能编译",
+        "conclusion": "success"
+      },
+      {
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "conclusion": "success"
+      }
+    ],
+    "macos_passed": 135,
+    "macos_failed": 1,
+    "macos_ignored": 11,
+    "failure": "停止期间迟到成功回执：starting 阶段等待合成模型超过 8 秒",
+    "timeout_unchanged": true,
+    "resolved": false
+  },
+  "preserved": {
+    "database_format": true,
+    "signed_audit_format": true,
+    "two_durable_commits": true,
+    "full_and_fullfsync": true,
+    "checkpoint_threshold": true,
+    "failed_evidence": true,
+    "app_path_and_identity": true
+  },
+  "acceptance": {
+    "performance_passed": false,
+    "f13": "用户要求暂缓、未验收",
+    "agd_027": "开发中",
+    "agd_031": "待需求条件",
+    "agd_032": "正式发布缺口保持",
+    "entire_plan_passed": false,
+    "release_passed": false
+  },
+  "local_artifacts": [
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver.rs",
+      "sha256": "6f6b03a9795d50b90e6b0099cc0849e796ee653522993d4c8d97421eb8871611"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-builds.json",
+      "sha256": "edc5bb6641e81b11ebe86345f4e6e7f45801c7a096c528608629e35f789a96c4"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/compatibility.json",
+      "sha256": "64205e4af4869d07eb9ab6ae1cc06a0c2734cb57db6ebe02d086d31b47bb44f1"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/audit-initial.log",
+      "sha256": "48c0652f869eda4926bbeb39a4119402d658cd9b5e86b252af6293fe7c61d942"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/workspace-clippy.log",
+      "sha256": "9ad9ac5846fbc5318ff4c3b121b416bdc764d976f1962e32d36d9249287e5710"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/macos-clippy.log",
+      "sha256": "8c4ad3bbb8738f79188f2a1e7aa7cebf9f2fa0aa52236bec97f7d5debc4e03aa"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/ci-b598008-final.json",
+      "sha256": "0ece6b5ce06a1d36848033ea9b87fc21fd51ff108524f1cb8e4387e67a797fc7"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/ci-b598008-macos-failed.log",
+      "sha256": "161ddeaef78c67a91299d38a0842ae4ebb7560860e5c39f49ef3ae5d6c86f751"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/fixed-app-unchanged.json",
+      "sha256": "48585e668e170a229950d5798beaff507abdf9d1edaa4c645a2cbc7fa945a05b"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-old/Cargo.toml",
+      "sha256": "5cd84ffd45901b4da0ecb6d59e83790eb8ca65a0b0ec68e211d04eb18c032a9f"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-old/Cargo.lock",
+      "sha256": "8162c84cc249ecf4eca1e619d43a691eecdcb46e5cef68f825e5d17bea180efd"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-old/src/main.rs",
+      "sha256": "6f6b03a9795d50b90e6b0099cc0849e796ee653522993d4c8d97421eb8871611"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-new/Cargo.toml",
+      "sha256": "c5f78f2e77f1df0f7f9eee42660723ecc57015a173843977361046fcf3238525"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-new/Cargo.lock",
+      "sha256": "08589ea4fee9078897d0b3ca1a86f92170d71755ba478f6f0fb0f6c06286a8ac"
+    },
+    {
+      "path": ".artifacts/m3-sqlite-wal-fix-2026-09-16/driver-new/src/main.rs",
+      "sha256": "6f6b03a9795d50b90e6b0099cc0849e796ee653522993d4c8d97421eb8871611"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/plan.json",
+      "sha256": "a17c3a17c742b161fc5ebe9b7b4eaa30ab6f077a59f99f090bee43691d0d0c5c"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/report.json",
+      "sha256": "1af9aaa1e41bd3aea932e987058a6f4396769d69fc3757374e0f6601ee271e26"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/verification.json",
+      "sha256": "e0e7377cb67ef3f75eb08b8778758a8ff9222e4329bc7756e43bd5441d2aada9"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/probe.py",
+      "sha256": "766308bd74dbab444d40a2e2068dc786174df17183de848ea3bf4f9d31d4b57e"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/gateway.mjs",
+      "sha256": "eca795aab03e0e01086e6cae262e0ecd1ae5fff825955e523334781a6a49f491"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/verify.py",
+      "sha256": "d63574d50a5d5385e6f742c8e234572fee29349c6bb28f8356f69671faa75492"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/test_verify.py",
+      "sha256": "1277ad5da3ef8c5a7322648433b64e79003505169d92786b9a0bab987b264c0b"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/tests.log",
+      "sha256": "37ef25a91f6009e6b1e36a7de41cb22cf2a899172e5a24ee68de4a66576e5af5"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/host-before.txt",
+      "sha256": "6a793a9bb236b927b7243166f1606d67cc3ef2db625d8645c69109465d04084c"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/host-after.txt",
+      "sha256": "7c2a6a24bebcb3c80c8f18c8f93bcc402b8ce1c12800e36478d4c2f8cb5fc787"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-1.json",
+      "sha256": "2532f4d881e05c19f6fa9f8a375ffdfd53383d77d1111cd9c35304b98928d1fd"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-1.bin",
+      "sha256": "4480a5d4550614c3556cee947a632250edcdee8031a340dfd94a56e8cc2dbb29"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-2.json",
+      "sha256": "12f6346b7c5e8d6d12e5dbb0ed586bbac46e0a03902fa83bdab48aed04d3b44d"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-2.bin",
+      "sha256": "6f2a37e9aef7f5acfb52e4415c8565acbb4f74ea90471efceddb7c1e5a4a5b4a"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-3.json",
+      "sha256": "a301012db33cc6e535b78f9b619ff2517d0aa7841d89b390e1daec5bd85cbd30"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-3.bin",
+      "sha256": "6f2a37e9aef7f5acfb52e4415c8565acbb4f74ea90471efceddb7c1e5a4a5b4a"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-4.json",
+      "sha256": "0b724bb1d69764e0bd5cafca643492d0e6574247636d9132abe782f1edd89242"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/raw-4.bin",
+      "sha256": "4480a5d4550614c3556cee947a632250edcdee8031a340dfd94a56e8cc2dbb29"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/gateway-1.json",
+      "sha256": "7f7f52614bd6ad67a1eea16d20c101af9d0aab454906b3317979b3fede162d01"
+    },
+    {
+      "path": ".artifacts/m3-fullsync-floor-2026-09-16/gateway-2.json",
+      "sha256": "124929617bfe6dd5478af0cf187ba741fdcfbfb5e6df30a4636876796135ce2b"
+    }
+  ]
+}

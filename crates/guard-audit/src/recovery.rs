@@ -388,12 +388,8 @@ fn migrate_legacy_audit_at_stage(
     conn.pragma_update(None, "locking_mode", "EXCLUSIVE")?;
     conn.execute("ATTACH DATABASE ?1 AS legacy KEY ''", [uri.as_str()])
         .context("只读附加历史数据库")?;
-    conn.pragma_update(
-        Some(rusqlite::DatabaseName::Attached("legacy")),
-        "locking_mode",
-        "EXCLUSIVE",
-    )
-    .context("设置历史库内存 WAL 索引")?;
+    conn.pragma_update(Some("legacy"), "locking_mode", "EXCLUSIVE")
+        .context("设置历史库内存 WAL 索引")?;
     let source_integrity: String = conn
         .query_row("PRAGMA legacy.integrity_check", [], |row| row.get(0))
         .context("检查历史库完整性")?;

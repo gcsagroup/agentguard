@@ -1783,6 +1783,18 @@ fn report_note_seq(actual: i64, expected: i64) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    /// 两种内置数据库都必须包含上游 WAL-reset 竞态修复，避免只升级普通 SQLite。
+    /// 这验证实际链接版本；不把版本门槛或并发压力测试称为罕见竞态的现场复现。
+    #[cfg(any(feature = "sqlite-bundled", feature = "sqlcipher"))]
+    #[test]
+    fn 内置数据库包含上游wal重置修复() {
+        assert!(
+            rusqlite::version_number() >= 3_051_003,
+            "内置 SQLite {} 早于 WAL-reset 修复版 3.51.3，不能用于审计",
+            rusqlite::version()
+        );
+    }
+
     use super::*;
     use guard_schema::{Decision, DecisionAction, EventType, GuardEvent, Severity};
     use std::collections::HashMap;

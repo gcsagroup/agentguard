@@ -63,7 +63,8 @@ serde_json = "1"
 serde_yaml = "0.9"
 thiserror = "2"
 anyhow = "1"
-rusqlite = { version = "0.32", default-features = false }
+# 同时修复普通 SQLite 与 SQLCipher 的 WAL-reset 竞态；锁文件钉住实际 C 库。
+rusqlite = { version = "0.40.2", default-features = false, features = ["fallible_uint"] }
 uuid = { version = "1", features = ["v4"] }
 guard-schema = { path = "crates/guard-schema" }
 guard-trust = { path = "crates/guard-trust" }
