@@ -6,6 +6,10 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Installation alert screenshot recheck (2026-09-16)
+
+- Verified timestamps in fixed App 021, both retained permissions, and seven new low-contrast records classified as LogOnly. Five core, two desktop, and 133 frontend checks passed. Safari displayed the synthetic installation document, but the App's reading of its body remains unproven. No product changes or App rebuild; see the [recheck record](docs/timeline-observation-018-2026-09-16.zh.md).
+
 ### AGD-029 fraud research and simulated transaction (2026-09-16)
 
 - Completed two fraud technique proposals, an independent review design, and a deepfake candidate assessment. The real protected Chromium simulation passed 15 checks; 51 audit rows agree with one correct local ledger entry. No deepfake model or real payment was executed. See the [record](docs/agd-029-fraud-review-2026-09-16.zh.md).

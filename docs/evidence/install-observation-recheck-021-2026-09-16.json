@@ -1,0 +1,125 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "4f9d4e10cf05c4bd7a98ba5a57fa8faa91d34f54",
+  "scope": "用户高风险安装截图复核，不是新的产品修复或完整原生验收",
+  "app": {
+    "path": "/Users/lazy/Projects/agent-guard/apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "version": "2.1.0-dev.21",
+    "build": 21,
+    "binary_sha256": "c2a11f6f806af54f085e216ea675f4d39d0e4fe01a1b98fd5c8432b177ecebf1",
+    "binary_unchanged": true,
+    "strict_signature": true,
+    "accessibility_authorized": true,
+    "screen_recording_authorized": true
+  },
+  "tests": {
+    "core_observation": 5,
+    "desktop_observation": 2,
+    "ui_stub_checks": 133,
+    "ui_page_errors": 0
+  },
+  "native": {
+    "before_seq": 688,
+    "after_seq": 697,
+    "records": [
+      {
+        "seq": 689,
+        "timestamp_ms": 1789533558835,
+        "event_type": "AgentSessionStart",
+        "rule_id": "SESSION-START",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 690,
+        "timestamp_ms": 1789533558965,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 691,
+        "timestamp_ms": 1789533566012,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 692,
+        "timestamp_ms": 1789533595193,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 693,
+        "timestamp_ms": 1789533625336,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 694,
+        "timestamp_ms": 1789533655565,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 695,
+        "timestamp_ms": 1789533685758,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 696,
+        "timestamp_ms": 1789533715484,
+        "event_type": "UiTreeDelta",
+        "rule_id": "OVL-007",
+        "action": "LogOnly",
+        "severity": "Info"
+      },
+      {
+        "seq": 697,
+        "timestamp_ms": 1789533724400,
+        "event_type": "AgentSessionEnd",
+        "rule_id": "SESSION-END",
+        "action": "LogOnly",
+        "severity": "Info"
+      }
+    ],
+    "ovl007_logonly": 7,
+    "crit005_records": 0,
+    "timeline_date_seconds_timezone_visible": true,
+    "safari_synthetic_page_visible": true,
+    "safari_document_read_by_agentguard_proven": false,
+    "restored_to_not_guarding": true,
+    "temporary_safari_tab_closed": true,
+    "user_pr_tab_preserved": true
+  },
+  "limitations": [
+    "未取得准确 App 读取 Safari 安装正文并完成判定的证据，不能以无弹窗宣称通过。",
+    "Computer Use 能读取 Safari 页面，不等于 AgentGuard 观察器已读取。",
+    "NSWorkspace 前台选择与实际焦点是否失配仅为待验证假设，本轮未修改原生桥。",
+    "本轮只有复核与文档变化，F13、完整 M1 和发布状态不变。"
+  ],
+  "failures": [
+    "Safari 粘贴工具报告等待剪贴板超时；重读控件确认地址已填入，再按回车载入，没有重贴或更改权限。",
+    "测试页缺省 favicon 请求返回 404；正文请求 200，此图标缺失不影响文档内容。"
+  ],
+  "artifacts": {
+    ".artifacts/install-observation-recheck-021-2026-09-16/native-timeline.png": "77122be008dda44fd25c1f137159e49a4b3bd5ca61df550f78399ca3c0bb558e",
+    ".artifacts/install-observation-recheck-021-2026-09-16/ui.log": "e8e02142b2efdc98c56946e539607621dafd2b929234db80ca4e3ddb59dec9c7",
+    ".artifacts/install-observation-recheck-021-2026-09-16/index.html": "30f2c8d9dec27db34a74602d622c3fe7c459db7eeb0baa707c49981681b8bda0",
+    ".artifacts/install-observation-recheck-021-2026-09-16/audit-before.json": "0ae99b69dbc80ff4fd74d10a237fc58cea9059c1d852a061fe3fe03f9e699bba",
+    ".artifacts/install-observation-recheck-021-2026-09-16/audit-during.json": "e7023e623715ccc25730a0d1be8828f4e6aa160cec592dc11feb83fc1d79675a",
+    ".artifacts/install-observation-recheck-021-2026-09-16/baseline.json": "80d92f7d392238ae703c0094c122afa658d8c53ac95c80d603f25a77c107bfaf"
+  }
+}
