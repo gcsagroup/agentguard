@@ -3286,17 +3286,38 @@ mod b6_并发与见证复核 {
             let ready = ready.clone();
             handles.push(std::thread::spawn(move || {
                 let store = AuditStore::open(&db).expect("open");
+                let journal_mode: String = store
+                    .conn
+                    .pragma_query_value(None, "journal_mode", |row| row.get(0))
+                    .unwrap();
+                let busy_timeout_ms: i64 = store
+                    .conn
+                    .pragma_query_value(None, "busy_timeout", |row| row.get(0))
+                    .unwrap();
                 ready.wait();
-                let mut errs = 0usize;
+                let mut errors = Vec::new();
+                let mut longest_append_ms = 0;
                 for i in 0..25 {
-                    if store.append(&rec(w * 100 + i)).is_err() {
-                        errs += 1;
+                    let started = std::time::Instant::now();
+                    let result = store.append(&rec(w * 100 + i));
+                    let elapsed_ms = started.elapsed().as_millis();
+                    longest_append_ms = longest_append_ms.max(elapsed_ms);
+                    if let Err(error) = result {
+                        // 只输出合成用例的位置和错误，不吞掉导致 CI 失败的具体原因。
+                        let sqlite_error = error
+                            .chain()
+                            .find_map(|cause| cause.downcast_ref::<rusqlite::Error>())
+                            .and_then(rusqlite::Error::sqlite_error);
+                        errors.push(format!(
+                            "writer={w}, record={i}, elapsed_ms={elapsed_ms}, sqlite={sqlite_error:?}, error={error:#}"
+                        ));
                     }
                 }
-                errs
+                (errors, longest_append_ms, journal_mode, busy_timeout_ms)
             }));
         }
-        let errs: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
+        let diagnostics: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        let errs: usize = diagnostics.iter().map(|item| item.0.len()).sum();
 
         let store = AuditStore::open_read_only(&db).unwrap();
         let v = store.verify_chain().unwrap();
@@ -3309,7 +3330,11 @@ mod b6_并发与见证复核 {
             )
             .unwrap();
         let _ = std::fs::remove_dir_all(&dir);
-        assert_eq!(errs, 0, "正常并发追加不能丢失记录或要求调用方重放");
+        assert_eq!(
+            errs, 0,
+            "正常并发追加不能丢失记录或要求调用方重放；写者诊断(错误、最大耗时 ms、日志模式、等待 ms)：{diagnostics:?}；实际条数={}；链完整={}；重复序号={dup}",
+            v.total, v.ok
+        );
         assert_eq!(v.total, 50, "必须保留两个写者的全部 50 条记录");
         assert_eq!(dup, 0, "有 {dup} 个重复的 seq —— 两个写者拿到了同一个位置");
         assert!(

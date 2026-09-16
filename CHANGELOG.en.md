@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Windows concurrent-audit failure diagnostics (2026-09-17)
+
+- The original test discarded append errors. It now retains error chains, SQLite codes, timing and database configuration, and reports row count, chain integrity and duplicate sequence numbers on failure. The original all-50-records assertions and product behavior remain unchanged.
+- One injected rejection in an isolated checkout correctly produced exit 101, code 1811, 49 records, an intact chain and no duplicates. This validates diagnostics, not the Windows root cause. The main checkout passed 111 audit tests, Clippy and 23 repository invariants.
+- Both historical CI failures remain unresolved. Fixed App 024 is unchanged; see the [diagnostic evidence](docs/audit-concurrency-diagnosis-2026-09-17.zh.md).
+
 ### iOS risk-dialog names and keyboard focus (2026-09-17)
 
 - Fixed unnamed dialogs, Tab leaving notices and lost focus after closing. Localized names/descriptions, focus cycling and restoration cover stacked notices and removed controls without adding authorization.

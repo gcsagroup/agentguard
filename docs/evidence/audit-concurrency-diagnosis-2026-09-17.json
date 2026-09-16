@@ -1,0 +1,135 @@
+{
+  "baseline": "c6e59ba129caebbb422c3e938e7bd8b1a2ae2b1b",
+  "scope": "仅增强原并发测试诊断；产品逻辑与原断言不变",
+  "historical_windows_failure": {
+    "commit": "776c8c18ab3966cabddda434c842fe5280985bae",
+    "ci_url": "https://github.com/gcsagroup/agentguard/actions/runs/35132513654",
+    "append_errors": 1,
+    "root_cause": "UNRESOLVED"
+  },
+  "baseline_ci": {
+    "conclusion": "",
+    "headSha": "c6e59ba129caebbb422c3e938e7bd8b1a2ae2b1b",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "databaseId": 104921961650,
+        "name": "Android companion (Kotlin)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921961875,
+        "name": "MSRV 1.87",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921961932,
+        "name": "test (ubuntu-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921961963,
+        "name": "iOS limited Safari WebShield (strict Simulator + unsigned Release)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921961986,
+        "name": "内核约束（guard-jail）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921961987,
+        "name": "Chromium extension real-browser E2E + acceptance fixtures",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921962037,
+        "name": "部署自检",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921962071,
+        "name": "Shell front ends parse",
+        "status": "completed"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 104921962105,
+        "name": "Windows (native adapter + shell)",
+        "status": "in_progress"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921962111,
+        "name": "fmt + clippy（workspace，-D warnings）",
+        "status": "completed"
+      },
+      {
+        "conclusion": "",
+        "databaseId": 104921962122,
+        "name": "macOS shell (native AX + SCK)",
+        "status": "in_progress"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921962165,
+        "name": "test (macos-latest)",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "databaseId": 104921962190,
+        "name": "macOS 专属代码路径能编译",
+        "status": "completed"
+      }
+    ],
+    "status": "in_progress",
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35134084036"
+  },
+  "audit_tests": {
+    "platform": "macOS",
+    "passed": 111,
+    "failed": 0,
+    "ignored": 2
+  },
+  "fault_injection": {
+    "isolated_checkout": true,
+    "exit_code": 101,
+    "failed_tests": 1,
+    "sqlite_primary_code": "ConstraintViolation",
+    "sqlite_extended_code": 1811,
+    "rows": 49,
+    "chain_intact": true,
+    "duplicate_sequences": 0,
+    "journal_mode": "wal",
+    "busy_timeout_ms": 10000,
+    "not_windows_reproduction": true
+  },
+  "clippy": "all-targets -D warnings PASS",
+  "repository_invariants_passed": 23,
+  "fixed_mac_app_unchanged_files": 91,
+  "production_source_changed": false,
+  "release": "No-Go",
+  "artifact_root": ".artifacts/audit-concurrency-diagnosis-2026-09-17",
+  "artifact_sha256": {
+    "audit-tests-final.log": "d23823492215304eb378171f24d35c4d97da839c7ffe838a783e2bc1d648f931",
+    "audit-tests.log": "a7123e77e7b4058ad5b89da5479938eda5db94a6f6c0f87499383c56090470bd",
+    "baseline-ci-readback.json": "b04878bda3f616c38ba62a69468a6e3112aa917b474c395240091a57517d77ad",
+    "baseline-ci.json": "dacfc1f732591a4791ad23ca029dbc3ca90d4a4f92f349feffc9250b71f86108",
+    "clippy.log": "01fb8f6e520b7d98cb5cbb573893b9bc3b6020a5988b32728130cc1b1b84ceab",
+    "diagnostic-source.rs": "34d9165507c9e5d44a38c0b756d05ae41bceff1fb4911df0b09fd227b9a131e2",
+    "fault-worktree.log": "985d94abf443c31b2604029ee6b106fbe101b00507831e60af62a484fc1e8c14",
+    "fixed-app.json": "fc98056c606edf0ff52fe4961003c2eff5dec81d6ccbcc6ae0f7fa229d21d244",
+    "injected-failure.log": "8ed22cb2a68a95012e0f4149d9d3371d3128a4bcf11131e71786f718bb04480e",
+    "injection.patch": "46418f1887aba9ccc32f4dea3f5271b99c556f58bcbadcab3c71252964c60d97",
+    "repository-invariants.log": "01894168d32670c675ae9c79a0bc358835217df0ca60dc4c0cd415d08984ce6a",
+    "source.patch": "9c4abe3f837ebeb83bcaf905a355f04a48d03a338192f72bc27752cad7d640b5"
+  }
+}
