@@ -10,7 +10,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 - Added a real four-process crash/restart and principal key revocation workflow. Approved memory survives, unapproved content is not stored, the old key fails with valid new-session metadata, and the replacement key succeeds on the same message. Removed principals cannot receive new delegation.
 - Independently checked 49 execution audit rows and 17 signature results; four altered evidence cases were rejected. The original 50 complete tasks passed. Fixed App 020, all 91 bundle files and its organization signature are unchanged; no rebuild.
-- The 100 cycles passed; the 30-minute run and remaining joint regressions are pending. Principal key revocation requires stopping the old host and reloading configuration. See the [record](docs/agd-027-m3-joint-2026-09-16.zh.md); deferred F13 and release No-Go remain unchanged.
+- The 100 cycles, original 30-minute run (30 tasks and 121 heartbeats), 10 browser tasks, 100 browser cycles and F14 virtual-network recovery passed. Independent SQLite checks covered 1,225 browser and 33 F14 audit rows; six report mutations were rejected. Only 4/6 initial performance budgets passed, so joint acceptance remains incomplete. Principal key revocation requires stopping the old host and reloading configuration. See the [record](docs/agd-027-m3-joint-2026-09-16.zh.md); deferred F13 and release No-Go remain unchanged.
 
 - Fixed intermittent macOS governance CI failures caused by accepted test sockets inheriting nonblocking mode. A split-body regression reproduced the failure before the fix; all 134 desktop and 23 repository tests now pass. The change is test-only; App 020 bytes and signature are unchanged.
 

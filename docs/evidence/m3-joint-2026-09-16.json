@@ -12,7 +12,7 @@
     "build": "20",
     "binary_sha256": "f20827a43849e9847b9234a751dcb5e70a8cc78dab5378c9426f5e32b3d7f0dc",
     "strict_signature": true,
-    "scope": "准确 020 包与源码逐项相同，复核旧原生治理证据身份；本次不重做治理操作"
+    "scope": "测试修正前 36 项原生输入一致；随后仅 cfg(test) 变化，生产段及 91 个 App 文件不变，见 ci_repair。既有原生证据复核，不重做治理 UI"
   },
   "recovery": {
     "passed": true,
@@ -32,7 +32,12 @@
     "normal_tasks": 50,
     "cycles": 100,
     "fault_checks": 50,
-    "soak": "pending"
+    "soak": {
+      "passed": true,
+      "tasks": 30,
+      "heartbeats": 121,
+      "duration_ms": 1800627.4123749998
+    }
   },
   "memory_rag": {
     "passed": true,
@@ -172,6 +177,244 @@
     {
       "path": ".artifacts/m3-joint-2026-09-16/ci-cec86d1.json",
       "sha256": "574a8cd35cdfd75a4c2c52d0ea8b04873e44f5bc72315b4ea48966bedd1f5ee8"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/workspace-soak-01/report.json",
+      "sha256": "db6078a2d72f3ef326d64c255941f7925da840b31150eaaaa8fbed8ac97af509"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/browser-normal-01/summary.json",
+      "sha256": "1de01fb60dc3b612debccf0547b4005007e144ef3ab6b4a2c39832a60b07b570"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/browser-cycles-01/report.json",
+      "sha256": "58aa5435f759be8b915d5c1368b3368eabeb89569fc5ca61fbb55d26f47d68fb"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/browser-lifecycle-01.json",
+      "sha256": "c59461ff11847071ce585fb3c51c26c2020c1d679883ace029dd038268a203d2"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/f14-01/report.json",
+      "sha256": "bf1c099ea43ddfb0a7f65bcf896c4ba68dba406a5579081664cdb087d3d47206"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/joint-independent-01.json",
+      "sha256": "e8f99c0c755bd348743ebf17cdb1b38c6fce6436d5c8d8628fa7bcec15f4c7b0"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/joint-tamper-results.json",
+      "sha256": "bed18ed64416d7e4e42d8c06772943f7089acc0afea105012a00c561793c8e45"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/harness-inputs-02.json",
+      "sha256": "31794ae0d1181ce8a4a82e1cfb31168dc015e193122b67c551796a2eeb63e3cf"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/ci-repair-01.json",
+      "sha256": "9eb73b7cc8770ff3e5b0876218befd42a4799e45ac22aba6fd24b1e7c0ee846b"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/performance-comparison-plan.json",
+      "sha256": "a8af9afb5838381b9d6f6f0a6b8c4ca1555e832a61a5ee3098a6e1d85156c1ed"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/performance-load-01.json",
+      "sha256": "3cded063adda60615714b48caf1372b6c769244c8331579e2715e0fb8d5d4bf7"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/performance-comparison.json",
+      "sha256": "4334d9c9110486ff2deb251e35b1c8eb46296d5b7b1b3849c79a6f86048c6fc0"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/performance-comparison-independent.json",
+      "sha256": "aa7de53be0e25ca3e9127f9010b66fb8d797708c44d006d1ff51a52a85940b5f"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T001341648Z-54478-benchmark/report.json",
+      "sha256": "263f11ae8ccd6695ca52addc6b6a9d228aef3b237bf3a0272a4b1b23fcaa6d5d"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T001401531Z-55417-benchmark/report.json",
+      "sha256": "1a9bc98f39d85632fe93cf21f34487c596f49feb7b4bbb4ce30b8208539344b8"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T001421347Z-56364-benchmark/report.json",
+      "sha256": "bc49de4e46b86924c527bdb8f55326f531af662ed9e771903378c3cc5f7a94ba"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T001440605Z-57298-benchmark/report.json",
+      "sha256": "1d952e53008a3bfb62bb7b6eafce35ce85d9920ea2062747d8464823bd501387"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/isolation-01.log",
+      "sha256": "8183440a9167f606916ab7a558a358e88774b8a26194499dcffa88d810e8bbf0"
+    },
+    {
+      "path": "eval/out/AGD-002/20260915T234134726Z-38464-gateway/report.json",
+      "sha256": "e7b114c1a8c5679287ef5a6b28d7aefa164b1d751c7d096a844d8e007f6c41d2"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/performance-01.log",
+      "sha256": "4a1de761065268dc5fe0d9b6a652f75481065f06803c59a81b951ccb2f69d3ab"
+    },
+    {
+      "path": "eval/out/AGD-002/20260915T234222995Z-38913-benchmark/report.json",
+      "sha256": "50c99fa2bc6036b1276781b3be2dc37f3fd70d2f22ad69d377cc641d06dc57f7"
+    },
+    {
+      "path": ".artifacts/m3-joint-2026-09-16/ci-84b6a38-checkpoint.json",
+      "sha256": "6d66a52c97ba25f12188a8b695c60ffbf838119b628d5f8ef3afc12c4ad14662"
     }
-  ]
+  ],
+  "updated_at": "2026-09-16T00:15:46.084934+00:00",
+  "joint": {
+    "evidence_verified": true,
+    "passed": false,
+    "gateway_sha256": "a250be2538a199d3a01124ba55d01213ce0333e00df92697124392ccc696d761",
+    "normal_tasks": 50,
+    "workspace_cycles": 100,
+    "fault_checks": 50,
+    "isolation_checks": 78,
+    "soak_tasks": 30,
+    "soak_heartbeats": 121,
+    "soak_duration_ms": 1800627.4123749998,
+    "browser_tasks": 10,
+    "browser_cycles": 100,
+    "browser_audit_rows": 1225,
+    "approved_posts": 50,
+    "network_fault_audit_rows": 33,
+    "performance": [
+      {
+        "route": "native_gateway_read",
+        "name": "read_p95_ms",
+        "actual": 10.863499999999988,
+        "maximum": 10,
+        "passed": false
+      },
+      {
+        "route": "native_gateway_read",
+        "name": "startup_ms",
+        "actual": 52.487916,
+        "maximum": 100,
+        "passed": true
+      },
+      {
+        "route": "native_gateway_read",
+        "name": "memory_mib",
+        "actual": 13.578125,
+        "maximum": 32,
+        "passed": true
+      },
+      {
+        "route": "isolated_gateway_read",
+        "name": "read_p95_ms",
+        "actual": 741.4757499999996,
+        "maximum": 500,
+        "passed": false
+      },
+      {
+        "route": "isolated_gateway_read",
+        "name": "startup_ms",
+        "actual": 648.569833,
+        "maximum": 2000,
+        "passed": true
+      },
+      {
+        "route": "isolated_gateway_read",
+        "name": "memory_mib",
+        "actual": 13.734375,
+        "maximum": 32,
+        "passed": true
+      }
+    ],
+    "f13": "deferred_not_accepted",
+    "release": "No-Go"
+  },
+  "ci_repair": {
+    "failed_ci": {
+      "commit": "2a23272ace74db1169ddd557bc3957b185d5914c",
+      "run": 35036886502,
+      "passed_jobs": 12,
+      "failed_jobs": 1
+    },
+    "failure_reproduced": true,
+    "failure": "nonblocking accepted socket returns WouldBlock on split HTTP request",
+    "change_scope": "cfg(test) only",
+    "production_prefix_sha256": "f40ece77936152df2898ddd80cb7a72b9d255a04c7066a12240e90512dd35cfc",
+    "native_sources_total": 36,
+    "changed_native_sources": [
+      "apps/desktop-macos/src-tauri/src/gateway_governance.rs"
+    ],
+    "app_020_files_unchanged": 91,
+    "strict_signature": true,
+    "native_tests": {
+      "passed": 134,
+      "ignored": 11
+    },
+    "repository_tests": 23,
+    "artifacts": [
+      {
+        "path": "native-wire-before.log",
+        "sha256": "4e3a34ac49a50c6afade2b90d98bc9195211ac876afcc40a89c05ff2a4f59462"
+      },
+      {
+        "path": "native-wire-after.log",
+        "sha256": "c2fba29420b55dd5cded114c33cb33266bf65213c0ed138525f116a030afdeb6"
+      },
+      {
+        "path": "repository-tests-02.log",
+        "sha256": "3aba23f223887a60970156407dde394b4c9a968b3c695be47f0fc1fa02cc458c"
+      },
+      {
+        "path": "ci-2a23272-failed.log",
+        "sha256": "56c785ecf8cd43e5a8d02a977e94700cefa74d8c691e78befff4a7c3f31ef560"
+      }
+    ]
+  },
+  "performance_comparison": {
+    "evidence_verified": true,
+    "order": [
+      "old",
+      "new",
+      "new",
+      "old"
+    ],
+    "all_runs_budget_passed": false,
+    "passing_budgets": [
+      4,
+      4,
+      4,
+      4
+    ],
+    "all_original_samples_retained": true,
+    "reports": [
+      {
+        "path": "eval/out/AGD-002/20260916T001341648Z-54478-benchmark/report.json",
+        "sha256": "263f11ae8ccd6695ca52addc6b6a9d228aef3b237bf3a0272a4b1b23fcaa6d5d"
+      },
+      {
+        "path": "eval/out/AGD-002/20260916T001401531Z-55417-benchmark/report.json",
+        "sha256": "1a9bc98f39d85632fe93cf21f34487c596f49feb7b4bbb4ce30b8208539344b8"
+      },
+      {
+        "path": "eval/out/AGD-002/20260916T001421347Z-56364-benchmark/report.json",
+        "sha256": "bc49de4e46b86924c527bdb8f55326f531af662ed9e771903378c3cc5f7a94ba"
+      },
+      {
+        "path": "eval/out/AGD-002/20260916T001440605Z-57298-benchmark/report.json",
+        "sha256": "1d952e53008a3bfb62bb7b6eafce35ce85d9920ea2062747d8464823bd501387"
+      }
+    ],
+    "scope": "固定四轮对照，不能替换首轮性能失败，也不能据此证明负载为唯一原因"
+  },
+  "ci_source_fix": {
+    "commit": "84b6a38211468f2fa8a3b3498b9725f7d9070fae",
+    "run": 35038753030,
+    "status": "in_progress",
+    "conclusion": "",
+    "successful_jobs": 10,
+    "macos_desktop_test_step": "success",
+    "scope": "本次记录时完整流水线尚未结束，测试步骤通过不替代全部作业"
+  }
 }
