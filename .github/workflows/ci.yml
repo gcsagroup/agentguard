@@ -599,6 +599,8 @@ jobs:
           node-version: '22'
       - name: 核对 Node.js 使用仓库 .nvmrc 钉住的主版本
         run: make node-toolchain-check
+      - name: 性能验收的 VM 就绪与故障清理契约（合成命令，无 Docker 依赖）
+        run: node --test scripts/acceptance/docker-vm-preflight.test.mjs
       - name: Syntax-check every shell script and front-end module
         # No JS was checked by anything before. A syntax error in main.js produced a shell
         # whose buttons silently did nothing, and the Rust side would still be green.

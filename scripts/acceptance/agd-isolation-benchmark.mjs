@@ -9,6 +9,7 @@ import os from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { ensureRunningLinuxVm } from './docker-vm-preflight.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const candidateSha256 = process.env.AGD_BENCHMARK_SHA256 || '17d1af9c56859d45c561a8b3f2fcfdd383981874026d423cd17f738f63b0dc44';
@@ -33,6 +34,8 @@ await writeFile(plans, JSON.stringify({ plans: [{ task_profile: 'agd-read-benchm
 const parameters = { candidateSha256, binary, image, fileBytes: 1024, fileSha256: digest(contents), warmupCount, measuredCount, rssSamplingIntervalMs: rssIntervalMs, quantileMethod: 'nearest_rank: sorted[ceil(n*p)-1]', routeOrder: ['direct_host_read', 'native_gateway_read', 'isolated_gateway_read'], routeTiming: 'readFile 或 MCP read_file 请求提交至完整内容接收并核对之前；不包含启动、预热、人工等待、模型生成、外部业务服务', gatewayStartupTiming: 'spawn 前至 initialize 和 gateway/stats 都返回，隔离模式同时确认控制文件已建立', gatewayRssScope: '仅网关 PID，从 spawn 至正式测量结束；20ms 定时采样、末尾补采，可能漏掉短时峰值', isolationContainerMemoryLimitMiB: 256, measuredContainerPeakRss: null, snapshotHostWriteback: false };
 const report = { task: 'AGD-002', scope: 'M0 操作微基准，不是完整用户任务、50 任务验收或 SLA', generatedAt: new Date().toISOString(), parameters, environment: { platform: os.platform(), arch: os.arch(), release: os.release(), cpus: os.cpus().length, cpuModel: os.cpus()[0]?.model, totalMemoryMiB: Math.round(os.totalmem() / 1024 / 1024), node: process.version, loadAverageAtStart: os.loadavg() }, routes: [] };
 const snapshotRoots = [];
+let gatewayEnvironment = process.env;
+parameters.virtualMachinePrecondition = '正式计时前由无挂载短命容器确认本地 Linux VM 就绪；唤醒和清理耗时单列，原预算不包含 VM 冷启动';
 
 function summary(rows) {
   const times = rows.map(row => row.elapsedMs).filter(Number.isFinite).sort((a, b) => a - b);
@@ -57,7 +60,7 @@ async function startGateway(routeName, isolated) {
   const audit = join(temp, routeName + '-audit.db'), control = join(temp, routeName + '-control.json');
   const args = ['--rules', join(root, 'crates/guard-schema/rules/p0_rules.yaml'), '--shell-policy', join(root, 'crates/guard-shell/policies/default.yaml'), '--plans', plans, '--task', 'agd-read-benchmark', '--confirm-port', '0', '--confirm-timeout-secs', '1', '--audit-db', audit, ...(isolated ? ['--isolation-image', image, '--control-file', control] : [])];
   const started = performance.now();
-  const child = spawn(binary, args, { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(binary, args, { cwd: root, env: gatewayEnvironment, stdio: ['pipe', 'pipe', 'pipe'] });
   let exited = false, sequence = 0, peakKiB = null, rssSamples = 0, sampling = true, closed = false;
   const pending = new Map(), stderr = [];
   const exit = new Promise(resolve => child.once('exit', code => { exited = true; for (const item of pending.values()) item.reject(new Error('网关提前退出：' + code)); pending.clear(); resolve(code); }));
@@ -112,6 +115,9 @@ async function startGateway(routeName, isolated) {
 
 try {
   report.environment.docker = (await execute('/usr/local/bin/docker', ['version', '--format', '{{json .Server.Version}}'], { timeout: 10000 })).stdout.trim();
+  report.environment.vmPreflight = await ensureRunningLinuxVm(execute, image);
+  gatewayEnvironment = { ...process.env, DOCKER_HOST: report.environment.vmPreflight.endpoint };
+  delete gatewayEnvironment.DOCKER_CONTEXT;
   for (const route of parameters.routeOrder) {
     const row = { name: route, startupMs: null, gatewayRss: null, confirmations: 0 };
     let gateway;

@@ -1,0 +1,332 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "442f4010ddacfaf7c376e0ebcf4b7ab1c4becb8e",
+  "scope": "修复性能脚本的 VM 就绪前提，核对持续审计分项；产品性能和正式验收均未通过",
+  "product_binary_sha256": "9af1137e9d3e866778df59964c834b2e1faed5b7dc32461eb2cd038dfe1e7805",
+  "product_source_inputs_verified": 241,
+  "app_version": "2.1.0-dev.22",
+  "app_rebuilt": false,
+  "product_durability_changed": false,
+  "image": "sha256:7de5789da80158e418d22bf911ea3829aa1abdeb2338dd556dc99b13c89d8490",
+  "evidence_verified": true,
+  "protocol_consistent": false,
+  "protocol_issues": [
+    {
+      "corrected_vm_preflight": false,
+      "reason": "计划总轮次与执行顺序不一致",
+      "declared_rounds": 4,
+      "ordered_rounds": 2
+    },
+    {
+      "corrected_vm_preflight": true,
+      "reason": "计划总轮次与执行顺序不一致",
+      "declared_rounds": 4,
+      "ordered_rounds": 2
+    }
+  ],
+  "performance_passed": false,
+  "planned_samples_measured": 360,
+  "warmup_samples": 60,
+  "diagnostic_reads": 610,
+  "diagnostic_audit_rows": 2442,
+  "diagnostics": [
+    {
+      "round": 1,
+      "records_verified": 1221,
+      "spawn_to_main_ms": 6.6264579999999995,
+      "main_to_ready_ms": 117.381333,
+      "commit_fraction": 0.9058140832950434,
+      "sql_mean_ms": 0.19036391,
+      "two_commits_p95_ms": 16.388042,
+      "request_p95_ms": 17.639000000000124,
+      "wal_groups": {
+        "no_transition_observed": {
+          "count": 283,
+          "p95_ms": 14.485167000000274,
+          "over_10_ms": 123
+        },
+        "checkpoint_or_recycle_observed": {
+          "count": 17,
+          "p95_ms": 35.66754200000014,
+          "over_10_ms": 17
+        }
+      }
+    },
+    {
+      "round": 2,
+      "records_verified": 1221,
+      "spawn_to_main_ms": 6.13904199999979,
+      "main_to_ready_ms": 36.326334,
+      "commit_fraction": 0.9141864821799928,
+      "sql_mean_ms": 0.17048417,
+      "two_commits_p95_ms": 13.082749999999999,
+      "request_p95_ms": 13.891625000000204,
+      "wal_groups": {
+        "no_transition_observed": {
+          "count": 287,
+          "p95_ms": 12.615499999999884,
+          "over_10_ms": 87
+        },
+        "checkpoint_or_recycle_observed": {
+          "count": 13,
+          "p95_ms": 23.58312500000011,
+          "over_10_ms": 13
+        }
+      }
+    }
+  ],
+  "measurements": [
+    {
+      "vm_preflight": false,
+      "round": 1,
+      "passing_budgets": 5,
+      "metrics": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 8.939333999999974,
+          "maximum": 10,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 45.42654200000001,
+          "maximum": 100,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.3125,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 272.5744589999995,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 2789.2751249999997,
+          "maximum": 2000,
+          "passed": false
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.90625,
+          "maximum": 32,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "vm_preflight": false,
+      "round": 2,
+      "passing_budgets": 6,
+      "metrics": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 9.418041999999986,
+          "maximum": 10,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 35.246792000000006,
+          "maximum": 100,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.484375,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 303.03379199999927,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 355.004292,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.875,
+          "maximum": 32,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "vm_preflight": true,
+      "round": 1,
+      "passing_budgets": 5,
+      "metrics": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 9.082374999999956,
+          "maximum": 10,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 50.08445800000027,
+          "maximum": 100,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.625,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 895.5526249999984,
+          "maximum": 500,
+          "passed": false
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 638.0270420000002,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.734375,
+          "maximum": 32,
+          "passed": true
+        }
+      ],
+      "vm": {
+        "readiness_ms": 2354.513334,
+        "uptime_seconds": 1.93,
+        "boot_id_sha256": "30b1ae59ff05c91859b0093d659b0fb0b31aab46b82a1c7fac4282565b3ab49e"
+      }
+    },
+    {
+      "vm_preflight": true,
+      "round": 2,
+      "passing_budgets": 5,
+      "metrics": [
+        {
+          "route": "native_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 10.260875000000055,
+          "maximum": 10,
+          "passed": false
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "startup_ms",
+          "actual": 58.32154200000002,
+          "maximum": 100,
+          "passed": true
+        },
+        {
+          "route": "native_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.609375,
+          "maximum": 32,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "read_p95_ms",
+          "actual": 318.9619589999984,
+          "maximum": 500,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "startup_ms",
+          "actual": 478.6283329999999,
+          "maximum": 2000,
+          "passed": true
+        },
+        {
+          "route": "isolated_gateway_read",
+          "metric": "memory_mib",
+          "actual": 13.96875,
+          "maximum": 32,
+          "passed": true
+        }
+      ],
+      "vm": {
+        "readiness_ms": 257.15225,
+        "uptime_seconds": 16.41,
+        "boot_id_sha256": "30b1ae59ff05c91859b0093d659b0fb0b31aab46b82a1c7fac4282565b3ab49e"
+      }
+    }
+  ],
+  "tests": {
+    "vm_preflight": 8,
+    "new_verifier_negative": 8,
+    "prior_verifier_negative": 9,
+    "repository": 23,
+    "local_agent": {
+      "passed": 21,
+      "ignored": 4
+    }
+  },
+  "ci": {
+    "run": 35068088037,
+    "commit": "dbb9401",
+    "status": "failure",
+    "failed_test": "停止期间迟到成功回执保留完成事实但不复活任务",
+    "failure_phase": "starting；合成模型等待 /v1/chat/completions 超过 8 秒",
+    "local_recheck": "原 8 秒不变，21 项通过；本机未复现，不宣称修复 CI 根因"
+  },
+  "artifacts": {
+    ".artifacts/m3-wal-sync-2026-09-16/timing-plan.json": "8b4398daaacaade687474f2d0f4bca621282f0e069b5b5b1949aa15de97b8d40",
+    ".artifacts/m3-wal-sync-2026-09-16/timing.json": "8a8f7113626647fef0f71ebb362e31ad0d2a93397319b00c8f80a75f9f9f514b",
+    ".artifacts/m3-wal-sync-2026-09-16/measure-wal.mjs": "29cd9746f1abf2c9a6040172aac0b87bb13939c193e6138d5894cf0ba81a62a9",
+    ".artifacts/m3-wal-sync-2026-09-16/classified.json": "d05ff155fac62c14e1f12ed71f2c9bf7ce773ce667183b0878493599410fb7c9",
+    ".artifacts/m3-wal-sync-2026-09-16/comparison-plan.json": "02fb0ecf6940794c7c11369ce27ddc1d0b75f62ab6079764f2691c172272f335",
+    ".artifacts/m3-wal-sync-2026-09-16/comparison.json": "be37b1f6bc89c5c786b9dd0e3e92cd99605d3c22123bf50769b561a60665d2a3",
+    ".artifacts/m3-wal-sync-2026-09-16/benchmark-source-original.mjs": "b4b411414f074e47fd5f8d1a80585200eebda897f923c5f2cb12fa4156e3a7d3",
+    ".artifacts/m3-wal-sync-2026-09-16/warm-preflight/comparison-plan.json": "1abdd08de616d7856cdb39045c64b3745309cc77cbdeae08bee0b7f44862a877",
+    ".artifacts/m3-wal-sync-2026-09-16/warm-preflight/comparison.json": "7cdbb03b1974495701aaf104f440905ac4220a9aff31dab26a85e48c1724aa22",
+    ".artifacts/m3-wal-sync-2026-09-16/warm-preflight/agd-isolation-benchmark.mjs": "9178762d21dd475febb0481c813f25ceee3e8eab0b185819922d5d799ae22d3a",
+    ".artifacts/m3-wal-sync-2026-09-16/warm-preflight/docker-vm-preflight.mjs": "97f31bc9b3f47d6065e89fa2ac2be5396ae460ad42f7c5e4b067a9d2d6229e27",
+    ".artifacts/m3-wal-sync-2026-09-16/docker-startup-native-log.json": "37c8ab67fc1b203efe5e19a220bee1a8fed29cd19e39b0823039749bc8a30168",
+    ".artifacts/m3-wal-sync-2026-09-16/docker-events-warm.json": "61fe142e1c934b944f92bdd542bb364b3b48756cf1765344a40ecd777606c24e",
+    ".artifacts/m3-wal-sync-2026-09-16/verification.json": "aff4edc39f54ffd3d0aa9ca18a64b6bf4cd2b11196a3377bf38609fd1e8bc1cd",
+    ".artifacts/m3-wal-sync-2026-09-16/verification-final.json": "bfb8f8e07be64b9df96063e2d5518f97f61651b1351c32b8f2ba346679bc7d9d",
+    ".artifacts/m3-wal-sync-2026-09-16/test-verifier.py": "8559cf026df1658aa282bf9f8905904a9d6f9d097829415e84fba88a12bb25d6",
+    ".artifacts/m3-wal-sync-2026-09-16/verifier-tests.json": "1328850383997073e0c06d87017fe1ca1d8ef5efdd457ce09468a94a40274e40",
+    ".artifacts/m3-wal-sync-2026-09-16/local-agent-ci-recheck.log": "42bee692466d3b7a7a9c450fbbd7aa8b48d4d35db0622001b92cf8a4dd2b99d7",
+    ".artifacts/m3-wal-sync-2026-09-16/repository-tests.log": "4b600c7ba2356998b3806f20cd69b364d9e087358e4428743abcd81d29dc87f8",
+    ".artifacts/m3-wal-sync-2026-09-16/prior-ci-failed.log": "ac4ff799c939939941f2cc62343d7237f588f617ad03fe403c57226cc035cd18"
+  },
+  "limits": [
+    "计划 rounds=4 与 order 两轮冲突，两批都不能视作符合预声明的正式验收",
+    "WAL 分类由每次返回后读取的索引计数推导，不是操作系统同步系统调用追踪",
+    "Docker 事件缓存仅保留第二轮的 36 个完整容器，不能解释第一轮尾延迟",
+    "F13 暂缓；完整计划及发布不通过"
+  ]
+}

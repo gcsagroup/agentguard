@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 VM readiness and durable-commit diagnostics (2026-09-16)
+
+- The benchmark now proves that the local Linux VM is running and cleans up its probe before timing. Wake-up time is reported separately; the image, budgets and gateway durability requirements are unchanged. See the [record](docs/agd-027-vm-preflight-2026-09-16.zh.md).
+- Verified 2,442 audit rows and four measurement runs. Read latency still exceeds budget, and conflicting round counts disqualify both plans from formal acceptance. Passed 8 preflight, 8 new negative, 9 prior negative and 23 repository checks. The earlier CI startup timeout is retained. App 022 and plan v0.67 counts remain unchanged; release is still No-Go.
+
 ### Fixed App 022: recovery from a real unresponsive window (2026-09-16)
 
 - Paused a synthetic foreground window's main thread for 45 seconds. Both permissions remained granted, observation stayed degraded, and the same session read the recovered window and became active about one second later. See the [native record](docs/native-ax-recovery-022-2026-09-16.zh.md).
