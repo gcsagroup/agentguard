@@ -1,0 +1,289 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "b1b99287fc3a4477dffb758ea69b21953a2d57bf",
+  "scope": "每路 100 次连续读取的 Docker 事件诊断，不替代原 30 次验收",
+  "evidence_verified": true,
+  "formal_acceptance": false,
+  "product_binary_sha256": "9af1137e9d3e866778df59964c834b2e1faed5b7dc32461eb2cd038dfe1e7805",
+  "app_rebuilt": false,
+  "reads": {
+    "measured": 600,
+    "warmup": 30,
+    "all_content_correct": 630
+  },
+  "paired_isolated_requests": 210,
+  "containers_with_complete_lifecycle": 214,
+  "negative_cases_rejected": 4,
+  "rounds": [
+    {
+      "round": 1,
+      "all_three_routes_content_reads": 315,
+      "containers_verified": 107,
+      "paired_requests": 105,
+      "measured_requests": 100,
+      "over_500_ms": 0,
+      "distributions": {
+        "elapsed_ms": {
+          "count": 100,
+          "p50_ms": 277.93945800000074,
+          "p95_ms": 309.2277499999982,
+          "max_ms": 332.6944579999981
+        },
+        "create_to_start_ms": {
+          "count": 100,
+          "p50_ms": 77.022292,
+          "p95_ms": 86.601125,
+          "max_ms": 105.051584
+        },
+        "start_to_die_ms": {
+          "count": 100,
+          "p50_ms": 39.555166,
+          "p95_ms": 46.67025,
+          "max_ms": 51.173959
+        },
+        "die_to_destroy_ms": {
+          "count": 100,
+          "p50_ms": 17.395459,
+          "p95_ms": 25.078625,
+          "max_ms": 26.316667
+        },
+        "container_total_ms": {
+          "count": 100,
+          "p50_ms": 133.574292,
+          "p95_ms": 156.619208,
+          "max_ms": 177.500292
+        },
+        "outside_container_lifecycle_ms": {
+          "count": 100,
+          "p50_ms": 143.78254299999946,
+          "p95_ms": 158.01170800000034,
+          "max_ms": 162.6774159999998
+        }
+      },
+      "native_read": {
+        "count": 100,
+        "p50_ms": 8.000375000000076,
+        "p95_ms": 10.013667000000169,
+        "max_ms": 16.061041999999816
+      },
+      "slowest": [
+        {
+          "request": 50,
+          "warmup": false,
+          "elapsed_ms": 332.6944579999981,
+          "create_to_start_ms": 105.051584,
+          "start_to_die_ms": 50.026458,
+          "die_to_destroy_ms": 22.42225,
+          "container_total_ms": 177.500292,
+          "outside_container_lifecycle_ms": 155.19416599999812
+        },
+        {
+          "request": 55,
+          "warmup": false,
+          "elapsed_ms": 318.835916,
+          "create_to_start_ms": 86.088375,
+          "start_to_die_ms": 47.767084,
+          "die_to_destroy_ms": 23.697666,
+          "container_total_ms": 157.553125,
+          "outside_container_lifecycle_ms": 161.282791
+        },
+        {
+          "request": 40,
+          "warmup": false,
+          "elapsed_ms": 316.11762500000077,
+          "create_to_start_ms": 93.1595,
+          "start_to_die_ms": 44.079833,
+          "die_to_destroy_ms": 20.624084,
+          "container_total_ms": 157.863417,
+          "outside_container_lifecycle_ms": 158.25420800000077
+        },
+        {
+          "request": 42,
+          "warmup": false,
+          "elapsed_ms": 313.0067909999998,
+          "create_to_start_ms": 86.601125,
+          "start_to_die_ms": 41.423083,
+          "die_to_destroy_ms": 22.305167,
+          "container_total_ms": 150.329375,
+          "outside_container_lifecycle_ms": 162.6774159999998
+        },
+        {
+          "request": 45,
+          "warmup": false,
+          "elapsed_ms": 311.0660829999997,
+          "create_to_start_ms": 96.054,
+          "start_to_die_ms": 43.108708,
+          "die_to_destroy_ms": 21.751417,
+          "container_total_ms": 160.914125,
+          "outside_container_lifecycle_ms": 150.1519579999997
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "all_three_routes_content_reads": 315,
+      "containers_verified": 107,
+      "paired_requests": 105,
+      "measured_requests": 100,
+      "over_500_ms": 0,
+      "distributions": {
+        "elapsed_ms": {
+          "count": 100,
+          "p50_ms": 277.97599999999875,
+          "p95_ms": 306.760374999998,
+          "max_ms": 315.60820800000147
+        },
+        "create_to_start_ms": {
+          "count": 100,
+          "p50_ms": 78.449083,
+          "p95_ms": 89.269542,
+          "max_ms": 93.221695
+        },
+        "start_to_die_ms": {
+          "count": 100,
+          "p50_ms": 39.396333,
+          "p95_ms": 44.444,
+          "max_ms": 47.545334
+        },
+        "die_to_destroy_ms": {
+          "count": 100,
+          "p50_ms": 17.408916,
+          "p95_ms": 21.009167,
+          "max_ms": 22.113083
+        },
+        "container_total_ms": {
+          "count": 100,
+          "p50_ms": 135.199584,
+          "p95_ms": 149.272111,
+          "max_ms": 159.556876
+        },
+        "outside_container_lifecycle_ms": {
+          "count": 100,
+          "p50_ms": 143.30029200000183,
+          "p95_ms": 156.05133200000148,
+          "max_ms": 169.08370799999676
+        }
+      },
+      "native_read": {
+        "count": 100,
+        "p50_ms": 8.04195900000002,
+        "p95_ms": 11.299250000000029,
+        "max_ms": 12.840249999999969
+      },
+      "slowest": [
+        {
+          "request": 101,
+          "warmup": false,
+          "elapsed_ms": 315.60820800000147,
+          "create_to_start_ms": 92.843125,
+          "start_to_die_ms": 47.545334,
+          "die_to_destroy_ms": 19.168417,
+          "container_total_ms": 159.556876,
+          "outside_container_lifecycle_ms": 156.05133200000148
+        },
+        {
+          "request": 75,
+          "warmup": false,
+          "elapsed_ms": 314.17387499999677,
+          "create_to_start_ms": 81.524208,
+          "start_to_die_ms": 41.983667,
+          "die_to_destroy_ms": 21.582292,
+          "container_total_ms": 145.090167,
+          "outside_container_lifecycle_ms": 169.08370799999676
+        },
+        {
+          "request": 104,
+          "warmup": false,
+          "elapsed_ms": 311.78583300000173,
+          "create_to_start_ms": 90.439084,
+          "start_to_die_ms": 41.036958,
+          "die_to_destroy_ms": 18.403792,
+          "container_total_ms": 149.879834,
+          "outside_container_lifecycle_ms": 161.90599900000174
+        },
+        {
+          "request": 79,
+          "warmup": false,
+          "elapsed_ms": 309.3015830000004,
+          "create_to_start_ms": 83.920667,
+          "start_to_die_ms": 41.745875,
+          "die_to_destroy_ms": 22.070875,
+          "container_total_ms": 147.737417,
+          "outside_container_lifecycle_ms": 161.5641660000004
+        },
+        {
+          "request": 105,
+          "warmup": false,
+          "elapsed_ms": 306.913958000001,
+          "create_to_start_ms": 89.47425,
+          "start_to_die_ms": 42.509666,
+          "die_to_destroy_ms": 21.223459,
+          "container_total_ms": 153.207375,
+          "outside_container_lifecycle_ms": 153.706583000001
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "本批为每路 100 次诊断，不替代原 30 次性能验收",
+    "Docker 事件只证明 create/start/die/destroy；外侧耗时未细分为具体系统调用",
+    "匹配使用宿主和 daemon 时钟，允许预声明 20 ms 偏差"
+  ],
+  "artifact_sha256": {
+    ".artifacts/m3-container-phases-2026-09-16/plan.json": "395e610882fe98955a5e8ab9d4127c680f04590005c416e68f3c2966e3508625",
+    ".artifacts/m3-container-phases-2026-09-16/result.json": "5f4493f296c137b9754de05b9e3257ff5d925c1a2e8bb3abc7968c4101f1cf79",
+    ".artifacts/m3-container-phases-2026-09-16/benchmark-diagnostic.mjs": "a31d6c282ca0cd74289167c58cc24e7718637a50224d3dd3c6f64472eec9fea8",
+    ".artifacts/m3-container-phases-2026-09-16/run.py": "b22c3f4c6a80cdb8e2a90960ea17e2bdf10dbbd5881c1797f0beb7baabf5b1bc",
+    ".artifacts/m3-container-phases-2026-09-16/events-1.jsonl": "80278ebf71b30ed84e2caeabf1cb695e9b2ae9952fc554662d29d97c4fc46bf1",
+    ".artifacts/m3-container-phases-2026-09-16/events-2.jsonl": "b77ad9f6a7553cb9f59c91d9058ec6f99ebdef4dfffdb807338f74e1bb85c8c3",
+    ".artifacts/m3-container-phases-2026-09-16/classify.py": "543ebe12dbc34c850e6e01f1a560c2d8b11683f63598b27a082fce36f7ae1328",
+    ".artifacts/m3-container-phases-2026-09-16/verification.json": "4db5aefa95b9bfb2451a7e7cd35d3cd6e79a76950610f8e53d3b9978b8f08ab9",
+    ".artifacts/m3-container-phases-2026-09-16/paired-1.json": "30cd2f09a7ee02d7bc1f9ac0890c01dd6ee33fb21b67c44d6e5114b87912309e",
+    ".artifacts/m3-container-phases-2026-09-16/paired-2.json": "670faf43ac768ea5c2e2eb1b0b94d90f191859c20c92796e9ace865fda32cbb5",
+    ".artifacts/m3-container-phases-2026-09-16/negative-tests.json": "6d35962817e643f5aacaf626ba9e406341cd5fd9b7ba3cd78c10f192b259069b",
+    ".artifacts/m3-container-phases-2026-09-16/verifier-initial-failure.txt": "7adc9e68357a55641b32d35ea5aec4816c613797fb6e20f7f0f3c8ce8d9db604",
+    ".artifacts/m3-container-phases-2026-09-16/mcp_stdio_server-before.py": "fd9c3465eb3744d670145d7fed237a356175f80af6091a4dd2f21fbf2d0687a6",
+    ".artifacts/m3-container-phases-2026-09-16/eof-before.log": "dee9c82effebf2e453156dd63557f9b9e8d4a6777e844d3da633b2aecb5ac092",
+    ".artifacts/m3-container-phases-2026-09-16/stdio-after.log": "3a8266e8f39db71f5f8ba345608a07a58bac51a20f888d572b495e43077719f4",
+    ".artifacts/m3-container-phases-2026-09-16/gateway-library.log": "f43bc47d22c8a2d06cf22fb5f627e4b10c3ae6297d63d329d01d7bff7cf93f70",
+    ".artifacts/m3-container-phases-2026-09-16/repository-tests.log": "2ab12a90769bb243df23f646794c84d194138fe7b6ae0d5c880d44d7c9a9f0cf",
+    ".artifacts/m3-wal-sync-2026-09-16/latest-ci-job.log": "9928035ecb369307bb2a67a71ef94e653da4e1910c503c10fdbeb0ee660a9a0f"
+  },
+  "benchmark_reports": [
+    {
+      "path": "eval/out/AGD-002/20260916T075934108Z-62770-benchmark/report.json",
+      "sha256": "9ee47951bad49ad45d932f6fb1bb42a075843076ae4f6c4565471efd2f780b93"
+    },
+    {
+      "path": "eval/out/AGD-002/20260916T080007408Z-64494-benchmark/report.json",
+      "sha256": "ffd94e6ad66764a2581a7ee92b8a38d05b8e6041ebf77fdd4558e9ff2c2e7241"
+    }
+  ],
+  "tests": {
+    "stdio": {
+      "passed": 11,
+      "ignored": 1
+    },
+    "gateway_library": {
+      "passed": 247,
+      "ignored": 6
+    },
+    "repository": {
+      "passed": 23
+    },
+    "app_manifest_files_verified": 91
+  },
+  "eof_fixture": {
+    "ci_run": 35070437352,
+    "ci_job": 104710448863,
+    "original_actual": "Timeout",
+    "original_expected": "Disconnected",
+    "controlled_reproduction": "一秒解释器退出延迟且未先关闭 stdout；原 300 ms 期限下复现失败",
+    "fix": "先关闭 stdout 再延迟退出；宿主仍须识别断连、回收子进程并拒绝重发",
+    "product_transport_changed": false,
+    "timeout_changed": false,
+    "actual_hosted_ci_delay_source_proven": false,
+    "old_performance_source_manifest_matches_after_fixture_edit": false
+  },
+  "fixture_sha256": "42827e419a46ac2586d7b1415dce40021820104fce1f18cceb028198a23837c2"
+}

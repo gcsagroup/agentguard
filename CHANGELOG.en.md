@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 streamed container events and EOF fixture (2026-09-16)
+
+- Both diagnostic runs returned correct content for 630 reads; 210 isolated requests matched complete container lifecycles, with four negative cases rejected. The earlier isolated tail was not reproduced and native latency still misses the budget; this is not formal acceptance. See the [record](docs/agd-027-container-phases-2026-09-16.zh.md).
+- The EOF fixture now closes stdout before a controlled exit delay. The reproduced failure is retained; the 300 ms deadline and no-retry assertions are unchanged. Passed 11 stdio, 247 gateway-library and 23 repository tests; ignored tests remain separate. Product binaries and the fixed App were not rebuilt.
+
 ### AGD-027 VM readiness and durable-commit diagnostics (2026-09-16)
 
 - The benchmark now proves that the local Linux VM is running and cleans up its probe before timing. Wake-up time is reported separately; the image, budgets and gateway durability requirements are unchanged. See the [record](docs/agd-027-vm-preflight-2026-09-16.zh.md).

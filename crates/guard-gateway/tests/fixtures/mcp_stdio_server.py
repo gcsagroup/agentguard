@@ -51,6 +51,11 @@ for line in sys.stdin:
         if mode == "timeout":
             stall()
         if mode == "eof":
+            import atexit
+            # EOF 指管道关闭，不是解释器完成清理。保留可控退出延迟，
+            # 验证宿主在原 300 ms 期限内识别断连并回收尚未退出的进程。
+            atexit.register(time.sleep, 1)
+            os.close(sys.stdout.fileno())
             sys.exit(0)
         if mode == "partial":
             sys.stdout.write('{"jsonrpc":"2.0","id":')
