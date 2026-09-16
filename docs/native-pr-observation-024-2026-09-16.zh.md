@@ -37,3 +37,5 @@
 原始失败证据：`.artifacts/native-pr-observation-023-2026-09-16/`；024 构建、回归、数据库只读副本、trace、可恢复归档和核对器：`.artifacts/native-pr-observation-024-2026-09-16/`。公开摘要与哈希见[证据索引](evidence/native-pr-observation-024-2026-09-16.json)。原始窗口正文不写入审计，也不提交私有数据库。
 
 前批准确提交 `483c6ad` 的 GitHub CI [35112079534](https://github.com/gcsagroup/agentguard/actions/runs/35112079534) 已读回 13/13 成功；该结果只属于前批，不替代本批 CI。F13 暂缓、AGD-027 原性能预算及正式发布条件均保持；计划计数仍为 28 完成、1 附条件完成、1 开发中、2 待开始，发布 No-Go。
+
+后续读回：本批准确提交 `a55a024` 的 [CI 35116121424](https://github.com/gcsagroup/agentguard/actions/runs/35116121424) 已完成 13／13。另跑完整 GA 门禁时发现两份能力生成报告漏同步，首轮 16 通过／1 失败；该失败及修正分别见[门禁接续记录](agd-032-release-gate-recheck-2026-09-16.zh.md)。CI 成功不消除该冻结检查失败，也不证明间歇性测试启动问题已解决。

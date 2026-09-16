@@ -1,0 +1,182 @@
+{
+  "candidate": "a55a02484906239143bb191a0ac3f6cd326c5091",
+  "mode": "--ga",
+  "exit_code": 1,
+  "elapsed_seconds": 508.846,
+  "automatic_checks": [
+    {
+      "name": "发布候选起点冻结(HEAD + clean)",
+      "result": "PASS"
+    },
+    {
+      "name": "仓库钉住的 Rust + PATH/rustc/cargo 一致",
+      "result": "PASS"
+    },
+    {
+      "name": "格式化 (cargo fmt --check)",
+      "result": "PASS"
+    },
+    {
+      "name": "Lint (clippy -D warnings, 全 target)",
+      "result": "PASS"
+    },
+    {
+      "name": "供应链 (cargo deny: CVE/许可/来源)",
+      "result": "PASS"
+    },
+    {
+      "name": "全 workspace 测试",
+      "result": "PASS"
+    },
+    {
+      "name": "离线评测场景",
+      "result": "PASS"
+    },
+    {
+      "name": "覆盖矩阵(每个场景都被认领)",
+      "result": "PASS"
+    },
+    {
+      "name": "主张↔测试映射(声明都有测试兜底)",
+      "result": "PASS"
+    },
+    {
+      "name": "前端与 shell 脚本能解析",
+      "result": "PASS"
+    },
+    {
+      "name": "浏览器执行前阻断逻辑",
+      "result": "PASS"
+    },
+    {
+      "name": "macOS 专属代码路径能编译",
+      "result": "PASS"
+    },
+    {
+      "name": "macOS 路径判决语义",
+      "result": "PASS"
+    },
+    {
+      "name": "部署自检结论与基线一致",
+      "result": "PASS"
+    },
+    {
+      "name": "MSRV 1.87",
+      "result": "PASS"
+    },
+    {
+      "name": "生产部署自检(零 FAIL,无 baseline)",
+      "result": "PASS"
+    },
+    {
+      "name": "发布候选收尾未漂移(HEAD + clean)",
+      "result": "FAIL"
+    }
+  ],
+  "automatic_passed": 16,
+  "automatic_failed": 1,
+  "unverified": [
+    {
+      "name": "macOS 代码签名 (Developer ID)",
+      "variable": "AGENTGUARD_EVIDENCE_MACOS_CODESIGN"
+    },
+    {
+      "name": "macOS 公证 + staple",
+      "variable": "AGENTGUARD_EVIDENCE_MACOS_NOTARIZE"
+    },
+    {
+      "name": "Windows 代码签名 (Authenticode)",
+      "variable": "AGENTGUARD_EVIDENCE_WINDOWS_SIGN"
+    },
+    {
+      "name": "Android release 签名 (非 debug keystore)",
+      "variable": "AGENTGUARD_EVIDENCE_ANDROID_SIGN"
+    },
+    {
+      "name": "iOS 发布签名 (Apple Distribution)",
+      "variable": "AGENTGUARD_EVIDENCE_IOS_CODESIGN"
+    },
+    {
+      "name": "真机端到端验收(macOS)",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_MACOS"
+    },
+    {
+      "name": "真机端到端验收(Android)",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_ANDROID"
+    },
+    {
+      "name": "真机端到端验收(iOS Safari Web Extension)",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS"
+    },
+    {
+      "name": "TestFlight 候选上传/安装/升级",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_IOS_TESTFLIGHT"
+    },
+    {
+      "name": "Chrome 候选 ZIP + 干净 profile 验收",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_CHROME"
+    },
+    {
+      "name": "Edge 候选 ZIP + 干净 profile 验收",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_EDGE"
+    },
+    {
+      "name": "真机端到端验收(Windows 桌面)",
+      "variable": "AGENTGUARD_EVIDENCE_ACCEPTANCE_WINDOWS"
+    },
+    {
+      "name": "六端交付物 SBOM + 许可证收口",
+      "variable": "AGENTGUARD_EVIDENCE_GA_SBOM_LICENSE"
+    },
+    {
+      "name": "隐私与商店声明六端对账",
+      "variable": "AGENTGUARD_EVIDENCE_GA_PRIVACY_STORE"
+    },
+    {
+      "name": "连续 14 天 Beta 稳定观察",
+      "variable": "AGENTGUARD_EVIDENCE_GA_BETA_14D"
+    },
+    {
+      "name": "两个不同不可变 RC",
+      "variable": "AGENTGUARD_EVIDENCE_GA_DUAL_RC"
+    },
+    {
+      "name": "Release/QA/安全/隐私法务/运维五方签字",
+      "variable": "AGENTGUARD_EVIDENCE_GA_SIGNOFF"
+    },
+    {
+      "name": "六渠道商店/下载 smoke",
+      "variable": "AGENTGUARD_EVIDENCE_GA_CHANNEL_SMOKE"
+    },
+    {
+      "name": "5% → 25% → 100% 分阶段扩量",
+      "variable": "AGENTGUARD_EVIDENCE_GA_ROLLOUT"
+    }
+  ],
+  "candidate_frozen_before_after": false,
+  "changed_generated_files": [
+    "eval/capability-claims.json",
+    "eval/capability-claims.md"
+  ],
+  "release_go": false,
+  "ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35116121424",
+    "head": "a55a02484906239143bb191a0ac3f6cd326c5091",
+    "jobs_passed": 13,
+    "conclusion": "success"
+  },
+  "artifact_root": ".artifacts/m3-release-gate-024-2026-09-16",
+  "files": {
+    "ci-final-check.json": "fc055d8f5ce555b1f360e16822ea339ae57a0678301825badc671a8441ee0a75",
+    "ci-snapshot.json": "1f3d6d1b1ae3e4a2091647921d987a380e8a395b0f1f79f1ca11c584362459bf",
+    "claims-regenerated.log": "dd11b930a19ecbefefa62a0169428f96099d081ccf470905c6d95c3fdf62336e",
+    "gate.log": "0c57a0bb91329d204d03157e7885e7fa32527be4063a76b17b4ffb9b8cb7371b",
+    "generated-reports.patch": "a4a113da9921f95dacd74b7fa9f02249c3e172c0a1d16f0a20cc0a53b2ff2182",
+    "plan.json": "073124b353d4ab7c942f4b5eab870c607c32d5d5a7da17a1b69466d4127b364a",
+    "repo-tests-final.log": "0d32a9b4e3e25a794cb04471daa33f1466ba84496b355da4d87ccb26613fca62",
+    "repo-tests.log": "65536b8460da9e958ed8a786b6c13bcd5f26ff2fd4cebff16cb871ee6ca83ca9",
+    "result.json": "fc4309d833b1ecf984131c7a5df6b4d2b640c0b9ec67a2b9b8f8aacbfd28a544",
+    "verification.json": "d519ec43a2ea489c82268f56d5f4e67a58e9376d6b03ec86df8b52dfd92a7dec",
+    "verify-result.py": "125be09dbe3b53f893ff468695aabfea628ed73f7b4b93b467923b6b80e16b64"
+  }
+}

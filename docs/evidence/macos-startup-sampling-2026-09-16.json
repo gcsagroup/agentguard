@@ -1,0 +1,43 @@
+{
+  "verified_at": "2026-09-16T15:45:10.528859+00:00",
+  "candidate": "a55a02484906239143bb191a0ac3f6cd326c5091",
+  "test_binary_sha256": "4a39b9af28bd6888f15f38880985f02809ca7f27505e70783d9af89f58f5316e",
+  "parent_run": {
+    "passed": 19,
+    "failed": 2,
+    "ignored": 4,
+    "exit_code": 101
+  },
+  "child_run": {
+    "passed": 21,
+    "failed": 0,
+    "ignored": 4,
+    "exit_code": 0
+  },
+  "samples_checked": 6,
+  "known_direct_children": 22,
+  "app_files_unchanged": 91,
+  "misnamed_field": {
+    "file": "child-sampling.json",
+    "field": "ms_before_sample",
+    "actual_meaning": "elapsed_ms_after_sample_returned",
+    "not_a_start_timestamp": true
+  },
+  "root_cause_resolved": false,
+  "sampling_adds_overhead": true,
+  "artifact_root": ".artifacts/macos-startup-sampling-2026-09-16",
+  "files": {
+    "child-sample-1.txt": "beb175e06f2e087f393abb17deb9a8d1c5d22d74fc84f2c1680d6f01a52b437a",
+    "child-sample-2.txt": "6428e2a9d8d37992965c51a1c899841266488051a6239bb242c0b91f528553f8",
+    "child-sample-3.txt": "84b3b8fa9e93adfae5d85a9d97c5e698b6e4049519228c0ee61ab0d6745beaec",
+    "child-sampling.json": "097c1d1d58207ed06324d8f8ac5e8bf5f542954e3861f71f4a78216813d404e1",
+    "child-sampling.log": "bd33ad2cd9171de6bc848328c3e4e035df15fe30e70e8f4a4be647146db3fbf0",
+    "parallel-baseline.json": "d167c8747387dd3c43f5b0c54d6bf68bca9bcd92bfba9f25634e650357bfb172",
+    "parallel-baseline.log": "b383bf4134dec863867d6914e31dfdb9ed8ddb8619e7dd4e1078ed91c1921fc1",
+    "parent-sample-1.txt": "a743e971d4c9da01b913b62d678002b6a430cd5e305309900475443095fab5c6",
+    "parent-sample-2.txt": "e70b3b76c54752edd4884950da6b4d28805691488cef85999c9f24fc1ebc510b",
+    "parent-sample-3.txt": "49dc9213470b3ea3e9c549c0a0a8876f5551c44df3ba572b63d2e5d08413cd1e",
+    "verification.json": "97efc520859f910ce516637cdb2d8a0f08012ec740b8289208e0544b0e0870c0"
+  },
+  "queried_processes_absent": 24
+}
