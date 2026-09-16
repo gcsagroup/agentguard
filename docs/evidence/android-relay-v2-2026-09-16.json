@@ -31,6 +31,17 @@
     "lint": {
       "debug": 0,
       "release": 0
+    },
+    "final_workspace_after_document_changes": {
+      "passed": 1543,
+      "failed": 0,
+      "ignored": 17
+    },
+    "ci_followup": {
+      "head": "0e87e186e978ee8aa3177711c4e7c73fe16b6433",
+      "url": "https://github.com/gcsagroup/agentguard/actions/runs/35111208794",
+      "observed_failure": "能力声明锚点仍引用旧版 v1 文案",
+      "fix": "同步文档锚点及 v2 HTTP 证明引用，最终组合全仓复验通过；待新提交 CI"
     }
   },
   "source_files": {
@@ -63,7 +74,8 @@
     "eval/fixtures/relay_response_v2.json": "5086236df8fb8a300964b508a3125d291baffffdcda4549756b31a1cdf2f1490",
     "scripts/acceptance/android-e2e.sh": "219303510025072177c040d35f952e0b319cade8e90de3808868695c0cfa75a3",
     "scripts/acceptance/verify-android-relay-v2.py": "dac1a47a865a95ba77211d4893f8f86f53a3e29149a54fecc0ae0bca8af939a4",
-    "scripts/gen-capability-matrix.py": "4eaddcb5f117f1af2baf4937c312eb2943e0dcf4dd385def980d2f00b56b9b25"
+    "scripts/gen-capability-matrix.py": "4eaddcb5f117f1af2baf4937c312eb2943e0dcf4dd385def980d2f00b56b9b25",
+    "eval/capability-claims.yaml": "915aaae7f9eae248ffa4bb8d25dcae94aa1f09537e3008210796826a4cbbf7a4"
   },
   "artifact_files": {
     "android-dev7.log": "f393818470594734774cb22ea4bc0a83f09fb61b167ed7e1c2ba0b24df364351",
@@ -152,6 +164,14 @@
     "verified-tests/Release/TEST-com.agentguard.companion.RelayClientTest.xml": "abfb7c666ed00cae285b82e34dadb2e5cd9447e0f6af9c122d5b0a862eaacf7a",
     "verified-tests/Release/TEST-com.agentguard.companion.RelayResponseTest.xml": "27258c06645ed386efda79147399e2dfe87ac2538b2c4ac966aeb2530d5bc7ab",
     "verified-tests/Release/TEST-com.agentguard.companion.SessionStateTest.xml": "b7a9a71223a6de4fb2c60a6f649d8a2303189abd2475ee657e1de309a275837d",
-    "workspace.log": "d1e2ec60136b74afc6b12a7112a32a0220d2cbef3413fa26116b2ad28a1d8241"
+    "workspace.log": "d1e2ec60136b74afc6b12a7112a32a0220d2cbef3413fa26116b2ad28a1d8241",
+    "workspace-post-docs.log": "e9e64bd1230dc4190d3df569fea03ee28114d02a4046d5afc63b9e3eb002df91",
+    "commit-ci-ubuntu-failed.log": "d44c824938ff85256bab27dfc50e82d32e02ed1fbb1be3763f39ee0950e030ac",
+    "commit-ci-macos-failed.log": "8d131fe92c4962338323876243c7560fa7d99bd6345a00696260fbd9fb0d2b76",
+    "commit-ci-msrv-failed.log": "8e5865a3a30ad9a05078bcfdcec4069891ad1751b9516a2ab32a682d58c17f1f",
+    "commit-ci-windows-failed.log": "7c878cff34e7d3c18d1705b1c039fc6f48248c15fb1f7d2de1a36dc7b808a545",
+    "commit-ci-anchor-snapshot.json": "ff27ff12796a8f32580d677de5e933d8447d0c554752d9d3ad7a04b19b1ea70d",
+    "verification.json": "ea0bd6350d544eda9fcd3cd648ebb6ebfc658f02330a1731c29a4c4201869d1c",
+    "verification-repeat.json": "ea0bd6350d544eda9fcd3cd648ebb6ebfc658f02330a1731c29a4c4201869d1c"
   }
 }

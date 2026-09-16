@@ -33,7 +33,8 @@
 - Android Debug／Release 各 16 套、100 项测试，0 失败、0 跳过；两套 lint 各 0 问题。共享固定向量来自真实 Rust HTTP 响应，Rust 和 Kotlin 分别构造消息并验签；真实本机 HTTP 测试覆盖断连、截断、重定向、篡改和不自动重发。
 - 新 UI 首轮原生检查实际出现“已有成功时间但仍显示不完整”，对应旧截图、偏好及 dev.5 APK 保留。修正监听后 dev.8 连接和错误公钥界面均已截图核对。另保留首次 HTTP 测试工具不兼容、lint、格式化时间断言和 SDK 环境漏配失败；修正后复验，不删除失败样本。
 - 基线 CI [35100402914](https://github.com/gcsagroup/agentguard/actions/runs/35100402914) 为 9 成功、4 失败，四项均为能力矩阵与新增测试数不一致。本批更新生成器以区分 Debug 与正式版本，并重新生成三语矩阵，本地 23 项约束通过；该历史 CI 仍记失败，新提交须独立读回。
-- 独立核对器从原始字节验证手机请求和桌面响应共两个签名，并核对 30 项源码输入、87 项证据、完整测试 XML、状态与通知；七类证据改写均被拒绝。它仅输出 Debug 模拟器范围，不能生成正式通过。入口为 `python3 scripts/acceptance/verify-android-relay-v2.py docs/evidence/android-relay-v2-2026-09-16.json --self-test`。
+- 源码提交 `0e87e18` 的新 CI 随后发现第二处同步遗漏：v2 手册更新后，能力声明注册表仍匹配旧 v1 文案锚点。Ubuntu、macOS、Windows 与 MSRV 日志均确认这一失败；本机最初全仓检查早于最后的手册修改，不能算最终组合通过。现已同步准确锚点，保留 v1 证明并补上 v2 真实 HTTP 回归引用；最终组合另跑完整全仓，1,543 项通过、17 忽略，原 CI 失败保持原样。
+- 独立核对器从原始字节验证手机请求和桌面响应共两个签名，并核对冻结源码、原始证据、完整测试 XML、状态与通知；七类证据改写均被拒绝。它仅输出 Debug 模拟器范围，不能生成正式通过。入口为 `python3 scripts/acceptance/verify-android-relay-v2.py docs/evidence/android-relay-v2-2026-09-16.json --self-test`。
 - 固定 macOS `AgentGuard Local Agent Test.app` 的 Ver 2.1（023）再次只读核对：时间线有日期、秒及 GMT+8；安装文字为“已记录／观察记录”，没有截图中的高风险弹窗；桌面观察回归 8 项通过。本轮未重建、重签或重启该 App，未重新观察原 GitHub PR。详见 [023 记录](native-sqlite-023-2026-09-16.zh.md)。
 
 ## 尚未完成
