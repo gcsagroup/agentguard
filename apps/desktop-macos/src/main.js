@@ -406,7 +406,9 @@ function auditRow(r) {
   const msg = document.createElement("div");
   const rawMessage = r.human_message ?? "";
   const summaryOnly = /^rule=\S+ action=\S+ severity=\S+ detail_omitted=true$/.test(rawMessage);
-  const explanation = { "OVL-007": "lowContrastObservation", "CRIT-005": "installationTextObservation" }[r.rule_id];
+  const explanation = r.action === "LogOnly" && ["OVL-009", "OVL-010"].includes(r.rule_id)
+    ? "viewtreeDifferenceObservation"
+    : { "OVL-007": "lowContrastObservation", "CRIT-005": "installationTextObservation" }[r.rule_id];
   msg.textContent = summaryOnly ? [explanation ? uiText(explanation) : "", uiText("summaryOnly")].filter(Boolean).join(" ") : rawMessage;
 
   const meta = document.createElement("div");

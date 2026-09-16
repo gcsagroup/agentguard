@@ -393,6 +393,7 @@ export const workspaceMessages = {
   summaryOnly: ["原始内容未保存；此记录仅保留风险摘要。", "未儲存原始內容；此記錄僅保留風險摘要。", "Original content was not retained; this record contains only a risk summary."],
   lowContrastObservation: ["低对比度画面线索：灰色文字、阴影等正常界面也可能触发，不能据此确认隐藏文字或攻击。", "低對比度畫面線索：灰色文字、陰影等正常介面也可能觸發，不能據此確認隱藏文字或攻擊。", "Low-contrast visual cue: ordinary gray text and shadows can also trigger this; hidden text or an attack is not confirmed."],
   installationTextObservation: ["页面出现安装相关文字；这条观察记录不证明实际发起了安装。", "頁面出現安裝相關文字；這筆觀察記錄不代表實際發起了安裝。", "Installation-related text appeared on the page; this observation does not establish that an installation was initiated."],
+  viewtreeDifferenceObservation: ["窗口文字与屏幕识别结果存在差异；漏读、遮挡或窗口切换也会造成差异，尚不能确认隐藏指令。", "視窗文字與螢幕辨識結果有差異；漏讀、遮擋或切換視窗也會造成差異，尚無法確認隱藏指令。", "Window text differs from screen recognition. Missed text, occlusion, or window changes can also cause this; hidden instructions are not confirmed."],
   recordsUnavailable: ["记录暂不可读，请查看总览的加密记录提示；这不代表没有历史记录。", "記錄暫時無法讀取，請查看總覽的加密記錄提示；這不代表沒有歷史記錄。", "Records are unavailable. Check encrypted storage in Overview; this does not mean history is empty."],
   technicalDetails: ["查看技术详情", "查看技術詳情", "Technical details"],
   settings: ["防护设置", "防護設定", "Protection settings"],
@@ -523,7 +524,7 @@ export const workspaceMessages = {
   statusFailed: ["暂时无法获取防护状态，已禁用开始与恢复。请刷新后重试。", "暫時無法取得防護狀態，已停用開始與恢復。請重新整理後再試。", "Protection status is unavailable. Start and resume are disabled; refresh to retry."],
   recheckMissing: ["仍未检测到辅助功能权限。核对当前应用；若系统要求，请退出后重新打开。", "仍未偵測到輔助使用權限。請核對目前應用程式；若系統要求，請結束後重新開啟。", "Accessibility is still missing. Check the exact app and relaunch if requested by macOS."],
   recheckReady: ["必需权限已检测到；是否可开始还取决于加密记录和观察器状态。", "已偵測到必要權限；能否開始仍取決於加密記錄與觀察器狀態。", "Required permission detected. Encrypted records and observer readiness are checked separately."],
-  localTest: ["本地验收版 · Ver 2.1 (023)", "本機驗收版 · Ver 2.1 (023)", "Local acceptance build · Ver 2.1 (023)"],
+  localTest: ["本地验收版 · Ver 2.1 (024)", "本機驗收版 · Ver 2.1 (024)", "Local acceptance build · Ver 2.1 (024)"],
   productionBuild: ["正式数据环境", "正式資料環境", "Production data profile"],
 };
 

@@ -828,7 +828,8 @@ impl Engine {
         self.process_with_memory_backend(event, None, false)
     }
 
-    /// 可信桌面宿主的被动观察入口。仅看到文字或纹理，不代表准备执行安装动作。
+    /// 可信桌面宿主的被动观察入口。文字、纹理及 AX/OCR 差异只说明观察到的内容，
+    /// 不能单独证明安装动作或隐藏指令；明确注入和其它独立风险仍参与判决。
     /// 该上下文由调用路径选择，不能通过事件中的自报字段打开。
     pub fn process_desktop_observation(&mut self, event: &GuardEvent) -> Result<Decision> {
         anyhow::ensure!(
@@ -964,40 +965,53 @@ impl Engine {
         let scope_finding = self.check_agent_session_scope(event);
         // 可信持久记忆路径中的正文是保存／读取资料，不是安装动作。
         // 只排除基础安装文字规则；继续走记忆契约、注入检测和后续独立策略。
-        let decision = self.decide_with_memory_backend(
+        let excluded_text_rules: &[&str] = if desktop_observation {
+            &["CRIT-005", "OVL-007", "OVL-009", "OVL-010"]
+        } else if persistent {
+            &["CRIT-005"]
+        } else {
+            &[]
+        };
+        let mut decision = self.decide_with_memory_backend(
             event,
             persistent,
-            persistent.then_some("CRIT-005"),
+            excluded_text_rules,
             desktop_observation,
         )?;
-        // 在合并其它风险、受控规则包和企业策略之前限定基础文字规则的含义。
-        // 不能在最终判决上降级，否则会一并抹去身份冒充、明确注入等独立发现。
-        let decision = if desktop_observation {
-            match decision.rule_id.as_str() {
-                "CRIT-005" => Decision {
-                    action: DecisionAction::LogOnly,
-                    severity: Severity::Info,
-                    rule_id: decision.rule_id,
-                    human_message: "页面包含安装相关文字；仅观察到内容，未确认存在待执行的安装操作"
-                        .into(),
-                    require_confirm: false,
-                },
-                "OVL-007" => Decision {
-                    action: DecisionAction::LogOnly,
-                    severity: Severity::Info,
-                    rule_id: decision.rule_id,
-                    human_message: "观察到低对比度画面纹理；未确认存在隐藏文字或攻击".into(),
-                    require_confirm: false,
-                },
-                _ => decision,
+        // 先匹配独立风险，再补普通观察摘要。不能先选 OVL-010 再降级：它的长标记
+        // 会盖过同帧较短的明确注入／付款文字，导致真正风险也被一起抹去。
+        // AX 是窗口树，OCR 是有损、截断的屏幕文字；差异不证明文字实际不可见。
+        if desktop_observation && decision.rule_id == "ALLOW" {
+            if let Some(rule) = event.metadata.get("ui_text").and_then(|text| {
+                most_specific_rule(
+                    &self.rules.rules,
+                    text,
+                    event.event_type,
+                    &event.platform,
+                    &[],
+                )
+            }) {
+                let message = match rule.id.as_str() {
+                    "CRIT-005" => Some("页面包含安装相关文字；仅观察到内容，未确认存在待执行的安装操作"),
+                    "OVL-007" => Some("观察到低对比度画面纹理；未确认存在隐藏文字或攻击"),
+                    "OVL-009" | "OVL-010" => Some("窗口文字与屏幕识别结果存在差异；漏读、遮挡或窗口切换也会造成差异，未确认存在隐藏指令"),
+                    _ => None,
+                };
+                if let Some(message) = message {
+                    decision = Decision {
+                        action: DecisionAction::LogOnly,
+                        severity: Severity::Info,
+                        rule_id: rule.id.clone(),
+                        human_message: message.into(),
+                        require_confirm: false,
+                    };
+                }
             }
-        } else {
-            decision
-        };
+        }
         let decision = match self.rule_package.as_mut() {
             Some(package) => constrain_with_package(
                 decision,
-                package.decide_with_memory_backend(event, persistent, None, desktop_observation)?,
+                package.decide_with_memory_backend(event, persistent, &[], desktop_observation)?,
             ),
             None => decision,
         };
@@ -1367,14 +1381,14 @@ impl Engine {
     }
 
     fn decide(&mut self, event: &GuardEvent) -> Result<Decision> {
-        self.decide_with_memory_backend(event, false, None, false)
+        self.decide_with_memory_backend(event, false, &[], false)
     }
 
     fn decide_with_memory_backend(
         &mut self,
         event: &GuardEvent,
         persistent: bool,
-        excluded_text_rule: Option<&str>,
+        excluded_text_rules: &[&str],
         desktop_observation: bool,
     ) -> Result<Decision> {
         // Ingest point for untrusted provenance. Done before rule matching
@@ -1707,7 +1721,7 @@ impl Engine {
                     text,
                     event.event_type,
                     &event.platform,
-                    excluded_text_rule,
+                    excluded_text_rules,
                 ) {
                     return Ok(Decision {
                         action: rule.action,
@@ -1752,7 +1766,7 @@ impl Engine {
                 text,
                 event.event_type,
                 &event.platform,
-                excluded_text_rule,
+                excluded_text_rules,
             ) {
                 return Ok(Decision {
                     action: rule.action,
@@ -4613,7 +4627,7 @@ fn most_specific_rule<'a>(
     text: &str,
     event_type: EventType,
     platform: &str,
-    excluded_rule: Option<&str>,
+    excluded_rules: &[&str],
 ) -> Option<&'a guard_schema::Rule> {
     let lowered: Vec<_> = guard_schema::text::matching_views(text)
         .iter()
@@ -4622,7 +4636,7 @@ fn most_specific_rule<'a>(
     let platform = platform.trim().to_lowercase();
     rules
         .iter()
-        .filter(|r| Some(r.id.as_str()) != excluded_rule)
+        .filter(|r| !excluded_rules.contains(&r.id.as_str()))
         .filter(|r| r.event_types.is_empty() || r.event_types.contains(&event_type))
         // `platforms` was declared on 20 rules and **read nowhere**: a reviewer found that
         // `ENV-A5`, `platforms: [android]`, fired on a macOS survey and returned a Critical

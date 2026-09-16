@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Fixed App 024: ordinary browsing false alerts (2026-09-16)
+
+- The original Safari PR reproduced an AX/OCR mismatch alert in 023. Version 024 records these unconfirmed differences as observations and checks explicit risks first. Execution checks, additional rule packages and threat intelligence retain their restrictions. Added trilingual explanations without rewriting historical decisions.
+- The same-path update and restart preserved both permissions. A 65-second observation of the original PR produced no confirmation; an explicit synthetic injection still displayed a prompt and produced a signed denial. Preserved 798 previous audit records and 14 receipts; all 811 records and 15 receipts passed chain and signature verification.
+- Workspace 1,547 and UI 135 checks passed. Two existing startup timeouts occurred in the first desktop run; an isolated run passed 136 tests. The original failures remain and their root cause is not claimed fixed. Previous commit `483c6ad` passed CI 13/13. F13, performance and release gates remain open. See the [024 record](docs/native-pr-observation-024-2026-09-16.zh.md).
+
+
 ### Android Relay v2 and native status refresh (2026-09-16)
 
 - Added a separate desktop response key, explicitly pinned pairing and request-bound response verification. Rejects invalid, expired, replayed, redirected and oversized responses; ended sessions cannot accept late verdicts. Fixed stale connection UI after background success and token redaction in exported acceptance preferences.

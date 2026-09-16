@@ -1,0 +1,191 @@
+{
+  "candidate": "AgentGuard Local Agent Test Ver 2.1 (024)",
+  "source_baseline": "483c6ad19a7ec944fbc470db9a0e9cbce443bbbe",
+  "app_identity": {
+    "path": "apps/desktop-macos/src-tauri/target/debug/bundle/macos/AgentGuard Local Agent Test.app",
+    "bundle_id": "com.agentguard.desktop.macos.localagenttest",
+    "profile": "local-agent-20260910",
+    "signer_sha1": "7C33B517942161311A087CE893D2F1CE9B204B44"
+  },
+  "verification": {
+    "history_rows_preserved": 798,
+    "ordinary_audit_range": [
+      799,
+      806
+    ],
+    "ordinary_duration_ms": 65394,
+    "ordinary_confirmations": 0,
+    "positive_audit_range": [
+      807,
+      811
+    ],
+    "injection_denied_seq": 808,
+    "reopened_rows": 811,
+    "old_signed_receipts_preserved": 14,
+    "negative_cases_rejected": [
+      "history_changed",
+      "ordinary_alert",
+      "missing_screen",
+      "injection_suppressed",
+      "reopen_changed"
+    ],
+    "app_files_unchanged": 91,
+    "passed": true
+  },
+  "tests": {
+    "workspace": {
+      "passed": 1547,
+      "failed": 0,
+      "ignored": 17
+    },
+    "core_observation": 12,
+    "ui": 135,
+    "desktop_initial": {
+      "passed": 134,
+      "failed": 2,
+      "ignored": 11
+    },
+    "desktop_isolated": {
+      "passed": 136,
+      "failed": 0,
+      "ignored": 11
+    },
+    "clippy": "passed",
+    "final_repository_invariants": 23
+  },
+  "limitations": [
+    "本轮原生正常浏览没有再次产生 OVL-010 像素命中；差异标记处理由核心和界面回归覆盖",
+    "OCR 分辨率和准确率未在本批提升，不证明所有隐藏指令均能检测",
+    "审计验证公钥取自本机数据库，非离机见证",
+    "既有合成网关启动超时未关闭",
+    "F13 暂缓、原性能预算和正式发布门槛未通过"
+  ],
+  "previous_ci": {
+    "head": "483c6ad19a7ec944fbc470db9a0e9cbce443bbbe",
+    "run": 35112079534,
+    "conclusion": "success",
+    "jobs": 13
+  },
+  "artifacts": {
+    ".artifacts/native-pr-observation-024-2026-09-16/plan.json": {
+      "sha256": "0375ec85f9b2c0a16eafa0e0d041be7508856215fd5c16ed3512546643819f1f",
+      "bytes": 548
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/app-before.json": {
+      "sha256": "102a49a99ea0d54932c992271569fa238961a428f09f3189a7f6e8ea3425bcfe",
+      "bytes": 16953
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/app-024.json": {
+      "sha256": "c4592ed4b217a2dc46710abfff5d37135fb5fe8667fa409c51a188a0ced0febb",
+      "bytes": 21271
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/setup-before.json": {
+      "sha256": "91f2e579f7f67edfca48b3fb78e4edc7054bf89f688720aa22cabc2d662b6868",
+      "bytes": 4133
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/setup-after.json": {
+      "sha256": "b4baa829f2509f9cc6ca307712090482c33132a952e34f7d337e462fb989d7ef",
+      "bytes": 4133
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/runtime.patch": {
+      "sha256": "b044dfdcfd85b967612dd0c85ac51850c5db7ac52b97da0cbe2fbe7d7500696f",
+      "bytes": 14394
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/audit-before.db": {
+      "sha256": "e911293f3a5bc5296f9e95cc09b058852b59807da6c81ff0a3bf1c0b50c67993",
+      "bytes": 1073152
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/audit-ordinary.db": {
+      "sha256": "a711e1a878026431b5634b1a59694d09b7b0adbde05d9f8ace643b12f792e32f",
+      "bytes": 1081344
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/audit-after.db": {
+      "sha256": "66ad56fc37cf7dffc5ee022c4bb47ab14efae763dbbc9ad2b4b2d9b3bf245a17",
+      "bytes": 1085440
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/audit-reopened.db": {
+      "sha256": "66ad56fc37cf7dffc5ee022c4bb47ab14efae763dbbc9ad2b4b2d9b3bf245a17",
+      "bytes": 1085440
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/audit-verify.log": {
+      "sha256": "8d073ab2f5e02e424e29cda3eacf7b51306d735b68a73e75683065099a5c52fd",
+      "bytes": 615
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/trace-024.jsonl": {
+      "sha256": "220b3cc26932f992a1f7b8bc964e5c3eca5d9b57f218230fbd78f34d6d014915",
+      "bytes": 13448
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/ordinary-session.json": {
+      "sha256": "5213170d36dca1308a9cbce81a2393c82e2278873f73063ce2bb67a3e0fe71ab",
+      "bytes": 1461
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/ui-observations.json": {
+      "sha256": "48f2032642f054695fe54500a9673cf75bbcec7b55890cd04b31ad6b48d96455",
+      "bytes": 809
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/verification.json": {
+      "sha256": "64bf8f675669f58a29e4cd17ec504b2dea890c4a188d637eb80df31f3269be81",
+      "bytes": 493
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/verify-upgrade.py": {
+      "sha256": "142344a73449c28930836aa706e560890131239db9f8a24cd3e131c607935dad",
+      "bytes": 4838
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/build.log": {
+      "sha256": "a18ce1311084afe6e93af3a8430e0aeee7f91b57fed7a47dea5f8949b0dadaa7",
+      "bytes": 3552
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/desktop-tests.log": {
+      "sha256": "190960f58bcb560c98afa87834800787d4a5415c1222197ff1525715697d408e",
+      "bytes": 19357
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/desktop-tests-isolated.log": {
+      "sha256": "d58f856a12212782a2931015907b19bcfa7ee13acf8e1fb78d510170c566febd",
+      "bytes": 17780
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/workspace-tests.log": {
+      "sha256": "bb2da721d090bb2cc11dc751c61daa3953997e647ccf5b21cfcf93662174028b",
+      "bytes": 128053
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/clippy.log": {
+      "sha256": "72a913bd149f72aa5a5e65dafa744dbaedc84c2d2f65377f32baad1a2990d9b2",
+      "bytes": 3256
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/explicit-injection-fixture.txt": {
+      "sha256": "41aa07b7256de809367759ecf8e4467bf137dfc5b91661fbdce2fb6764c5ac1f",
+      "bytes": 142
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/attempt1.json": {
+      "sha256": "fff2011a60be1ddb3fbc845b4e98fa3709544d7a2e5e192cc4b06dafac05b581",
+      "bytes": 992
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/attempt2.json": {
+      "sha256": "1c0d473b2fd383e11f95cf3a8c051cb244880dcf9e629a04e67de5c091aa5582",
+      "bytes": 1030
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/audit-failure-023.db": {
+      "sha256": "e911293f3a5bc5296f9e95cc09b058852b59807da6c81ff0a3bf1c0b50c67993",
+      "bytes": 1073152
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/core-observation-test.log": {
+      "sha256": "d1f0667ee0a4b6bdc047fd197ed309a1017980f93f02eb8509a7523f60e5b232",
+      "bytes": 1460
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/ui-test.log": {
+      "sha256": "42d9c6c6ef111862bc86729bc47ec45aa25aef70fcf17fe2f45b8c75b28bb9f9",
+      "bytes": 1534
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/ui-test-retry.log": {
+      "sha256": "40fd607dc5e621ca60bdeff599baf9c1a224484662aa24c7a9e265ca9a149cf4",
+      "bytes": 6992
+    },
+    ".artifacts/native-pr-observation-023-2026-09-16/workspace-test.log": {
+      "sha256": "30ac4739e0ac6e2836996be293dead0d0637c6c4913ad660054577c05ddc14c2",
+      "bytes": 20672
+    },
+    ".artifacts/native-pr-observation-024-2026-09-16/repo-tests-final.log": {
+      "sha256": "1498f8ff17c9649af80dea2443b5e6bf292cd654af08da816cfc2e0b5701d148",
+      "bytes": 3546
+    }
+  }
+}

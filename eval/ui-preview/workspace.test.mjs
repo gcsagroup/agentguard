@@ -188,13 +188,17 @@ try {
   await page.evaluate(() => { window.__timelineFixture = [
     { timestamp_ms: 1789507307792, action: "Block", rule_id: "CRIT-005", source_app: "Safari", human_message: "rule=CRIT-005 action=Block severity=Critical detail_omitted=true" },
     { timestamp_ms: 1789507307082, action: "Alert", rule_id: "OVL-007", source_app: "ScreenCapture", human_message: "rule=OVL-007 action=Alert severity=Medium detail_omitted=true" },
+    { timestamp_ms: 1789507308000, action: "LogOnly", rule_id: "OVL-010", source_app: "ScreenCapture", human_message: "rule=OVL-010 action=LogOnly severity=Info detail_omitted=true" },
+    { timestamp_ms: 1789507309000, action: "Block", rule_id: "OVL-010", source_app: "ScreenCapture", human_message: "rule=OVL-010 action=Block severity=Critical detail_omitted=true" },
     { timestamp_ms: null, action: "LogOnly", rule_id: "OLD", source_app: "Legacy", human_message: "旧记录缺少时间" },
   ]; });
   await page.click("#btn-refresh");
-  await page.waitForFunction(() => document.querySelectorAll("#timeline time").length === 3);
+  await page.waitForFunction(() => document.querySelectorAll("#timeline time").length === 5);
   check("时间线使用记录发生时间并保留可核对的 UTC 值", await page.locator("#timeline time").first().getAttribute("datetime") === "2026-09-15T21:21:47.792Z" && /2026/.test(await page.locator("#timeline time").first().innerText()));
   check("缺少时间不伪造为当前时间", !await page.locator("#timeline time").last().getAttribute("datetime") && /时间未知/.test(await page.locator("#timeline time").last().innerText()));
   check("安装文字和低对比线索显示证据边界", /不证明实际发起了安装/.test(await page.locator("#timeline").innerText()) && /不能据此确认隐藏文字或攻击/.test(await page.locator("#timeline").innerText()));
+  check("新屏幕差异记录说明不确定性", /漏读、遮挡或窗口切换/.test(await page.locator("#timeline .item").nth(2).innerText()));
+  check("旧屏幕差异阻断记录保持原判决含义", !(await page.locator("#timeline .item").nth(3).innerText()).includes("漏读、遮挡或窗口切换") && (await page.locator("#timeline .item").nth(3).getAttribute("class")).includes("block"));
   await page.setViewportSize({ width: 720, height: 900 });
   check("窄窗口时间线无横向溢出", await page.evaluate(() => document.getElementById("timeline").scrollWidth <= document.getElementById("timeline").clientWidth));
   await page.setViewportSize({ width: 1280, height: 900 });
