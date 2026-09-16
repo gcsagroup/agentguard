@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Full gate and recovery after the database upgrade (2026-09-16)
+
+- All 17 automatic checks passed in the current clean candidate's full GA gate, and CI completed 13/13. Nineteen formal evidence categories remain unconfigured; release is No-Go. See the [gate record](docs/agd-032-release-gate-recheck-2026-09-16.zh.md).
+- The updated SQLite gateway passed four-process recovery and key revocation, 50 complete tasks, 100 cycles and 50 fault checks. Verified 49 execution audit rows, two signed memory audit rows and 17 signature checks. The 30-minute run is unfinished; performance and full M3 acceptance remain open. See the [record](docs/agd-027-sqlite-recovery-2026-09-16.zh.md). All 91 files of fixed App 023 remain unchanged.
+
 ### Full release-gate preparation run (2026-09-16)
 
 - Ran the GA gate on a clean candidate: 15 automatic checks passed, two failed, and 19 evidence categories were unconfigured. Preserved that run. After correcting the tool path and revocation-test synchronization, all three dependency checks, 42 egress tests, and 1,535 workspace tests on actual Rust 1.87 passed (17 ignored). See the [record](docs/agd-032-release-gate-2026-09-16.zh.md). The full gate was not rerun after correction; fixed App 023 and the original performance and release requirements remain unchanged.

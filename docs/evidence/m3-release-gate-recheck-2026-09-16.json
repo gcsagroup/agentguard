@@ -1,0 +1,128 @@
+{
+  "candidate": "de8fe001bb98d8689bfb842cf142416f6a06c834",
+  "mode": "--ga",
+  "exit_code": 1,
+  "automatic_checks": [
+    {
+      "name": "发布候选起点冻结(HEAD + clean)",
+      "result": "PASS"
+    },
+    {
+      "name": "仓库钉住的 Rust + PATH/rustc/cargo 一致",
+      "result": "PASS"
+    },
+    {
+      "name": "格式化 (cargo fmt --check)",
+      "result": "PASS"
+    },
+    {
+      "name": "Lint (clippy -D warnings, 全 target)",
+      "result": "PASS"
+    },
+    {
+      "name": "供应链 (cargo deny: CVE/许可/来源)",
+      "result": "PASS"
+    },
+    {
+      "name": "全 workspace 测试",
+      "result": "PASS"
+    },
+    {
+      "name": "离线评测场景",
+      "result": "PASS"
+    },
+    {
+      "name": "覆盖矩阵(每个场景都被认领)",
+      "result": "PASS"
+    },
+    {
+      "name": "主张↔测试映射(声明都有测试兜底)",
+      "result": "PASS"
+    },
+    {
+      "name": "前端与 shell 脚本能解析",
+      "result": "PASS"
+    },
+    {
+      "name": "浏览器执行前阻断逻辑",
+      "result": "PASS"
+    },
+    {
+      "name": "macOS 专属代码路径能编译",
+      "result": "PASS"
+    },
+    {
+      "name": "macOS 路径判决语义",
+      "result": "PASS"
+    },
+    {
+      "name": "部署自检结论与基线一致",
+      "result": "PASS"
+    },
+    {
+      "name": "MSRV 1.87",
+      "result": "PASS"
+    },
+    {
+      "name": "生产部署自检(零 FAIL,无 baseline)",
+      "result": "PASS"
+    },
+    {
+      "name": "发布候选收尾未漂移(HEAD + clean)",
+      "result": "PASS"
+    }
+  ],
+  "automatic_passed": 17,
+  "automatic_failed": 0,
+  "unverified": [
+    "macOS 代码签名 (Developer ID)",
+    "macOS 公证 + staple",
+    "Windows 代码签名 (Authenticode)",
+    "Android release 签名 (非 debug keystore)",
+    "iOS 发布签名 (Apple Distribution)",
+    "真机端到端验收(macOS)",
+    "真机端到端验收(Android)",
+    "真机端到端验收(iOS Safari Web Extension)",
+    "TestFlight 候选上传/安装/升级",
+    "Chrome 候选 ZIP + 干净 profile 验收",
+    "Edge 候选 ZIP + 干净 profile 验收",
+    "真机端到端验收(Windows 桌面)",
+    "六端交付物 SBOM + 许可证收口",
+    "隐私与商店声明六端对账",
+    "连续 14 天 Beta 稳定观察",
+    "两个不同不可变 RC",
+    "Release/QA/安全/隐私法务/运维五方签字",
+    "六渠道商店/下载 smoke",
+    "5% → 25% → 100% 分阶段扩量"
+  ],
+  "unverified_count": 19,
+  "clean_snapshot_at_start_and_finish": true,
+  "gate_passed": false,
+  "release_ready": false,
+  "elapsed_seconds": 596.4703564168885,
+  "date": "2026-09-16",
+  "artifact_directory": ".artifacts/m3-release-gate-2026-09-16/after-fix",
+  "ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35090234556",
+    "head": "de8fe001bb98d8689bfb842cf142416f6a06c834",
+    "conclusion": "success",
+    "jobs_passed": 13
+  },
+  "previous_gate": {
+    "candidate": "5c771f92a6cb399cdf734b699d13a490ec558449",
+    "automatic_passed": 15,
+    "automatic_failed": 2,
+    "unchanged": true
+  },
+  "app": {
+    "version": "2.1.0-dev.23",
+    "rebuilt": false
+  },
+  "artifacts": {
+    "plan.json": "8ed55c3199a016eb1caaa33b04615f0d72a215204aa7ebc9cafde8dcdd102557",
+    "result.json": "c4751c02bd211d547ba9facfdc61e69a73b06783674ef9114270eddc452c37f5",
+    "gate.log": "94429bc3c6d79a9e89f38e260c333abbabd2af5de1308f3caaceeab6abf22861",
+    "verification.json": "b1a94e738d0d3ba0a6bd21c8604781963c1a36cc9196471a2d96aa5842483121",
+    "ci-final.json": "732e6d689b1e73f4fa20a7f041f3fce4be24448458959ffbc38c7b838ea19c41"
+  }
+}
