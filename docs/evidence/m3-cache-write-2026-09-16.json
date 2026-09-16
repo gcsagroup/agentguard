@@ -1,0 +1,161 @@
+{
+  "date": "2026-09-16",
+  "base_commit": "71f700b1d10ef2f775d1c733b2f7f307b65f1735",
+  "scope": "同一诊断 CLI 的合成缓存写页对照，不替代原性能验收",
+  "artifact_directory": ".artifacts/m3-cache-write-2026-09-16",
+  "evidence_verified": true,
+  "formal_acceptance": false,
+  "product_change_adopted": false,
+  "app_rebuilt": false,
+  "negative_cases_rejected": 4,
+  "tests_passed": 5,
+  "results": {
+    "evidence_verified": true,
+    "formal_acceptance": false,
+    "measured_reads": 400,
+    "warmup_reads": 20,
+    "audit_records": 1684,
+    "baseline_p95_mean_ms": 12.46489600000001,
+    "cache_optimization_worth_followup": true,
+    "product_change_adopted": false,
+    "rounds": [
+      {
+        "round": 1,
+        "records_verified": 421,
+        "spawn_to_main_ms": 7.67904200000001,
+        "main_to_ready_ms": 84.514583,
+        "commit_fraction": 0.9156655355441456,
+        "sql_mean_ms": 0.15270004,
+        "two_commits_p95_ms": 13.906542000000002,
+        "request_p95_ms": 14.938792000000035,
+        "variant": "baseline",
+        "cache_count": 315,
+        "ordinary_request_count": 97,
+        "median_wal_frames": 28,
+        "mean_wal_frames": 28.61855670103093,
+        "checkpoint_or_recycle_observed": 3,
+        "audit_sha256": "a77b11a92fa9fe035dcbebf7f2e26855bc0c42778518d7d392f8a3df82e80c1e"
+      },
+      {
+        "round": 2,
+        "records_verified": 421,
+        "spawn_to_main_ms": 4.000166999999919,
+        "main_to_ready_ms": 28.657042,
+        "commit_fraction": 0.9135078272353241,
+        "sql_mean_ms": 0.15125381,
+        "two_commits_p95_ms": 8.524000000000001,
+        "request_p95_ms": 9.262667000000192,
+        "variant": "skip_cache_update",
+        "cache_count": 0,
+        "ordinary_request_count": 97,
+        "median_wal_frames": 26,
+        "mean_wal_frames": 26.22680412371134,
+        "checkpoint_or_recycle_observed": 3,
+        "audit_sha256": "e199f73655a16795b04b7f59c1c416a353892159a056cc8b30795c3a87fcaebf"
+      },
+      {
+        "round": 3,
+        "records_verified": 421,
+        "spawn_to_main_ms": 3.970874999999978,
+        "main_to_ready_ms": 28.020291,
+        "commit_fraction": 0.9137702127232641,
+        "sql_mean_ms": 0.15204326,
+        "two_commits_p95_ms": 9.144374,
+        "request_p95_ms": 9.891333000000031,
+        "variant": "skip_cache_update",
+        "cache_count": 0,
+        "ordinary_request_count": 97,
+        "median_wal_frames": 25,
+        "mean_wal_frames": 26.412371134020617,
+        "checkpoint_or_recycle_observed": 3,
+        "audit_sha256": "af202296b83c751aa8edc59056ea74114c006d79adbb5712c477ef399c127b09"
+      },
+      {
+        "round": 4,
+        "records_verified": 421,
+        "spawn_to_main_ms": 4.010667000000012,
+        "main_to_ready_ms": 30.950292,
+        "commit_fraction": 0.9188465082373615,
+        "sql_mean_ms": 0.14034381,
+        "two_commits_p95_ms": 9.323001,
+        "request_p95_ms": 9.990999999999985,
+        "variant": "baseline",
+        "cache_count": 315,
+        "ordinary_request_count": 96,
+        "median_wal_frames": 28.0,
+        "mean_wal_frames": 28.552083333333332,
+        "checkpoint_or_recycle_observed": 4,
+        "audit_sha256": "28a14ee83680eabf4fbd62855d10a641686a40cfe83e5c20a19f4992d1d2c379"
+      }
+    ]
+  },
+  "limits": [
+    "两侧基线 p95 从 14.94ms 降到 9.99ms，存在时间相关波动，未证明长期稳定改善",
+    "暂停缓存更新会让兼容字段的数值停留为零，此实验数据库不能作为产品候选",
+    "每轮 100 次计时、5 次预热，非原 30 次性能验收；未改变原预算或未通过记录",
+    "仅核对旧原生证据和原 App 文件，本轮没有重新操作原生界面",
+    "诊断 CLI 未配置签名者，实际签名字段为空；只核对哈希链，运行器注释误称签名事件，以实际字段为准。"
+  ],
+  "artifacts": [
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/plan.json",
+      "sha256": "8e63e66e48e34153bfd97776161344299d0d7138d342ada5a1dcb486c2aa7d49"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/run.mjs",
+      "sha256": "db93d2d254528ab39d614334af7c18863894df60c69cdfa334a67733118c7eee"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/result.json",
+      "sha256": "ee724579ce66ee0a19722badfd7237c250927a6f9e7f4eeb3a70d7027de06e64"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/verify.py",
+      "sha256": "188b2c75bff181458a2832751f90d38344d8ba28da1a058efa4bf05c5d501983"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/test-verifier.py",
+      "sha256": "0f4228cbcbc0cc34a82d1e8e793d1d7868217b0996e0580a8eb403065c094517"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/verification.json",
+      "sha256": "11be9d787719f9e56de5c992d982f0a18314f4f58df2918b04e11c5a4facbbf9"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/verifier-tests-initial.log",
+      "sha256": "8907d6e4ed51486f5263702d29fc84bb31a184c628a6104ef82196eeb705a85a"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/verifier-tests.log",
+      "sha256": "f3ee3e69e2104a3733264a51c0382a05a063879b25ac05da0bc818b87d4b07a7"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/repository-tests.log",
+      "sha256": "744f81deb3577b7d2ae6e4e1aefa3a2a99b1fbee14379a2244e3a8e6ac4f9ea7"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/app-verification.log",
+      "sha256": "18ec27478b5681d48649f0c9a50d0c34f20b76ea262a693167202b0e39613acd"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/ci-snapshot.json",
+      "sha256": "e0bb02e1a8ce723394f795a998e0b925f10e97cdea3c0b029f7c8202ec3011ad"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/timing-1/audit.db",
+      "sha256": "a77b11a92fa9fe035dcbebf7f2e26855bc0c42778518d7d392f8a3df82e80c1e"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/timing-2/audit.db",
+      "sha256": "e199f73655a16795b04b7f59c1c416a353892159a056cc8b30795c3a87fcaebf"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/timing-3/audit.db",
+      "sha256": "af202296b83c751aa8edc59056ea74114c006d79adbb5712c477ef399c127b09"
+    },
+    {
+      "path": ".artifacts/m3-cache-write-2026-09-16/timing-4/audit.db",
+      "sha256": "28a14ee83680eabf4fbd62855d10a641686a40cfe83e5c20a19f4992d1d2c379"
+    }
+  ]
+}

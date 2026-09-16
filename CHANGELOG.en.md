@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-027 session-cache write comparison (2026-09-16)
+
+- Verified 420 reads and 1,684 audit records across four diagnostic rounds; four negative cases were rejected. Fewer cache writes showed a possible benefit, but baseline variability prevents a stable performance conclusion. The compatibility-breaking experiment was not adopted; see the [record](docs/agd-027-cache-write-2026-09-16.zh.md).
+- Five verifier tests and 23 repository checks passed; all 91 files of fixed App 022 remain unchanged. This synthetic experiment changes no product behavior, durability requirement, performance budget, or release status.
+
 ### AGD-027 streamed container events and EOF fixture (2026-09-16)
 
 - Both diagnostic runs returned correct content for 630 reads; 210 isolated requests matched complete container lifecycles, with four negative cases rejected. The earlier isolated tail was not reproduced and native latency still misses the budget; this is not formal acceptance. See the [record](docs/agd-027-container-phases-2026-09-16.zh.md).
