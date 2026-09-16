@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Android development acceptance boundary (2026-09-16)
+
+- Default invocations cannot treat Debug relay checks as release acceptance. Development results have a separate marker; formal A1–A4 remain BLOCKED. Preserved previous evidence and existing reverse mappings, and corrected macOS millisecond timestamps and the target SDK 36 check.
+- Both variants passed 91 tests and lint; old/new shell checks used device stubs. No real device operation, App rebuild or Release relay enablement. See the [record](docs/agd-032-android-acceptance-scope-2026-09-16.zh.md).
+
 ### Startup size diagnosis and local Android preparation (2026-09-16)
 
 - Removing 19.64% of an organizationally signed CLI did not meet the original startup budget: first handshakes were 587.520 ms for the trimmed file and 789.719 ms for the original. Verified four reads, 32 unsigned audit rows and seven counterexamples. Corrected the earlier verifier's signature-field check and independently rechecked 72 historical rows; see the [diagnosis](docs/agd-027-startup-size-2026-09-16.zh.md).

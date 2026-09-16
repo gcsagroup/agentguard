@@ -122,3 +122,8 @@ dependencies {
     testImplementation("androidx.compose.ui:ui-test-junit4:1.6.8")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.8")
 }
+
+// AndroidE2EContractTest 实际执行此脚本；脚本变化后不能复用旧测试结果。
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    inputs.file(rootProject.file("../../scripts/acceptance/android-e2e.sh"))
+}

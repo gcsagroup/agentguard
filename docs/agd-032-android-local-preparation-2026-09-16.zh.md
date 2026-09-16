@@ -31,3 +31,5 @@
 本机未发现 Developer ID Application 身份；iOS 设备查询工具未返回，停止本次查询后只能记录设备状态未知，不能推断没有 iOS 设备。当前缺少的签名、真机和其他 19 类发布材料仍按[完整门禁记录](agd-032-release-gate-recheck-2026-09-16.zh.md)分别验收。
 
 原始计划、保留包、日志和核对器位于 `.artifacts/android-local-preparation-2026-09-16/`；公开摘要见[证据索引](evidence/android-local-preparation-2026-09-16.json)。AGD-027 的性能失败、F13 暂缓和 28／1／1／2 任务计数保持，不能将本地构建结果升级为完整计划或发布通过。
+
+同日后续核对：除上述签名失败外，Release 关闭未认证的中继响应，原正式 A1–A4 还存在独立代码前提。旧脚本的 Debug 结果标识及证据保护已修正，见[开发与正式验收边界](agd-032-android-acceptance-scope-2026-09-16.zh.md)；本批原构建结果和报告保持。

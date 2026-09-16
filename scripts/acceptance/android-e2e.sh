@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Android 伴生应用真机 E2E(docs/acceptance-runbook.md §5,A1–A4 + 报告 P0-3 / P1-6)。
+# Android Debug 中继开发复验(docs/acceptance-runbook.md §5,A1–A4 + P0-3 / P1-6)。
 #
 # # 这是什么
 #
 # 一条 adb 驱动的验收流程,把 runbook 里"人照着做"的步骤变成机器判据:每一步打 PASS / FAIL /
-# BLOCKED(原因),证据落 evidence/android/,最后一行是机器可读的
-#   AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED  device=<real|emulator>
+# BLOCKED(原因),证据写入本次新目录,开发结果标识为
+#   AGENTGUARD_ANDROID_RELAY_DEV=PASS|FAIL|BLOCKED device=<real|emulator>
+# Release 关闭尚未认证响应的 Relay v1,因此正式验收始终另报
+#   AGENTGUARD_ANDROID_E2E=BLOCKED scope=release
 #
 # 它**不是**验收报告本身:报告(docs/acceptance-report-template.md)仍由人填、由
-# `guard-cli manual-acceptance android …` 校验。这个脚本产出的是报告要引用的那些证据文件,
-# 以及"别把 BLOCKED 写成 PASS"的那道机器闸。
+# `guard-cli manual-acceptance android …` 校验。开发结果不能填成正式 PASS (native),
+# 原正式 A1–A4 要求保持,须先补齐响应认证及正式候选验收。
 #
 # # 人必须做的三件事(脚本会在该停的地方停下等你)
 #
@@ -32,10 +34,10 @@
 #       Android 15/16 的通知与无障碍限制下发生的;API < 35 的设备只能 BLOCKED,不能拿 API 34 的
 #       通过冒充 15/16 的通过。安装的 APK 的 targetSdk 从 dumpsys 读,不信源码。
 #
-# 模拟器上也能跑,但最后一行会标 device=emulator —— runbook 要求真机,那种结果只能记 PASS (sim)。
+# 模拟器上也能跑,开发结果会标 device=emulator；两种设备都不能据此取得正式验收通过。
 #
 # 用法:
-#   scripts/acceptance/android-e2e.sh [--serial S] [--apk path] [--evidence dir] [--skip-build] [--timeout-s N]
+#   scripts/acceptance/android-e2e.sh --development-relay --evidence 新目录 [--serial S] [--apk path] [--skip-build] [--timeout-s N]
 #   AGENTGUARD_ANDROID_PUBKEY=04… 可跳过第 1 步的交互。
 set -uo pipefail
 
@@ -47,23 +49,41 @@ API_PORT=8788
 FIX_PORT=8790
 SERIAL="${ANDROID_SERIAL:-}"
 APK="$REPO/apps/android-companion/app/build/outputs/apk/debug/app-debug.apk"
-EVIDENCE="$REPO/evidence/android"
+EVIDENCE=""
+DEVELOPMENT_RELAY=0
 SKIP_BUILD=0
 TIMEOUT_S=180
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --development-relay) DEVELOPMENT_RELAY=1; shift ;;
     --serial) SERIAL="$2"; shift 2 ;;
     --apk) APK="$2"; shift 2 ;;
     --evidence) EVIDENCE="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --timeout-s) TIMEOUT_S="$2"; shift 2 ;;
-    -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,/^set -uo pipefail/{ /^set -uo pipefail/d; p; }' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
 
-mkdir -p "$EVIDENCE"
+# 在 adb 查询、安装和任何旧证据写入前明确开发范围。
+if [ "$DEVELOPMENT_RELAY" -ne 1 ]; then
+  echo "Release 尚未提供经认证的中继响应；正式 A1–A4 未通过。" >&2
+  echo "仅复验开发中继时，显式传入 --development-relay --evidence 新目录。" >&2
+  echo "AGENTGUARD_ANDROID_E2E=BLOCKED scope=release reason=unauthenticated-relay-v1"
+  exit 2
+fi
+if [ -z "$EVIDENCE" ]; then
+  echo "请用 --evidence 指定本轮新目录；不能复用旧记录。" >&2
+  exit 2
+fi
+umask 077
+mkdir -p "$(dirname "$EVIDENCE")" || exit 2
+if ! mkdir "$EVIDENCE"; then
+  echo "证据目录已存在或不可创建，原记录保持：$EVIDENCE" >&2
+  exit 2
+fi
 RESULTS="$EVIDENCE/e2e-results.tsv"
 : > "$RESULTS"
 FAILS=0; BLOCKS=0
@@ -78,14 +98,17 @@ finish() {
   [ "$FAILS" -gt 0 ] && marker="FAIL"
   echo
   echo "results: $RESULTS  (evidence in $EVIDENCE)"
-  echo "AGENTGUARD_ANDROID_E2E=$marker device=${DEVICE_KIND:-unknown}"
+  echo "AGENTGUARD_ANDROID_RELAY_DEV=$marker device=${DEVICE_KIND:-unknown}"
+  echo "AGENTGUARD_ANDROID_E2E=BLOCKED scope=release reason=unauthenticated-relay-v1"
   [ "$marker" = "PASS" ]
 }
 cleanup() {
   [ -n "${API_PID:-}" ] && kill "$API_PID" 2>/dev/null
   [ -n "${FIX_PID:-}" ] && kill "$FIX_PID" 2>/dev/null
-  if [ -n "${ADB:-}" ]; then
+  if [ "${API_REVERSE_CREATED:-0}" -eq 1 ]; then
     "${ADB[@]}" reverse --remove tcp:$API_PORT >/dev/null 2>&1 || true
+  fi
+  if [ "${FIX_REVERSE_CREATED:-0}" -eq 1 ]; then
     "${ADB[@]}" reverse --remove tcp:$FIX_PORT >/dev/null 2>&1 || true
   fi
 }
@@ -184,8 +207,14 @@ else
 fi
 
 echo "== 3. 桌面 API + adb reverse + 固件服务器"
+if ! "${ADB[@]}" reverse --list > "$EVIDENCE/reverse-before.txt"; then
+  record A2c FAIL "cannot inspect existing adb reverse mappings"; finish; exit 1
+fi
+if awk '$2=="tcp:8788" || $2=="tcp:8790" { found=1 } END { exit !found }' "$EVIDENCE/reverse-before.txt"; then
+  record A2c "BLOCKED(existing reverse mapping)" "ports 8788/8790 already mapped; preserve existing mappings"; finish; exit 1
+fi
 TOKEN=$("$GUARD_CLI" api-token)
-AUDIT_DB="$EVIDENCE/audit-e2e.db"; rm -f "$AUDIT_DB"
+AUDIT_DB="$EVIDENCE/audit-e2e.db"
 API_ARGS=(api-serve --bind "127.0.0.1:$API_PORT" --audit-db "$AUDIT_DB" --token "$TOKEN" --rules "$REPO/crates/guard-schema/rules/p0_rules.yaml")
 [ -f "$REGISTRY" ] && API_ARGS+=(--adapter-registry "$REGISTRY")
 (cd "$REPO" && "$GUARD_CLI" "${API_ARGS[@]}" > "$EVIDENCE/api-serve.log" 2>&1) &
@@ -197,7 +226,8 @@ if api /v1/status | grep -q '"rules_loaded"'; then
 else
   record A2b FAIL "api-serve did not come up: $(tail -3 "$EVIDENCE/api-serve.log" | tr '\n' ' ')"; finish; exit 1
 fi
-"${ADB[@]}" reverse tcp:$API_PORT tcp:$API_PORT >/dev/null && "${ADB[@]}" reverse tcp:$FIX_PORT tcp:$FIX_PORT >/dev/null \
+"${ADB[@]}" reverse tcp:$API_PORT tcp:$API_PORT >/dev/null && API_REVERSE_CREATED=1 \
+  && "${ADB[@]}" reverse tcp:$FIX_PORT tcp:$FIX_PORT >/dev/null && FIX_REVERSE_CREATED=1 \
   && record A2c PASS "adb reverse $API_PORT/$FIX_PORT" || record A2c FAIL "adb reverse failed"
 (cd "$REPO/eval/acceptance-fixtures" && python3 -m http.server "$FIX_PORT" --bind 127.0.0.1 > "$EVIDENCE/fixture-server.log" 2>&1) &
 FIX_PID=$!
@@ -235,7 +265,7 @@ else
 fi
 
 echo "== 5. 触发一个有明确预期的无障碍事件(A3)→ 桌面判决 → 回到设备(A4)"
-T0=$(date +%s%3N)
+T0=$(python3 -c 'import time; print(time.time_ns() // 1000000)')
 "${ADB[@]}" shell am start -a android.intent.action.VIEW -d "http://127.0.0.1:$FIX_PORT/payment-cta.html" >/dev/null 2>&1
 deadline=$(( $(date +%s) + 45 ))
 RULE=""
@@ -354,8 +384,8 @@ A1_TO_L_OK=1
 grep -E "^(A1[a-e]|A2|A3|A4|L)\s" "$RESULTS" | awk '{print $2}' | grep -qv '^PASS' && A1_TO_L_OK=0
 if [ -z "$TARGET_SDK" ]; then
   record T "BLOCKED(targetSdk unreadable)" "dumpsys package did not report targetSdk"
-elif [ "$TARGET_SDK" -lt 35 ]; then
-  record T FAIL "installed APK targets API $TARGET_SDK (< 35): Play requires 35+/36 and current edge-to-edge / background behaviour was never exercised"
+elif [ "$TARGET_SDK" -lt 36 ]; then
+  record T FAIL "installed APK targets API $TARGET_SDK (< 36): it does not match the current candidate requirement"
 elif [ "$SDK" -lt 35 ]; then
   record T "BLOCKED(device API $SDK < 35)" "targetSdk=$TARGET_SDK but the device runs API $SDK: Android 15/16 behaviour (edge-to-edge, notification and a11y limits) not exercised — rerun on an API 35+ device"
 elif [ "$A1_TO_L_OK" -eq 1 ]; then

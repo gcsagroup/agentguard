@@ -172,6 +172,8 @@ with six checks (see the Windows W8 note); only a printed `AGENTGUARD_ACCEPTANCE
 
 ## 5. Platform D: Android Companion
 
+**Release acceptance is currently blocked:** Release disables Relay v1 because its responses are unauthenticated. The original A1–A4 requirements below remain unmet. Signing materials and a physical device alone cannot resolve this code prerequisite: response authentication and replay protection need independent acceptance. Do not substitute Debug results or remove the requirements.
+
 Follow the [Android companion README](../apps/android-companion/README.en.md) to build and install the candidate.
 On a real device, enable notifications and the AccessibilityService, then connect to the desktop local API with
 `adb reverse tcp:8788 tcp:8788`. Register the P-256 public key shown by the device in
@@ -183,10 +185,9 @@ body envelope with the registered public key, the engine returned the expected v
 the corresponding risk result. A debug build, JVM unit test, relay with an unregistered key, or offline-only JSON
 replay does not replace this real-device E2E. Record `BLOCKED (specific reason)` if any link cannot be determined.
 
-**Follow the script:** `scripts/acceptance/android-e2e.sh` (needs adb + an authorized real device + python3) turns the
-paragraph above into machine criteria — it installs the APK, grants the notification permission, enables the
+**Development recheck only:** Run `scripts/acceptance/android-e2e.sh --development-relay --evidence .artifacts/android-relay-dev-new-id` with adb, a designated test device and python3. The evidence directory must not exist. A default invocation reports blocked release acceptance before operating a device. The development flow installs the APK, grants the notification permission, enables the
 accessibility service, sets up `adb reverse`, starts the desktop API with a one-off token, writes the P-256 public key you
-paste from the app into `evidence/android/adapter-registry.yaml`, opens the payment fixture page in the phone browser and
+paste from the app into `adapter-registry.yaml` in the new evidence directory, opens the payment fixture page in the phone browser and
 then checks: A1 (install / permissions / ordinary ongoing session notification id 1001), A2 (desktop `/v1/status`
 `adapter_ingress.verified` increases and `rejected` does not — `/v1/events` now writes each body's signature outcome into
 the response, the status snapshot and stderr; previously A2 had no readable desktop-side evidence at all), A3 (a
@@ -195,14 +196,11 @@ engine notification id 1005 is present), L (after `am crash` and an explicit app
 `session_requested` is false, the old session notification is not restored, accessibility stays enabled, and the user
 must explicitly start a new session — report P0-3), S (no plaintext `relay_token` in prefs,
 `relay_token_enc` present; `files/events` ≤ 50 MiB — report P1-6), T (targetSdk 36 behaviour regression — report P2-2:
-the installed APK's targetSdk is read from the device's `dumpsys package`; PASS only on a device running API 35+ with A1–A4
+the installed APK's targetSdk is read from the device's `dumpsys package` and must be at least 36; development checks pass only on a device running API 35+ with A1–A4
 and L all passing; a device below API 35 can only be BLOCKED — a pass on Android 14 must not impersonate one on 15/16).
-Every step prints PASS / FAIL / BLOCKED(reason),
-evidence lands in `evidence/android/`, and the last line is `AGENTGUARD_ANDROID_E2E=PASS|FAIL|BLOCKED device=real|emulator` —
-`device=emulator` can only ever be recorded as `PASS (sim)`. Only three things need a human: pasting the public key,
+Every step prints PASS / FAIL / BLOCKED(reason). Development results use `AGENTGUARD_ANDROID_RELAY_DEV=PASS|FAIL|BLOCKED device=real|emulator`, preserving the physical-device/emulator distinction. The final line always reports `AGENTGUARD_ANDROID_E2E=BLOCKED scope=release`; a development PASS cannot become a release `PASS (native)`. Existing evidence and reverse mappings are preserved. Only three things need a human: pasting the public key,
 entering URL + token in the app and enabling forwarding, tapping "Start guard session" (private key and token live in the
-Keystore; adb cannot reach them by design). The script's verdicts still have to be transcribed into the report template —
-`manual-acceptance android` reads only that report.
+Keystore; adb cannot reach them by design). `manual-acceptance android` still checks the formal report. Current development records can support development results or explain a release BLOCKED status only.
 
 ---
 
