@@ -1,0 +1,88 @@
+{
+  "verified": true,
+  "scope": "真实前台合成窗口主线程卡顿后自动恢复",
+  "audit_range": [
+    757,
+    774
+  ],
+  "audit_rows": 18,
+  "fixture_audit_seqs": [
+    767,
+    768,
+    771,
+    773
+  ],
+  "pause_ms": 45002,
+  "degraded_after_ms": 327,
+  "ax_resumed_after_ms": 1010,
+  "active_after_ms": 1012,
+  "degraded_state_samples": 58,
+  "screen_ticks_while_degraded": 29,
+  "confirmation_count": 0,
+  "session_starts": 1,
+  "session_ends": 1,
+  "input_sha256": {
+    "fixture-events.jsonl": "422d51b3ce8d3527c3dbbc6bf005196a473c3303c27b5cffa536fbed6742719e",
+    "trace-022.jsonl": "e245464ef3240b11d3d8c6555c1d2e9325aa8b9f5d636c7800668203a89c1cc7",
+    "audit-after.db": "c607f2c3a61685b6770ce6896f9921e0c2c811ec645cb25d762bd4380191c009",
+    "plan.json": "ce6f7b4b96ef3a9cd3b59b3e0f5b839e33d4d2f4ba38582568fb20c6ce1f19e7"
+  },
+  "date": "2026-09-16",
+  "candidate": "Ver 2.1 (022)",
+  "product_rebuilt": false,
+  "app_files_identical": 91,
+  "permissions_during_fault_and_after_restart": {
+    "accessibility": true,
+    "screen_recording": true,
+    "evidence": "Computer Use 原生界面观察，不是 trace 字段"
+  },
+  "audit_integrity": {
+    "records": 774,
+    "historical_receipts": 13,
+    "chains_verified": true,
+    "signatures_verified": true,
+    "public_key": "embedded_in_database_only"
+  },
+  "tests": {
+    "observer_lifecycle": 13,
+    "capability_claims": 1,
+    "repository_invariants": 23,
+    "negative_reports_rejected": 7,
+    "negative_initial_rejected": 6,
+    "negative_initial_total": 7
+  },
+  "restored": {
+    "app_files_identical": 91,
+    "trace_environment_restored": true,
+    "ui_permissions_after_normal_restart": "两项已授权",
+    "ui_state_after_normal_restart": "未在守护",
+    "fixture_exited_and_recoverably_archived": true,
+    "recovered_app_pid_observed": "19302",
+    "session_started_app_pid": "19302"
+  },
+  "limitations": [
+    "只覆盖原生桥已返回的真实目标窗口快照超时",
+    "未覆盖永久不返回的系统调用、F13 或任意网页完整 AX 树",
+    "单次恢复时延不是性能分位数",
+    "AGD-027 性能及完整计划仍未通过"
+  ],
+  "base_ci": {
+    "run": 35066567737,
+    "passed": 13,
+    "total": 13
+  },
+  "evidence_sha256": {
+    "fixture-source.m": "7a4361f68a4299c922f16c8b82be0b39c75eb4e0e89e1f748c61268d5c6cd0ee",
+    "fixture-and-ui.json": "92087eb516885e9cc6a5fb1934ca0961c1834f188a5a0cbdb50a5b265d8e242f",
+    "app-before.json": "8c54c91bf2cf278c7cfca1f4af9ec3a41c2e137ae48c703e0469d893af6f5123",
+    "app-after.json": "8c54c91bf2cf278c7cfca1f4af9ec3a41c2e137ae48c703e0469d893af6f5123",
+    "fixture-archive.json": "08906684407d9bddb534c7a04b769baf21309f4e6dbfc16143308fce5802cfc5",
+    "audit-verify.log": "17c592c0dd491aeb08315c71b63bbdd1a9e06aec69a11d9f4173f20bde7ee374",
+    "verifier-negative-initial.json": "a37d58accff71c03fe56ecf7eb371c197d0ae112de209d83911b38bc5775a582",
+    "verifier-negative-tests.json": "079a69c08e9ce3bb3f8f7757143f71c1bb469541a9d6a39afa78fc1b7d8d9a1f",
+    "observer-tests.log": "049b08e12f81100d972413864f46842245facbf82de47658af7bf390bfdbd8de",
+    "repo-tests.log": "4a07a774bfefb3ec21db5231e89344d92dc28cdabfd48e614dbd5d784b7b849a",
+    "repository-tests.log": "dc4a0d4e8abed4ed2222f4c171bef5ad085339c6f0865efee88397b33c75f956",
+    "repository-tests-final.log": "113a0ee1ed3afc286694d5154aa55f7610040e01c4b86514658b36436515c6b0"
+  }
+}

@@ -6,6 +6,11 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Fixed App 022: recovery from a real unresponsive window (2026-09-16)
+
+- Paused a synthetic foreground window's main thread for 45 seconds. Both permissions remained granted, observation stayed degraded, and the same session read the recovered window and became active about one second later. See the [native record](docs/native-ax-recovery-022-2026-09-16.zh.md).
+- Added a fixture and independent verifier for 18 session audit records. Passed 13 lifecycle, 1 capability, 23 repository checks and seven negative cases. All 91 product files are unchanged; the fixture was recoverably archived. This covers returned native snapshot timeouts only; performance, F13 and release gates remain open.
+
 ### AGD-027 current-candidate performance diagnostics (2026-09-16)
 
 - Four development/optimized-build runs retained the original samples and budgets; each passed 4/6. Startup before main and durable-commit time were measured separately without weakening synchronization. See the [record](docs/agd-027-current-performance-2026-09-16.zh.md).
