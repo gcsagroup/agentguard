@@ -6,6 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Android observation false positives and CI race (2026-09-17)
+
+- Ignore unsubscribed events before scheduling a background survey. Waiting for the actual queue reproduces the original failure reliably; the original CI result of 12 successful jobs and one failure, and failing regressions, are preserved.
+- Native checking also found that the `Install` substring matched ordinary word forms such as `Uninstall`. English word boundaries now prevent those matches while retaining explicit installation and injection detection. On the same API 26 emulator, dev.10 produced no new installation risk during ordinary home-screen observation and stopped correctly. Previous risk records remain intact.
+- Debug and Release each passed 101 tests and lint. Upgraded the same APK path; all 91 files of fixed macOS App 024 are unchanged. Updated all three capability matrices. Formal Release and physical-device requirements remain open; see the [fix record](docs/android-observation-2026-09-17.zh.md).
+
+
 ### Build 024 gates and startup diagnosis (2026-09-16)
 
 - Build 024 source CI passed 13/13. The complete GA gate initially passed 16 checks and failed one: two generated relay capability reports were stale and have now been regenerated. All 19 formal evidence categories remain missing; the initial failure is preserved in the [gate record](docs/agd-032-release-gate-recheck-2026-09-16.zh.md).

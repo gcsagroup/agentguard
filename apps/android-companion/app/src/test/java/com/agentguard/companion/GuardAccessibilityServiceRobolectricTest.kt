@@ -2,6 +2,8 @@ package com.agentguard.companion
 
 import android.view.accessibility.AccessibilityEvent
 import androidx.test.core.app.ApplicationProvider
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -49,8 +51,9 @@ class GuardAccessibilityServiceRobolectricTest {
     fun setUp() {
         // 每条测试从干净状态开始:事件日志与上一条风险都清掉,会话默认**关**。
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-        EnvelopeSink.clearAll(ctx)
         SessionState.stop(ctx)
+        awaitEnvironmentTasks()
+        EnvelopeSink.clearAll(ctx)
         service = Robolectric.setupService(GuardAccessibilityService::class.java)
     }
 
@@ -58,6 +61,7 @@ class GuardAccessibilityServiceRobolectricTest {
     fun tearDown() {
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         SessionState.stop(ctx)
+        awaitEnvironmentTasks()
         EnvelopeSink.clearAll(ctx)
     }
 
@@ -145,6 +149,7 @@ class GuardAccessibilityServiceRobolectricTest {
         val click = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_VIEW_CLICKED)
         click.packageName = "com.example.shop"
         service.onAccessibilityEvent(click)
+        awaitEnvironmentTasks()
 
         assertNull("点击事件不该产生信封", EnvelopeSink.lastEnvelopePath(ctx))
     }
@@ -238,6 +243,7 @@ class GuardAccessibilityServiceRobolectricTest {
         repeat(3) { i ->
             service.onAccessibilityEvent(textChanged(pkg = "com.example.shop", label = "email", typed = "a@b.c$i"))
         }
+        awaitEnvironmentTasks()
         val path = EnvelopeSink.lastEnvelopePath(ctx)
         assertNotNull(path)
         val lines = java.io.File(path!!).readLines().filter { it.isNotBlank() }
@@ -259,6 +265,14 @@ class GuardAccessibilityServiceRobolectricTest {
     }
 
     // ---------------------------------------------------------------- 事件构造
+
+    private fun awaitEnvironmentTasks() {
+        // 等待此前真正提交的扫描完成；不能在后台尚未落盘时把空记录判为通过。
+        val field = GuardAccessibilityService::class.java.getDeclaredField("scanExecutor")
+        field.isAccessible = true
+        val executor = field.get(null) as ExecutorService
+        executor.submit {}.get(2, TimeUnit.SECONDS)
+    }
 
     private fun connect(target: GuardAccessibilityService) {
         GuardAccessibilityService::class.java.getDeclaredMethod("onServiceConnected").run {

@@ -40,7 +40,8 @@ object LocalRiskScanner {
             Hit("CRIT-004", "high", "Broad message send detected"),
         ),
         Rule(
-            Regex("Install|安装|Allow this app", RegexOption.IGNORE_CASE),
+            // 安装操作词不能命中 Uninstall、Installed 或 Installer 等其它词形。
+            Regex("\\bInstall\\b|安装|Allow this app", RegexOption.IGNORE_CASE),
             Hit("CRIT-005", "critical", "Software installation detected"),
         ),
         Rule(

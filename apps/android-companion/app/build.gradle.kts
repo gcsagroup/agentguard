@@ -102,8 +102,8 @@ android {
 androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         variant.outputs.forEach { output ->
-            output.versionCode.set(1000008)
-            output.versionName.set("1.1.0-dev.8")
+            output.versionCode.set(1000010)
+            output.versionName.set("1.1.0-dev.10")
         }
     }
 }

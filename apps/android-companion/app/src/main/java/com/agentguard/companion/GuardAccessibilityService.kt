@@ -263,6 +263,13 @@ class GuardAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!SessionState.active) return
         val ev = event ?: return
+        // 未订阅事件必须在任何读取或后台勘察之前退出；后面的空分支挡不住已排队的扫描。
+        when (ev.eventType) {
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> Unit
+            else -> return
+        }
         val packageName = ev.packageName?.toString()
         val privacyMode = ObservationPrivacy.classify(
             ownPackage = this.packageName,
@@ -391,9 +398,7 @@ class GuardAccessibilityService : AccessibilityService() {
                     surveyWindows(app, packageName, events)
                 }
             }
-            // 其余事件类型(点击、焦点、滚动、手势、通知状态……)刻意不处理:服务只订阅了
-            // accessibility_service_config 里声明的那几类;这里的 else 让 lint(SwitchIntDef)
-            // 和读代码的人都知道"没处理"是决定,不是遗漏。
+            // 入口已过滤未订阅类型；保留防御性分支并满足 lint(SwitchIntDef)。
             else -> Unit
         }
 
