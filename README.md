@@ -13,9 +13,11 @@ AgentGuard 是面向第三方 GUI Agent 的本地优先安全观测与审计系�
 
 当前开发已接通受保护本地任务的模型数据授权、隔离副本、命令与差异批准、实际回写及持久审计，并完成来源与工具治理、[记忆与委托治理](docs/agd-026-memory-governance-2026-09-16.zh.md)、[受限媒体解析](docs/agd-028-native-media-2026-09-16.zh.md)等任务的限定验收。记忆、委托和媒体通过显式网关配置接入，内置模型表单尚未自动启用这些能力。
 
-固定开发 App 为 **AgentGuard Local Agent Test，Ver 2.1（023）**。活动时间线已显示时间，普通安装说明和输入框观察误报已修复；[022 原生记录](docs/native-form-observation-022-2026-09-16.zh.md)及[窗口读取恢复](docs/native-ax-recovery-022-2026-09-16.zh.md)记录了准确候选的验证范围。App 名称、路径、Bundle ID 与签名身份保持固定，版本号不追加到文件名。
+固定开发 App 为 **AgentGuard Local Agent Test，Ver 2.1（024）**。活动时间线已显示时间，普通安装说明和输入框观察误报已修复；[022 原生记录](docs/native-form-observation-022-2026-09-16.zh.md)及[窗口读取恢复](docs/native-ax-recovery-022-2026-09-16.zh.md)记录了准确候选的验证范围。App 名称、路径、Bundle ID 与签名身份保持固定，版本号不追加到文件名。
 
 023 已将数据库修复纳入桌面和包内网关，更新及重启保留两项权限与历史记录，见[023 原生复验](docs/native-sqlite-023-2026-09-16.zh.md)。
+
+024 已修复普通 Safari PR 浏览误触安装高风险提示，并完成原页面和注入正例复验，见[024 原生记录](docs/native-pr-observation-024-2026-09-16.zh.md)。iOS 本轮逐页可访问性改进和原生检查边界见[页面审计记录](docs/ios-page-audit-2026-09-17.zh.md)。
 
 **整个计划仍未完成。** AGD-027 的 M3 性能验收尚未通过；F13 按用户要求暂缓、未验收；AGD-031 等待外部共享需求，AGD-032 仍待前置验收和正式发布材料。最新任务状态与逐项证据以[开发计划](docs/agentguard-development-plan-2026-09-09.zh.md)为准，不用早期 010 或后续单项通过代替完整 M1、M3 或发布结论。
 

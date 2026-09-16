@@ -1,0 +1,1452 @@
+{
+  "baseline": "7bc5914d9bd94cdbe2ecd5fbed8a957ec18a8fdd",
+  "app_build": "1.0.0 (21)",
+  "device": {
+    "name": "Aegis QA iPhone 17",
+    "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+    "runtime": "iOS 26.5 (23F77)",
+    "configuration": "Debug"
+  },
+  "scope": "共享存储不可用界面；三语逐页 all，仅已禁用 audit.clear 按钮的 contrast 报告例外并逐条留存。最大字号失败仍未关闭。",
+  "node_passed": 26,
+  "swift_core_passed": 21,
+  "swift_ui_passed": 5,
+  "strict_release": [
+    "Simulator",
+    "unsigned device"
+  ],
+  "analyze": "passed",
+  "repository_invariants_passed": 23,
+  "products": {
+    "products": [
+      {
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "21",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "21",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      },
+      {
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "21",
+        "executable_sha256": "627ef1c7e2322a682cbf5be24ee123680ec428d14985ebb198e93b40b71b46b1"
+      },
+      {
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "21",
+        "executable_sha256": "a33495e749e1f4fbec3b397d9ebc757bf04972f314935409f44b92d6d8225785"
+      },
+      {
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "21",
+        "executable_sha256": "0a1fe6e28e1b6ea63a9b7b60eb8f437ce1a1d138b13c8cb117c2419a9110f774"
+      },
+      {
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "21",
+        "executable_sha256": "b0014419e4f1779b682474fdccb33946947f46a0bb6e6596876e98ccb4b3f3ff"
+      }
+    ],
+    "extension_resource_files_per_product": 7,
+    "extension_resources_match_source": true
+  },
+  "macos_identity": {
+    "app_version": "2.1.0-dev.24",
+    "files_verified": 91,
+    "hashes_and_modes_unchanged": true
+  },
+  "runs": {
+    "identified-14": {
+      "result": "unknown",
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/identified-14.xcresult",
+      "bundle_integrity": {
+        "file_count": 38,
+        "bytes": 272725,
+        "inventory_sha256": "9fe2529210a9c39aec58fdff16dd026410fcf4fea2a613a72f09dae84d8983cf"
+      },
+      "not_a_pass": "错误的测试选择器导致零测试，不能计为通过。"
+    },
+    "identified-14-corrected": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/identified-14-corrected.xcresult",
+      "bundle_integrity": {
+        "file_count": 154,
+        "bytes": 43956124,
+        "inventory_sha256": "52bd71a45d90b7fee31df00a7c81841045fe6f27ed0575d9c244479a0b1ce4ef"
+      }
+    },
+    "scroll-15": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/scroll-15.xcresult",
+      "bundle_integrity": {
+        "file_count": 536,
+        "bytes": 285583033,
+        "inventory_sha256": "0a849a9264b319c8ee6315f9ab6810d171d77ba5c7b6d6705cbf6a5fba3fe987"
+      }
+    },
+    "layout-16": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/layout-16.xcresult",
+      "bundle_integrity": {
+        "file_count": 166,
+        "bytes": 46788307,
+        "inventory_sha256": "de8adb725720cf0b6188572150d0866dcd472606e0de16f33353e36794ec27b9"
+      }
+    },
+    "readable-17": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/readable-17.xcresult",
+      "bundle_integrity": {
+        "file_count": 450,
+        "bytes": 267770261,
+        "inventory_sha256": "0deedeac0bf1d69a1cf8dc29351d3fff176ae0fadee28d72f8b150cdd1adcfb4"
+      }
+    },
+    "bounds-18": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/bounds-18.xcresult",
+      "bundle_integrity": {
+        "file_count": 66,
+        "bytes": 13885052,
+        "inventory_sha256": "cb2732595405767c9012987f0a4033050ef701d23636959739fad6159ca3ebf9"
+      }
+    },
+    "native-text-19": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/native-text-19.xcresult",
+      "bundle_integrity": {
+        "file_count": 106,
+        "bytes": 43503593,
+        "inventory_sha256": "2cc3ef949ed5986bd90c6c8b385c8774bb2b59a2a88106933559fb8b497c0e31"
+      }
+    },
+    "final-20/tests": {
+      "result": "Passed",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/final-20/tests.xcresult",
+      "bundle_integrity": {
+        "file_count": 148,
+        "bytes": 2747805,
+        "inventory_sha256": "cc762fdb20f24f6746de631c3b92f22d7f1275d7354bebb378c7b4f74d4f41d1"
+      }
+    },
+    "maximum-20": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/maximum-20.xcresult",
+      "bundle_integrity": {
+        "file_count": 260,
+        "bytes": 274909320,
+        "inventory_sha256": "7a3de9bfd725f540274299144178d9f516d63620aa2bc768b404f7788f987eab"
+      }
+    },
+    "navigation-21": {
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/navigation-21.xcresult",
+      "bundle_integrity": {
+        "file_count": 58,
+        "bytes": 954947,
+        "inventory_sha256": "ee5694adea89dcf63ef99e33e3ba9a5064c81281143a1597b31857139dd03a00"
+      }
+    },
+    "final-21/tests": {
+      "result": "Passed",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/final-21/tests.xcresult",
+      "bundle_integrity": {
+        "file_count": 148,
+        "bytes": 2656418,
+        "inventory_sha256": "f0443cccbd00dc8631c8c3d1027ae878f33613681311919c1ffcf74ca4c1edae"
+      }
+    },
+    "maximum-21": {
+      "result": "Failed",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/maximum-21.xcresult",
+      "bundle_integrity": {
+        "file_count": 328,
+        "bytes": 367468945,
+        "inventory_sha256": "acc154ea0ce5761da9a2b7ee82da54c7dab57ae115f327111306efffd99cedc0"
+      }
+    },
+    "dark-21": {
+      "result": "Passed",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "result_bundle": ".artifacts/ios-audit-localization-2026-09-17/dark-21.xcresult",
+      "bundle_integrity": {
+        "file_count": 90,
+        "bytes": 2513613,
+        "inventory_sha256": "9243597127a3e525f7642076bb7cf7c98f0538efff73f6cdbe48116c2fa8c62b"
+      }
+    }
+  },
+  "attachments": {
+    "final-21": [
+      {
+        "name": "en-page-1-inactive-clear-contrast-exception_0_3280F620-CA53-45EF-B110-A4B1AA489DB3.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/1BEA5658-88A6-43BB-90A7-68007206194A.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "en-page-1-issue_0_EBA39F37-6EE3-4662-9D2C-B58D297292A4.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/2A624B94-FC5F-4D84-993B-0F46008C0608.txt",
+        "sha256": "4f7fb9e3d7b4f3569ae844f64157a92e599c25a00fe4f42d69d54af05f96d5ab",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x1160f0f00, {{32.0, 584.7}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled"
+        ]
+      },
+      {
+        "name": "en-page-1-bounds_0_5EA875AC-58B7-4827-8933-00513370CCDF.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/F88D676C-2443-4D8E-AAB5-8678B5CB7810.txt",
+        "sha256": "3e121222db841da00de8e4881defdca35adf812c51ab7eae0d27a191d2cc6bcf",
+        "detail": [
+          "page=1, end=storage.error, frame=(33.66666793823242, 743.0, 336.3333435058594, 65.0), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-1_0_9F11D240-56B4-436B-8078-83F439E1C384.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/DA6DBAF2-3E49-4014-9367-184C54C55875.png",
+        "sha256": "0b6de56ca87c0c1c6376c98357376f4d8c1953dc5f810d1e94111a314e7864cd"
+      },
+      {
+        "name": "en-page-1-tree_0_22054049-715E-4B10-AF13-825DF9E4504D.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/D5C47F93-B6C1-4521-9F24-DD4139099DF9.txt",
+        "sha256": "829ac3954e045a3442571f11c874fc750db7f90de811835b48fb12c13fd8d534"
+      },
+      {
+        "name": "en-page-0-bounds_0_A5AC36B7-8115-408E-912E-80E564735494.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/019F8A7B-AB4A-4E6A-A26B-18E8D2CC76E3.txt",
+        "sha256": "60f0027ec9bc03451aebe04f48d9eba4a82e9eb7545252c0f4f79b4e579ebd68",
+        "detail": [
+          "page=0, end=storage.error, frame=(33.66666793823242, 1332.3333740234375, 336.3333435058594, 65.0), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-0_0_E6962B55-F767-4279-B806-D0F5D8259578.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/5D976B7E-2E34-43C0-8866-0BC4FBD9F26B.png",
+        "sha256": "84a856de1be232fb097eddad83faeda440ee6dcb3c8d613f461e2ce4b2be7b84"
+      },
+      {
+        "name": "en-page-0-tree_0_5C5D6DB9-15D2-4AF7-AFA8-B3880123180F.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/B1A6BBDF-9824-4897-B631-CFD4B2D5A8E6.txt",
+        "sha256": "80787b9f3cc588ca45229bd4bf7a087d3648fefbd8570650f758049f4b16815d"
+      },
+      {
+        "name": "zh-Hans-page-1-inactive-clear-contrast-exception_0_165A9520-8BC3-4F97-A192-9DA7C0348AF2.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/0561503C-BBBE-4173-988A-68425A726A99.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_B5735891-5A0B-4776-81BA-619B84DEEC45.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/5FDD2322-3AEA-4DCE-AB56-653C3BE32DAA.txt",
+        "sha256": "fdc34361004da763679fc520b98d767a3761aaf35ece149f3107d3f052fb207d",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x1160f1180, {{32.0, 631.3}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1-bounds_0_09916C76-C2DA-4F89-9B85-62B784452919.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/7A795600-0932-4A76-97D5-788B85AF6295.txt",
+        "sha256": "a999605c73d6f5f432ff535c99f5ad44b9d40ba355a218794f3eda9d6a0ac010",
+        "detail": [
+          "page=1, end=storage.error, frame=(33.66666793823242, 765.3333129882812, 316.66668701171875, 42.66668701171875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1_0_A12CB9BE-7FE0-45AE-861E-4CEC502B1B56.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/38CD56D9-126F-48F5-B2A5-52E3D16402B8.png",
+        "sha256": "7cdba31847e92c7b75b914bd59e85643b9ccf742ebd64d536dd4b56158e5b45d"
+      },
+      {
+        "name": "zh-Hans-page-1-tree_0_650498B0-DAAC-4FBC-8D58-F298CDEBC53C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/A3646D5B-0BA8-4C4D-8D40-D992CE9D51C8.txt",
+        "sha256": "03cbca77a71cab267e802b430e4bcea06e8f03666e3b74a394542208f9058353"
+      },
+      {
+        "name": "zh-Hans-page-0-bounds_0_F59D1AC4-E101-4F88-96C2-E9DE16548A87.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/B499FFE9-E768-45F3-BDD2-60D398692BF6.txt",
+        "sha256": "a3dc83c2fa3287f0d5bcad73fff4ce8371ce64520b6e102138edede37c4b13e7",
+        "detail": [
+          "page=0, end=storage.error, frame=(33.66666793823242, 1232.0, 316.66668701171875, 42.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-0_0_043D8FCB-0E84-4266-9803-007A169E760B.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/EE778E6A-67C4-4815-BD34-480D973E8F68.png",
+        "sha256": "6ca69dbf7f9ba83253d01d0c4545c2ac7d23e51045460331f7e471f3d759fd16"
+      },
+      {
+        "name": "zh-Hans-page-0-tree_0_3EB2672D-9D1E-4411-AC04-144DF2480EF0.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/9D14612A-71CB-47BB-9396-21ADDA37B8FF.txt",
+        "sha256": "504f1cb2921ed7f60f7ab6a9d9d6c1643b0a6c1cf09e34bbadd0875d8e05aee5"
+      },
+      {
+        "name": "zh-Hant-page-1-inactive-clear-contrast-exception_0_22E1C0E5-C183-4BF4-94F4-7AE6490770C8.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/B73FE1B8-246C-45C1-8C92-2C39F4D8D23A.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_6E016D3B-8C6A-44C7-BCA0-55C76F6E4CDA.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/B72BFD90-0884-4CC6-B846-BA8477D8F89E.txt",
+        "sha256": "360c74fb8165e03b198adaf5f6b5611783bc8633882b851df6fd284b8b727950",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x10926ee40, {{32.0, 631.3}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1-bounds_0_4FE7F35A-8032-405B-A850-6A148A2EE543.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/9840EC86-D2B2-4275-BBB0-AE8124A40934.txt",
+        "sha256": "b680c5270c574213a01add95ec795e8ac8123cab4fb9c286c815b75d3c301192",
+        "detail": [
+          "page=1, end=storage.error, frame=(33.66666793823242, 765.3333129882812, 333.66668701171875, 42.66668701171875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1_0_CA708B24-D576-4755-88BF-AE08D61D36B7.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/59D967AB-A878-4754-8F42-9147C74D93B3.png",
+        "sha256": "24e1af5f36a7aff5e9e044bb7305945a071e98b52b10ace8c7cd4faea7c69d05"
+      },
+      {
+        "name": "zh-Hant-page-1-tree_0_70DC14A2-08DB-477A-80A6-53264DED3F8D.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/D12BB9F3-65B5-4544-8A11-7392672CA73B.txt",
+        "sha256": "13a7307f6e8651803cad345438798f34b1dece7b664ed12c6a12d5a1fb90890c"
+      },
+      {
+        "name": "zh-Hant-page-0-bounds_0_22416785-6FAA-4FF6-AC33-79E83B4562F3.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/7955371C-78AD-4F66-B005-54C7EF86A7CD.txt",
+        "sha256": "861d3131ceee49fd666b073e60a17fba1998dc3d3c614cc04e1187f101597b2a",
+        "detail": [
+          "page=0, end=storage.error, frame=(33.66666793823242, 1232.0, 333.66668701171875, 42.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-0_0_A6DD11BC-BDA6-4EF2-BBB1-747CC0F9AB18.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/DD691093-AD91-4277-AA76-98E243D01245.png",
+        "sha256": "fb847b4ff1cf4e68e1abd6c68873ebcaca06f7b40898438cb8907f7f7ac4c38b"
+      },
+      {
+        "name": "zh-Hant-page-0-tree_0_D7FCFD17-5AB5-43B3-879E-A89C70B9BA52.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/final-21-attachments/8F8881B0-266E-4F5A-A95E-A6699726A2AA.txt",
+        "sha256": "82494d0aefbe33f115b14d95ca69afa06654b56020b8fa666a2d82d9fb7ecc21"
+      }
+    ],
+    "maximum-21": [
+      {
+        "name": "en-page-10-bounds_0_9D74B93D-5582-4E89-845A-7DA6D169CE84.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/9EE80FEE-4696-4CC2-BE58-999B5D33A253.txt",
+        "sha256": "454774a852e4ba21eb69c92595547ad71aeca875a764cd14b6ffe950851e42af",
+        "detail": [
+          "page=10, end=storage.error, frame=(37.33333206176758, 40.66666793823242, 332.6666564941406, 767.3333129882812), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-10_0_E5ABE379-3060-4A5C-AE96-F8CD7217A869.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/825653BE-846D-425B-BAB9-376FE5BB193E.png",
+        "sha256": "aeda8db12f462a245525048a9dfdd4363101d4acf1169d4131c470ed778e205f"
+      },
+      {
+        "name": "en-page-10-tree_0_EC3CC100-5A00-4B9A-A38E-E58764B4C68B.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/65B92E14-F6A8-4779-8627-7540635DB42B.txt",
+        "sha256": "2f7f5b6d012d17beac746bd017ab50eb60110140565900482c52768de8e430a0"
+      },
+      {
+        "name": "en-page-9-bounds_0_9163B33F-C641-4DA5-8FEC-56BC080E8499.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/B249435A-A535-4C30-B76A-471C5399A614.txt",
+        "sha256": "5f96f42e2a7af78cdcc456b564ddc4faf80686e5c9af5251d4fa20face64d27a",
+        "detail": [
+          "page=9, end=storage.error, frame=(37.33333206176758, 96.0, 332.6666564941406, 767.3333129882812), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-9_0_E3979A0E-4049-4419-B5CE-FB5C72279204.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/06E4DD90-6838-4A34-835C-B61163AA4D3D.png",
+        "sha256": "1ca27346a1802e62278496bd11d16f344bb3669e4f05e6be9778d1d512d261c2"
+      },
+      {
+        "name": "en-page-9-tree_0_45F1CC94-E387-499B-8FDD-490CAD8D461F.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/A756A515-0957-4CBE-8A14-205FD02C7FC8.txt",
+        "sha256": "6385fdc5e3a8bc5c60ccc4ee220edeb33fbb5028dbd011c71dc0f71e81db85fe"
+      },
+      {
+        "name": "en-page-8-bounds_0_29AC4092-7F72-4E27-89A2-8E6EE5661E43.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/50D62DFA-F343-4999-A62D-2D998490D812.txt",
+        "sha256": "f24f76c0a2c2ba9d742ef78a12accf6317e9bea2095bec12c3f1ee135571f74f",
+        "detail": [
+          "page=8, end=storage.error, frame=(37.33333206176758, 754.6666870117188, 332.6666564941406, 767.3333129882812), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-8_0_91508EC4-B25E-4637-B28D-9FA557E399F5.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/91987BB4-4A9E-4B31-AA56-C9F18F919C22.png",
+        "sha256": "6d77d3fcf6328024313a6c79d9be36cceb5cf800dafd8d6200e382f249f73852"
+      },
+      {
+        "name": "en-page-8-tree_0_0D64E123-9A76-4998-9617-83DA1CBA3BCB.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/67977530-E98E-4DA1-AF4B-76299845B01F.txt",
+        "sha256": "871cf27d0baad42274a60967e7ee3ed06cc1962c39caed7cbb28811594e2185d"
+      },
+      {
+        "name": "en-page-7-inactive-clear-contrast-exception_0_C6178CF0-9D92-434B-9ACA-E0CD040E55AE.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/BBA2746B-D18E-4A30-ACD3-990F0EE9910C.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "en-page-7-issue_0_8321F22E-3A4E-4E5C-93CF-951EF76AEBBE.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/424CAC58-F4BC-403E-B891-378B2B47A87B.txt",
+        "sha256": "caf1e3d52b5e6babfe52f8437abb7c5f248068d646ebcf5a371bd5ec1b77de31",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x114e9d040, {{32.0, 4436.0}, {245.7, 127.3}}, identifier: 'audit.clear', label: 'Clear local history', Disabled"
+        ]
+      },
+      {
+        "name": "en-page-7-bounds_0_23EC634A-67EF-4545-8557-0F9EFFB67247.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/C3894013-72F4-4E11-813F-9045E9399D18.txt",
+        "sha256": "1c25dce498e235bd73a0b321a4f4d2fcd668ccc97b1537b96915649d2c5474cb",
+        "detail": [
+          "page=7, end=storage.error, frame=(37.33333206176758, 1391.6666259765625, 332.6666564941406, 767.3333740234375), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-7_0_B6C0AA7B-A7AB-4371-936E-9195C95D2CFE.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/E3E1B399-273D-4830-8EE7-BCF2F22D5826.png",
+        "sha256": "7aa1ca660970dc1c6364fed606401d7c477b575eeba14878c1bdcec5da21ff0d"
+      },
+      {
+        "name": "en-page-7-tree_0_BF63A3F1-D129-48D4-A8E2-4A84D0DFDD1D.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/4EF4BF61-9634-4FB8-B013-B7718F5B7A2C.txt",
+        "sha256": "ee76b38920039b1c79383aaf760112e63be5a9066f37cbab94f856af8e09e19c"
+      },
+      {
+        "name": "en-page-6-inactive-clear-contrast-exception_0_6BA09EFE-147C-4296-9408-879B3369B32C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/7AC0CB52-9AB5-4D2D-9479-8D326D56EBCE.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "en-page-6-issue_0_C15D3208-2C7E-44DC-A1AD-220390614750.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/3B72112F-2DB8-417B-893F-4F679AF20F8A.txt",
+        "sha256": "6bda4b22f4fb36defe2d73fdf12559865022d2080a053ea629c10c71d91846cd",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x114e9cf00, {{32.0, 4436.0}, {245.7, 127.3}}, identifier: 'audit.clear', label: 'Clear local history', Disabled"
+        ]
+      },
+      {
+        "name": "en-page-6-bounds_0_13250A2F-65A4-48F7-97BD-86B89CDD9FFC.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/B916F297-90D9-43EA-8FD2-7F8AAD3227C9.txt",
+        "sha256": "66075197c94c63632d2d9d9bf215bcf69ee5a951352f11552e08169c8c973c1c",
+        "detail": [
+          "page=6, end=storage.error, frame=(37.33333206176758, 2076.333251953125, 332.6666564941406, 767.333251953125), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-6_0_E99D02D2-3B48-4EA4-BC1A-3CEE0FB6EE5E.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/C0039E26-10B4-4754-89F9-1DBC36455CB8.png",
+        "sha256": "98660eabf5b8b71c2998ccba46b0548752e84466aa543ebfccb7faf11e5d9fe9"
+      },
+      {
+        "name": "en-page-6-tree_0_06DED818-CE80-4E61-AB0C-871B69FBA50E.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/B35BC67F-6DD4-4202-A602-01CD0B7531A1.txt",
+        "sha256": "6272a1ad6388ecabf96e68b08720cae3435880c125a61a09b6fedf3f7ca1cef9"
+      },
+      {
+        "name": "en-page-5-bounds_0_F577B26D-7185-4673-B57D-A354B771FA23.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/C3AB53F6-55F5-481E-9A7D-AC77F79464D1.txt",
+        "sha256": "b597a0a797595353cf32dc1d7e22674c839ced46a68e1949938dc62155dc2d05",
+        "detail": [
+          "page=5, end=storage.error, frame=(37.33333206176758, 2759.333251953125, 332.6666564941406, 767.333251953125), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-5_0_047338DD-FC0F-48A1-804E-75FD008BC9E1.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/D9A4A905-F3EA-455F-97FD-DC7F2DC0AD75.png",
+        "sha256": "0aca12466d5f536634bcf446f71fade9d14dad3c62ee76d67b05b73e3fa5d218"
+      },
+      {
+        "name": "en-page-5-tree_0_25184B12-9F49-4735-B5AA-C1C700454C08.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/964433AF-E134-4254-B6ED-A24CC50F2047.txt",
+        "sha256": "2ae7400616fc38142a5cf1bcb78954ac2aa271ca7d3c23bcc150fb30416fc002"
+      },
+      {
+        "name": "en-page-4-bounds_0_B0B959EC-09D2-4FF0-A1C4-D32B939E273C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/74ADEFED-73CE-401E-A603-E538DA4BEC14.txt",
+        "sha256": "5530de30e558cba484df80755046d6ea7e212d67413bfa977dc3b36c13ef5827",
+        "detail": [
+          "page=4, end=storage.error, frame=(37.33333206176758, 3456.0, 332.6666564941406, 767.33349609375), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-4_0_2F1BC188-91E5-4F3B-86E1-81FBA43CF8EC.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/352D1085-1680-4CB6-8771-4985753B9A4F.png",
+        "sha256": "26fc03f7e91dbb69debda8b472fe4a584ef7f00508c707f2a7e0e73bb8e25a34"
+      },
+      {
+        "name": "en-page-4-tree_0_59B50F7B-5F73-4D1D-8F7D-6A7B6EC94A29.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/7FF962C4-141A-4C02-8448-AC482CC01F7C.txt",
+        "sha256": "ee001a28bdc9a611bad8c58019948b49b854edf61e96557d56257ca2dbf4c799"
+      },
+      {
+        "name": "en-page-3-bounds_0_F7848661-C65E-4D96-8883-4F5C341D4AA5.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/25FE5FE5-0F21-4512-AF95-E3C129B75D82.txt",
+        "sha256": "37ca67db10d5eba360b496da806265b5c96e66519fe1a0cbe0e7dcc645cc7314",
+        "detail": [
+          "page=3, end=storage.error, frame=(37.33333206176758, 4154.0, 332.6666564941406, 767.33349609375), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-3_0_7C4CA907-9038-4A50-954C-85B3CA51656C.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/5933FBE6-EC38-445D-93FB-14877380E656.png",
+        "sha256": "f8331e84308b0f45ab9a9c958df0984cc788e792fa768b9b84eb09c7a5285510"
+      },
+      {
+        "name": "en-page-3-tree_0_9A4F6F37-D9D9-4121-A58D-3D84E443035C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/9E0596E3-86A7-4C83-AC06-FB9FB3BCDB38.txt",
+        "sha256": "b243db63bc41dc6019d7b610815b535af96b05596eb588533e63d19bdf77da0d"
+      },
+      {
+        "name": "en-page-2-bounds_0_50666FF4-609B-43D9-A40A-9A44A7CCAD2F.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/3D7A421C-54D2-49CD-9276-2F00AA840101.txt",
+        "sha256": "d9193281e35c4cc8474f67fae08204bae6765e77491a4f04679e951fbaea0a03",
+        "detail": [
+          "page=2, end=storage.error, frame=(37.33333206176758, 4847.33349609375, 332.6666564941406, 767.33349609375), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-2_0_0F93C0FE-C7A1-4FAE-AD55-0C8914477E4F.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/13E91792-079E-4377-9777-90C4941E7964.png",
+        "sha256": "d2705554ad39331890cbe6892708e29db6961a6828b70ee280f988923b91f33f"
+      },
+      {
+        "name": "en-page-2-tree_0_59E4FE3F-B223-4F33-903C-924B163FDAA1.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/4CB48982-2E9B-4CF8-99BC-EE65F25FAAED.txt",
+        "sha256": "e1bd18ec9531d706324c88a0ca1cd064e788bbd5f44459a0f0a15e202579c9d5"
+      },
+      {
+        "name": "en-page-1-issue_0_FF45AFDE-6D27-4CBF-B291-C6F108CC165E.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/ACD83BD1-8E0E-4B70-9760-30872799FA1E.txt",
+        "sha256": "f1e562ea8e53948cd753eb1e31905709778349c40d41d5f85b2a0775727fa207",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: StaticText, 0x105613200, {{32.0, 185.7}, {250.0, 191.3}}, label: 'Allow local page-risk processing', Disabled"
+        ]
+      },
+      {
+        "name": "en-page-1-bounds_0_7365B616-17AC-4881-9706-70F42E53E7B3.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/15DB9E35-B807-43E5-8EAD-F2EB966F50EC.txt",
+        "sha256": "41f4418fc8c64ed2e4fc47091adfec0a2a0a3a06d195d6ccc2e9be25958a8593",
+        "detail": [
+          "page=1, end=storage.error, frame=(37.33333206176758, 5520.66650390625, 332.6666564941406, 767.33349609375), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-1_0_C5067D7A-F056-4360-A297-FA0F88354A50.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/60978969-B631-4641-A62C-8C1813DF8DA3.png",
+        "sha256": "78542603f4be2050b357ae17f9b3331b748f0a9f124bfade7fa65f61a14f8a20"
+      },
+      {
+        "name": "en-page-1-tree_0_628DC4F6-D618-4978-A1DB-B0826513A5CB.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/5B5DF69E-2B90-46B0-A60F-F0267D7A2A36.txt",
+        "sha256": "48e5665a267fa3ce137fe1fd0d7563abee084c7b076f6574eaf0c387e921e7b1"
+      },
+      {
+        "name": "en-page-0-bounds_0_2D7AADD3-1966-4B94-A0B8-660D7A63E672.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/F06092CB-B82C-4B93-BF77-BE565511C451.txt",
+        "sha256": "fbc1dbccca7795db6819e911fc65e41c9d55989b31e1459588f71a8eb212a1b9",
+        "detail": [
+          "page=0, end=storage.error, frame=(37.33333206176758, 6187.33349609375, 332.6666564941406, 767.33349609375), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-0_0_300E2177-5552-4070-9EC8-F41BD0269937.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/A871F7B8-2C5C-4336-966A-548166FA26A9.png",
+        "sha256": "4dc17a4f856ee19e23cadd53bb6651842281c0cb896313f12182378668c64f42"
+      },
+      {
+        "name": "en-page-0-tree_0_FA956D9D-4C61-4C58-83BB-0DACA4F4475A.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/C0FBF365-505F-4558-A3DD-BF596E8D67F1.txt",
+        "sha256": "6a650efb2e0399265110872e4773feeb21cab81b7902f541d31e881b01ee57e0"
+      },
+      {
+        "name": "zh-Hans-page-6-bounds_0_0B32D940-70C4-498D-9FE8-CE0060CE82D6.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/49A1D26C-174F-4A08-B83C-5E15DA57C5CB.txt",
+        "sha256": "2dc550fc053d91fb893a00485eb4b92462ad02f1281c2fdbcc25ae996d56e7ab",
+        "detail": [
+          "page=6, end=storage.error, frame=(37.33333206176758, 475.3333435058594, 322.3333435058594, 383.6666564941406), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-6_0_7F30EA9D-F686-4740-8CA9-7B302A823043.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/EEC024AF-9119-4A9E-9721-6FF0403D24C1.png",
+        "sha256": "356509f440af5bd37aef52154dfbed2fe7d3155f4c9d800b97ca7dab8076e501"
+      },
+      {
+        "name": "zh-Hans-page-6-tree_0_7D130CB6-147B-487A-AFF9-BF2F17263BCC.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/5C1849A3-798E-4AEE-90A5-E1FBAE3B6385.txt",
+        "sha256": "a27d43caf8a0bce10b434543328d664c0038fb16d7e3d70b614dd10e025c946e"
+      },
+      {
+        "name": "zh-Hans-page-5-inactive-clear-contrast-exception_0_53081DCB-2ECC-46A8-A702-50CB992BB7DA.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/C4F47860-408F-4002-802D-325F3BD7A87A.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-5-issue_0_12BFE6B1-767D-4259-B8C6-55C03EC0415D.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/90597B54-F83E-4018-AF43-C3780D05CA82.txt",
+        "sha256": "ba593ec8430cd7f78f9e4987fa82ca17d0260160543eec12a0ad6a8f22fc9eaf",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x114e9cdc0, {{32.0, 3327.7}, {300.3, 63.3}}, identifier: 'audit.clear', label: '清除本地记录', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-5-bounds_0_70FAD3E2-E391-4783-97F4-F09D84BCB1C6.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/729CF754-2790-4251-89A8-43570AB31922.txt",
+        "sha256": "c6f445c322455e1e3effa41afe8cc1c2bfb53a57e25a1c5ea8ee742b01e29c16",
+        "detail": [
+          "page=5, end=storage.error, frame=(37.33333206176758, 1183.6666259765625, 322.3333435058594, 383.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-5_0_6BA542D7-FC56-4688-8B19-0187AE78EC34.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/55ECF155-0E3E-4A15-BF42-86A84301DEA1.png",
+        "sha256": "979d59334d129487df1209e8df693b54ae0cb051455bd3158a41fcf72c0539cf"
+      },
+      {
+        "name": "zh-Hans-page-5-tree_0_2280B791-A95C-441C-A89E-22523D2E3A3C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/29D36C35-E55F-4167-8C20-7CD297F57663.txt",
+        "sha256": "6b90f2b2e8047ac6c1584da57dbdb357c12f28eb2bf3843baf53f9881a094490"
+      },
+      {
+        "name": "zh-Hans-page-4-bounds_0_7A51AAFD-9F75-453F-9D3D-E88056A6FA23.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/E5F99D57-0C88-4C5C-ADFB-CBC850F98C61.txt",
+        "sha256": "debcb3fa2ffd852b32a51d9cdcfe484416970fd269ae510e27240da420cf0fca",
+        "detail": [
+          "page=4, end=storage.error, frame=(37.33333206176758, 1851.0, 322.3333435058594, 383.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-4_0_BC167DD3-0047-49F0-A413-001A300880F5.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/FD66819E-5D37-4224-A855-B58A159269A3.png",
+        "sha256": "0f87d51e1df2ed98b7ffee5dd99f69e840ffd1ffd8782191d530b3b53882f0e6"
+      },
+      {
+        "name": "zh-Hans-page-4-tree_0_2B13F4D0-5B35-4136-BEEE-23F246FBE964.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/A33C8635-110E-4956-AA36-1E4775E27F24.txt",
+        "sha256": "4b78f92046181ebdc875efe322738da36ce44c267f2e12705087c06ce3e24976"
+      },
+      {
+        "name": "zh-Hans-page-3-bounds_0_E626CC03-52F5-4750-9F65-75329235512A.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/39CDD691-76AB-4EB8-856B-8241AB420482.txt",
+        "sha256": "8189a11ee6ae2454e74d52bd0635254cf4e0d4fa6dddcd5f404006a7551bc813",
+        "detail": [
+          "page=3, end=storage.error, frame=(37.33333206176758, 2515.666748046875, 322.3333435058594, 383.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-3_0_F00F84D7-765D-4603-BE1E-1458E41B467A.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/308E493F-60A0-4DAF-B15D-CCADD965D9E7.png",
+        "sha256": "7eb85a90f7ff5c41f236f11bf104f29caa4ee66ca120d6257fccf5da7efa4896"
+      },
+      {
+        "name": "zh-Hans-page-3-tree_0_D314EEBE-F2B4-4BF5-BEFC-188606508A52.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/A12120CC-A7A3-4A83-9E70-7DC1AA8F4F6D.txt",
+        "sha256": "c5c236230c391764b0ee8078b9afe53049912d5ba1fd7d653d1a1a3e7eeb5c61"
+      },
+      {
+        "name": "zh-Hans-page-2-bounds_0_0E42789F-F01B-4F47-817B-A9693D90F27C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/008256D7-36D2-4A88-8509-1938626486CB.txt",
+        "sha256": "6801e4cd4124dd2a6f0154dec442a499a275b0c9c09f1d5e4cbc286b943a4358",
+        "detail": [
+          "page=2, end=storage.error, frame=(37.33333206176758, 3250.0, 322.3333435058594, 383.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-2_0_2950BF27-56A0-46C8-97B3-65ED674A51A1.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/A46D467B-3E0C-402A-9BAF-0BE793D2D658.png",
+        "sha256": "dca202efeaf008c31c9fb4e31336302da02f92dd8647a21ca669ea81a1f083fb"
+      },
+      {
+        "name": "zh-Hans-page-2-tree_0_7EBD8692-DAA8-41F5-9B52-99AAB21C1BD9.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/ED3FC5C5-0FB9-4A1B-9F6F-39500B0C5094.txt",
+        "sha256": "1b8fb5adcf3bd8c486acaeedf27f5a4c9e3f7411d05bcc495648c038b05825b8"
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_DA3B1806-17B6-4464-B5A6-6DF7C97CD38B.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/DF8B6539-DD7F-4023-98AA-D22BE56378A5.txt",
+        "sha256": "4056dce64af1c62a155f635ad21b2fb8fa8e069e8f5d4ef2f512c2c622b9cd87",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: StaticText, 0x114c4aa80, {{32.0, 398.7}, {251.0, 127.3}}, label: '启用 Safari 门控', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1-bounds_0_7A0CB81E-6EB8-4ABE-B1C2-88618A1413B3.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/162F7E3A-8DC1-4BEA-817B-57E0E9EAD8BB.txt",
+        "sha256": "5714f1db838e888920f20e5c69ff119ad90c1bbdf839c689f4b8875197ddf7f8",
+        "detail": [
+          "page=1, end=storage.error, frame=(37.33333206176758, 3908.333251953125, 322.3333435058594, 383.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1_0_8667F933-4817-4F74-A0BC-628FA9E5FE50.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/901916DF-0269-4C58-8930-AEFC020BB1F1.png",
+        "sha256": "f450760200261910f4edbcf4574b0b099307a1dc274dc19ce76fd850969e35c0"
+      },
+      {
+        "name": "zh-Hans-page-1-tree_0_57D80505-176D-408D-A800-4CAB726D1545.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/87CA110F-AEAF-479E-B739-1FC9126DB80E.txt",
+        "sha256": "2c4229160a3950528b7b1fae8c87b39bc2049f2d304be16fee1be17c6f418657"
+      },
+      {
+        "name": "zh-Hans-page-0-bounds_0_743159B2-39D4-45CD-ADE7-45EA3C3F5CCA.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/2469EC95-C634-4C1A-993B-B1F732AFB28C.txt",
+        "sha256": "1327f3df454fab07215b0cf1c28e6a11f654bdb64b02ceee8157e4592f7afe51",
+        "detail": [
+          "page=0, end=storage.error, frame=(37.33333206176758, 4589.33349609375, 322.3333435058594, 383.66650390625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-0_0_06E4BA8A-144F-4109-A716-CACF94A4FD3B.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/CABB81BF-33C5-4B26-AA17-5DB88F398131.png",
+        "sha256": "6726314393439c3abe08dace73c2605bbeaefc129f8e3c53c5c88b9280bd15ba"
+      },
+      {
+        "name": "zh-Hans-page-0-tree_0_AF0BA74A-7AD7-47B5-8C90-862EB928441A.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/F0692978-DFF8-4789-99D3-B98B353DE320.txt",
+        "sha256": "3de90bc8b3defdc53280e741ee42e4aad41f43b08e5e8e2e292eafa29c66b270"
+      },
+      {
+        "name": "zh-Hant-page-7-issue_0_E756871F-7EF9-4290-A83C-545E4B9E95B0.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/AFE259B4-2272-4E5B-8951-D84736A896F6.txt",
+        "sha256": "c12039d254751a8d1306da8976f85bf60c2cc73259ed9ea597313dfdf82619c2",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: StaticText, 0x114c49b80, {{32.0, 3987.3}, {338.0, 433.0}}, identifier: 'privacy.note', label: '處理與稽核儲存都留在本機；不儲存或上傳原始網頁文字、表單值、URL 路徑、查詢參數與片段。'"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-7-bounds_0_CA85FB56-6A07-413B-B56F-7E380C523B56.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/38CF737C-26FA-498E-8933-64D66DF8CA50.txt",
+        "sha256": "e113561c6c0e21019e929d79079a96313b615ce3cb83d7a66a8c7fdca7a2cad0",
+        "detail": [
+          "page=7, end=storage.error, frame=(37.33333206176758, 360.3333435058594, 322.3333435058594, 447.6666564941406), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-7_0_8196BC6D-BA47-42DD-9920-5C8C7DE092B9.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/57CA66A5-4496-4516-A4C1-4C82E530C348.png",
+        "sha256": "90868406e7d3f9837f458eb687ec2230b46c723bb4c94b26ddaf93d62c1d085f"
+      },
+      {
+        "name": "zh-Hant-page-7-tree_0_669488FB-886B-45F3-879C-B0293ACFB18B.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/5620C2FC-F7DA-4060-AC87-A3AA9E8FC20B.txt",
+        "sha256": "257d3bcfda14a9fb9dd5c76f1aa626a3d98c376c5d249a8fdb15501c63c69c40"
+      },
+      {
+        "name": "zh-Hant-page-6-bounds_0_F7419C78-A298-45DA-BB0B-F3C5B86BFAD0.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/72353C3C-FCF0-4685-B736-FAFB92F666A4.txt",
+        "sha256": "ccdb4bc15c34e7258d90ea04706f57a3ffebc140b6e2c5c693e6550e0c1aa5e3",
+        "detail": [
+          "page=6, end=storage.error, frame=(37.33333206176758, 688.0, 322.3333435058594, 447.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-6_0_9CD89D83-C834-49CF-BC01-437C1D741494.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/77D5247F-B7D5-4834-83F5-5E1CDBD10F93.png",
+        "sha256": "f7e913dd35c9513ac73a99cd3c3419d6e8e9176ef5815e766d7152f1d005ac2e"
+      },
+      {
+        "name": "zh-Hant-page-6-tree_0_DBC9E6B3-5369-42AD-8E51-A4C58945C925.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/EEC41FEC-4439-4DD8-BC89-6B43746599DA.txt",
+        "sha256": "8daf97522a4603f127ba7c79c50a0602e69838d052bc86b5a0cbd15c568d400c"
+      },
+      {
+        "name": "zh-Hant-page-5-inactive-clear-contrast-exception_0_BC710141-3212-4CD0-98D2-DDF4A802E874.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/4B6D426C-76C5-44E1-8D67-CF0BB7D31C52.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-5-issue_0_4DFE8A98-09BC-4EBF-A8F4-F261B33B7BA4.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/6C778A6B-66BD-4CF0-AFCD-10DCE2B792A1.txt",
+        "sha256": "8727482c94afbfb1a528fdfbcfa7b045b45329810e1149cb6a3c74f7a770a7bf",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x114e9f480, {{32.0, 3507.7}, {300.3, 63.3}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-5-bounds_0_4821CF8D-66EB-4CD3-836A-739E01CB186A.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/0820305C-F84E-4071-AEFE-DC37EFFDB02D.txt",
+        "sha256": "05116fd848db7ba05c5cbc9cd07c6d14eef08d873029e356195c85b304793d29",
+        "detail": [
+          "page=5, end=storage.error, frame=(37.33333206176758, 1361.3333740234375, 322.3333435058594, 447.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-5_0_BCF053D1-9737-452C-A0E9-2A96968B7BB7.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/4646B101-FAE4-4ED7-B462-0F20ACCCBCD7.png",
+        "sha256": "95636c82222aefc9747b6aa0580730a338a72711ad921d82c6f6f5938730b67f"
+      },
+      {
+        "name": "zh-Hant-page-5-tree_0_1C516805-82F9-4DB7-88E1-A12F32D6FF22.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/EFDAFD14-5D2D-4906-A5E0-E184631B61EB.txt",
+        "sha256": "57a83e01e089ca88b412fec6f42bf1362aa4694908d0f7f71d035fd8175f566a"
+      },
+      {
+        "name": "zh-Hant-page-4-bounds_0_6381718A-1CC1-44AC-8C4E-0B6EA547D2AF.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/ACE66005-2AF0-4F4D-9AFE-C9C9265F6101.txt",
+        "sha256": "7edebeb84debcdf3985d2719cde1a0896a245063e7cf36fbe77dceb32ab4c8e5",
+        "detail": [
+          "page=4, end=storage.error, frame=(37.33333206176758, 2034.6666259765625, 322.3333435058594, 447.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-4_0_04FAFB93-21B8-439F-B989-E48F9574FEC9.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/E49F59E0-B8C4-41BC-9751-41E5120211C5.png",
+        "sha256": "c8d5705c2e82a2af339652d9ec9a8e3808f11af3d49297873e816d9fbfefa117"
+      },
+      {
+        "name": "zh-Hant-page-4-tree_0_D6281289-AE6A-4951-952A-33D7C1543F60.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/67C858C8-9F2D-4C62-B81B-03E835597552.txt",
+        "sha256": "2f9cc205bb3deb60dcf14b1a761c4dfb32eef9489a3dc76f670bd4d3e14ce80d"
+      },
+      {
+        "name": "zh-Hant-page-3-bounds_0_6936F3BC-71AE-4C0D-979F-668DF817EBB5.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/A96C4ADD-8612-44D5-A4F3-E4A0FC84BE5A.txt",
+        "sha256": "cbf317f61695df0e23173c5f1d9d5d82490e3ad00cad0c88d90be866ce563ac1",
+        "detail": [
+          "page=3, end=storage.error, frame=(37.33333206176758, 2751.0, 322.3333435058594, 447.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-3_0_EEE01EBC-2682-4EE8-A74D-681A69A577DD.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/81E0E343-4413-4FB0-A775-D9C574CBB6DC.png",
+        "sha256": "64f750695f2f422180f9912c81d98edc27154bf60f7078fc98e657b6016a4595"
+      },
+      {
+        "name": "zh-Hant-page-3-tree_0_D693E013-C88F-45C4-9E10-AA269EDEF260.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/BC55A2C1-E8A7-4E5A-9BD4-98C6D4873349.txt",
+        "sha256": "40559e906bd7bc4f73caa36c53eb6a371c701f242a8ce7e6c8a121140ec64931"
+      },
+      {
+        "name": "zh-Hant-page-2-bounds_0_4A349E93-71EB-46B6-8D0E-74B0291CA4A3.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/66F9C8BD-5E71-4004-97E8-17FCF3DB0323.txt",
+        "sha256": "f7ecee745f7128973a7dab4010ff4aa11954d57e0a0a22654a61901704679a7a",
+        "detail": [
+          "page=2, end=storage.error, frame=(37.33333206176758, 3392.333251953125, 322.3333435058594, 447.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-2_0_A91C367A-482F-42BF-A4ED-85460FD5C6BB.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/42A1369C-F350-4221-94D4-202A04DBE5AB.png",
+        "sha256": "19d24b7d47ccb063753a2a739f7902a51dbcf901995496f96e345f0f9383ff45"
+      },
+      {
+        "name": "zh-Hant-page-2-tree_0_9FE02D0B-B7EF-4AF8-93D2-ABAB80E3CA8F.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/84247ECE-25A0-46D3-96C0-BC74CE79F395.txt",
+        "sha256": "99a2da714ec227336349b37919c44fbd948554376c38617a6faaf2ac1df72cec"
+      },
+      {
+        "name": "zh-Hant-page-1-bounds_0_ED23A133-F370-449C-8430-704A35FF65AF.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/2746F76A-AD48-422F-8DB7-C2458834FE14.txt",
+        "sha256": "d5a5b46b53edb7c9c48c8a22c826a66fc283ba7cdf2c7663e587be35c00c2f5a",
+        "detail": [
+          "page=1, end=storage.error, frame=(37.33333206176758, 4088.333251953125, 322.3333435058594, 447.666748046875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1_0_70E6E28E-5B63-4E9D-8EC7-4A3DA5AB057C.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/F8EC0E65-361E-4851-B482-376714FA970C.png",
+        "sha256": "e55f19b6074fbef7e11dca7254c72227b48363e6ad2f022f64ad3a8d4247205e"
+      },
+      {
+        "name": "zh-Hant-page-1-tree_0_BB785F91-7295-420F-B98A-7DC144C078EE.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/5861376E-A216-446D-B8DB-E3F2E7336B6E.txt",
+        "sha256": "a5d7ec1048ef60e36bac050ea6f1fef3b3c2d87358a3c1b37d42d4cb5c5b6f4f"
+      },
+      {
+        "name": "zh-Hant-page-0-bounds_0_960F04B3-60E1-4A3E-8F6D-9F7A2A39B658.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/4283F334-A102-4B6D-9032-C4769F4C66E7.txt",
+        "sha256": "31e01d089e929c555eb9350f24662a284827f9c95f4024b6933cc69b6105229d",
+        "detail": [
+          "page=0, end=storage.error, frame=(37.33333206176758, 4769.33349609375, 322.3333435058594, 447.66650390625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-0_0_CA2DB22B-A6B6-4791-B7F0-1A481D34F337.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/7CECF39E-AF5B-4222-A681-C4DF9E00454A.png",
+        "sha256": "80eb3d491a6ddd581f38afb32bd6eef2c916712072f1e9e981eb24f16bc85c84"
+      },
+      {
+        "name": "zh-Hant-page-0-tree_0_7496DD94-E429-4A0B-8F21-4CDA5012CAF6.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/maximum-21-attachments/BA84A791-3CA1-4BDC-AC21-6FD6D553C74D.txt",
+        "sha256": "0382f2c15c1b55f12674c667830cec67925517161fcf3df44ce812d90061be09"
+      }
+    ],
+    "dark-21": [
+      {
+        "name": "en-page-1-inactive-clear-contrast-exception_0_57E4468C-8D6B-42E8-AE65-3DA255603720.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/C2D77851-6EC2-4B25-A227-709D91EE8B92.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "en-page-1-issue_0_B51A57BC-6946-43A3-BE6C-7B01341FDBF5.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/F05A2890-5FAC-4D0A-8C06-934D209C9A1C.txt",
+        "sha256": "1e3ae84d4329df1b1e17a21025f11ff8c95b29290e6a9e092d9b608ef2aad83f",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x112e74780, {{32.0, 584.7}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled"
+        ]
+      },
+      {
+        "name": "en-page-1-bounds_0_016FDE43-1196-4712-B131-FE2762709391.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/5496B4CD-8D3A-442B-8B36-FE574B3DA88A.txt",
+        "sha256": "3e121222db841da00de8e4881defdca35adf812c51ab7eae0d27a191d2cc6bcf",
+        "detail": [
+          "page=1, end=storage.error, frame=(33.66666793823242, 743.0, 336.3333435058594, 65.0), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-1_0_71A63713-2D46-4609-A2EC-A4396FD1F3D8.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/D1BF5C35-0290-42F5-BFAE-6A489E58B791.png",
+        "sha256": "66df10da65dbed3cc789d1d66d83936c5060cc287b8a68ecbccc06aaaea5ebf2"
+      },
+      {
+        "name": "en-page-1-tree_0_9AFA3CB9-4F90-4FCF-BC1A-AF92A2A260E1.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/312D25AF-E256-4C14-B588-3B389666926A.txt",
+        "sha256": "078437710c6e00ca57e34cfcbc3b06bf07cef685c15753c7dcdd4d3a6e086764"
+      },
+      {
+        "name": "en-page-0-bounds_0_7EB03F29-053A-49B8-A57E-0247944F147D.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/C9E9D33C-6004-42E0-B3DF-D65B270F9A3A.txt",
+        "sha256": "60f0027ec9bc03451aebe04f48d9eba4a82e9eb7545252c0f4f79b4e579ebd68",
+        "detail": [
+          "page=0, end=storage.error, frame=(33.66666793823242, 1332.3333740234375, 336.3333435058594, 65.0), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "en-page-0_0_D53C68B5-7FD5-4011-B1AC-DAE3226BF686.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/458DC860-C29B-4774-8288-D72E937E529A.png",
+        "sha256": "e5a024c1dc3f0a3da9f22971e54b648303e3b4e04ec3681ee87cdb27aada50cf"
+      },
+      {
+        "name": "en-page-0-tree_0_AF386493-A2FC-415B-B3DF-28401D8C67A1.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/08FF38EA-78CC-4B36-AEF8-FC3965FFD095.txt",
+        "sha256": "4dabf3a8b8448358cae05d271400195c78c42b89eab87532a5720689aa23ac3b"
+      },
+      {
+        "name": "zh-Hans-page-1-inactive-clear-contrast-exception_0_0AEEAE84-F8CE-47CE-89CB-BFAB5AE62F33.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/29706E15-BE6D-444E-B7CE-C8FD5FE17D64.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_4D677DAB-10AD-413B-BDB5-586ECA8F8F08.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/F00CDDE0-A7FE-4EAB-AB5A-89E818B89993.txt",
+        "sha256": "19804e99b8efa1209b7ab8cef1b20ee3c1d5b71d0c13daa0217059d1f494bd16",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x112e748c0, {{32.0, 631.3}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1-bounds_0_84417BBB-B75B-4997-B487-C6024B48501B.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/3FE915D5-9D3F-463D-8438-50DE0EF62C51.txt",
+        "sha256": "a999605c73d6f5f432ff535c99f5ad44b9d40ba355a218794f3eda9d6a0ac010",
+        "detail": [
+          "page=1, end=storage.error, frame=(33.66666793823242, 765.3333129882812, 316.66668701171875, 42.66668701171875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-1_0_885C628B-F6A6-45C3-A52D-3FF22E866F71.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/23D259B9-73B6-4382-9896-2B1B62BF1A2C.png",
+        "sha256": "5cf16fd2978dd861bc444c86e540d2d5ad608c2878cf92f78f1894b25ed81178"
+      },
+      {
+        "name": "zh-Hans-page-1-tree_0_65E0EE34-30E9-405F-9306-D8D4AB4E318C.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/88B3638C-6C9F-4A40-87D0-C511EA47BC11.txt",
+        "sha256": "546712888c387910dc7b18f3cbeb5bbc855833d2a13055d2b5df13b86fa51377"
+      },
+      {
+        "name": "zh-Hans-page-0-bounds_0_3539C06D-E544-4F20-947F-BB0729200FE0.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/C341DFC4-42C7-4180-B5EE-4B1B4643E90A.txt",
+        "sha256": "a3dc83c2fa3287f0d5bcad73fff4ce8371ce64520b6e102138edede37c4b13e7",
+        "detail": [
+          "page=0, end=storage.error, frame=(33.66666793823242, 1232.0, 316.66668701171875, 42.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hans-page-0_0_13387EBB-D7CA-4E9E-8087-4378963159DA.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/DD2E1FC5-0CBD-461C-9BA5-F2A8E6118673.png",
+        "sha256": "f97ad3c0e95a75eaf67a27cdc32bd0e5db2e29ed7095059b453341ffc0df933a"
+      },
+      {
+        "name": "zh-Hans-page-0-tree_0_D297BB5E-5EEE-4657-9D92-6CE99835F1DA.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/E0A47B7B-635E-4D8C-BCD5-534C9CF61954.txt",
+        "sha256": "adc6a60a859c6ea4152fd1203692d382e64094afab87d8b8efbabc9d858e52ff"
+      },
+      {
+        "name": "zh-Hant-page-1-inactive-clear-contrast-exception_0_B87055CE-DADF-4CED-9EF1-A871F63C5F63.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/F2943EC1-53C5-42CC-BA63-5F062E5F2B35.txt",
+        "sha256": "6d0406dea1cf58cd83dc99153dd57ea5ce7cb5953ba9a98c69827317d9f76224",
+        "detail": [
+          "已核对禁用的清除按钮；仅此对比度报告按 WCAG 1.4.3 非活动控件例外处理。"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_DF8D4DA2-2137-41E1-9C0A-3C3C961A91F0.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/1DA0238E-D998-4669-AFB9-96966453844F.txt",
+        "sha256": "613a352a40afebe176c700223cfe9ada60d2362d43a947dc65b382253385934d",
+        "detail": [
+          "Contrast failed",
+          "Contrast failed for SwiftUI.AccessibilityNode",
+          "Optional(Attributes: Button, 0x112e74b40, {{32.0, 631.3}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1-bounds_0_EB25D581-1FE4-4A67-970E-1BC5D7F755F5.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/DD91F9A5-88D8-4CF7-AE28-4A4452A91525.txt",
+        "sha256": "b680c5270c574213a01add95ec795e8ac8123cab4fb9c286c815b75d3c301192",
+        "detail": [
+          "page=1, end=storage.error, frame=(33.66666793823242, 765.3333129882812, 333.66668701171875, 42.66668701171875), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-1_0_6CEB4489-7B5D-421D-A914-F8A2E8E80303.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/DBB76E69-6833-4574-BA2B-681C3E97BFDA.png",
+        "sha256": "1286b29db7f9c2e8fa815fb965a96df2170a8991699a5b860c9d0b54ae0da6c4"
+      },
+      {
+        "name": "zh-Hant-page-1-tree_0_7EF4F747-D080-447D-9214-762D321AA180.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/816BF081-F1FD-4403-B6A4-4789EC0B29DB.txt",
+        "sha256": "17e0ca96cb5d323bc9a111f4673fe985ad59d0129790346a61dcfdb8f3b5538f"
+      },
+      {
+        "name": "zh-Hant-page-0-bounds_0_2D546E84-3829-4559-BD8D-94E276ABB634.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/891C7483-A3A5-4642-AA9A-6217508BDAB8.txt",
+        "sha256": "861d3131ceee49fd666b073e60a17fba1998dc3d3c614cc04e1187f101597b2a",
+        "detail": [
+          "page=0, end=storage.error, frame=(33.66666793823242, 1232.0, 333.66668701171875, 42.6666259765625), window=(0.0, 0.0, 402.0, 874.0), navigation=(0.0, 62.0, 402.0, 54.0)"
+        ]
+      },
+      {
+        "name": "zh-Hant-page-0_0_B3007583-57AA-42E4-BC20-A59969A44969.png",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/7DCF7300-DC67-42DE-8FD0-426105C214C4.png",
+        "sha256": "feaf306a2c084f613d49906cded73c3794d6344e24410aab3115718a8294a2ba"
+      },
+      {
+        "name": "zh-Hant-page-0-tree_0_FD11A215-55D4-4EAB-8DBC-E3521EB2D2B0.txt",
+        "path": ".artifacts/ios-audit-localization-2026-09-17/dark-21-attachments/B81C538C-BB01-4E3D-8629-17398C0FEA2B.txt",
+        "sha256": "2461145d9af550701cc0d5eb002a8f113677139068c30be65933c99caf83e1c9"
+      }
+    ]
+  },
+  "files": {
+    ".artifacts/ios-audit-localization-2026-09-17/AgentGuardWebShieldUITests-AgentGuardWebShieldUITests.swift": {
+      "sha256": "6c31377a04c546d9bcf82ab3729ec0b3ec785ddc0a3c2d94ac3bfa1015d8f51f",
+      "bytes": 3490
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/App-Info.plist": {
+      "sha256": "c3b197c2a138b38522f98dd480b4c7531048d3134df43f48667d95b82f4fbb2a",
+      "bytes": 1611
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/ContentView-14.swift": {
+      "sha256": "517d1a15909f6e7ebb3f6976320e52bff790947e73ff7c4021276f8b633a25fd",
+      "bytes": 7071
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/ContentView-15.swift": {
+      "sha256": "05b8a00f35efd48719b8b1cd460be07eaa4b1be90cded1109bd1602bc5f70ae8",
+      "bytes": 8069
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/ContentView-16.swift": {
+      "sha256": "28532443b012622ca25c652ea7a9d416fb90ec4af41df001d8ef317c8fad09ea",
+      "bytes": 8405
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/ContentView-18.swift": {
+      "sha256": "2fcb93dc28e78fc20d0692ccea413482630a49a3c8b0c1173d5839bd680216ba",
+      "bytes": 8939
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/ContentView-19.swift": {
+      "sha256": "9e79380e8cb2528a4bf07752475f044015bd9e379b6d98df9f9dbbd4ce11e588",
+      "bytes": 10268
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/Extension-Info.plist": {
+      "sha256": "c9288b5c21726a538bfc3190bc101d3af1dad5ee6e9221ac9a6940a12124fe47",
+      "bytes": 1217
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/Sources-ContentView.swift": {
+      "sha256": "5e5eb84eec71a7f8a1b3c6a987b0b6298b9f6d24c53201d2bde493b69dc577af",
+      "bytes": 6420
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/bounds-18-summary.json": {
+      "sha256": "f8f61c7940997d957a8719dbffe5745bc019e0b2d0a94eb911e45bbb2d70b7b2",
+      "bytes": 1432
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/bounds-18.log": {
+      "sha256": "b4c9596143e0ecf44943d166843a92dfa83c355f3d0b457f3d2bffa9957054b7",
+      "bytes": 7324
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-14.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-15.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-16.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-17.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-18.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-19.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/build-21.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/capability-matrix-check.log": {
+      "sha256": "5ea0fc7c5010c52d7e6150cabfefe6f930ac0edeff8a3c08ac63872c679533c5",
+      "bytes": 39
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/capability-matrix-final.log": {
+      "sha256": "5ea0fc7c5010c52d7e6150cabfefe6f930ac0edeff8a3c08ac63872c679533c5",
+      "bytes": 39
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/ci-7bc5914-status.json": {
+      "sha256": "723b6796f425f7451d53080d0b3905c19e3d313830e1d77f75a7a867f245f0d0",
+      "bytes": 1477
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/dark-21-summary.json": {
+      "sha256": "5e5b7b8bfcab1ae1ab898eb59aaabdbf7bd46366168f28db8a58f87aafb631da",
+      "bytes": 975
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/dark-21.log": {
+      "sha256": "1952df1717ce0c0791c24cde0178274bbb1c01b229f6ae0a60a6f1f774fdb914",
+      "bytes": 18420
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-14.log": {
+      "sha256": "6009eed197b370e70f48d4758d2e7fef7fc188e903ecb39b7e8419d0de2ce886",
+      "bytes": 15310
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-15.log": {
+      "sha256": "f541c9ac3544986f36bf60e5c2d297bf935f7aff7c84cca78f5afdb1ec87f08e",
+      "bytes": 92611
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-16.log": {
+      "sha256": "6c317adf87f7adc670ab8999fd973ac16fb1f9d48ac6635698261474d09431db",
+      "bytes": 11992
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-17.log": {
+      "sha256": "11102de24fa7158a4feb083d5bb8a692441e1d12a9f8b9b6ff67a813cf520874",
+      "bytes": 66312
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-18.log": {
+      "sha256": "c6c16c46c91dfa28cd975cd3899d415b032c33bee9e651d8623be6bba316b35b",
+      "bytes": 1783
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-19.log": {
+      "sha256": "162a15174fec498a44139c49407a2b919e59a18e6b40ad7e84af3e6457d62951",
+      "bytes": 4343
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-dark-21.log": {
+      "sha256": "992d439e4791b07eebe84fcc22b3f3fc7947d8df6f4f9b32b567ed79e5ae06db",
+      "bytes": 3580
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-final-20.log": {
+      "sha256": "e6f5f316bf53412598159ffd7f2a9b92ca3903a95cff6860436872310bca548a",
+      "bytes": 6062
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-final-21.log": {
+      "sha256": "d6522bf7caf7161591efe72466a1bde5b749423415df9ac63a58696bb12ab463",
+      "bytes": 6062
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-maximum-20.log": {
+      "sha256": "d110168d6332148923aad3b83f0f2f5fac8fbc0e468779865d30509e17195b18",
+      "bytes": 22129
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-maximum-21.log": {
+      "sha256": "5913617252316345d64eab93823df3dadcaeadb2ee01ea3a3117a9bba54ca101",
+      "bytes": 33975
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/export-navigation-21.log": {
+      "sha256": "27853d24b26d3c910e0134022187980b0af8940312f9b237c447120961b389e0",
+      "bytes": 1273
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/final-20-gate.log": {
+      "sha256": "2ab6b89f5f51e74053255eac747365f93248df89bf22c6156aa5f482894aa111",
+      "bytes": 7751
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/final-20-summary.json": {
+      "sha256": "530e59aee88c608e19adec82399ccdad202247d9b810b6a71c507ba2ade03e86",
+      "bytes": 1213
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/final-20-tests-summary.json": {
+      "sha256": "8facbb3866cf1fbdd4ee77a4e189f65221240c7cb6d6ba1e8d38e7400d3521ed",
+      "bytes": 1168
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/final-21-gate.log": {
+      "sha256": "d80149735c09010857452b003fda56dd7f510d26f5be64e9af6bbdd0c95b5bc7",
+      "bytes": 8479
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/final-21-summary.json": {
+      "sha256": "b3234934ad7a2658bfd5e5ec979c121a93256cd6a5f1670d12ea3141972e1e0d",
+      "bytes": 1214
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/final-21-tests-summary.json": {
+      "sha256": "1e224f727aae2ca01cb227f6b0a16748e815482bfb27da453a4d3fb0e2a6c415",
+      "bytes": 1169
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/identified-14-corrected-summary.json": {
+      "sha256": "5e852cab5b565b9808178cb022f2498a78609748b60375fa3dd07c15a2af83ed",
+      "bytes": 2869
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/identified-14-corrected.log": {
+      "sha256": "110ad31bc89d4264377a2ebfab5f90552485067774add68c39a61958f56610e0",
+      "bytes": 2209
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/identified-14-summary.json": {
+      "sha256": "1c421d87c8c33a3c78bc358a65041691688f2d18936d682501f43bd8a7ec1f18",
+      "bytes": 438
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/identified-14.log": {
+      "sha256": "cf067f70b5f1ed85b3ec90491b67a4612220375e8e5cce8e940f52398157f65d",
+      "bytes": 518
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/index-evidence.py": {
+      "sha256": "b5641fbe5782433fcab57de518fa049e03bf42bab137ad36ba21b5dafaa8bf95",
+      "bytes": 3258
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/layout-16-console.json": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/layout-16-summary.json": {
+      "sha256": "450d94162ebc7f0fdc915fe77a1398445a6945bca11bcbf486c765b5d75464c9",
+      "bytes": 2694
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/layout-16.log": {
+      "sha256": "a3ab3de6b389cce6b8601e4d52a2c3590ca109b817cf17d081659e493a28fa9b",
+      "bytes": 1677
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/macos-identity.json": {
+      "sha256": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
+      "bytes": 98
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/maximum-20-summary.json": {
+      "sha256": "fd20599e1596392953aa126aab62b97b4ccc98d901812c5e886081571cbd5f38",
+      "bytes": 2627
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/maximum-20.log": {
+      "sha256": "af2892f345f84ea2aa2c30eda90fb77888e026335d9d9c00a4f53c584ba8ed09",
+      "bytes": 55547
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/maximum-21-summary.json": {
+      "sha256": "81eba36a490f9c9374b303c72981250e0c94a5e5b0ecdbf72224765735d6854e",
+      "bytes": 2492
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/maximum-21.log": {
+      "sha256": "6d0afe2f5d2c823255e2343d6ad8bcd93d8b45a18334c1b95afb8a925dd36c54",
+      "bytes": 98424
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/native-text-19-summary.json": {
+      "sha256": "dd1a75f2f859dc78cd601b34839820ffefd90083e7e680aa55b435ce426c6c9b",
+      "bytes": 2555
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/native-text-19.log": {
+      "sha256": "bdf582259f407bbad18166fdd1b9465e63e82eb560790054e93323b4ef8f24a9",
+      "bytes": 16907
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/navigation-21-summary.json": {
+      "sha256": "133ea43052d0ec4a3c126375ac9763459032980193c88abfa9013949fef99d83",
+      "bytes": 974
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/navigation-21.log": {
+      "sha256": "e3724ee16e21a41642b5b75047453571bbcb63572024f002ea365664b02ad6d0",
+      "bytes": 7878
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/products-21.json": {
+      "sha256": "dbe5ce122a3aa88f6119a2daa33857ca386ca50c62dac6cdb12538565f07417f",
+      "bytes": 2345
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/readable-17-english-activities.json": {
+      "sha256": "0e2a032846daa3fbed83cffdf8999a693141af761455817927a1cce19ccbfad0",
+      "bytes": 105454
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/readable-17-summary.json": {
+      "sha256": "6416e0aad556bd6e860306e431fba680399e4c8fd575a9311afd9491960dcea4",
+      "bytes": 2888
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/readable-17.log": {
+      "sha256": "33967051b0556644f1e908631d3c4cc4ea4f518c9c10e9991d9959cabc25aa1d",
+      "bytes": 1907
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/repository-tests-final.log": {
+      "sha256": "aa916d042cecb2035ce777004126bb94ee37bfd2aab260ea88255d18dfa15b7e",
+      "bytes": 2904
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/repository-tests.log": {
+      "sha256": "de687cdfbc4d3e43690d0a2510885a714cc16204f9d4e54ad35f5f316ad4373a",
+      "bytes": 2904
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/scroll-15-english-activities.json": {
+      "sha256": "2910a8516362216729c9c74fd262278b0f768a0d77dfc66c2e42fbca1b515bce",
+      "bytes": 144563
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/scroll-15-summary.json": {
+      "sha256": "9d964244d29d7041dc48fbc3df601820ca16c290a17052f778676e72350ca580",
+      "bytes": 2888
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/scroll-15.log": {
+      "sha256": "d81dc768fe899103d932ee99b5376ae392b7fc5eea04ca8b8d58628656174eb5",
+      "bytes": 1905
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/simulator-restored.json": {
+      "sha256": "0f27335622653849383585d3fbf0e7dbd751ff220636ba09fa2f00e0f35bee24",
+      "bytes": 153
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/source-14.patch": {
+      "sha256": "d7861cab40a6b626dc05c213915ea5391b683ccc7f6e09024760b811fe698e1b",
+      "bytes": 6858
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/source-15.patch": {
+      "sha256": "618232d6433269af8d88eba8810dd20ddac977a51a779ea2f10b0635c05f8553",
+      "bytes": 9785
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/source-16.patch": {
+      "sha256": "2b1ad3307bc371f3d1457515f3714c0d600bcf057c1a7161cd65730787220a92",
+      "bytes": 11648
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/source-17.patch": {
+      "sha256": "6d2d30add8c4837e4a24eab304eb51e7979804443a3d414078daad1b5e4cd02a",
+      "bytes": 12211
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/source-19.patch": {
+      "sha256": "91ddff76e7bb4a00e3ed48d1f543f7ed0e1a2f7595201b53d8fb6ae6351078e8",
+      "bytes": 14373
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/source-21.patch": {
+      "sha256": "46bcf88f211088e4a5fc236e2223fedf8ba6dbac5861006c5a9572cb54239654",
+      "bytes": 15830
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/standard-21-audit-details.json": {
+      "sha256": "6bdec5e439c13e7f09ff3464b327639e7d157fd4305312ce2d3039d302b3c267",
+      "bytes": 3470
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/verify-products.py": {
+      "sha256": "ac6944545522ff2f5b7ebad02d0adc812cd8ea4e3c93bb8cb429b67a7ad878e8",
+      "bytes": 2057
+    },
+    ".artifacts/ios-audit-localization-2026-09-17/visual-review.json": {
+      "sha256": "5ab07cdc5fbf6c8eecf7b0453f5566d031bd9420baf937c65fe0fbc7adf55328",
+      "bytes": 609
+    }
+  },
+  "release_go": false,
+  "f13": "按用户要求暂缓，未验收",
+  "plan_counts": {
+    "complete": 28,
+    "conditional": 1,
+    "in_development": 1,
+    "not_started": 2
+  }
+}

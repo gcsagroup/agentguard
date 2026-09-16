@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS page layout, localized text and audit scope (2026-09-17)
+
+- Multiline instructions use native Dynamic Type and full measured height. Vertical sections and an opaque navigation background improve scrolling readability. App and extension keep their names and IDs at 1.0.0 (21).
+- Standard-size page audits cover all categories in three languages, with one narrowly conditioned contrast exception for the disabled clear button. Node 26/26, Swift 26/26, strict Release builds and Analyze pass. Maximum-size audits still report failures; this does not establish full I6 acceptance.
+- Fixed macOS App 024 remains unchanged across 91 files and modes. The three READMEs now correct their stale 023 version text. Baseline CI passed 13/13; historical failures remain recorded. [Native evidence and limits](docs/ios-page-audit-2026-09-17.zh.md).
+
 ### iOS native text contrast and scoped regression checks (2026-09-17)
 
 - Status text, explanations and section headings now use adaptive primary text color. Unavailable shared storage still leaves protection disabled. App and extension retain their names and IDs at 1.0.0 (13).
