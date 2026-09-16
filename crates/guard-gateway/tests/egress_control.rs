@@ -7,7 +7,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Default)]
 struct Journal {
@@ -868,7 +868,32 @@ fn revoke_between_authorization_and_dispatch(check_number: usize) {
             false
         })
     });
+    let synchronization_deadline = Instant::now() + Duration::from_secs(2);
     reached_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+    // 写入前先接住真实连接，再撤销并放行客户端。不能等客户端关闭后，
+    // 才假定非阻塞监听器仍能立刻 accept 到那条零字节连接。
+    let accepted = if check_number == 2 {
+        None
+    } else {
+        loop {
+            match listener.accept() {
+                Ok((stream, _)) => break Some(stream),
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    assert!(
+                        Instant::now() < synchronization_deadline,
+                        "写入前的真实连接未在原两秒同步期限内到达：{error}"
+                    );
+                    thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("接收写入前连接失败：{error}"),
+            }
+        }
+    };
     broker.revoke_session(&context.session_id);
     resume_tx.send(()).unwrap();
     let result = worker.join().unwrap();
@@ -881,7 +906,7 @@ fn revoke_between_authorization_and_dispatch(check_number: usize) {
             std::io::ErrorKind::WouldBlock
         );
     } else {
-        let (mut stream, _) = listener.accept().unwrap();
+        let mut stream = accepted.unwrap();
         // macOS 接受的连接可能继承监听器的非阻塞状态；必须等到 EOF 才能证明零字节。
         stream.set_nonblocking(false).unwrap();
         stream

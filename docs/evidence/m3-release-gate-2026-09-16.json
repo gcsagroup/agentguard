@@ -1,0 +1,212 @@
+{
+  "candidate": "5c771f92a6cb399cdf734b699d13a490ec558449",
+  "mode": "--ga",
+  "exit_code": 1,
+  "elapsed_seconds": 479.45202158298343,
+  "snapshot_clean_at_start_and_finish": true,
+  "automatic_checks": [
+    {
+      "name": "发布候选起点冻结(HEAD + clean)",
+      "result": "PASS"
+    },
+    {
+      "name": "仓库钉住的 Rust + PATH/rustc/cargo 一致",
+      "result": "PASS"
+    },
+    {
+      "name": "格式化 (cargo fmt --check)",
+      "result": "PASS"
+    },
+    {
+      "name": "Lint (clippy -D warnings, 全 target)",
+      "result": "PASS"
+    },
+    {
+      "name": "供应链 (cargo deny: CVE/许可/来源)",
+      "result": "FAIL"
+    },
+    {
+      "name": "全 workspace 测试",
+      "result": "PASS"
+    },
+    {
+      "name": "离线评测场景",
+      "result": "PASS"
+    },
+    {
+      "name": "覆盖矩阵(每个场景都被认领)",
+      "result": "PASS"
+    },
+    {
+      "name": "主张↔测试映射(声明都有测试兜底)",
+      "result": "PASS"
+    },
+    {
+      "name": "前端与 shell 脚本能解析",
+      "result": "PASS"
+    },
+    {
+      "name": "浏览器执行前阻断逻辑",
+      "result": "PASS"
+    },
+    {
+      "name": "macOS 专属代码路径能编译",
+      "result": "PASS"
+    },
+    {
+      "name": "macOS 路径判决语义",
+      "result": "PASS"
+    },
+    {
+      "name": "部署自检结论与基线一致",
+      "result": "PASS"
+    },
+    {
+      "name": "MSRV 1.87",
+      "result": "FAIL"
+    },
+    {
+      "name": "生产部署自检(零 FAIL,无 baseline)",
+      "result": "PASS"
+    },
+    {
+      "name": "发布候选收尾未漂移(HEAD + clean)",
+      "result": "PASS"
+    }
+  ],
+  "automatic_passed": 15,
+  "automatic_failed": 2,
+  "unverified_evidence": [
+    "macOS 代码签名 (Developer ID)",
+    "macOS 公证 + staple",
+    "Windows 代码签名 (Authenticode)",
+    "Android release 签名 (非 debug keystore)",
+    "iOS 发布签名 (Apple Distribution)",
+    "真机端到端验收(macOS)",
+    "真机端到端验收(Android)",
+    "真机端到端验收(iOS Safari Web Extension)",
+    "TestFlight 候选上传/安装/升级",
+    "Chrome 候选 ZIP + 干净 profile 验收",
+    "Edge 候选 ZIP + 干净 profile 验收",
+    "真机端到端验收(Windows 桌面)",
+    "六端交付物 SBOM + 许可证收口",
+    "隐私与商店声明六端对账",
+    "连续 14 天 Beta 稳定观察",
+    "两个不同不可变 RC",
+    "Release/QA/安全/隐私法务/运维五方签字",
+    "六渠道商店/下载 smoke",
+    "5% → 25% → 100% 分阶段扩量"
+  ],
+  "missing_evidence_count": 19,
+  "gate_passed": false,
+  "release_ready": false,
+  "date": "2026-09-16",
+  "artifact_directory": ".artifacts/m3-release-gate-2026-09-16",
+  "rechecks": {
+    "supply_chain": {
+      "command": "scripts/bootstrap-rust.sh -- make check-supply-chain",
+      "candidate": "5c771f92a6cb399cdf734b699d13a490ec558449",
+      "environment_correction": "在 PATH 加入已有 /Users/lazy/.cargo/bin；未安装、升级或替换工具",
+      "cargo_deny": "0.20.2",
+      "exit_code": 0,
+      "dependency_graphs": [
+        "root",
+        "desktop-macos",
+        "desktop-windows"
+      ],
+      "all_four_checks_each_graph": "pass",
+      "raw_log_sha256": "957955d4916654a4d2cf06bf1d4878c69c1ddb704d92fdfa735def05081b4ae1",
+      "scope": "单独复验首次完整门禁的工具路径失败；不改写首轮 gate.log"
+    },
+    "test_synchronization": {
+      "workspace": {
+        "passed": 1535,
+        "failed": 0,
+        "ignored": 17,
+        "actual_rustc": "1.87.0"
+      },
+      "egress_rust_1_95_passed": 42,
+      "original_standalone_repeats_passed": 20,
+      "fixed_standalone_repeats_passed": 20,
+      "counterexample_from_original_full_gate_preserved": true,
+      "production_code_changed": false
+    },
+    "complete_gate_after_correction": false
+  },
+  "fixed_source": {
+    "crates/guard-gateway/tests/egress_control.rs": "00fd385e06be58ebbcd2a56c3f4e7d2e677b8fe38caecb372c7cbf8c374e2f22"
+  },
+  "app": {
+    "version": "2.1.0-dev.23",
+    "rebuilt": false,
+    "permission_changes": false
+  },
+  "artifacts": {
+    "plan.json": "12f3c8e9ad9bc080a306e0c32af7b34ea3f82698151161aba974699007e29b03",
+    "result.json": "2496df85c02052594821985cb945ce5469b33fa6cf45f3823ee2f768a24b1154",
+    "gate.log": "a4ecd01adac04a40194da58cc0e15e69eb1f6ccf331a3f77cced1f2c65b15cce",
+    "verification.json": "f43856c12d4081cff90d0ce6dcba6a18a6a67e8ba66446e3ba8cf44efd282d9d",
+    "supply-chain-recheck.json": "2dd9ef88e37dc740a396eca64f9f3b38c7455fc987b2988ecfd7aa42ad9006c5",
+    "supply-chain-recheck.log": "957955d4916654a4d2cf06bf1d4878c69c1ddb704d92fdfa735def05081b4ae1",
+    "environment-correction.md": "fc9ddd7c060e647cd386a90b7559144525bf78dbd9035b406053007d47f36721",
+    "egress-race/actual-rustc-info.json": "b6970b1c7c0473a35aaf0cb86518625bdf1b64adedbd9e817221c71ae1ff216f",
+    "egress-race/after-1.95.log": "058b0144989b1ea5b8f65b37008f4c799c0ca5e09eefb47615dab3ee66b5fb07",
+    "egress-race/after-1.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-10.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-11.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-12.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-13.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-14.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-15.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-16.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-17.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-18.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-19.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-2.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-20.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-3.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-4.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-5.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-6.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-7.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-8.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-9.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/after-msrv-workspace.log": "42321b258734ecdbcb4f6bb5affd608e06c77f7e114d8032dcacb6a61a880b5a",
+    "egress-race/after-plan.json": "cdfbcf1436963da0a59ad1ffddb853f4da12216cd39d10521baae8d57f066a13",
+    "egress-race/after.json": "dd96034b428788f6e240e9f1188d25ef11f27d4500f7c26be4377fee43d674bb",
+    "egress-race/before-1.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-10.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-11.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-12.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-13.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-14.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-15.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-16.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-17.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-18.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-19.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-2.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-20.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-3.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-4.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-5.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-6.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-7.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-8.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before-9.log": "f193601503c1196e6599265e9fefa3e9efb06ff89fa79eea6c8fa37994338481",
+    "egress-race/before.json": "dd96034b428788f6e240e9f1188d25ef11f27d4500f7c26be4377fee43d674bb",
+    "egress-race/clippy.log": "3ae46e9267ed446d3b7a361d93a2ef43c5adec02851051a80306e9928fbe21a8",
+    "egress-race/fix.patch": "1d8527b7bd4289d10126f3b1be6bc49655459f7508a747c04231699d3b2c5c6d",
+    "egress-race/fmt.log": "ab508f41c16526bd2233d93b54ccecb71215967b545034bd321e8abc050b2907",
+    "egress-race/plan.json": "15876e8c30751f0632341a61dcf807d1d3f86d1d13c6c6c9d460cdbc70e8b119",
+    "egress-race/verification.json": "daa56a236b90c7140567edce2f56f774a5522f5b82686cf8ff923b469b1f5234"
+  },
+  "baseline_ci": {
+    "commit": "5c771f92a6cb399cdf734b699d13a490ec558449",
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35088320036",
+    "status": "completed",
+    "conclusion": "success",
+    "successful_jobs": 13,
+    "includes_later_test_fix": false
+  }
+}

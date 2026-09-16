@@ -6,6 +6,10 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Full release-gate preparation run (2026-09-16)
+
+- Ran the GA gate on a clean candidate: 15 automatic checks passed, two failed, and 19 evidence categories were unconfigured. Preserved that run. After correcting the tool path and revocation-test synchronization, all three dependency checks, 42 egress tests, and 1,535 workspace tests on actual Rust 1.87 passed (17 ignored). See the [record](docs/agd-032-release-gate-2026-09-16.zh.md). The full gate was not rerun after correction; fixed App 023 and the original performance and release requirements remain unchanged.
+
 ### MSRV environment and macOS first-launch diagnosis (2026-09-16)
 
 - Fixed the minimum-version target inheriting newer `RUSTC/RUSTDOC` overrides. Three environment cases passed; actual Rust 1.87 passed 1,535 workspace tests with 17 ignored through the normal bootstrap entrypoint. See the [gate fix](docs/agd-032-msrv-environment-2026-09-16.zh.md).
