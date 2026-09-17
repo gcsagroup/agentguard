@@ -96,6 +96,13 @@ final class AgentGuardWebShieldUITests: XCTestCase {
             let end = snapshots.last!
             reachedEnd = end.frame.maxY > viewport.minY && end.frame.maxY <= viewport.maxY
             attach("viewport=\(viewport), end=\(end.identifier), frame=\(end.frame)", name: "\(language)-page-\(page)-bounds")
+            // 文字识别使用原始页面；其它系统检查可能滚动页面，不能污染像素与辅助功能树的对应。
+            try app.performAccessibilityAudit(for: .elementDetection) { issue in
+                self.record(issue, name: "\(language)-page-\(page)-element-detection-issue")
+                return false
+            }
+            attach(app.debugDescription, name: "\(language)-page-\(page)-after-element-detection-tree")
+            capture(app, name: "\(language)-page-\(page)-after-element-detection")
             // 对比度先在当前字号检查；其余类别可能临时切换字号和滚动位置。
             try app.performAccessibilityAudit(for: .contrast) { issue in
                 self.record(issue, name: "\(language)-page-\(page)-issue")
@@ -114,7 +121,9 @@ final class AgentGuardWebShieldUITests: XCTestCase {
                 }
                 return false
             }
-            try app.performAccessibilityAudit(for: .all.subtracting([.contrast, .dynamicType])) { issue in
+            attach(app.debugDescription, name: "\(language)-page-\(page)-after-contrast-tree")
+            capture(app, name: "\(language)-page-\(page)-after-contrast")
+            try app.performAccessibilityAudit(for: .all.subtracting([.contrast, .elementDetection, .dynamicType])) { issue in
                 self.record(issue, name: "\(language)-page-\(page)-stable-issue")
                 return false
             }
@@ -198,7 +207,7 @@ final class AgentGuardWebShieldUITests: XCTestCase {
     }
 
     private func record(_ issue: XCUIAccessibilityAuditIssue, name: String) {
-        attach("\(issue.compactDescription)\n\(issue.detailedDescription)\n\(String(describing: issue.element))", name: name)
+        attach("type=\(issue.auditType.rawValue)\n\(issue.compactDescription)\n\(issue.detailedDescription)\n\(String(describing: issue.element))", name: name)
     }
 
     private func capture(_ app: XCUIApplication, name: String) {

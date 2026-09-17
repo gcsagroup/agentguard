@@ -1,0 +1,184 @@
+{
+  "baseline": "4d31da62994c68f8f24fa801f59e8fe29d5c2e63",
+  "build": "1.0.0 (34)",
+  "baseline_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35164724543",
+    "successful_jobs": 12,
+    "failed_jobs": 1,
+    "swift": {
+      "devicesAndConfigurations": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "DC4CD8B3-4457-4153-9087-A0D7A2F9BFD9",
+            "deviceName": "iPhone 16 Pro",
+            "modelName": "iPhone 16 Pro",
+            "osBuildNumber": "22F77",
+            "osVersion": "18.5",
+            "platform": "iOS Simulator"
+          },
+          "expectedFailures": 0,
+          "failedTests": 1,
+          "passedTests": 25,
+          "skippedTests": 0,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "environmentDescription": "AgentGuardWebShield · Built with macOS 15.7.9",
+      "expectedFailures": 0,
+      "failedTests": 1,
+      "finishTime": 1789603643.236,
+      "passedTests": 25,
+      "result": "Failed",
+      "runtimeWarnings": [],
+      "skippedTests": 0,
+      "startTime": 1789603386.147,
+      "statistics": [],
+      "testFailures": [
+        {
+          "failureText": "Potentially inaccessible text",
+          "targetName": "AgentGuardWebShieldUITests",
+          "testIdentifier": 26,
+          "testIdentifierString": "AgentGuardWebShieldUITests/testPageAuditsAndScrollTraditionalChinese()",
+          "testIdentifierURL": "test://com.apple.xcode/AgentGuardWebShield/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests/testPageAuditsAndScrollTraditionalChinese",
+          "testName": "testPageAuditsAndScrollTraditionalChinese()"
+        }
+      ],
+      "title": "Test - AgentGuardWebShield",
+      "topInsights": [
+        {
+          "category": "Longest Test Runs",
+          "impact": "55% of duration",
+          "text": "1 longest test run with outlier durations exceeding 0.19s (three standard deviations)"
+        }
+      ],
+      "totalTestCount": 26
+    }
+  },
+  "local_standard_light": {
+    "node_passed": 26,
+    "swift_passed": 26,
+    "strict_release_and_analyze_passed": true,
+    "repository_invariants_passed": 23
+  },
+  "supplemental_state": "running",
+  "older_sdk_fix_verified": false,
+  "i6_complete": false,
+  "release_go": false,
+  "product_ui_unchanged_sha256": "1ad432afe5176d4625b7968201098d4d6db044d60454f3f39869478a864e56b7",
+  "test_source_sha256": "30c11bb6939a9d83f093d175d387bc219cf3660af0669ae433fc8dad81db743c",
+  "products": {
+    "products": [
+      {
+        "path": ".artifacts/ios-ci-audit-2026-09-17/local-34/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": ".artifacts/ios-ci-audit-2026-09-17/local-34/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      },
+      {
+        "path": ".artifacts/ios-ci-audit-2026-09-17/local-34/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "7b2d0d653cc0cc2fc0f341d4ef0d61eaeb83705a82af7e2cdf78e2f426678fa1"
+      },
+      {
+        "path": ".artifacts/ios-ci-audit-2026-09-17/local-34/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "e3d6cc11c7a64712a9a8d4c09bba7f6008b33c266967656fe4cfcf9c9e9a8a93"
+      },
+      {
+        "path": ".artifacts/ios-ci-audit-2026-09-17/local-34/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "a776251fddcc6ab42c4f30a2893827076947bb1129b38eed1cc3635a1b66a32e"
+      },
+      {
+        "path": ".artifacts/ios-ci-audit-2026-09-17/local-34/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "a669373300503bc5aab46b5e309c285b6e5bf4c28830c5c80808e0edc5eefd67"
+      }
+    ],
+    "extension_resource_files_per_product": 7,
+    "extension_resources_match_source": true
+  },
+  "macos": {
+    "app_version": "2.1.0-dev.24",
+    "files_verified": 91,
+    "hashes_and_modes_unchanged": true
+  },
+  "screenshots_reviewed": [
+    {
+      "name": "CI33繁中审计前末页",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/F52AA521-7E5F-494A-9804-DE782B17131B.png",
+      "sha256": "4b2a7241f619897d5f10ff92febd563cb5a4bd2bfcee0b4622e5750c7d59803e"
+    },
+    {
+      "name": "CI33文字识别失败时页面",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/8891E99A-1B30-4BC8-B8D7-AEB007027A67.png",
+      "sha256": "6f9f0d21ae7abd147bd4dd4508d40ffec60253ab1db97b0e0375d28e8c891022"
+    },
+    {
+      "name": "standard-light-34:en-page-0_0_D1B213DD-B1C8-4AED-A9A2-670CD44FDB50.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/3357490D-E680-43CF-953A-BEFFEEE40D60.png",
+      "sha256": "3e2a3e5678e7be348b1fea8ebd30b61a89d5ae2793c36beee8b98035eb34b919"
+    },
+    {
+      "name": "standard-light-34:en-page-2_0_98E3635D-C4CF-4A74-88BC-241C749DACD9.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/5612C592-5D63-4509-B19E-442B5E2E49BA.png",
+      "sha256": "8d4601eed9e9b2ee2760753e7158cfbe2a4ede355d2a3b20280dde08bc80c8ea"
+    },
+    {
+      "name": "standard-light-34:zh-Hans-page-0_0_D26F3814-A5DA-41D6-B4FC-22DA9B543036.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/46D026AD-9A63-4834-AC1E-9B4E105A76CE.png",
+      "sha256": "be350d358205101d5d4a6553329518618e7989aab0f88294accaff9403b767b6"
+    },
+    {
+      "name": "standard-light-34:zh-Hans-page-1_0_BB2BC4ED-C460-41B6-91B5-2FFF166C247F.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/DFD382B3-28B3-4BBF-BE25-DF855430022F.png",
+      "sha256": "3a7c0880daa7da07bdda80f0b29e174bd4776199a6db365126a42939952fe759"
+    },
+    {
+      "name": "standard-light-34:zh-Hant-page-0_0_2BD48797-B790-468C-9C5C-E3A647B756B5.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/81E5A60E-1289-428E-BEE0-A2FF8C4F0A99.png",
+      "sha256": "90d15f7b0e47f013a3de3237c1eb8e1f121039b8f6a3df4e461ccd40269c7370"
+    },
+    {
+      "name": "standard-light-34:zh-Hant-page-1_0_9B26A75C-8388-44F9-862F-EBEB88E14472.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/7ED0587F-54AB-4215-AF58-D7288D9C569F.png",
+      "sha256": "315c34b0ed942c018153d08082b89dccf208b1bc28349605501bece9dbd90ef4"
+    }
+  ],
+  "files": {
+    ".artifacts/ios-ci-audit-2026-09-17/ci-4d31da6.json": "91478a0096bf3805da96cabcd8850f8bf374da3a5896511187a5264835054f24",
+    ".artifacts/ios-ci-audit-2026-09-17/ios-job.log": "2195138d767159459c2449c1b1da6d8c8d4232735eb7b660e1301e099ed49ec7",
+    ".artifacts/ios-ci-audit-2026-09-17/summary.json": "b0b2ce0e1ab0dc30db5a49c8862a9780d2511ae6a5f53c9556b67e3e00f25367",
+    ".artifacts/ios-ci-audit-2026-09-17/issues.json": "f04366174e92f9f7ee89d34fecb84822a4b660ebf1b4614ac1e13f81f40cf45f",
+    ".artifacts/ios-ci-audit-2026-09-17/hant-activities.json": "02540f8a02956b741c105abecb5c2b6113c9e6f987679340c28be5dabb904399",
+    ".artifacts/ios-ci-audit-2026-09-17/local-gate-34.log": "3a4d4d435f9370c52853961acd3d3c5203bc0d033cf1108d0c5da0328bee81f7",
+    ".artifacts/ios-ci-audit-2026-09-17/summary-standard-light-34.json": "468c7a6fd5e73490eab5618f223a919126fe660b48d3bb7caddc46b68fb70156",
+    ".artifacts/ios-ci-audit-2026-09-17/repository-invariants.log": "553f29f46bfc9b3fb50108b05054ac2c5cc18664807d79fd6a0cfc6bbab64e4f",
+    ".artifacts/ios-ci-audit-2026-09-17/products-34.json": "4e5a1ba543958d55e164bfa78f3e89ea5121d576bf7b2c15745ca41b99ac5843",
+    ".artifacts/ios-ci-audit-2026-09-17/macos-identity.json": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
+    ".artifacts/ios-ci-audit-2026-09-17/standard-light-stage-changes.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    ".artifacts/ios-ci-audit-2026-09-17/test-34.swift": "30c11bb6939a9d83f093d175d387bc219cf3660af0669ae433fc8dad81db743c",
+    ".artifacts/ios-ci-audit-2026-09-17/environment-standard-light-34.json": "4c0cb2624eb910c9e4b36471a1882dcea4912b214b2ed8d4f0969e53a08a810f",
+    ".artifacts/ios-ci-audit-2026-09-17/screenshots-reviewed-standard-light.json": "ef4265c682c955c3d788ad2f5f0e059760ca76df4cc054057b61d2ebde93338a"
+  }
+}
