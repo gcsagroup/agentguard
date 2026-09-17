@@ -1,0 +1,1213 @@
+{
+  "baseline": "75c7f1b6131fdc38483fb917725ad03d9bf4bde9",
+  "build": "1.0.0 (33)",
+  "scope": "iPhone 17 / iOS 26.5，未签名、共享存储不可用、无记录页面；当前字号对比度、其他类别、动态字体依次执行，集合并集为 all。",
+  "environments": {
+    "standard-light-33": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "large",
+      "appearance": "light",
+      "evidence": "构建 32 矩阵退出时执行恢复；构建 33 标准门禁截图复核。未在门禁开始前另行采集 simctl 设置。",
+      "direct_pre_run_readback": false
+    },
+    "standard-dark-33": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "large",
+      "appearance": "dark"
+    },
+    "max-light-33": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "accessibility-extra-extra-extra-large",
+      "appearance": "light"
+    },
+    "max-dark-33": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "accessibility-extra-extra-extra-large",
+      "appearance": "dark"
+    }
+  },
+  "display_scope": "标准和最大辅助字号各自的浅色与深色；不是所有字号、设备或系统版本。",
+  "results": {
+    "29-empty": {
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "max-hans-29": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "failures": [
+        {
+          "failureText": "XCTAssertLessThanOrEqual failed: (\"0.1385681293302539\") is greater than (\"0.13740954580446413\") - 可见范围存在缺口：privacy.note",
+          "targetName": "AgentGuardWebShieldUITests",
+          "testIdentifier": 1,
+          "testIdentifierString": "AgentGuardWebShieldUITests/testPageAuditsAndScrollSimplifiedChinese()",
+          "testIdentifierURL": "test://com.apple.xcode/AgentGuardWebShield/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests/testPageAuditsAndScrollSimplifiedChinese",
+          "testName": "testPageAuditsAndScrollSimplifiedChinese()"
+        }
+      ]
+    },
+    "max-light-30": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "negative-31": {
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "failures": [
+        {
+          "failureText": "Contrast failed",
+          "targetName": "AgentGuardWebShieldUITests",
+          "testIdentifier": 1,
+          "testIdentifierString": "AgentGuardWebShieldUITests/testPageAuditsAndScrollSimplifiedChinese()",
+          "testIdentifierURL": "test://com.apple.xcode/AgentGuardWebShield/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests/testPageAuditsAndScrollSimplifiedChinese",
+          "testName": "testPageAuditsAndScrollSimplifiedChinese()"
+        }
+      ]
+    },
+    "max-light-32": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "standard-light-32": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "standard-dark-32": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "max-dark-32": {
+      "passed": 2,
+      "failed": 1,
+      "skipped": 0,
+      "failures": [
+        {
+          "failureText": "Contrast failed",
+          "targetName": "AgentGuardWebShieldUITests",
+          "testIdentifier": 2,
+          "testIdentifierString": "AgentGuardWebShieldUITests/testPageAuditsAndScrollSimplifiedChinese()",
+          "testIdentifierURL": "test://com.apple.xcode/AgentGuardWebShield/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests/testPageAuditsAndScrollSimplifiedChinese",
+          "testName": "testPageAuditsAndScrollSimplifiedChinese()"
+        }
+      ]
+    },
+    "standard-light-33": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "standard-dark-33": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "max-light-33": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    },
+    "max-dark-33": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "failures": []
+    }
+  },
+  "coverage": {
+    "max-light-32": {
+      "en": {
+        "pages": 14,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 0.00018310546875,
+        "summary": "covered=20, deferred=[\"protection.note\"]"
+      },
+      "zh-Hans": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.toggle\"]"
+      },
+      "zh-Hant": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.note\"]"
+      }
+    },
+    "standard-light-32": {
+      "en": {
+        "pages": 3,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hans": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hant": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      }
+    },
+    "standard-dark-32": {
+      "en": {
+        "pages": 3,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hans": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hant": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      }
+    },
+    "max-dark-32": {
+      "en": {
+        "pages": 14,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 0.00018310546875,
+        "summary": "covered=20, deferred=[\"protection.note\"]"
+      },
+      "zh-Hans": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.toggle\"]"
+      },
+      "zh-Hant": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.note\"]"
+      }
+    },
+    "standard-light-33": {
+      "en": {
+        "pages": 3,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hans": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hant": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      }
+    },
+    "standard-dark-33": {
+      "en": {
+        "pages": 3,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hans": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      },
+      "zh-Hant": {
+        "pages": 2,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 5.684341886080802e-14,
+        "summary": "covered=20, deferred=[]"
+      }
+    },
+    "max-light-33": {
+      "en": {
+        "pages": 14,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 0.00018310546875,
+        "summary": "covered=20, deferred=[\"protection.note\"]"
+      },
+      "zh-Hans": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.toggle\"]"
+      },
+      "zh-Hant": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.note\"]"
+      }
+    },
+    "max-dark-33": {
+      "en": {
+        "pages": 14,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 0.00018310546875,
+        "summary": "covered=20, deferred=[\"protection.note\"]"
+      },
+      "zh-Hans": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.toggle\"]"
+      },
+      "zh-Hant": {
+        "pages": 10,
+        "elements_covered": 20,
+        "largest_interior_gap_points": 0.0,
+        "largest_uncovered_end_points": 4.547473508864641e-13,
+        "summary": "covered=20, deferred=[\"privacy.note\"]"
+      }
+    }
+  },
+  "negative_recheck_report": ".artifacts/ios-visible-audit-2026-09-17/attachments-negative-31/AE57628D-8102-46FE-A726-5D4244B4A53D.txt",
+  "negative_limit": "31 使用相同的报告判定和全屏复查拒绝逻辑；32 收紧覆盖坐标及高度容差，33 将每次复查定位改为从初始页面开始。反例不是 33 的重新执行。",
+  "max_dark_32_failure": [
+    {
+      "name": "zh-Hans-recheck-privacy_0_0D58F154-CDF0-42C2-9C8B-9B14B7BCC95A.toggle-issue",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-32/D87AE799-A947-4A42-8693-0C50DB12DECB.txt",
+      "report": "Contrast failed\nContrast failed for SwiftUI.AccessibilityNode\nOptional(Attributes: StaticText, 0x117487480, {{103.7, -56.7}, {231.3, 116.7}}, identifier: 'status.value', label: '共享存储不可用'\nElement subtree:\n →StaticText, 0x117487480, {{103.7, -56.7}, {231.3, 116.7}}, identifier: 'status.value', label: '共享存储不可用'\nPath to element:\n →Application, 0x11705c500, pid: 71391, label: 'AgentGuard'\n  ↳Window (Main), 0x11705e300, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x11705cdc0, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x11705e6c0, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x11705c280, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x11705c780, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x11705fd40, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x11705e580, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x117485f40, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x117485400, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x117484640, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x117484780, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x117484c80, {{0.0, -217.0}, {402.0, 4889.0}}\n              ↳Other, 0x117484500, {{16.0, -201.0}, {352.3, 277.0}}\n               ↳StaticText, 0x117487480, {{103.7, -56.7}, {231.3, 116.7}}, identifier: 'status.value', label: '共享存储不可用'\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x117a8e1c0, pid: 71391, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 71391, elementOrHash.elementID: 4399507968.47\n    Output: {\n      StaticText, 0x11705df40, {{103.7, -56.7}, {231.3, 116.7}}, identifier: 'status.value', label: '共享存储不可用'\n    }\n)"
+    }
+  ],
+  "ui_source_unchanged_sha256": "1ad432afe5176d4625b7968201098d4d6db044d60454f3f39869478a864e56b7",
+  "test_source_sha256": "096e3a372fe33a90d3f3149fcd70be648ac4c286dc4263731af70d0e123b980b",
+  "products": {
+    "products": [
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "9198aae7e4f6135be0498ee6c8dbbe7ea9ab29c8459bdd735cb7620ea7050ce0"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "4d319085e7a3d23cbae9ac5574a6348e316742712685d43b15c087412a6f62fc"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "479bc21733905c73b9a4cd36e6ff7dbc9d88ad518bd975d56b135bea7269bab6"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "95a9469de2c6c1000b66bf50051470251fa8f1fea8462760bf74df0e63335d5d"
+      }
+    ],
+    "extension_resource_files_per_product": 7,
+    "extension_resources_match_source": true
+  },
+  "prior_products": {
+    "products": [
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-32/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "32",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-32/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "32",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-32/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "32",
+        "executable_sha256": "ca029c9dd80cc7dc3f07b6ece61d935bd40c5064f5b39ad863b3e99f7234c5db"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-32/release-simulator-derived/Build/Products/Release-iphonesimulator/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "32",
+        "executable_sha256": "4c972ed0ec797a11a9bc01fd414c65b3c95fc19312003ad09693eab4e6dbfe65"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-32/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "32",
+        "executable_sha256": "bef85c96e815b895bc7b1d1288b0ef34f180f08a1ed99c0845a22a50f893af67"
+      },
+      {
+        "path": ".artifacts/ios-visible-audit-2026-09-17/local-32/release-device-derived/Build/Products/Release-iphoneos/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "32",
+        "executable_sha256": "ec329a4a50cd0175cbfb5129cef167881a4dd685fecbca1716d0433d6bf86d4e"
+      }
+    ],
+    "extension_resource_files_per_product": 7,
+    "extension_resources_match_source": true
+  },
+  "test_products_after_gate": [
+    {
+      "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShieldUITests-Runner.app/AgentGuardWebShieldUITests-Runner",
+      "sha256": "a2a058c87c45755e677e9008b78b91308a08e596bd8c121de7697d3bc875095f"
+    },
+    {
+      "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/test-derived/Build/Products/Debug-iphonesimulator/AgentGuardWebShieldUITests-Runner.app/PlugIns/AgentGuardWebShieldUITests.xctest/AgentGuardWebShieldUITests",
+      "sha256": "76a1bf6c67ccd53fbb201ef411bd8d1b401450584469fee55734dfebf62bc832"
+    },
+    {
+      "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/test-derived/Build/Products/Debug-iphonesimulator/WebShieldCoreTests.xctest/Frameworks/WebShieldCore.framework/WebShieldCore",
+      "sha256": "51d788f8fbf3fd3e9c03b96c480fe2eae3b7741c5654fdc9ed55fce4d695dc10"
+    },
+    {
+      "path": ".artifacts/ios-visible-audit-2026-09-17/local-33/test-derived/Build/Products/Debug-iphonesimulator/WebShieldCoreTests.xctest/WebShieldCoreTests",
+      "sha256": "62832e9fa00d492f373d49ea0c7a1af995a4c992db9480b9992091345a5ce9b3"
+    }
+  ],
+  "macos": {
+    "app_version": "2.1.0-dev.24",
+    "files_verified": 91,
+    "hashes_and_modes_unchanged": true
+  },
+  "restored": {
+    "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+    "state": "Shutdown",
+    "name": "Aegis QA iPhone 17",
+    "content_size": "large",
+    "appearance": "light",
+    "installed": [
+      {
+        "path": "/Users/lazy/Library/Developer/CoreSimulator/Devices/01D9DC02-2C70-4958-973E-4F5668AB788A/data/Containers/Bundle/Application/9BFBC01B-35CE-4BD6-93F5-9315310007D1/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": "/Users/lazy/Library/Developer/CoreSimulator/Devices/01D9DC02-2C70-4958-973E-4F5668AB788A/data/Containers/Bundle/Application/9BFBC01B-35CE-4BD6-93F5-9315310007D1/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "33",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      }
+    ],
+    "matches_main_build_33": true
+  },
+  "repository_invariants": "23/23",
+  "baseline_ci": {
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35156380905",
+    "success_jobs": 12,
+    "failed_jobs": 1,
+    "swift": "24 passed / 2 failed / 0 skipped",
+    "unresolved_issues": [
+      {
+        "name": "zh-Hans-page-1-issue_0_EA2441F6-EAE8-41F9-B3B9-6C6F7FDE5555.txt",
+        "identifier": "section.activity",
+        "report": [
+          "Contrast failed",
+          "Contrast failed for element",
+          "Optional(Attributes: StaticText, 0x101ceeb90, {{16.0, 546.7}, {67.7, 20.3}}, identifier: 'section.activity', label: '本地活动'"
+        ],
+        "before": "StaticText, 0x101e79e20, {{16.0, 413.0}, {67.7, 20.3}}, identifier: 'section.activity', label: '本地活动'",
+        "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/65D215E6-DBB3-4659-B268-6AC360AE4766.txt"
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_166EECC9-2353-48ED-A299-3D3532DE5A16.txt",
+        "identifier": "section.scope",
+        "report": [
+          "Contrast failed",
+          "Contrast failed for element",
+          "Optional(Attributes: StaticText, 0x101e68650, {{16.0, 120.3}, {118.0, 20.3}}, identifier: 'section.scope', label: '这一版保护什么'"
+        ],
+        "before": "StaticText, 0x101e6b980, {{16.0, -13.3}, {118.0, 20.3}}, identifier: 'section.scope', label: '这一版保护什么'",
+        "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/9CB3B2BD-2ACF-4670-8458-80B5A819CD61.txt"
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_3A16CD45-9A98-46B5-81CB-636CA138FDB5.txt",
+        "identifier": null,
+        "report": [
+          "Potentially inaccessible text",
+          "This element appears to display text that should be represented using the accessibility API.",
+          "nil"
+        ],
+        "before": null,
+        "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/B84D3BD8-DC1C-44F6-B5F0-7CBAEBD7031B.txt"
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_83CF569E-7D0E-4D0B-912D-023A98C3D29A.txt",
+        "identifier": "section.activity",
+        "report": [
+          "Contrast failed",
+          "Contrast failed for element",
+          "Optional(Attributes: StaticText, 0x101dbdb00, {{16.0, 546.7}, {67.7, 20.3}}, identifier: 'section.activity', label: '本機活動'"
+        ],
+        "before": "StaticText, 0x101d70390, {{16.0, 413.0}, {67.7, 20.3}}, identifier: 'section.activity', label: '本機活動'",
+        "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/DCD00D33-73C3-4214-8CB2-71FCD12F1DFE.txt"
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_274E9E8D-386F-4DA8-AB9B-61DFC3B6215C.txt",
+        "identifier": "section.scope",
+        "report": [
+          "Contrast failed",
+          "Contrast failed for element",
+          "Optional(Attributes: StaticText, 0x101c842b0, {{16.0, 120.3}, {135.0, 20.3}}, identifier: 'section.scope', label: '這個版本保護什麼'"
+        ],
+        "before": "StaticText, 0x101d6fbb0, {{16.0, -13.3}, {135.0, 20.3}}, identifier: 'section.scope', label: '這個版本保護什麼'",
+        "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/E9511146-221E-4176-B00D-CC85DEBFB1CA.txt"
+      }
+    ]
+  },
+  "screenshots_reviewed": [
+    {
+      "name": "en-page-0_0_5089E596-FC0C-4FDD-8141-450036192FE0.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/BB4C9F93-0FC0-4E76-B226-2F599F79FF14.png",
+      "sha256": "f17164cbc3637154a6618849c9f5dac3dffc7dc372004e442e7b2a700cb273f1"
+    },
+    {
+      "name": "en-page-13_0_5E8E0795-B61A-4140-AEBA-904152DA743F.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/52CF8667-97B8-453E-AA37-2B5ECA03A8F1.png",
+      "sha256": "3b2c7e384395c5feca9889df8b7d4286379e4f6febac6dc734c825a73c4b72a8"
+    },
+    {
+      "name": "en-recheck-protection_0_921290A9-BA98-4243-90EB-7D3ADCF22109.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/28EC29E1-30E7-4BF4-8F7B-88685AC94E50.png",
+      "sha256": "00502890caef5cc4929290bf4b515f8a5427178e7e3d219e228029c5ffa6b944"
+    },
+    {
+      "name": "en-page-3_0_C22A0188-6356-4A05-901A-B5B072B44DDF.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/3F0804F1-471A-4333-91AF-96035B3F3D22.png",
+      "sha256": "1c259af28162f128511e8da78340542c4f8537f132ed04d59eb3cad71026fabf"
+    },
+    {
+      "name": "en-page-4_0_F44C5214-237C-423B-8A92-5DD5C1B9148C.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/5C27E0E8-73DC-41BF-92C2-D04657781736.png",
+      "sha256": "1eaf0adf0e28a85a8cc6918dbd166afcb53bd97a87391be4eed1828650130352"
+    },
+    {
+      "name": "en-page-5_0_3E288100-9442-4BA0-BDFD-9BFB78F9881D.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/1DA033A5-E900-4FE6-88D2-CD8898E37911.png",
+      "sha256": "0b4269e9690392327fc790b2d30d27da421dc916ec5cbcfa51c5ad6314b326ec"
+    },
+    {
+      "name": "zh-Hans-page-0_0_108C730C-9D09-4199-A1F7-874D7DC2AB0E.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/5275FBA6-F233-4E5C-95E3-97A2BF2BAFB4.png",
+      "sha256": "1f7ee0ef2c0db81a5213edf0bc240df9a77f51163df9638b4117e219ad8be243"
+    },
+    {
+      "name": "zh-Hans-page-9_0_6CF9155A-D963-40EF-A2A4-79180B68DEEA.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/AF62E116-7446-4C34-B3E2-DB87C5131F2C.png",
+      "sha256": "8fad07c16d7f1da48cd667e26a074d157aca1260ed0cf425108dda9dc21b4264"
+    },
+    {
+      "name": "zh-Hans-recheck-privacy_0_BB44A85A-FA46-494C-8032-1C60F098051D.toggle",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/9173A6FC-F0F9-49CD-A1BF-5FDFD535E3A1.png",
+      "sha256": "26d306156852cf880a00c0e74987b5010c9d67db8aae0293dfe1aa80c24612f0"
+    },
+    {
+      "name": "zh-Hant-page-0_0_2CEB12D2-B6E0-42F6-9483-B3107082173B.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/934CE191-5E5C-4441-8846-479D647537F2.png",
+      "sha256": "6d92db8131cde056511f9763e7903aee56f5ac14f74246bd57067134b68b9d5c"
+    },
+    {
+      "name": "zh-Hant-page-9_0_B6942D04-1412-4C82-8D31-7DCA4005F8D9.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/7086D8F1-A152-4DDA-8D6E-E18F5762C268.png",
+      "sha256": "d2f85988618fd0c60a5c0e27d39900097527ccbb168d88028c05848a859b9049"
+    },
+    {
+      "name": "zh-Hant-recheck-privacy_0_C564B040-AE36-47AB-9F6F-BAD864E8D761.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-32/A6860C08-6999-4480-A4E1-3B82C4D24A95.png",
+      "sha256": "e78e5baa386fa70f65ed9cf90b30c94bf5c9eec819012d31a0de9034351d871d"
+    },
+    {
+      "name": "zh-Hans-page-1_0_1DBFD9E9-1447-4FDD-B054-216C3DFF4B4E.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/73E65EA4-A1A9-4CB0-A30B-1024988ED170.png",
+      "sha256": "82881a847a80876a205a4659be54db83190aa6ef925eab34e76b8bf73cef1836"
+    },
+    {
+      "name": "zh-Hant-page-1_0_65505D04-0CB5-43C6-B7D1-DF0314A2D584.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/ci-ios-attachments/C297E1EB-1D20-4B86-8362-C3EA05ACFE45.png",
+      "sha256": "dd21fd7bcdab19fb51b298c74324294290b3f374d4f39c1f33198acea6f99ecd"
+    },
+    {
+      "name": "standard-light-32:en-page-2_0_417CC0B2-6D66-4207-8828-C97F2938EAF2.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/05A1F639-FAA7-4F6C-BC13-0EE697E9D120.png",
+      "sha256": "dd71b8101a561c1d26cf585f1c6381b5d7d357b9d960ab060c4637b4ed5c691f"
+    },
+    {
+      "name": "standard-light-32:en-page-1_0_8CD6EDAB-6DFE-43B4-8EF8-74AC6963B7A1.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/4D0EB026-7902-491F-A2B0-B4E3D994E27C.png",
+      "sha256": "25893aacc5da1a0d210bd7a82f80cb13158305d982e82abcbe87790026b915fd"
+    },
+    {
+      "name": "standard-light-32:en-page-0_0_C789CBA9-F5DC-426D-A778-FC31B08385D5.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/2ECF861E-E598-49DE-93E3-96B064CF42BA.png",
+      "sha256": "ba7f8eed6ae41ae207abc482dee830b4b42b403c73400467ae985cb31b76f2cc"
+    },
+    {
+      "name": "standard-light-32:zh-Hans-page-1_0_B4C1064D-5F3A-4B62-957D-B168FCEF5186.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/6AB14C27-146E-4A9D-9810-4BE893481017.png",
+      "sha256": "5dc2b99b6353f06392559355455555aee68091cabbc4bbee9f6b7a881ea09074"
+    },
+    {
+      "name": "standard-light-32:zh-Hans-page-0_0_3052E02B-6BEE-4F10-A484-C7199AE8E14A.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/44BB675C-533E-4C03-B80E-FDC48FD2069F.png",
+      "sha256": "e63448e0788ce02d2de709973fb84dfc0ed989918be39aed3339304654686115"
+    },
+    {
+      "name": "standard-light-32:zh-Hant-page-1_0_5A7FA4B6-755C-41A5-A399-D275A01A3868.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/3DA41B40-C253-4F26-9D1C-A1DFAD55AB61.png",
+      "sha256": "c54d5256b2ee910d0059e14e60787601cc5360e20ce960f44606707cc5e2796e"
+    },
+    {
+      "name": "standard-light-32:zh-Hant-page-0_0_B637AB86-BAC4-488B-90F5-62D405BC406E.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-32/4735DF99-FB5C-4EB6-8154-311E067ACF77.png",
+      "sha256": "5a96db50ba97c7e0a47dc00c9fd8df35781cc360f5151ec0f909d5ea4f315f16"
+    },
+    {
+      "name": "standard-dark-32:en-page-2_0_CE8FF961-6028-4148-A057-CC86A3940B88.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/00323758-EB78-49C3-908E-AF30AEADA91C.png",
+      "sha256": "54d993995e8f718ba6f5fd138c09197db77734151e428a2551f63b49eda02a40"
+    },
+    {
+      "name": "standard-dark-32:en-page-1_0_71117365-C08E-4718-885A-977374C88EB4.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/E1493A5E-4C3A-41AB-BA9E-3F08E9E73992.png",
+      "sha256": "312557e1fc27fa3814ff42615100f9fbedb8ef457e346c80d49606c7cfbf82e4"
+    },
+    {
+      "name": "standard-dark-32:en-page-0_0_72DF3B80-0CB3-4A63-9A4A-25F99DA405AA.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/037EA4D0-5247-4A23-BE9F-B88FD18449F1.png",
+      "sha256": "bcb86c75c46ef46453e4d176e532a67b1ec5b3ce9f4b90f2fe659e3455b306ca"
+    },
+    {
+      "name": "standard-dark-32:zh-Hans-page-1_0_1348D13A-8932-4C94-87CC-8BE477ADD499.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/0F6287DD-7BFD-4D13-AAD5-BD20690FDEDD.png",
+      "sha256": "61d8251fc5277c602a344dbee525250b2de2767c8ce9b731a2b87f6683345df4"
+    },
+    {
+      "name": "standard-dark-32:zh-Hans-page-0_0_2AF7D803-9067-4EDF-BFE1-6C86A352DE87.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/2BD73E0F-A23B-4DAD-AFAC-467B02206873.png",
+      "sha256": "576ff6e6683dcaae344da98c5ce0078d55f8dfec90acb1d97b545e9b10da669a"
+    },
+    {
+      "name": "standard-dark-32:zh-Hant-page-1_0_AF688D68-B843-441A-A389-091DB703026E.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/F2AF2F58-FB84-47D2-A5AC-311EF5B65130.png",
+      "sha256": "04e5877dcb3c7421abedcd3964280fe7a1fc64c5278fc1ea5fc74eb028757335"
+    },
+    {
+      "name": "standard-dark-32:zh-Hant-page-0_0_F0C69C4C-D6BE-41F1-9E4D-F80DB178C2A8.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-32/297C7124-7CEA-4FF9-89F3-51976CDE693F.png",
+      "sha256": "c1d8ae0e62b126136646c29e989047887f6d50a025ad417a046e0df6954d30b3"
+    },
+    {
+      "name": "zh-Hans-recheck-privacy_0_61787D02-937F-4132-A2D1-2109FCDD4DE2.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-negative-31/3E060618-41C0-49C3-A713-E8EFF0047E9F.png",
+      "sha256": "0ac8252b12b425692817dff2211aede45355702cac15f6b7c04da2aea8d7eee7"
+    },
+    {
+      "name": "max-dark-32:zh-Hans-recheck-privacy.toggle",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-32/6B82D104-7576-4814-B949-31A761EB27FC.png",
+      "sha256": "256274660feb47860799ef7ff81300d74199bb1e1e462d65dbb08882738f4016"
+    },
+    {
+      "name": "max-dark-32:zh-Hans-page-0",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-32/5F09E8A2-7639-491C-949B-1A9950D7446D.png",
+      "sha256": "ad6d257dd0e382c311bf39561113a0db26df7f9789a83a306997c78e2ea44a4f"
+    },
+    {
+      "name": "standard-light-33:en-page-0_0_71D0AE27-FDE7-49A7-96DE-F1B63C77CBE5.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-33/EF944E8F-E8EB-4FCD-918C-C1490CEFDA8A.png",
+      "sha256": "c336a090c8b84f75d9b3af254ef4284930e9842ffcfcf7e084469633cba9a8ae"
+    },
+    {
+      "name": "standard-light-33:en-page-2_0_7F548166-D698-4736-A684-4664188B83F9.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-33/491F83B5-451F-4B6C-9CAA-88A6F5B00356.png",
+      "sha256": "b566a341077f063dd7af22a7634b58504f6b32f93a3c03542f3294fd4b50c66d"
+    },
+    {
+      "name": "standard-light-33:zh-Hans-page-0_0_28BD5F9C-BC61-42C5-8B85-94557EC80027.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-33/D035BF8B-0F75-4FDD-9F5F-B57CD0A576D7.png",
+      "sha256": "749f75ea21540daa1b817bb861301a7913c73fb575143c79d457677311c5d7c9"
+    },
+    {
+      "name": "standard-light-33:zh-Hans-page-1_0_7E0774A5-13D7-4A01-8AB6-12A2AEC3CBE1.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-33/72403419-BFB0-46B1-B92D-62AFEDB9FC6B.png",
+      "sha256": "75701c6fa4723ef783d6710904b22ee8c845edf71007b43aefc0f076375b2ebd"
+    },
+    {
+      "name": "standard-light-33:zh-Hant-page-0_0_C7B18038-765F-4F28-A551-9F7848CF68B8.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-33/ECB35332-559D-4BEB-A773-D3F9B86AEA36.png",
+      "sha256": "8e43f3494ec819933bee53198dea1d7a43f1a1e2fbaa7849c1f8c786381e69bf"
+    },
+    {
+      "name": "standard-light-33:zh-Hant-page-1_0_9956BF13-78AA-406B-9308-F2E2B4083303.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-light-33/364B60CB-C18A-4D70-8C29-5E8DD87EC42D.png",
+      "sha256": "fdf8ea5fe17fdad5a5d143c57afc903b08c45ac1b40507fc989b1b3cb63364c1"
+    },
+    {
+      "name": "max-dark-33:en-page-0_0_B2FF95C0-CFEE-40AB-B1E2-E0F80BF58A2C.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/B1001D12-3F3C-4B90-9DB2-F7169EDD844D.png",
+      "sha256": "9327b09cf7f06f9678824f02b1cd3617531d49e2a8897734c3a0ae38f349e185"
+    },
+    {
+      "name": "max-dark-33:en-page-13_0_653FFFE8-48D1-4C70-A692-CEB3BABCACB8.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/E1FADBAA-8FEE-4F01-B4C2-B9A9DE6CF59C.png",
+      "sha256": "1f95282475f548eec832e8c3e871cdebc797a33e638ceb71fd02b369a26ba0fc"
+    },
+    {
+      "name": "max-dark-33:en-recheck-protection_0_EEE50A5D-1BD8-4F18-B5F7-527213CD6C7E.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/33179BCA-2F06-4145-88D7-547CE1CC9C3B.png",
+      "sha256": "4df594929483f1a5d45fb98e8a05fedc41bd6bd4b6216fdd2c8ebbabafdb3bf7"
+    },
+    {
+      "name": "max-dark-33:zh-Hans-page-0_0_EBC2251E-0863-4A2C-AD11-E5B2EEFCC268.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/646F4189-BEA7-4E32-B901-44AFCE1D32E4.png",
+      "sha256": "99cc4783a9291c1d761de9ae4d4d66defef99dc7d15c09f3237588e8000f9e4a"
+    },
+    {
+      "name": "max-dark-33:zh-Hans-page-9_0_21657199-063D-410E-B932-7030D0E088AF.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/5915BBE8-4CA4-4ED9-9566-86F2CD84D0D3.png",
+      "sha256": "c42f5166ca16883b6dace36cd47bd61c8811c5aa38b1fd313f598f90c5789a0b"
+    },
+    {
+      "name": "max-dark-33:zh-Hans-recheck-privacy_0_04FBE61E-6CDC-4D5E-9191-5654910645DA.toggle",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/31051BE9-1029-4680-9651-A369DA9428FD.png",
+      "sha256": "12343a5fe7bed00c8b937ce9138782553ecf44564f69c7aa7cdca04a7b11d45a"
+    },
+    {
+      "name": "max-dark-33:zh-Hant-page-0_0_B515BACE-2C18-4DCD-AA05-E3AC8D392876.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/BC8338C5-612E-4843-AF08-AAD159224BC6.png",
+      "sha256": "5f19ec61e3b0965ab0a8964e639a7997e233cc168dcb6f4285ec91fd1b8f0ad1"
+    },
+    {
+      "name": "max-dark-33:zh-Hant-page-9_0_33614164-4F99-49CB-9423-070096D5E913.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/E2C6C93C-37ED-4AD2-A974-7D676FC47466.png",
+      "sha256": "a205fa64acf58cbdf324492f97397616fea96e5aa4993906cac90e0b8464602e"
+    },
+    {
+      "name": "max-dark-33:zh-Hant-recheck-privacy_0_E6A1796C-3A9B-4123-8485-E40134523AA4.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-dark-33/339DC857-A228-4084-9EEB-071F8FC64DDC.png",
+      "sha256": "4803d0d0822635d575eefc22f4a4769cdd5c19212520facf48bb44eb45faa222"
+    },
+    {
+      "name": "max-light-33:en-page-0_0_FA3E64B9-8D7E-4283-9444-8AE9ECD056A7.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/8010336B-C2DE-4A12-B970-CAC760D46D31.png",
+      "sha256": "25c41a7f92b73708879f955de9d8c568fed25044c587a97ebd832bada8ca7014"
+    },
+    {
+      "name": "max-light-33:en-page-13_0_68919E4C-9DFC-464B-ABF7-0AEA7E33661F.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/4038312F-E07C-40B5-9CD6-668145233E9A.png",
+      "sha256": "d1065e69fc5e1e023ce81a8068dc3d85d9d2ca3de0696d4b5067793a272ce534"
+    },
+    {
+      "name": "max-light-33:en-recheck-protection_0_F287A434-6F9D-4C27-82F4-4FE94EF42A69.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/F478863D-D08C-4597-950D-A909E60840CD.png",
+      "sha256": "0a1a086e7d8262ab9215c33ddf6870aaa706d5cc2f5786b56f549ed6162c1efb"
+    },
+    {
+      "name": "max-light-33:zh-Hans-page-0_0_D73828AF-ECC3-4056-A6DA-03343EFAD1C1.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/E52D8C5A-5BE8-4474-A6A5-B1294651EB9D.png",
+      "sha256": "e90b3a484c8b54f0523ca154827e143ee867e6b7b5b855ce3a20a09f2327d76f"
+    },
+    {
+      "name": "max-light-33:zh-Hans-page-9_0_B27E069D-C1E3-4900-8F08-BF8FE8DA484F.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/76076EEE-7EC1-479C-950F-5EF5A56B5C0B.png",
+      "sha256": "fb05a44246bc64ec26f40f176b2bc8ae86fa3ac6091220a712fd0b8a449690d9"
+    },
+    {
+      "name": "max-light-33:zh-Hans-recheck-privacy_0_042CA81D-14FF-4EC6-BD48-4FD5B3C0B819.toggle",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/D77EC086-6705-4941-98BE-4A72463E4245.png",
+      "sha256": "c05d344345ccea028d1af6b1f6fc84bb3e6ca15c1012185a207695474a7ac8f1"
+    },
+    {
+      "name": "max-light-33:zh-Hant-page-0_0_E6BBBCBD-474B-4179-865B-FC5F54FABD3D.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/EAE87CF9-8BBC-4A3C-A527-A245FD1D8EC1.png",
+      "sha256": "5b94d66e03fde496005e5a712c835411fb2a0c7a9b9c2486f72c303a09858cc5"
+    },
+    {
+      "name": "max-light-33:zh-Hant-page-9_0_D06A7FE8-E19A-4EF0-9F1C-71CAAA406C0F.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/AAAA265E-9F41-44E3-ADD8-D32C2901180C.png",
+      "sha256": "9a1296e4526de7665b4029888f0acff5fb5329284eab179e3307712d8bfba613"
+    },
+    {
+      "name": "max-light-33:zh-Hant-recheck-privacy_0_5296A4B4-18CD-4D13-9411-4BEB3F551929.note",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-max-light-33/4EAAD89D-C36B-427F-ACCB-A441C7AFCDF3.png",
+      "sha256": "d5d2df461e16c6b791515ab60825bda8caa390d14970bc81d7eeeedb84184f9c"
+    },
+    {
+      "name": "standard-dark-33:en-page-0_0_FF0FA7C4-9D18-4263-920D-1C33EBB18846.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-33/27E263BE-AA04-43F9-B43D-24A90F275788.png",
+      "sha256": "5d4a1cf167e34cf9437b91412f5249e1675a7d6630348d5f9ea9ffbd9a6d588c"
+    },
+    {
+      "name": "standard-dark-33:en-page-2_0_F3522FEE-A22F-4E6B-BDA1-30F5C0558485.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-33/DA289EBA-F458-4FDF-B4C5-E2948AA9885D.png",
+      "sha256": "0d4f65352d527f4bd6e00a8db405f479efff939784e547c3f1a697dbe0407919"
+    },
+    {
+      "name": "standard-dark-33:zh-Hans-page-0_0_A527A96F-7FEE-4DC7-B639-735023843B1F.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-33/22DD6847-2808-421C-8D78-8ECC2EE51668.png",
+      "sha256": "19bc47a28b84b5a1bdf9af2284b90a616094798845826b2a5bdf4a8d97c0a963"
+    },
+    {
+      "name": "standard-dark-33:zh-Hans-page-1_0_A97180AE-920F-4C27-9F64-1A3286AC0E8A.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-33/3361D296-C8C2-4011-BC2D-FF744F58AEBE.png",
+      "sha256": "19aa59f2974cf237dda26794c2de4eb773649085de66440593faa9fa1e30ffe6"
+    },
+    {
+      "name": "standard-dark-33:zh-Hant-page-0_0_1D375E83-30C5-4B83-8231-A3EC77EBFE2E.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-33/01A52A18-3235-4B95-AE5C-9FFC871E5418.png",
+      "sha256": "f9a6ba57e39571836b3ff5fb539681a2208d51a780e6d06490feffac5e02ebb0"
+    },
+    {
+      "name": "standard-dark-33:zh-Hant-page-1_0_790C193C-E2D1-4729-99D3-9833428A4304.png",
+      "path": ".artifacts/ios-visible-audit-2026-09-17/attachments-standard-dark-33/1065DB06-582D-4D56-8311-889A8BCEF196.png",
+      "sha256": "24b495888fdb28b4a99298a12e0455dcdca8c0af10046c66410e380b7c2a5cc5"
+    }
+  ],
+  "attachment_files": 1787,
+  "files": {
+    ".artifacts/ios-visible-audit-2026-09-17/attachment-hashes.json": {
+      "sha256": "2deb1a3fd0c49792ab023067405d38bc871b2868c619ce3697eb3a036ed4d5b7",
+      "bytes": 376167
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-75c7f1b-ios.log": {
+      "sha256": "cb355e03cb65af2580d22a93187d4893c4c53a6daf364bd06ddd861e0d54e17f",
+      "bytes": 42351
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-75c7f1b.json": {
+      "sha256": "ba0c68989f9dab00b094295061924cfeb2a1b642fe663dae45b4d6fc003d279a",
+      "bytes": 36789
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-artifacts.json": {
+      "sha256": "4755d1f17a143f9c3cce205a183835c8a7a403c97f6b1ad1c9a7ee29d4e69b64",
+      "bytes": 5171
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-images-review.json": {
+      "sha256": "a909de9295cc10707346c5e02b9e833894e04b7b6f58e9e36d589cd12894b752",
+      "bytes": 461
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-ios-export.log": {
+      "sha256": "3da91c42170d59bfb315b35e8698b09cbb5bc9a3be9162277f99900546e48ecd",
+      "bytes": 8368
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-ios-summary.json": {
+      "sha256": "e18e8de6e4e744b7e50f6954941a867786a6b7f782dde5b3dacc082e1c6e073e",
+      "bytes": 2306
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/ci-issues.json": {
+      "sha256": "80bcfb781fa922a7a5d36539a9020ad4b9e699abbd3c94d3b82bfc9b93c58ea2",
+      "bytes": 2817
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/coverage-details.json": {
+      "sha256": "ad35daeff21e7196ba8bb98d1875e3b915d38ca96e138477212c81a891e6d68f",
+      "bytes": 75095
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-max-dark-32.json": {
+      "sha256": "6fbd1e8df6666e5c8bb5e47b6f5b18a977d2609f7e14a2090fc9a32c4d38ebd5",
+      "bytes": 136
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-max-dark-33.json": {
+      "sha256": "6fbd1e8df6666e5c8bb5e47b6f5b18a977d2609f7e14a2090fc9a32c4d38ebd5",
+      "bytes": 136
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-max-light-32.json": {
+      "sha256": "ab66f16e3770bae5f79091be9c284876a6705c49159e1f38dbe47b5c396f990c",
+      "bytes": 137
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-max-light-33.json": {
+      "sha256": "ab66f16e3770bae5f79091be9c284876a6705c49159e1f38dbe47b5c396f990c",
+      "bytes": 137
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-standard-dark-32.json": {
+      "sha256": "4c274cb19517ddff8cb7b1cef28c6fa3a08224a8afb5dc693dcebcbe71b5355b",
+      "bytes": 104
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-standard-dark-33.json": {
+      "sha256": "4c274cb19517ddff8cb7b1cef28c6fa3a08224a8afb5dc693dcebcbe71b5355b",
+      "bytes": 104
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-standard-light-32.json": {
+      "sha256": "2a646354150d3c65a17bdf66f7cbbb021b69956a8f8ade732c9e25f009bb7086",
+      "bytes": 105
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/environment-standard-light-33.json": {
+      "sha256": "f9562e7a59b8d43c53d03dc6ce33514fc5564956150a151aa496003790b182f5",
+      "bytes": 286
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/experiment.json": {
+      "sha256": "f9e91e393a6538f013ff22e0ff87f246e9a44e19545bf225ddc6e476c667251e",
+      "bytes": 307
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-max-dark-32.log": {
+      "sha256": "9cfd4a58c753155cd089c6ddec2586ddc3d4c52bd4f5d823453aeca366d0f3da",
+      "bytes": 34627
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-max-dark-33.log": {
+      "sha256": "6ee72223ac8a151802d81e8c8268bf7b238807445cf7c4b47144a5662d2bfb68",
+      "bytes": 25025
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-max-hans-29.log": {
+      "sha256": "fe4953b91c97710e7d90ad01e40d3f6453d1a934dfdf9bc63eeee111cde09597",
+      "bytes": 12727
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-max-light-30.log": {
+      "sha256": "ece4244cee68083d1623fd2e7aa68b744b21c538142dfdbf65704d9cb868572f",
+      "bytes": 25026
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-max-light-32.log": {
+      "sha256": "e274f9318dc4dc0cf84c59d1757128e8155fb064d619e63f4658dee79cd6cffe",
+      "bytes": 27507
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-max-light-33.log": {
+      "sha256": "ce9060d4d11d1aa93e69c8a3afa3ad0c9e7b2b31b582f32bd5f321c851df9368",
+      "bytes": 25026
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-negative-31.log": {
+      "sha256": "92d7a57028e7d9b70b0928e4aedd7b37be8d5f345813c997de5dd5b5ef628a0e",
+      "bytes": 23940
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-standard-dark-32.log": {
+      "sha256": "5ecb6859dc449efd5246b72f72b3040465957b551978f9385c73bca5802f46e8",
+      "bytes": 12644
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-standard-dark-33.log": {
+      "sha256": "c452fe93386c04ea2043889500f1f36581dc4ddea2d8c0d8bc1b508510a9f8f4",
+      "bytes": 12644
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-standard-light-32.log": {
+      "sha256": "fc719a4a8ed8cac0c527b448a68dbc59f8f7a4158a588303b77955163e2982b0",
+      "bytes": 12645
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/export-standard-light-33.log": {
+      "sha256": "9dee8a7ff70362d4884b844e42e702eb44c28626c925427e6a5e55d89fb37af1",
+      "bytes": 15126
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/finish-report.py": {
+      "sha256": "43136158003e060792dd1902be7dabca93a86373f506c2c9fa1b3c8172b45e00",
+      "bytes": 5070
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/index-evidence.py": {
+      "sha256": "2d5d6f2feb08fef0d6356c69482711fffb8cfd59fe0facdbf1bde71b198165cb",
+      "bytes": 8353
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/local-gate-32-max-light.log": {
+      "sha256": "4446dfe3f7404f8c62fec691861394a6c10b123928e05312a5bb81bd2bad8fb6",
+      "bytes": 15334
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/local-gate-33-standard-light.log": {
+      "sha256": "65a699f6ebc77e491e1dc58dd1bc2757ad16a4ec3102bd8183e296b385260fb8",
+      "bytes": 8720
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/macos-identity.json": {
+      "sha256": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
+      "bytes": 98
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/matrix-33.log": {
+      "sha256": "9dbb71155eb0df5a997b2aa0dc942b4eef52d6bd8f73594fc7ac7b21cc4320c9",
+      "bytes": 99
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-dark-32-failure.json": {
+      "sha256": "a1c1062e941b0f3e67751de376cb00b55fb6c0db1490fd237541bebc4972b77b",
+      "bytes": 2030
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-dark-32.log": {
+      "sha256": "b6dbbc7bedbbff0a489b1cd8c03d5df71882e40cafd4a9b3693ead379638f941",
+      "bytes": 8961
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-dark-33-images-to-review.json": {
+      "sha256": "f7902aaf5e85f9275b7da833f8e59de91e42286d8ca084393e132fb0d5787919",
+      "bytes": 1941
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-dark-33.log": {
+      "sha256": "9ab23e6852fa481f70f7c6d8172d6a5cf02a3506c5365ce85374eea90fcb8a19",
+      "bytes": 9582
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-hans-29.log": {
+      "sha256": "fa4eead03dca9bb6ad177c024b12f825ea5851e8cc1afa6fe2cd0297ba84a996",
+      "bytes": 2591
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-light-29.log": {
+      "sha256": "0a3378b40ae1a2902d8988d730e5f3c35a74913ebed9b0b4b48935995803ebea",
+      "bytes": 512
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-light-30.log": {
+      "sha256": "4d79299331f5e178c5288037e9695c8612c7b007a6f0eef734d22ab0ec73b972",
+      "bytes": 8848
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-light-33-images-to-review.json": {
+      "sha256": "c374e1c1b923cc982348a87e098fa07860490c4a09d66624eeeebff7e297d3f3",
+      "bytes": 1959
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-light-33.log": {
+      "sha256": "280e4a0071d2ae46cfb2945598c4a6de36a7ea8c1f15fb14fadd7a6b5485926b",
+      "bytes": 9583
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/max-light-images-to-review.json": {
+      "sha256": "f7756994376948c629fe839532139f071c70b3827d6a5acb3ac7e527473d1740",
+      "bytes": 2829
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/negative-31.log": {
+      "sha256": "bb32c7969dfe4ed42a68d767b82076b94e0338ac46feedf205ebb3fd9a565302",
+      "bytes": 3073
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/negative-image-reviewed.json": {
+      "sha256": "488dcd6193ae30595124fad5b00bc1b06ba6dd42c921620ffee365757604cd42",
+      "bytes": 235
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/product-before-negative.swift": {
+      "sha256": "1ad432afe5176d4625b7968201098d4d6db044d60454f3f39869478a864e56b7",
+      "bytes": 10553
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/product-negative-31.swift": {
+      "sha256": "6c0eddae44f6508db3036709060a28f9c68fa6ea81bc5020b530efcca41f2ccd",
+      "bytes": 10614
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/products-30.json": {
+      "sha256": "d77ed8d12282bad38adc1cca954f75579d9b36a602860ae5f8c2e0a44a7c9776",
+      "bytes": 844
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/products-32.json": {
+      "sha256": "2392e500b384309bdd6aa6f776b68e1242867060f7c394bbe8e009e6889ea4f4",
+      "bytes": 2315
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/products-33.json": {
+      "sha256": "4b380123e2659e147eac10fdf76ab3ad46e93ffc8c11d92d5077094b9505f095",
+      "bytes": 2315
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/products-negative-31.json": {
+      "sha256": "d9f090e76c1e38caf1452d92cb717c15ac534182c7090d9539d32a2a21553063",
+      "bytes": 531
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/recheck-comparison.json": {
+      "sha256": "52012cdf30e6ef9b41e9c21f167b4131662e439891e36913d149aae6cddb25f4",
+      "bytes": 3536
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/remaining-matrix.log": {
+      "sha256": "dc063cbe9baea3974b72b62e0b2441131a4977d8938795509379a561bf04ec9f",
+      "bytes": 73
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/repository-invariants-33.log": {
+      "sha256": "eb09a9fdbae3ef6e08494f81dcd2aba62aee62f5f8c286fe3bd3bf231498da69",
+      "bytes": 2904
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/repository-invariants.log": {
+      "sha256": "c77c74d82ad7c55772349fad4b41d8822d18b9da6bf9cee7baf0577279b39a3f",
+      "bytes": 2904
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/restore-and-verify.py": {
+      "sha256": "cb8125c6d483cb67a0c6b7281b53821ebc56761286020b2b0649a8812e449d69",
+      "bytes": 2090
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/restored-state.json": {
+      "sha256": "63006f7cdca4e5568c34679f0f608f61cddbb584aaa8f239f25619c8311bf295",
+      "bytes": 1059
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/run-matrix-33.sh": {
+      "sha256": "4d3ff878daf8c8d36a706364b3d47aef662555ef2eb40c354c1de4a24ac5f990",
+      "bytes": 2579
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/run-remaining-matrix.sh": {
+      "sha256": "5f03162f0848396176191569d9aad77b93983ac384a25c2dae7a001bc456a2cf",
+      "bytes": 2557
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/screenshots-reviewed.json": {
+      "sha256": "3e0a38a4bd224c97d10a0778bde73e1c60d4d8b19c2e03fd3ae74015b6690922",
+      "bytes": 13060
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/standard-dark-32.log": {
+      "sha256": "0de0a91f9d574ec6e5e79061ef51073a2541dc115018c1d1c4882ad9387fdc3f",
+      "bytes": 2234
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/standard-dark-33-images-to-review.json": {
+      "sha256": "b4168fbfaafada270050fddadef4b506d43932a976a9f682b4cf66c51ae35770",
+      "bytes": 1331
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/standard-dark-33.log": {
+      "sha256": "083da44826a45dd5d3dbe70dddeff245ad645b7719246fae59be287804d4ba3a",
+      "bytes": 2234
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/standard-images-to-review.json": {
+      "sha256": "5fa11da75abeed6cd9ab4750befce5718e1064df5c35f94900da0ef041c0896c",
+      "bytes": 3571
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/standard-light-32.log": {
+      "sha256": "beb09dcb22bc04e15dba8a36de191be8a3cf5464d2ad8d9c27adf77246b5b68c",
+      "bytes": 2235
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/standard-light-33-images-to-review.json": {
+      "sha256": "6a1cb63e4a28f1d0813db8bb9c425f61410dd1372521853ff519e34d2f591637",
+      "bytes": 1343
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-29-empty.json": {
+      "sha256": "62e7a810d5c6d4c8833f9283efffb4e420f2043d9d296d9f80e54737d11a6c97",
+      "bytes": 474
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-max-dark-32.json": {
+      "sha256": "f933570d30dd059e4600ed355e5cdca10cb89bc996fce6308f02d071cfced721",
+      "bytes": 1489
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-max-dark-33.json": {
+      "sha256": "3dd9868721ac12cfa71193d6f6cbb6778fac3cb220e28f2e9baafb5e177d2eba",
+      "bytes": 1021
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-max-hans-29.json": {
+      "sha256": "6130cfe7b5150c8d703441f322906039313cb75312d58bc93e94c96d46dc2644",
+      "bytes": 1615
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-max-light-30.json": {
+      "sha256": "f80c96fc88a0bb616789edd4013ea3f0d30745e70a695463dad21954eb28294c",
+      "bytes": 1021
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-max-light-32.json": {
+      "sha256": "4ec8d721b0b0022469e008a2c1299d03a8856476a4d865b5c00b63b149f8eaa6",
+      "bytes": 1213
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-max-light-33.json": {
+      "sha256": "33257ebca6adb25dd3425562331a4eb78903336d6200f451acd4e89fd931a5ba",
+      "bytes": 1021
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-negative-31.json": {
+      "sha256": "7e3316ecacb4fcd87a74f7ef48e3bdb7d7326348f36bfa44e6f607a75451bdbe",
+      "bytes": 1489
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-standard-dark-32.json": {
+      "sha256": "6f447ac3cd0901f2e67a25bc40f7df982c0fe5739f1fdf9209951878fe7db691",
+      "bytes": 1021
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-standard-dark-33.json": {
+      "sha256": "b45fca6549959efab7df906f1af885d004b09e16a3ff56ab229f4c397e49e9d6",
+      "bytes": 1021
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-standard-light-32.json": {
+      "sha256": "e8bbb863c3d3c89fb3155acbda602b7bdd2e284afe2cb34d9fd96449e5d01270",
+      "bytes": 1021
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/summary-standard-light-33.json": {
+      "sha256": "30e0b84349e55865673000217f24dc65b32784ae6174a6e84690deed02e6fa03",
+      "bytes": 1022
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-29.swift": {
+      "sha256": "d7e9853842dd8000830d03f67b5ec853f7cacdc849b81fe367c4e8e9c10f0b97",
+      "bytes": 9885
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-30.swift": {
+      "sha256": "74fb9875b1afa88642092d7036c0ef89ee2ce20a78d88bb9c7f21c60cef10872",
+      "bytes": 10862
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-31.swift": {
+      "sha256": "02162a7f3ca32249f4232635636e5eb01808883c8ac58e45247aeb5154232222",
+      "bytes": 11534
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-32.swift": {
+      "sha256": "3a07526fb165204513baa4f309ad1f87c526eb987283309f228f42efbb360049",
+      "bytes": 11576
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-33.swift": {
+      "sha256": "096e3a372fe33a90d3f3149fcd70be648ac4c286dc4263731af70d0e123b980b",
+      "bytes": 11851
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-before.swift": {
+      "sha256": "d2d7330a09ea3d0415f86d54255db9d3e627ac85f4f404aa8016950332f701cc",
+      "bytes": 5030
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-products-32-before-end.json": {
+      "sha256": "b9e3c3f4deabaa1d2299142021db78df4ec5198b982cba17c64c5478dda9e35d",
+      "bytes": 1118
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/test-products-33-after-gate.json": {
+      "sha256": "45d06ba154f901cbdb14dc25b96c1da5f1bb88341f5e33c83a346388e084b695",
+      "bytes": 1118
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/toolchain.json": {
+      "sha256": "78beab2195d2afd3b6923970bae26e881b003a02bbbfa2df0a8310cda2e57b72",
+      "bytes": 217
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/verify-products-33.py": {
+      "sha256": "1845def31b6500212db3b6d305a286a92b94723f3202859159172479b197faa7",
+      "bytes": 2052
+    },
+    ".artifacts/ios-visible-audit-2026-09-17/verify-products.py": {
+      "sha256": "90cddee34338365f4d45d8b34b4f289bef6eabbfc21f4ebcd44d8140086a0e1b",
+      "bytes": 2052
+    }
+  },
+  "maximum_dark_verified": true,
+  "older_sdk_fix_verified": false,
+  "i6_complete": false,
+  "release_go": false
+}

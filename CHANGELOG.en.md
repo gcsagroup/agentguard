@@ -6,6 +6,12 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### iOS continuous text coverage and staged accessibility checks (2026-09-17)
+
+- Overlapping scrolls verify each text segment, fixing a roughly 2.67-point gap left by full-page swipes. Current-size contrast runs first and Dynamic Type last; the category union remains all.
+- Partially clipped contrast reports require a fully visible, whole-screen recheck. Unmapped reports fail directly, and an actual low-contrast counterexample on build 31 fails the recheck. Product UI is unchanged; app and extension are 1.0.0 (33).
+- Node 26/26, Swift 26/26, strict Release, Analyze and repository invariants 23/23 passed. Build 32 maximum-size dark retains two passes and one failure. Build 33 starts rechecks from the initial page and passes all 12 language/display-state combinations. The test device was restored and shut down. Baseline `75c7f1b` CI has 12 successful jobs and one failure; the older SDK needs verification on the new commit. Fixed macOS app 024, I6, device and release boundaries remain. [Record](docs/ios-visible-audit-2026-09-17.zh.md).
+
 ### iOS contrast position controls and test-runner refresh (2026-09-17)
 
 - Three maximum-size labels produce 1/0/1 reports when clipped, fully visible, then clipped again. A deliberately low-contrast counterexample is still detected while fully visible. Intermediate failures are retained; formal audit exceptions are unchanged.
