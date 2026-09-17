@@ -8,8 +8,8 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ### iOS element detection isolated before other audits (2026-09-17)
 
-- Build 33 CI completed with 12 successful jobs and one failure: Traditional Chinese reported inaccessible text without an associated element. Build 34 runs element detection before other audits and records stage trees, screenshots and issue types. All categories and rejection of unmapped reports are retained.
-- The standard-size light-mode local gate passed Node 26/26, Swift 26/26, strict Release, Analyze and repository invariants 23/23. Dark-mode and maximum-size checks are running; the older-system fix requires CI on the new commit. I6 and release gates remain incomplete. [Evidence](docs/ios-ci-audit-2026-09-17.zh.md).
+- Build 34 runs element detection before other audits and records stage trees, screenshots and issue types. All categories and rejection of unmapped reports are retained. Exact source commit bc0433d passed all 13 CI jobs and the complete iOS 18.5 development gate. The earlier text-detection report did not recur in this run; build 33 failure evidence is retained.
+- Local Node 26/26, Swift 26/26, strict Release, Analyze, all 12 language/display-state combinations and repository invariants 23/23 passed. The test device was restored and shut down. Product UI and fixed macOS app 024 are unchanged; I6, device, signing and release gates remain incomplete. [Evidence](docs/ios-ci-audit-2026-09-17.zh.md).
 
 ### iOS continuous text coverage and staged accessibility checks (2026-09-17)
 

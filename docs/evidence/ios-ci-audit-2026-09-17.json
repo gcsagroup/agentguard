@@ -5,71 +5,1755 @@
     "url": "https://github.com/gcsagroup/agentguard/actions/runs/35164724543",
     "successful_jobs": 12,
     "failed_jobs": 1,
-    "swift": {
-      "devicesAndConfigurations": [
-        {
-          "device": {
-            "architecture": "arm64",
-            "deviceId": "DC4CD8B3-4457-4153-9087-A0D7A2F9BFD9",
-            "deviceName": "iPhone 16 Pro",
-            "modelName": "iPhone 16 Pro",
-            "osBuildNumber": "22F77",
-            "osVersion": "18.5",
-            "platform": "iOS Simulator"
-          },
-          "expectedFailures": 0,
-          "failedTests": 1,
-          "passedTests": 25,
-          "skippedTests": 0,
-          "testPlanConfiguration": {
-            "configurationId": "1",
-            "configurationName": "Test Scheme Action"
-          }
+    "swift": "25/26",
+    "failure": [
+      {
+        "failureText": "Potentially inaccessible text",
+        "targetName": "AgentGuardWebShieldUITests",
+        "testIdentifier": 26,
+        "testIdentifierString": "AgentGuardWebShieldUITests/testPageAuditsAndScrollTraditionalChinese()",
+        "testIdentifierURL": "test://com.apple.xcode/AgentGuardWebShield/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests/testPageAuditsAndScrollTraditionalChinese",
+        "testName": "testPageAuditsAndScrollTraditionalChinese()"
+      }
+    ],
+    "issues": [
+      {
+        "name": "en-page-2-issue_0_559E87ED-6BA3-412C-91AD-6BB6E5633CF1.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/2EF5D53C-DB08-470D-B8EA-4F22BE1B0C57.txt",
+        "text": "Contrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x114615830, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nElement subtree:\n →Button, 0x114615830, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nPath to element:\n →Application, 0x114612970, pid: 49807, label: 'AgentGuard'\n  ↳Window (Main), 0x1146114d0, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x11460e6e0, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x114612d90, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x114612130, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x114612550, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x1146118f0, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x114610450, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x114610030, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x11460f130, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x11460c090, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x11460d270, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x114611d10, {{0.0, -473.3}, {402.0, 1313.3}}\n              ↳Button, 0x114615830, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x10539cf50, pid: 49807, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 49807, elementOrHash.elementID: 105553169752992.34\n    Output: {\n      Button, 0x11462d770, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\n    }\n)"
+      },
+      {
+        "name": "en-page-1-issue_0_C5CC6EE9-CC88-4C42-AC34-328F509AF50E.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/6F53D155-DC04-4D2E-A703-B31B529AB5FF.txt",
+        "text": "Contrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x1052ab4a0, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nElement subtree:\n →Button, 0x1052ab4a0, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nPath to element:\n →Application, 0x1054c9dd0, pid: 48446, label: 'AgentGuard'\n  ↳Window (Main), 0x1054cd240, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x1054c8b30, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x1054cb8e0, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x1054cb510, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x105385650, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x1053859d0, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x1054cb120, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x1054c8710, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x1054c82f0, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x1052a66a0, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x1052a9ac0, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x1052a9be0, {{0.0, -417.3}, {402.0, 1313.3}}\n              ↳Button, 0x1052ab4a0, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x1052beda0, pid: 48446, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 48446, elementOrHash.elementID: 105553169825952.34\n    Output: {\n      Button, 0x10538fe10, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\n    }\n)"
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_F5B483F8-C254-483B-A735-334BF256E941.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/31EC3B87-67EC-49F9-A17F-60D92106A143.txt",
+        "text": "Contrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x1054c4370, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\nElement subtree:\n →Button, 0x1054c4370, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\nPath to element:\n →Application, 0x1054bf9d0, pid: 51413, label: 'AgentGuard'\n  ↳Window (Main), 0x1054c1a90, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x1054c1e50, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x1054c1f70, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x1054c1bb0, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x1054c1cd0, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x1054c2090, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x1054c2510, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x1054c2630, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x1054c2750, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x1054c2870, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x1054c2990, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x1054c2ab0, {{0.0, -350.7}, {402.0, 1190.7}}\n              ↳Button, 0x1054c4370, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x1054e8d40, pid: 51413, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 51413, elementOrHash.elementID: 105553169771616.34\n    Output: {\n      Button, 0x1054e3fa0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\n    }\n)"
+      },
+      {
+        "name": "zh-Hant-page-1-stable-issue_0_B9F41675-82BB-494E-801D-03C7F7BDF559.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/1E981638-1E84-4BE0-B782-FB37FA902E12.txt",
+        "text": "Potentially inaccessible text\nThis element appears to display text that should be represented using the accessibility API.\nnil"
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_F2C74EBB-EC31-47A3-ADF0-FA16C10FBFDA.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments/F2C0BF48-5E1D-44E3-83DA-F72769D897BB.txt",
+        "text": "Contrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x1052c7cc0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\nElement subtree:\n →Button, 0x1052c7cc0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\nPath to element:\n →Application, 0x10529e680, pid: 52653, label: 'AgentGuard'\n  ↳Window (Main), 0x1052b1480, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x1052c57a0, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x1052c58c0, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x1052c5500, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x1052c5620, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x1052c59e0, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x1052c5e60, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x1052c5f80, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x1052c60a0, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x1052c61c0, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x1052c62e0, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x1052c6400, {{0.0, -350.7}, {402.0, 1190.7}}\n              ↳Button, 0x1052c7cc0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x1052d5bf0, pid: 52653, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 52653, elementOrHash.elementID: 105553169792480.34\n    Output: {\n      Button, 0x1054f3690, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\n    }\n)"
+      }
+    ]
+  },
+  "candidate_ci": {
+    "commit": "bc0433d15ef23662647bc7b3e2a6b8e5bc92648c",
+    "url": "https://github.com/gcsagroup/agentguard/actions/runs/35166701819",
+    "successful_jobs": 13,
+    "failed_jobs": 0,
+    "node": "26/26",
+    "swift": "26/26",
+    "strict_release_and_analyze_passed": true,
+    "device": {
+      "architecture": "arm64",
+      "deviceId": "DC4CD8B3-4457-4153-9087-A0D7A2F9BFD9",
+      "deviceName": "iPhone 16 Pro",
+      "modelName": "iPhone 16 Pro",
+      "osBuildNumber": "22F77",
+      "osVersion": "18.5",
+      "platform": "iOS Simulator"
+    },
+    "inspection": {
+      "result": {
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      "coverage": {
+        "en": {
+          "pages": 3,
+          "elements": [
+            {
+              "id": "storage.error",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "privacy.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.privacy",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.clear",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.empty",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.activity",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step3",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step2",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step1",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.enable",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "scope.boundary",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.scope",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "protection.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "protection.toggle",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "privacy.toggle",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.protection",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "status.value",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "status.badge",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            }
+          ]
+        },
+        "zh-Hans": {
+          "pages": 2,
+          "elements": [
+            {
+              "id": "storage.error",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "privacy.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.privacy",
+              "gap_points": 0.0,
+              "uncovered_end_points": 1.1368683772161603e-13
+            },
+            {
+              "id": "audit.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.clear",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.empty",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.activity",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step3",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step2",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step1",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.enable",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "scope.boundary",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.scope",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "protection.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "protection.toggle",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "privacy.toggle",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.protection",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "status.value",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "status.badge",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            }
+          ]
+        },
+        "zh-Hant": {
+          "pages": 2,
+          "elements": [
+            {
+              "id": "storage.error",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "privacy.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.privacy",
+              "gap_points": 0.0,
+              "uncovered_end_points": 1.1368683772161603e-13
+            },
+            {
+              "id": "audit.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.clear",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "audit.empty",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.activity",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step3",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step2",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "enable.step1",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.enable",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "scope.boundary",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.scope",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "protection.note",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "protection.toggle",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "privacy.toggle",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "section.protection",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "status.value",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            },
+            {
+              "id": "status.badge",
+              "gap_points": 0.0,
+              "uncovered_end_points": 0.0
+            }
+          ]
         }
-      ],
-      "environmentDescription": "AgentGuardWebShield · Built with macOS 15.7.9",
-      "expectedFailures": 0,
-      "failedTests": 1,
-      "finishTime": 1789603643.236,
-      "passedTests": 25,
-      "result": "Failed",
-      "runtimeWarnings": [],
-      "skippedTests": 0,
-      "startTime": 1789603386.147,
-      "statistics": [],
-      "testFailures": [
-        {
-          "failureText": "Potentially inaccessible text",
-          "targetName": "AgentGuardWebShieldUITests",
-          "testIdentifier": 26,
-          "testIdentifierString": "AgentGuardWebShieldUITests/testPageAuditsAndScrollTraditionalChinese()",
-          "testIdentifierURL": "test://com.apple.xcode/AgentGuardWebShield/AgentGuardWebShieldUITests/AgentGuardWebShieldUITests/testPageAuditsAndScrollTraditionalChinese",
-          "testName": "testPageAuditsAndScrollTraditionalChinese()"
-        }
-      ],
-      "title": "Test - AgentGuardWebShield",
-      "topInsights": [
-        {
-          "category": "Longest Test Runs",
-          "impact": "55% of duration",
-          "text": "1 longest test run with outlier durations exceeding 0.19s (three standard deviations)"
-        }
-      ],
-      "totalTestCount": 26
+      },
+      "stage_positions": {
+        "trees_compared": 21,
+        "changes": []
+      }
+    },
+    "issues": [
+      {
+        "name": "en-page-2-issue_0_FDA56470-1FDB-435D-8DAB-C0CB772DB3CA.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/0F7E6B1E-F565-4CBA-BCDA-8F4EE8AB7DAA.txt",
+        "text": "type=1\nContrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x11043f560, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nElement subtree:\n →Button, 0x11043f560, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nPath to element:\n →Application, 0x11041f020, pid: 10759, label: 'AgentGuard'\n  ↳Window (Main), 0x11040d330, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x1104142f0, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x1104103f0, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x11041ec00, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x1104200a0, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x110410810, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x11040be90, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x11041cdf0, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x11040f370, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x11040cf10, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x11040c2b0, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x110415370, {{0.0, -473.3}, {402.0, 1313.3}}\n              ↳Button, 0x11043f560, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x1102a1c60, pid: 10759, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 10759, elementOrHash.elementID: 105553169826912.34\n    Output: {\n      Button, 0x11029de40, {{32.0, 454.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\n    }\n)"
+      },
+      {
+        "name": "en-page-1-issue_0_39FAE9A4-C0E9-41DD-AED3-E3472CDDCCC5.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/BEFEEAD5-6178-4652-B64E-73C8CD260ABA.txt",
+        "text": "type=1\nContrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x1018b0e80, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nElement subtree:\n →Button, 0x1018b0e80, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nPath to element:\n →Application, 0x100fc42a0, pid: 9735, label: 'AgentGuard'\n  ↳Window (Main), 0x100fc9d40, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x100fcb1e0, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x100fca580, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x100fcc260, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x100fc90e0, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x100fc2520, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x100fc2100, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x100fb5ef0, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x100fc3e80, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x1019c92e0, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x10188ced0, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x101886170, {{0.0, -417.3}, {402.0, 1313.3}}\n              ↳Button, 0x1018b0e80, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x1019797d0, pid: 9735, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 9735, elementOrHash.elementID: 105553169810368.34\n    Output: {\n      Button, 0x101976430, {{32.0, 510.0}, {136.0, 44.0}}, identifier: 'audit.clear', label: 'Clear local history', Disabled\n    }\n)"
+      },
+      {
+        "name": "zh-Hans-page-1-issue_0_E0298F9B-C706-4CCB-BD1E-A7C8E8927D3C.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/2DDAB609-BCD3-4C26-915E-97BF6596EF9E.txt",
+        "text": "type=1\nContrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x100fc9ca0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\nElement subtree:\n →Button, 0x100fc9ca0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\nPath to element:\n →Application, 0x100fc0420, pid: 12769, label: 'AgentGuard'\n  ↳Window (Main), 0x100fc76e0, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x100fb16f0, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x100fc6c60, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x100fb9980, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x100fbee20, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x100fb12d0, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x100fc7e40, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x100fc7f60, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x100fc8080, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x100fc81a0, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x100fc82c0, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x100fc83e0, {{0.0, -350.7}, {402.0, 1190.7}}\n              ↳Button, 0x100fc9ca0, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x100fdd320, pid: 12769, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 12769, elementOrHash.elementID: 105553169787680.34\n    Output: {\n      Button, 0x100fdc900, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本地记录', Disabled\n    }\n)"
+      },
+      {
+        "name": "zh-Hant-page-1-issue_0_C0472D3E-7A1C-4D70-B9E8-DF31D38B4369.txt",
+        "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/0F57607B-2293-45F0-89D7-41FCF3A99A2F.txt",
+        "text": "type=1\nContrast failed\nContrast failed for element\nOptional(Attributes: Button, 0x100f96920, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\nElement subtree:\n →Button, 0x100f96920, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\nPath to element:\n →Application, 0x100fafb70, pid: 15211, label: 'AgentGuard'\n  ↳Window (Main), 0x100f97ee0, {{0.0, 0.0}, {402.0, 874.0}}\n   ↳Other, 0x100fb0e30, {{0.0, 0.0}, {402.0, 874.0}}\n    ↳Other, 0x100f978a0, {{0.0, 0.0}, {402.0, 874.0}}\n     ↳Other, 0x100fb3530, {{0.0, 0.0}, {402.0, 874.0}}\n      ↳Other, 0x100f97480, {{0.0, 0.0}, {402.0, 874.0}}\n       ↳Other, 0x100fb6d30, {{0.0, 0.0}, {402.0, 874.0}}\n        ↳Other, 0x100f94860, {{0.0, 0.0}, {402.0, 874.0}}\n         ↳Other, 0x100f94980, {{0.0, 0.0}, {402.0, 874.0}}\n          ↳Other, 0x100f94aa0, {{0.0, 0.0}, {402.0, 874.0}}\n           ↳Other, 0x100f94bc0, {{0.0, 0.0}, {402.0, 874.0}}\n            ↳ScrollView, 0x100f94ce0, {{0.0, 0.0}, {402.0, 874.0}}\n             ↳Other, 0x100f94e00, {{0.0, -350.7}, {402.0, 1190.7}}\n              ↳Button, 0x100f96920, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\nQuery chain:\n →Find: Target Application 'com.agentguard.webshield'\n  Output: {\n    Application, 0x1019bd090, pid: 15211, label: 'AgentGuard'\n  }\n  ↪︎Find: Descendant with identity binding to AX element pid: 15211, elementOrHash.elementID: 105553169816768.34\n    Output: {\n      Button, 0x10197ac70, {{32.0, 497.7}, {101.3, 44.0}}, identifier: 'audit.clear', label: '清除本機記錄', Disabled\n    }\n)"
+      }
+    ],
+    "scope": "旧系统标准浅色三语及完整开发门禁；未在该 CI 做最大字号或深色补验。"
+  },
+  "audit_order": [
+    "elementDetection",
+    "contrast",
+    "all minus elementDetection/contrast/dynamicType",
+    "dynamicType"
+  ],
+  "all_categories_retained": true,
+  "unmapped_reports_still_fail": true,
+  "results": {
+    "standard-light-34": {
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    "standard-dark-34": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "max-light-34": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "max-dark-34": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
     }
   },
-  "local_standard_light": {
-    "node_passed": 26,
-    "swift_passed": 26,
-    "strict_release_and_analyze_passed": true,
-    "repository_invariants_passed": 23
+  "coverage": {
+    "standard-light-34": {
+      "en": {
+        "pages": 3,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hans": {
+        "pages": 2,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hant": {
+        "pages": 2,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      }
+    },
+    "standard-dark-34": {
+      "en": {
+        "pages": 3,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hans": {
+        "pages": 2,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hant": {
+        "pages": 2,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      }
+    },
+    "max-light-34": {
+      "en": {
+        "pages": 14,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.00018310546875
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hans": {
+        "pages": 10,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 4.547473508864641e-13
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 2.2737367544323206e-13
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 1.1368683772161603e-13
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hant": {
+        "pages": 10,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 4.547473508864641e-13
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 1.1368683772161603e-13
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      }
+    },
+    "max-dark-34": {
+      "en": {
+        "pages": 14,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.00018310546875
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hans": {
+        "pages": 10,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 4.547473508864641e-13
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 2.2737367544323206e-13
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 1.1368683772161603e-13
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      },
+      "zh-Hant": {
+        "pages": 10,
+        "elements": [
+          {
+            "id": "storage.error",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.privacy",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.clear",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "audit.empty",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.activity",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step3",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "enable.step2",
+            "gap_points": 0.0,
+            "uncovered_end_points": 4.547473508864641e-13
+          },
+          {
+            "id": "enable.step1",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.enable",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "scope.boundary",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.scope",
+            "gap_points": 0.0,
+            "uncovered_end_points": 1.1368683772161603e-13
+          },
+          {
+            "id": "protection.note",
+            "gap_points": 0.0,
+            "uncovered_end_points": 5.684341886080802e-14
+          },
+          {
+            "id": "protection.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "privacy.toggle",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "section.protection",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.value",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          },
+          {
+            "id": "status.badge",
+            "gap_points": 0.0,
+            "uncovered_end_points": 0.0
+          }
+        ]
+      }
+    }
   },
-  "supplemental_state": "running",
-  "older_sdk_fix_verified": false,
-  "i6_complete": false,
-  "release_go": false,
-  "product_ui_unchanged_sha256": "1ad432afe5176d4625b7968201098d4d6db044d60454f3f39869478a864e56b7",
-  "test_source_sha256": "30c11bb6939a9d83f093d175d387bc219cf3660af0669ae433fc8dad81db743c",
+  "stage_positions": {
+    "standard-light-34": {
+      "trees_compared": 21,
+      "changes": []
+    },
+    "standard-dark-34": {
+      "trees_compared": 21,
+      "changes": []
+    },
+    "max-light-34": {
+      "trees_compared": 102,
+      "changes": []
+    },
+    "max-dark-34": {
+      "trees_compared": 102,
+      "changes": []
+    }
+  },
+  "environments": {
+    "standard-light-34": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "measured_during_run": true,
+      "content_size": "large",
+      "appearance": "light"
+    },
+    "standard-dark-34": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "large",
+      "appearance": "dark"
+    },
+    "max-light-34": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "accessibility-extra-extra-extra-large",
+      "appearance": "light"
+    },
+    "max-dark-34": {
+      "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+      "content_size": "accessibility-extra-extra-extra-large",
+      "appearance": "dark"
+    }
+  },
   "products": {
     "products": [
       {
@@ -123,6 +1807,33 @@
     "files_verified": 91,
     "hashes_and_modes_unchanged": true
   },
+  "ui_source_sha256": "1ad432afe5176d4625b7968201098d4d6db044d60454f3f39869478a864e56b7",
+  "ui_source_unchanged": true,
+  "test_source_sha256": "30c11bb6939a9d83f093d175d387bc219cf3660af0669ae433fc8dad81db743c",
+  "restored": {
+    "udid": "01D9DC02-2C70-4958-973E-4F5668AB788A",
+    "state": "Shutdown",
+    "name": "Aegis QA iPhone 17",
+    "content_size": "large",
+    "appearance": "light",
+    "installed": [
+      {
+        "path": "/Users/lazy/Library/Developer/CoreSimulator/Devices/01D9DC02-2C70-4958-973E-4F5668AB788A/data/Containers/Bundle/Application/238CA9AA-CF1B-44CC-B8C5-DC718D289791/AgentGuardWebShield.app",
+        "id": "com.agentguard.webshield",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "34062bd19536ccb55d1a12eee5938a35fe7371faba2ad3b4477396aa3983bc5f"
+      },
+      {
+        "path": "/Users/lazy/Library/Developer/CoreSimulator/Devices/01D9DC02-2C70-4958-973E-4F5668AB788A/data/Containers/Bundle/Application/238CA9AA-CF1B-44CC-B8C5-DC718D289791/AgentGuardWebShield.app/PlugIns/AgentGuardWebShieldExtension.appex",
+        "id": "com.agentguard.webshield.extension",
+        "version": "1.0.0",
+        "build": "34",
+        "executable_sha256": "101787c2272b79b0d153cb9655f3bd5a656222265a358dd0a0456b13f5d8452c"
+      }
+    ],
+    "matches_main_build_34": true
+  },
   "screenshots_reviewed": [
     {
       "name": "CI33繁中审计前末页",
@@ -163,22 +1874,265 @@
       "name": "standard-light-34:zh-Hant-page-1_0_9B26A75C-8388-44F9-862F-EBEB88E14472.png",
       "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-light-34/7ED0587F-54AB-4215-AF58-D7288D9C569F.png",
       "sha256": "315c34b0ed942c018153d08082b89dccf208b1bc28349605501bece9dbd90ef4"
+    },
+    {
+      "name": "max-dark-34:en-page-0_0_52140E39-DAC1-453A-B9B8-1CF0FB1D6E69.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/73E9A78C-9D5D-44E1-9C87-92862AD9D5D3.png",
+      "sha256": "67f53fd96105b8998302c9043d7136245c4ce96ad73b869d82debdb2a64efed3"
+    },
+    {
+      "name": "max-dark-34:en-page-13_0_594633E2-B284-4BBB-BED9-74B44EE9F0AC.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/8839CC90-3295-4EDE-B976-F0ABF9452E1D.png",
+      "sha256": "2f0375d5cf825f7c6f9fa92d936a84c37395343b87ec097ba04a7a44ad37b1bf"
+    },
+    {
+      "name": "max-dark-34:en-recheck-protection_0_5CF76F82-977F-4D4B-AC46-1820D05C9B1F.note",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/3730FC19-DE50-4470-ABF6-82771468D15B.png",
+      "sha256": "f8d6af34da1f496a305e2cfe619587b819b03471ce66787c066c10a0e195b7bd"
+    },
+    {
+      "name": "max-dark-34:zh-Hans-page-0_0_668B8DCA-456B-4CFA-A1E8-6E7458D083E9.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/33B51053-F6FE-4A19-BBAE-A646781C3270.png",
+      "sha256": "7f379e4915f7cd7ed03ae74b5c3d8e9cc705f0bab4d6603121279e19f9b61c2f"
+    },
+    {
+      "name": "max-dark-34:zh-Hans-page-9_0_D97626DF-D826-48DD-9710-91A7C181C234.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/1B4E784D-592D-4F96-A03B-6A37ABFA3329.png",
+      "sha256": "94a89481fdcf4ca09109fa1380fe07a9d2ba9ba52f7849387533f1760371c463"
+    },
+    {
+      "name": "max-dark-34:zh-Hans-recheck-privacy_0_81FA564C-8B86-4225-9966-97EBBB1C20EB.toggle",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/0977C37A-F477-4EDE-8518-1151C03957EE.png",
+      "sha256": "8e820ad973e08c9ce2281009fef235eaf5b7e18143a83c95112aa0be8bec8066"
+    },
+    {
+      "name": "max-dark-34:zh-Hant-page-0_0_3E0FE8C4-47FD-461D-BAC4-C538CA4C9ADC.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/5936A121-5361-4B96-971B-A3D73F97DE0F.png",
+      "sha256": "f3ce53dd8938f47e8e38298d49d3cceb25cdf6985ad1b0519fa51b6964e2d8da"
+    },
+    {
+      "name": "max-dark-34:zh-Hant-page-9_0_545BB67F-CA0E-4711-968C-2DDB772A40F7.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/398527DA-EF20-4CED-866F-DF4029CFC07C.png",
+      "sha256": "7a5d341c84e4d6cbcb807c457a573a6bf44f8a1cdb4f8eaf5ce8482e6518db5f"
+    },
+    {
+      "name": "max-dark-34:zh-Hant-recheck-privacy_0_063A42AC-41F7-4F99-8258-AEEB13BF9124.note",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/6F11BBC8-B098-4871-B28D-FE285B168BBD.png",
+      "sha256": "a0218c6c8e9b68a7e5b5514093697abe5f90865d02b09b8d5b04fc03c0701aa4"
+    },
+    {
+      "name": "max-dark-34:zh-Hant-page-9-after-contrast_0_D0D4E82E-60DC-46AE-AF2D-461C995B8477.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/60880369-9AF4-446A-9184-B9A0CED5E3CA.png",
+      "sha256": "7a5d341c84e4d6cbcb807c457a573a6bf44f8a1cdb4f8eaf5ce8482e6518db5f"
+    },
+    {
+      "name": "max-dark-34:zh-Hant-page-9-after-element-detection_0_776967C4-41C4-407B-90AB-158CAD6AE8D2.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-dark-34/9AAC30B9-5687-4BAE-AC42-E1C2095F98BD.png",
+      "sha256": "7a5d341c84e4d6cbcb807c457a573a6bf44f8a1cdb4f8eaf5ce8482e6518db5f"
+    },
+    {
+      "name": "ci-standard-light-34:en-page-0_0_961C0020-3725-43A5-936F-BD21AA88A2C1.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/45CD70C6-5141-4B68-BFC7-ADB99FBE00DE.png",
+      "sha256": "87baa12b173eee60a328c019c03d80c579646212dcd3cc369245cac3495c7a81"
+    },
+    {
+      "name": "ci-standard-light-34:en-page-2_0_26DECD92-7EDB-4349-94BE-F0F72C57117A.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/7241FF40-9656-4755-9089-53088505C6BE.png",
+      "sha256": "09e7eca9d737e53eb18c87340f868ab1ff379e88ab8af601f611bd1328798c31"
+    },
+    {
+      "name": "ci-standard-light-34:zh-Hans-page-0_0_BC90589C-8046-421A-A5F8-757C03006F25.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/5B5DA9C2-1E17-4074-BFFD-0BE0FB8A2DB3.png",
+      "sha256": "5d527eb06434e6c5e909b8c5fa6dee8b23db3f295d5317dbcf38b9aaf2a6801c"
+    },
+    {
+      "name": "ci-standard-light-34:zh-Hans-page-1_0_053C0319-E4C8-4E0F-A3E7-441CA1E1D532.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/600E6582-D24E-4B9D-A1B6-ED9CF3238662.png",
+      "sha256": "b41985105afb129287edd82edd09d9eda1f431f4f29bc9521d3a203346698292"
+    },
+    {
+      "name": "ci-standard-light-34:zh-Hant-page-0_0_AA14C913-C999-4343-8C48-2884CB3AA48B.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/AC5EBF71-A155-4C57-9554-8A1338E1A57F.png",
+      "sha256": "be030e6f3f1b276e3bf9ace004b3850dc5e72a1d3442232bf264d928c46907e5"
+    },
+    {
+      "name": "ci-standard-light-34:zh-Hant-page-1_0_6CC10DDE-2FB1-4FC4-BB51-D1C750F38289.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/0E34CF06-394B-4D3E-8F6E-8C2516577456.png",
+      "sha256": "1fb49bdbde01025dcf8dc32a9685236c7dbeb5936cc4c7647e5632f60677b456"
+    },
+    {
+      "name": "ci-standard-light-34:zh-Hant-page-1-after-element-detection_0_DA241444-ECDF-4ADF-A24C-2924BC0AE4FF.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/C4195918-55AA-42F9-98F4-5409110BC508.png",
+      "sha256": "1fb49bdbde01025dcf8dc32a9685236c7dbeb5936cc4c7647e5632f60677b456"
+    },
+    {
+      "name": "ci-standard-light-34:zh-Hant-page-1-after-contrast_0_A3051707-A7BF-4804-BC22-6391814B91F9.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-ci-standard-light-34/D6CA50B8-80E0-4586-9AAE-1742D7533D44.png",
+      "sha256": "1fb49bdbde01025dcf8dc32a9685236c7dbeb5936cc4c7647e5632f60677b456"
+    },
+    {
+      "name": "max-light-34:en-page-0_0_814DD9F9-B935-4E7A-930D-ECC3F90A46E6.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/ECE84C44-3256-4380-8F40-23D1980062DE.png",
+      "sha256": "236a586a2ee6f238c6627886574a49b5949bee9a64657440dece63c8c5743dc8"
+    },
+    {
+      "name": "max-light-34:en-page-13_0_9966CAF8-9523-47A1-ADD5-651A09DCB9F0.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/50A5D7C3-9A23-45C4-B3E6-B87DEE4175ED.png",
+      "sha256": "b95c386893592f70db025f995ec458e729d10afff4125078157fa9633d7f8fc6"
+    },
+    {
+      "name": "max-light-34:en-recheck-protection_0_C393CE7B-F477-47A0-86D7-4A2B577FA6E1.note",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/363FAD3E-2BE1-4BD6-B56D-01E605BBEDA2.png",
+      "sha256": "20b0195fd0ce7542065e5894075b8813e0f8693f7a3ba90f2a14f45c465645a9"
+    },
+    {
+      "name": "max-light-34:zh-Hans-page-0_0_70434DC2-9B87-4C90-BADE-D04F5E99216F.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/620A0BEF-15DA-425B-9F33-94B4CE963D50.png",
+      "sha256": "f9b5374e2deae1acfd8d6e3aa6307c9506e37d2500d23cc66ab7a289543c489c"
+    },
+    {
+      "name": "max-light-34:zh-Hans-page-9_0_E9BE5995-79B7-4FA6-95B6-AC144CD485A2.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/D9DF2E47-CDEB-46E0-A13F-9E3FC7966D22.png",
+      "sha256": "55cfb2b6d2146a8176e3d7b7f0b063aa23379951701f486c6197ed159124b1d8"
+    },
+    {
+      "name": "max-light-34:zh-Hans-recheck-privacy_0_676ECFB7-F8C5-4A5B-A140-EAFC70BAAD57.toggle",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/D7792D44-13A6-4C73-AF82-CC7322FB6CA5.png",
+      "sha256": "a4b3c5cb7366923fb9b6b0427c504d4dc7c9981e563e081a8b109cbc76aad5da"
+    },
+    {
+      "name": "max-light-34:zh-Hant-page-0_0_6F9014E2-632D-4954-8774-9B7FC88A2972.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/E7485AEA-2541-4DEC-893D-D0C00AC17B6F.png",
+      "sha256": "b469a709dd3c307494965310da0780cceafcf1e3fd6a583d112dc7e93ca2ceb6"
+    },
+    {
+      "name": "max-light-34:zh-Hant-page-9_0_B93C0B0A-36C6-4DF7-9FF4-89C133BE202B.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/E9238B62-AEC4-4F4D-B1F4-95206A95D750.png",
+      "sha256": "ce79faac53a5e95e82721676cd49d60c6c80590562727e243283e4c660ff62d6"
+    },
+    {
+      "name": "max-light-34:zh-Hant-recheck-privacy_0_E3D72DE3-3213-4F46-9E10-BB3194EDF4A2.note",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/9D13B66F-7BB5-41B5-93EC-9D3C9EE1BEFB.png",
+      "sha256": "a75dccb13ebec43b65cd0d96497633de4f6335f1e112d9f7fb4f5a1876aafc36"
+    },
+    {
+      "name": "max-light-34:zh-Hant-page-9-after-element-detection_0_2A5376A1-EC70-4122-81A9-48F80D4CFE6D.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/5A34C01B-2449-4A5F-9FD1-1B07520D3F0D.png",
+      "sha256": "ce79faac53a5e95e82721676cd49d60c6c80590562727e243283e4c660ff62d6"
+    },
+    {
+      "name": "max-light-34:zh-Hant-page-9-after-contrast_0_2CFEB01B-9B97-415D-A377-3A2FF3ACD399.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-max-light-34/0D8AB669-69F8-406B-ADC6-642FE60D736B.png",
+      "sha256": "ce79faac53a5e95e82721676cd49d60c6c80590562727e243283e4c660ff62d6"
+    },
+    {
+      "name": "standard-dark-34:en-page-0_0_4DA800CF-ECA3-41B4-9FB9-E00874289601.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/840323C5-9E60-4BDB-8F3B-2C6F6115E5D3.png",
+      "sha256": "e9e8ca83efc5ca78e37b26095f537abd2ef80f8299f5747bf1188ebcfb2f5f2e"
+    },
+    {
+      "name": "standard-dark-34:en-page-2_0_A7444A67-EED4-4A21-ACDA-602BCE0F0D80.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/8A8A84F1-65CB-4342-B48A-581E2F25BC69.png",
+      "sha256": "b639fbcc0451a2ef607ecdec547ed11f4d3e03fe762d1d96f55c5fe227ebce31"
+    },
+    {
+      "name": "standard-dark-34:zh-Hans-page-0_0_2D76612D-792B-4B1E-95C1-A325AF8A550A.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/BFC2D9E1-B499-496D-9C8A-7198EFF3860E.png",
+      "sha256": "070d0649b0d533e49df4919299e2a4618f8756e21042725ef15d53be544b1952"
+    },
+    {
+      "name": "standard-dark-34:zh-Hans-page-1_0_81442E58-2A3D-410D-BDED-B6E6C6842BE0.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/E2957651-9826-42DA-9C04-879843EF25DA.png",
+      "sha256": "7f66123d5cd22a9896cd62414c662e0e9a78208f185f8cb266b7116229492767"
+    },
+    {
+      "name": "standard-dark-34:zh-Hant-page-0_0_EEBC752B-18C4-4B49-B17D-182DF5AD7CD2.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/77868680-46B8-44AA-8551-D46FDC341CBF.png",
+      "sha256": "650204fa85e4106d11462f6daa5fa97c6b1747580da71b131c2e2ceeb8648f4f"
+    },
+    {
+      "name": "standard-dark-34:zh-Hant-page-1_0_0C3BACB5-285D-40A7-AB7C-3F9D4096053F.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/E8D12B2B-89B3-40DD-9714-E55D8CFE40EB.png",
+      "sha256": "eec354d6592963f723ce3985155f876b281a80324411479a8d33b35e5ae746ca"
+    },
+    {
+      "name": "standard-dark-34:zh-Hant-page-1-after-element-detection_0_6A3403F2-F3EF-4CA9-BD73-DC3E91259446.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/47B5D9D1-4333-4AE1-94CF-C3FB66631B9D.png",
+      "sha256": "eec354d6592963f723ce3985155f876b281a80324411479a8d33b35e5ae746ca"
+    },
+    {
+      "name": "standard-dark-34:zh-Hant-page-1-after-contrast_0_4EC9A017-56E0-42D2-8ACB-F1637CB47760.png",
+      "path": ".artifacts/ios-ci-audit-2026-09-17/attachments-standard-dark-34/50B11F8B-66F4-4B66-A095-693D13E6BD50.png",
+      "sha256": "eec354d6592963f723ce3985155f876b281a80324411479a8d33b35e5ae746ca"
     }
   ],
+  "attachment_file_count": 1114,
   "files": {
+    ".artifacts/ios-ci-audit-2026-09-17/attachment-hashes.json": "fe67a9b603fc2069752822a539f405ff135a98c75c6e8155d6ed6b9a8d71e3b1",
     ".artifacts/ios-ci-audit-2026-09-17/ci-4d31da6.json": "91478a0096bf3805da96cabcd8850f8bf374da3a5896511187a5264835054f24",
-    ".artifacts/ios-ci-audit-2026-09-17/ios-job.log": "2195138d767159459c2449c1b1da6d8c8d4232735eb7b660e1301e099ed49ec7",
-    ".artifacts/ios-ci-audit-2026-09-17/summary.json": "b0b2ce0e1ab0dc30db5a49c8862a9780d2511ae6a5f53c9556b67e3e00f25367",
-    ".artifacts/ios-ci-audit-2026-09-17/issues.json": "f04366174e92f9f7ee89d34fecb84822a4b660ebf1b4614ac1e13f81f40cf45f",
-    ".artifacts/ios-ci-audit-2026-09-17/hant-activities.json": "02540f8a02956b741c105abecb5c2b6113c9e6f987679340c28be5dabb904399",
-    ".artifacts/ios-ci-audit-2026-09-17/local-gate-34.log": "3a4d4d435f9370c52853961acd3d3c5203bc0d033cf1108d0c5da0328bee81f7",
-    ".artifacts/ios-ci-audit-2026-09-17/summary-standard-light-34.json": "468c7a6fd5e73490eab5618f223a919126fe660b48d3bb7caddc46b68fb70156",
-    ".artifacts/ios-ci-audit-2026-09-17/repository-invariants.log": "553f29f46bfc9b3fb50108b05054ac2c5cc18664807d79fd6a0cfc6bbab64e4f",
-    ".artifacts/ios-ci-audit-2026-09-17/products-34.json": "4e5a1ba543958d55e164bfa78f3e89ea5121d576bf7b2c15745ca41b99ac5843",
-    ".artifacts/ios-ci-audit-2026-09-17/macos-identity.json": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
-    ".artifacts/ios-ci-audit-2026-09-17/standard-light-stage-changes.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
-    ".artifacts/ios-ci-audit-2026-09-17/test-34.swift": "30c11bb6939a9d83f093d175d387bc219cf3660af0669ae433fc8dad81db743c",
+    ".artifacts/ios-ci-audit-2026-09-17/ci-bc0433d.json": "6911f92d9b63ce798acdfcc2df1ee38e1babef1b78c8e3c0224d383efed6a718",
+    ".artifacts/ios-ci-audit-2026-09-17/ci-standard-light-34-images-to-review.json": "afd15f5f06473e30f79d8428c742ade4f3e6b2a10182f4d078822faebe75ed3a",
+    ".artifacts/ios-ci-audit-2026-09-17/ci-watch-bc0433d.log": "0eee5d237da39f435b8800a25c204442c9ae945cda4ce0f846ae592b6f54e70e",
+    ".artifacts/ios-ci-audit-2026-09-17/download-ci-34.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".artifacts/ios-ci-audit-2026-09-17/environment-max-dark-34.json": "6fbd1e8df6666e5c8bb5e47b6f5b18a977d2609f7e14a2090fc9a32c4d38ebd5",
+    ".artifacts/ios-ci-audit-2026-09-17/environment-max-light-34.json": "ab66f16e3770bae5f79091be9c284876a6705c49159e1f38dbe47b5c396f990c",
+    ".artifacts/ios-ci-audit-2026-09-17/environment-standard-dark-34.json": "4c274cb19517ddff8cb7b1cef28c6fa3a08224a8afb5dc693dcebcbe71b5355b",
     ".artifacts/ios-ci-audit-2026-09-17/environment-standard-light-34.json": "4c0cb2624eb910c9e4b36471a1882dcea4912b214b2ed8d4f0969e53a08a810f",
-    ".artifacts/ios-ci-audit-2026-09-17/screenshots-reviewed-standard-light.json": "ef4265c682c955c3d788ad2f5f0e059760ca76df4cc054057b61d2ebde93338a"
-  }
+    ".artifacts/ios-ci-audit-2026-09-17/export-ci-standard-light-34-retry.log": "2b56b6f0f70d5bb17c3581270d113c6fd4486b8bd82dba6051bc902aa9cddc19",
+    ".artifacts/ios-ci-audit-2026-09-17/export-ci-standard-light-34.log": "05c6e9559f2a280b98d676973b49327096e0b8331645bf0ffc3aa941156bcc81",
+    ".artifacts/ios-ci-audit-2026-09-17/export-max-dark-34.log": "6ebd69ce30f5b8bc73a503d23cab647cbdbaf839900e91a33e9eef7fc29e8771",
+    ".artifacts/ios-ci-audit-2026-09-17/export-max-light-34.log": "bee33a792a247f92005504575c0144835c4f6d77fe61113ef23e89b32d02acd0",
+    ".artifacts/ios-ci-audit-2026-09-17/export-standard-dark-34.log": "9643942f1fc9f8c2ab0acdf172f79f5054b69219e08584f68e80f00458479230",
+    ".artifacts/ios-ci-audit-2026-09-17/export-standard-light-34.log": "7f20a0b55d2b1b69e05ca24b2aacef5f877eea22f55be715d0e6b58f24b3ddfc",
+    ".artifacts/ios-ci-audit-2026-09-17/export.log": "32e55e44bddc0e68cde6835eb2a779b4d38cbf29335732efece8354ca85c95fe",
+    ".artifacts/ios-ci-audit-2026-09-17/finish-docs.py": "b16c600ee91ef566938e0f5f891c6c93d155d863eaef4fee37bd0aedee351d61",
+    ".artifacts/ios-ci-audit-2026-09-17/hant-activities.json": "02540f8a02956b741c105abecb5c2b6113c9e6f987679340c28be5dabb904399",
+    ".artifacts/ios-ci-audit-2026-09-17/hant-attachments.json": "d54f631ee9ce43c33b78b74ee2f3d4d770ce20e0e50d55bae1d9f20abef8b11e",
+    ".artifacts/ios-ci-audit-2026-09-17/index-evidence.py": "9ef39e5228c035c817ee73e27254453bc2ce5088f66d7554e5f67d0d29529643",
+    ".artifacts/ios-ci-audit-2026-09-17/insights-ci-34.json": "f0b461d18af3e6f7c52eb22f5425e7d2db89be0127ee5b20e64cba6517de3a97",
+    ".artifacts/ios-ci-audit-2026-09-17/inspection-ci-standard-light-34.json": "8be07ef7fb6e533253fec92d711fc24cbb005ba96ce13c316d5208c67879c6b5",
+    ".artifacts/ios-ci-audit-2026-09-17/inspection-max-dark-34.json": "af6723bfb7ec611bb04f575666699b8730424459668e4d5b72abafcb56613d50",
+    ".artifacts/ios-ci-audit-2026-09-17/inspection-max-light-34.json": "af6723bfb7ec611bb04f575666699b8730424459668e4d5b72abafcb56613d50",
+    ".artifacts/ios-ci-audit-2026-09-17/inspection-standard-dark-34.json": "4d854ca03f5048d5e38643a43e4b40fa37cb4f536a2fd14142f420e0be03a808",
+    ".artifacts/ios-ci-audit-2026-09-17/inspection-standard-light-34.json": "74f256b100c8c06a16021ec5f587a4c0d758a9242aad492d7ec35db1366686ef",
+    ".artifacts/ios-ci-audit-2026-09-17/ios-job-bc0433d.log": "e119521d3d0d2878fe93ca04ec0c0ed23ddfd337c52955566b1d0d9e6e42f18f",
+    ".artifacts/ios-ci-audit-2026-09-17/ios-job.log": "2195138d767159459c2449c1b1da6d8c8d4232735eb7b660e1301e099ed49ec7",
+    ".artifacts/ios-ci-audit-2026-09-17/issues-ci-34.json": "0858a0ae57aa2fc3915f1e8bf262c685d5046dbe43d7a76eb46b5f5ba23621d0",
+    ".artifacts/ios-ci-audit-2026-09-17/issues.json": "f04366174e92f9f7ee89d34fecb84822a4b660ebf1b4614ac1e13f81f40cf45f",
+    ".artifacts/ios-ci-audit-2026-09-17/local-gate-34.log": "3a4d4d435f9370c52853961acd3d3c5203bc0d033cf1108d0c5da0328bee81f7",
+    ".artifacts/ios-ci-audit-2026-09-17/macos-identity.json": "7b5074b7db5aaace56ed9c02e12c848054b886eae33a6b54953220c92f6912a9",
+    ".artifacts/ios-ci-audit-2026-09-17/matrix-34.log": "852b10e9b70984d3388a895d83b7c6416a7914be44b9bdd37d76dd011dedb6f8",
+    ".artifacts/ios-ci-audit-2026-09-17/max-dark-34-images-to-review.json": "a03d977d60e4ff3fe1268e2d88d77c549ccba8c9cd1deb86a177b9462a7578b1",
+    ".artifacts/ios-ci-audit-2026-09-17/max-dark-34.log": "0b14a35fb964032d3098b24205e676275541e4f0935512fcf5dc29f6d870eaea",
+    ".artifacts/ios-ci-audit-2026-09-17/max-dark-images-to-review.json": "9ca4b26afbb145f29054c1f9c063c510c21a36de4e09c2c8e89e354a9fecec90",
+    ".artifacts/ios-ci-audit-2026-09-17/max-light-34-images-to-review.json": "7465779ae21f2c54128092a9d9b643b8fa0eb206816048143e5671cc57053d74",
+    ".artifacts/ios-ci-audit-2026-09-17/max-light-34.log": "b7e1ddebe6434be1c79f667ab95fc5142f375aa68c2af797c3da78d6aef9d4b4",
+    ".artifacts/ios-ci-audit-2026-09-17/products-34.json": "4e5a1ba543958d55e164bfa78f3e89ea5121d576bf7b2c15745ca41b99ac5843",
+    ".artifacts/ios-ci-audit-2026-09-17/repository-invariants.log": "553f29f46bfc9b3fb50108b05054ac2c5cc18664807d79fd6a0cfc6bbab64e4f",
+    ".artifacts/ios-ci-audit-2026-09-17/restore-and-verify.py": "331236e9aa6d18582d3d7f7d04aaaa949d9469d608014bc77a460f3b30ac3947",
+    ".artifacts/ios-ci-audit-2026-09-17/restored-state.json": "6dc866796eae14838111728c7a15cf20c90cce272a413ad933d5de271e860dda",
+    ".artifacts/ios-ci-audit-2026-09-17/root-object.json": "4ac43ef29604d9e6f011271a469c707cefba5d51843551af37e671f64db1dac9",
+    ".artifacts/ios-ci-audit-2026-09-17/run-matrix-34.sh": "e4daad6a094c7d0e647024d63f5ae7f9b91502c4ad73bc30798b3b7e904d741c",
+    ".artifacts/ios-ci-audit-2026-09-17/screenshots-reviewed-standard-light.json": "ef4265c682c955c3d788ad2f5f0e059760ca76df4cc054057b61d2ebde93338a",
+    ".artifacts/ios-ci-audit-2026-09-17/screenshots-reviewed.json": "3b592a977f255a660c14a00be5a690e3b36eee9dd6b31724b991aaaf57952aba",
+    ".artifacts/ios-ci-audit-2026-09-17/select-images-check.log": "a03d977d60e4ff3fe1268e2d88d77c549ccba8c9cd1deb86a177b9462a7578b1",
+    ".artifacts/ios-ci-audit-2026-09-17/select-images.py": "3c3d6f1d443beaa8626969e392798b8d8c8a4dba4eb59b739058619806ff2514",
+    ".artifacts/ios-ci-audit-2026-09-17/standard-dark-34-images-to-review.json": "056b01fbd170461053f112d1cbfbdfefd7261fdbe531c3e89b33d287b264aaec",
+    ".artifacts/ios-ci-audit-2026-09-17/standard-dark-34.log": "c835cc94a9c7dba888745b43748bb7a72c40706c7bfe13e0948bc34c0bc901cd",
+    ".artifacts/ios-ci-audit-2026-09-17/standard-light-images-to-review.json": "d48d5445b13223688c10590335d4d44b24b7bcd07efbfea709562d8ea9bc25a7",
+    ".artifacts/ios-ci-audit-2026-09-17/standard-light-stage-changes.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    ".artifacts/ios-ci-audit-2026-09-17/summary-ci-standard-light-34.json": "7f5485a15f0d23722e39c036528cfc0766804962e1edb9dbfa52ba333f2c2e8d",
+    ".artifacts/ios-ci-audit-2026-09-17/summary-max-dark-34.json": "2b93bdab54183c2199cebaa0fefe98218e21df6f34e53bd0dcca2bd29fab5705",
+    ".artifacts/ios-ci-audit-2026-09-17/summary-max-light-34.json": "33b4354c0a1741935430f7809c3596182f06deda2fc8b0683dacb8fadf831760",
+    ".artifacts/ios-ci-audit-2026-09-17/summary-standard-dark-34.json": "33ff0f1a0adaee947f14f9d09b4bf1600d14a215a101a315fe8fdedf72e15d0a",
+    ".artifacts/ios-ci-audit-2026-09-17/summary-standard-light-34.json": "468c7a6fd5e73490eab5618f223a919126fe660b48d3bb7caddc46b68fb70156",
+    ".artifacts/ios-ci-audit-2026-09-17/summary.json": "b0b2ce0e1ab0dc30db5a49c8862a9780d2511ae6a5f53c9556b67e3e00f25367",
+    ".artifacts/ios-ci-audit-2026-09-17/test-34.swift": "30c11bb6939a9d83f093d175d387bc219cf3660af0669ae433fc8dad81db743c",
+    ".artifacts/ios-ci-audit-2026-09-17/verify-products-34.py": "7afd589e2b43d05cbd3b7fa4e3d6c662c9e974770b5cfca2e3539501356e8ebd"
+  },
+  "older_sdk_recheck_passed": true,
+  "original_report_root_cause_confirmed": false,
+  "i6_complete": false,
+  "release_go": false,
+  "scope": "本机同一 iPhone 17 / iOS 26.5，未签名、无记录、App Group 不可用；标准及最大辅助字号的浅色和深色。准确提交另在 iPhone 16 Pro / iOS 18.5 CI 通过标准浅色完整开发门禁；旧报告本次未再出现，未据此确认其系统内部根因。"
 }
