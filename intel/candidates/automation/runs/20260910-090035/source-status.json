@@ -1,0 +1,114 @@
+[
+  {
+    "source_id": "microsoft",
+    "url": "https://www.microsoft.com/en-us/security/blog/",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "invariant",
+    "url": "https://invariantlabs.ai/blog",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "checked_visible_listing",
+    "complete_through": null,
+    "reason": "完整可见列表最新为2025年6月，窗口内未见新条目；已发现Snyk迁移链接，后续研究入口需核对。"
+  },
+  {
+    "source_id": "embrace",
+    "url": "https://embracethered.com/blog/",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "promptarmor",
+    "url": "https://www.promptarmor.com/resources",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "listing_unavailable",
+    "complete_through": null,
+    "reason": "页面和Blog链接返回同一资源介绍，无可枚举文章列表；补充站内搜索未获得本窗口可靠新文章，不能当无更新。"
+  },
+  {
+    "source_id": "checkpoint",
+    "url": "https://research.checkpoint.com/",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "unit42",
+    "url": "https://unit42.paloaltonetworks.com/",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "anthropic",
+    "url": "https://www.anthropic.com/research",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "mcp-python",
+    "url": "https://github.com/modelcontextprotocol/python-sdk/security/advisories",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "公告条目可读，所见最新披露早于窗口；页面有加载错误提示，更新日期与完整API列表待核对。"
+  },
+  {
+    "source_id": "mcp-typescript",
+    "url": "https://github.com/modelcontextprotocol/typescript-sdk/security/advisories",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "公告条目可读，所见最新披露早于窗口；页面有加载错误提示，更新日期与完整API列表待核对。"
+  },
+  {
+    "source_id": "ghsa",
+    "url": "https://github.com/advisories",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "atlas",
+    "url": "https://github.com/mitre-atlas/atlas-data",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "weekly_baseline_partial",
+    "complete_through": null,
+    "reason": "完成首次基线页面读取；不把示例版本当最新版本，正式版本数据与完整映射仍待核对。"
+  },
+  {
+    "source_id": "owasp",
+    "url": "https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "weekly_baseline_partial",
+    "complete_through": null,
+    "reason": "完成首次基线页面读取；不把示例版本当最新版本，正式版本数据与完整映射仍待核对。"
+  },
+  {
+    "source_id": "arxiv",
+    "url": "https://arxiv.org/list/cs.CR/recent",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "列表页面可读，按主题筛选；分页/初始30天补采尚未完成。"
+  },
+  {
+    "source_id": "simon",
+    "url": "https://simonwillison.net/series/prompt-injection/",
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "partial",
+    "complete_through": null,
+    "reason": "专题页为旧文选集，沿官方标签链接取得近期入口；仅可见列表检查，不推断完整站点无更新。"
+  }
+]

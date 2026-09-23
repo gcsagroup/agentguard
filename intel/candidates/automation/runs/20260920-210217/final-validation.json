@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "scope": "产物一致性，不是引擎新测试通过",
+  "checked_at": "2026-09-20T21:03:35.907924+08:00",
+  "snapshot_files_checked": 908,
+  "previous_artifacts_verified": 25,
+  "source_drift": [],
+  "evidence_bytes": 103379,
+  "dedup_unique": 45,
+  "pending_preserved": 31,
+  "pending_total": 33,
+  "rework_preserved": 8,
+  "new_leads": 2,
+  "duplicate_observations": 19,
+  "collection_complete": false
+}

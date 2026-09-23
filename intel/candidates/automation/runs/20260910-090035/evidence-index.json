@@ -1,0 +1,26 @@
+[
+  {
+    "lead_id": "LEAD-20260910-001",
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/LEAD-20260910-001-evidence.json",
+    "sha256": "efd786f5716c41026207a1496e9d9153452b3aa80a11ea2c689578c5b64bc496",
+    "hash_scope": "本地核对摘要，非网页全文"
+  },
+  {
+    "lead_id": "LEAD-20260910-002",
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/LEAD-20260910-002-evidence.json",
+    "sha256": "67698e16a3d5f56f1b2ef15ec0bf9a44c3cb5c678d9e42939ba07cf85e28186e",
+    "hash_scope": "本地核对摘要，非网页全文"
+  },
+  {
+    "lead_id": "LEAD-20260910-003",
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/LEAD-20260910-003-evidence.json",
+    "sha256": "fa1eeb092f582427a7ee2ce4ba2ff400c57c3d48dfaa651d6079e5134d52ea47",
+    "hash_scope": "本地核对摘要，非网页全文"
+  },
+  {
+    "lead_id": "LEAD-20260910-004",
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/LEAD-20260910-004-evidence.json",
+    "sha256": "600c8936857c8e46eccbf35d65d7eddde6e07c0027879a18a4d85b502660ea50",
+    "hash_scope": "本地核对摘要，非网页全文"
+  }
+]

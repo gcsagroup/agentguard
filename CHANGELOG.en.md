@@ -10,6 +10,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 - Integrated active defense, local STIX round trips and performance-budget work. Only main and the primary checkout remain locally: 36 merged branches were removed, seven old worktrees were fully archived and restoration-verified, and two stale registrations were pruned.
 - Workspace and MSRV each passed 1,551 tests; desktop passed 139, Chromium E2E 95 and frontend 136. All three dependency audits and an actual STIX CLI round trip passed. Fixed App 024 was not rebuilt; F13 remains deferred and release remains No-Go. See the [verification and recovery record (Chinese)](docs/source-integration-cleanup-2026-09-23.zh.md).
+- A follow-up commit includes 91 previously omitted threat-intelligence automation candidate/run records and their guide. They remain unsigned candidates; live rules and release status are unchanged. Local Python bytecode no longer appears as a pending change.
 
 ### AGD-031: local STIX 2.1 import/export (2026-09-22)
 

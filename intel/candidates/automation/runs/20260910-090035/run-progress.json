@@ -1,0 +1,17 @@
+{
+  "started_from_schedule": "2026-09-10T09:00:35+08:00",
+  "recorded_at": "2026-09-10T13:38:23.721610+08:00",
+  "lookback_start": "2026-08-11",
+  "lead_count": 15,
+  "deep_processed": 4,
+  "duplicate_count": 1,
+  "queued": 10,
+  "source_count": 14,
+  "source_listing_unavailable": [
+    "promptarmor"
+  ],
+  "collection_complete": false,
+  "completed_at": "2026-09-10T13:44:29.717710+08:00",
+  "status": "partial",
+  "report": "report.zh.md"
+}

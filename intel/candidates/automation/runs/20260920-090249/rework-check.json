@@ -1,0 +1,77 @@
+[
+  {
+    "candidate_family": "CAND-20260909-MEMORY",
+    "status": "offline_control_passed_pending_integration",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/control-v2-results.json",
+    "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。"
+  },
+  {
+    "candidate_family": "CAND-20260910-IMPORT",
+    "status": "failed_extended_normal_controls",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/policy-results.json",
+    "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。"
+  },
+  {
+    "candidate_family": "CAND-20260910-UNICODE",
+    "status": "needs_refinement",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence": [
+      "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/unicode-results.json",
+      "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/unicode-desktop-results.json"
+    ],
+    "next_action": "继续在可信来源与真实动作的结合处区分引用和执行；当前桌面观察入口不会自动修复Unicode引用误报，保留原9项。"
+  },
+  {
+    "candidate_family": "CAND-20260910-TENANT",
+    "status": "needs_product_validation",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+    "evidence": null,
+    "next_action": "AGD-008出口和AGD-017代理集成后以两个合成会话测试资源读写、共享缓存、重启和撤销；禁止触碰原报告服务"
+  },
+  {
+    "candidate_family": "CAND-20260910-EGRESS",
+    "status": "component_controls_passed_pending_integration",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-20T00:58:57.740033+08:00",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-005103/egress-results.json",
+    "next_action": "在AGD-008真实会话验证直接socket和容器宿主别名出口；在AGD-017认证入口另测受众，不以本机服务ID绑定替代OAuth。"
+  },
+  {
+    "candidate_family": "CAND-20260910-AUTH",
+    "status": "needs_mcp_transport_integration",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+    "next_action": "按本轮auth-acceptance.json七项验收接入AGD-017认证及路由；独立核对受众、范围、Host/Origin和撤销，不能用出口服务ID检查替代。"
+  },
+  {
+    "candidate_family": "CAND-20260910-PACKAGE",
+    "status": "failed_normal_controls",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/policy-results.json",
+    "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。"
+  },
+  {
+    "candidate_family": "CAND-20260910-OPAQUE",
+    "status": "needs_trusted_label_and_export_integration",
+    "action": "reviewed_no_retry",
+    "reason": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。",
+    "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+    "next_action": "在真实导出器按结构化字段处理，再验证源文件不变、导出不含原始块、普通资料和已授权同会话恢复成功；不读取真实凭据或私有会话。"
+  }
+]

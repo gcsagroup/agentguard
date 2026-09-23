@@ -1,0 +1,234 @@
+[
+  {
+    "id": "LEAD-20260910-001",
+    "title": "Unicode 标签字符绕过过滤",
+    "status": "duplicate_listing_observation",
+    "source_id": "microsoft",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "processed",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-002",
+    "title": "Claude Code Auto Mode 的模块遮蔽链",
+    "status": "duplicate_listing_observation",
+    "source_id": "embrace",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "processed",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-005",
+    "title": "恢复加密推理轨迹",
+    "status": "duplicate_listing_observation",
+    "source_id": "embrace",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "processed",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-003",
+    "title": "沙箱跨账号共享内部状态通道",
+    "status": "duplicate_listing_observation",
+    "source_id": "checkpoint",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "processed",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-004",
+    "title": "近期安全事件的对齐评估",
+    "status": "duplicate_listing_observation",
+    "source_id": "anthropic",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "processed",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-007",
+    "title": "多Agent系统风险",
+    "status": "duplicate_listing_observation",
+    "source_id": "anthropic",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "queued",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-008",
+    "title": "自动化研究缓解对齐失败",
+    "status": "duplicate_listing_observation",
+    "source_id": "anthropic",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "queued",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260910-E004",
+    "title": "Unit 42：AI辅助企业入侵调查",
+    "status": "duplicate_listing_observation",
+    "source_id": "unit42",
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "original_status": "queued",
+    "note": "仅列表重复核对，不改写既有案例结论。"
+  },
+  {
+    "id": "LEAD-20260916-001",
+    "source_id": "ghsa",
+    "title": "MCP GitLab SSRF：CVE-2026-61559",
+    "url": "https://github.com/zereight/gitlab-mcp/security/advisories/GHSA-2h44-8472-frjj",
+    "disclosed_at": "2026-07-01",
+    "database_listed_at": "2026-09-15",
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "搜索命中原项目7月1日披露；9月15日是数据库收录日期。受影响范围在标题字段与正文可能不同，版本留待原文核验。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-002",
+    "source_id": "ghsa",
+    "title": "MCP GitLab DNS重绑定：CVE-2026-61568",
+    "url": "https://github.com/advisories",
+    "disclosed_at": null,
+    "database_listed_at": "2026-09-15",
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "数据库列表线索；原项目链接、版本与实际披露时间尚未核实。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-003",
+    "source_id": "ghsa",
+    "title": "MCP GitLab多项控制缺陷：GHSA-5648-rgj9-v224",
+    "url": "https://github.com/zereight/gitlab-mcp/security/advisories/GHSA-5648-rgj9-v224",
+    "disclosed_at": "2026-07-05",
+    "database_listed_at": "2026-09-15",
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "搜索命中原项目7月5日披露，涉及只读语义、项目范围与入站认证；新收录不等于新披露，未复现。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-004",
+    "source_id": "checkpoint",
+    "title": "PuzzleMask：自然语言隐蔽指令风险",
+    "url": "https://research.checkpoint.com/",
+    "disclosed_at": "2026-09-10",
+    "database_listed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "只取得主页题目和日期；不据此生成字符串阻断规则，原文待核验。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-005",
+    "source_id": "arxiv",
+    "title": "Toward Secure AI-Powered Penetration Testing Agents: Security Threats, Guardrails, and Architectural Perspectives",
+    "url": "https://arxiv.org/abs/2609.16694",
+    "disclosed_at": null,
+    "database_listed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "论文列表线索；只关注防御边界与验收方法，未读全文，同行评审未知。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-006",
+    "source_id": "arxiv",
+    "title": "Universal Defenses for Tool-Integrated LLM Agents Against Adversarial Attacks",
+    "url": "https://arxiv.org/abs/2609.16098",
+    "disclosed_at": null,
+    "database_listed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "论文列表线索；标题不能证明通用防御有效，需核对实验与正常任务损失。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-007",
+    "source_id": "arxiv",
+    "title": "A Cyber Range Evaluation of Autonomous Network Incident Response Agents",
+    "url": "https://arxiv.org/abs/2609.16541",
+    "disclosed_at": null,
+    "database_listed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "论文列表线索；需核对评估环境、授权范围与防御指标，未运行外部代码。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260916-008",
+    "source_id": "microsoft",
+    "title": "How to secure edge AI in customer-owned environments",
+    "url": "https://www.microsoft.com/en-us/security/blog/",
+    "disclosed_at": "2026-09-04",
+    "database_listed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-16T21:09:18.190044+08:00",
+    "status": "queued",
+    "summary": "主页摘要涉及敏感数据与凭据释放前的环境验证；只登记线索，不宣称产品覆盖。",
+    "affected_versions": null,
+    "evidence_kind": "listing_or_search_lead_only",
+    "primary_verified": false,
+    "unknowns": [
+      "原文及完整版本范围尚待核验",
+      "实际产品接入与效果未验证"
+    ],
+    "authorization_effect": "none"
+  }
+]

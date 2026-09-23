@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "microsoft",
+      "name": "Microsoft Security Blog",
+      "url": "https://www.microsoft.com/en-us/security/blog/",
+      "role": "原始披露",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "invariant",
+      "name": "Invariant Labs",
+      "url": "https://invariantlabs.ai/blog",
+      "role": "原始研究",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "embrace",
+      "name": "Embrace The Red",
+      "url": "https://embracethered.com/blog/",
+      "role": "原始研究",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "promptarmor",
+      "name": "PromptArmor",
+      "url": "https://www.promptarmor.com/resources",
+      "role": "原始研究",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "checkpoint",
+      "name": "Check Point Research",
+      "url": "https://research.checkpoint.com/",
+      "role": "原始研究",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "unit42",
+      "name": "Unit 42",
+      "url": "https://unit42.paloaltonetworks.com/",
+      "role": "原始研究",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic Research",
+      "url": "https://www.anthropic.com/research",
+      "role": "原始研究",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "mcp-python",
+      "name": "MCP Python SDK",
+      "url": "https://github.com/modelcontextprotocol/python-sdk/security/advisories",
+      "role": "官方公告",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "mcp-typescript",
+      "name": "MCP TypeScript SDK",
+      "url": "https://github.com/modelcontextprotocol/typescript-sdk/security/advisories",
+      "role": "官方公告",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "ghsa",
+      "name": "GitHub Advisory Database",
+      "url": "https://github.com/advisories",
+      "role": "漏洞索引，回查项目公告",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "atlas",
+      "name": "MITRE ATLAS",
+      "url": "https://github.com/mitre-atlas/atlas-data",
+      "role": "分类与案例映射",
+      "cadence": "weekly"
+    },
+    {
+      "id": "owasp",
+      "name": "OWASP Agentic Top 10",
+      "url": "https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/",
+      "role": "控制要求",
+      "cadence": "weekly"
+    },
+    {
+      "id": "arxiv",
+      "name": "arXiv cs.CR",
+      "url": "https://arxiv.org/list/cs.CR/recent",
+      "role": "研究线索，标明评审状态",
+      "cadence": "twice_daily"
+    },
+    {
+      "id": "simon",
+      "name": "Simon Willison",
+      "url": "https://simonwillison.net/series/prompt-injection/",
+      "role": "线索，转载须追溯原文",
+      "cadence": "twice_daily"
+    }
+  ],
+  "keywords": [
+    "间接提示词注入",
+    "MCP 工具投毒",
+    "记忆投毒",
+    "Agent 凭据外泄",
+    "indirect prompt injection",
+    "MCP tool poisoning",
+    "memory poisoning",
+    "RAG poisoning",
+    "agent credential exfiltration",
+    "agent privilege escalation"
+  ]
+}

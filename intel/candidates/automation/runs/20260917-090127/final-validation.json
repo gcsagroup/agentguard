@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "checked_at": "2026-09-17T09:07:31.097034+08:00",
+  "scope": "产物一致性，非候选准入通过",
+  "snapshot_files": 908,
+  "concurrent_changes": [],
+  "evidence_bytes": 142368,
+  "original_9_preserved": true,
+  "generic_results_equal_previous": true,
+  "entrypoint_results_equal": true,
+  "regression_passed": 339,
+  "pending_queue_preserved": 19,
+  "dedup_unique": 31,
+  "rework_preserved": 8,
+  "collection_complete": false,
+  "published": false
+}

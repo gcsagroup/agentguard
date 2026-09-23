@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-09-16T21:12:00.954770+08:00",
+  "status": "passed",
+  "scope": "产物完整性及状态一致性；候选失败和采集缺口不因此消失",
+  "snapshot_files_verified": 905,
+  "source_files_unchanged": true,
+  "concurrent_non_source_changes": [
+    "docs/agentguard-development-plan-2026-09-09.zh.md"
+  ],
+  "evidence_files_verified": 7,
+  "source_evidence_total_bytes": 211513,
+  "original_policy_27_preserved": true,
+  "original_unicode_9_preserved": true,
+  "memory_samples_hash_preserved": true,
+  "count_corruption_checks_passed": 4,
+  "regression_passed": 419,
+  "pending_queue": 19,
+  "rework_entries": 8,
+  "historical_failures_preserved": true,
+  "published": false,
+  "collection_complete": false
+}

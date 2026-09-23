@@ -1,0 +1,254 @@
+[
+  {
+    "id": "LEAD-20260910-006",
+    "source_id": "unit42",
+    "title": "AI恶意软件调查",
+    "url": "https://unit42.paloaltonetworks.com/ai-enabled-malware-analysis/",
+    "disclosed_at": "2026-08-25",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "区分研究样本、测试提交和真实端点活动；待深入提取控制要求。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": false,
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00"
+  },
+  {
+    "id": "LEAD-20260910-007",
+    "source_id": "anthropic",
+    "title": "多Agent系统风险",
+    "url": "https://www.anthropic.com/research/multiagent-systems",
+    "disclosed_at": "2026-08-13",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表标题 Patterns and problems in emerging multiagent systems，需继续取得文章永久链接。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "previous_urls": [
+      "https://www.anthropic.com/research"
+    ],
+    "metadata_update": "永久链接和文章日期已核对；仍待深入核查及控制映射，不将摘要或厂商研究当作产品通过。"
+  },
+  {
+    "id": "LEAD-20260910-008",
+    "source_id": "anthropic",
+    "title": "自动化研究缓解对齐失败",
+    "url": "https://www.anthropic.com/research/automated-researchers-mitigate-alignment-failures",
+    "disclosed_at": "2026-08-28",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表标题 Automated researchers can reliably mitigate alignment failures，需继续取得文章永久链接。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "previous_urls": [
+      "https://www.anthropic.com/research"
+    ],
+    "metadata_update": "永久链接和文章日期已核对；仍待深入核查及控制映射，不将摘要或厂商研究当作产品通过。"
+  },
+  {
+    "id": "LEAD-20260910-009",
+    "source_id": "arxiv",
+    "title": "多模态注入评估",
+    "url": "https://arxiv.org/abs/2609.09404",
+    "disclosed_at": "2026-09-08",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表发现；提交日期和同行评审状态待核对。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "publisher": "arXiv",
+    "authors": "Viet K. Nguyen; Mohammad I. Husain",
+    "original_title": "An Experimental Evaluation of Multimodal Prompt Injection Attacks on Agentic AI Frameworks",
+    "peer_review_status": "未见正式评审信息，按预印本处理",
+    "metadata_update": "本轮核对摘要与提交日期；未验证论文数据或代码。"
+  },
+  {
+    "id": "LEAD-20260910-010",
+    "source_id": "arxiv",
+    "title": "RAG文档投毒评估",
+    "url": "https://arxiv.org/abs/2609.09243",
+    "disclosed_at": "2026-09-08",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表发现；预印本，未独立验证。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "publisher": "arXiv",
+    "authors": "Iliano Fasolino",
+    "original_title": "In RAG We Trust? Measuring Robustness of Retrieval-Augmented Generation Under Document Poisoning",
+    "peer_review_status": "未见正式评审信息，按预印本处理",
+    "metadata_update": "本轮核对摘要与提交日期；未验证论文数据或代码。"
+  },
+  {
+    "id": "LEAD-20260910-011",
+    "source_id": "arxiv",
+    "title": "视觉补丁AgentHijack",
+    "url": "https://arxiv.org/abs/2609.09212",
+    "disclosed_at": "2026-09-06",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表发现；日期、代码、许可、评审状态待核对。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "publisher": "arXiv",
+    "authors": "Zhihao Liu 等",
+    "original_title": "AgentHijack: Visual Patch Attacks on Multimodal Computer-Use Agents",
+    "peer_review_status": "未见正式评审信息，按预印本处理",
+    "metadata_update": "本轮核对摘要与提交日期；未验证论文数据或代码。"
+  },
+  {
+    "id": "LEAD-20260910-012",
+    "source_id": "arxiv",
+    "title": "SecOPD",
+    "url": "https://arxiv.org/abs/2608.21500",
+    "disclosed_at": "2026-08-21",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "已核对摘要；训练型防御不能直接转为字符串规则，评审状态未知。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": false,
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00"
+  },
+  {
+    "id": "LEAD-20260910-014",
+    "source_id": "new-joca",
+    "title": "高维离群点与语义复核记忆防御",
+    "url": "https://www.joca.cn/CN/10.11772/j.issn.1001-9081.2026040438",
+    "disclosed_at": "2026-09-02",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "已核对期刊摘要及接受日期；新来源待评审，未重现指标，加入记忆候选的研究队列。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none",
+    "carried_from": "20260910-090035",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "metadata_update": "再次核对期刊入口，未增加复现结果；原摘要线索继续保留。"
+  },
+  {
+    "id": "LEAD-20260910-E004",
+    "title": "Unit 42：AI辅助企业入侵调查",
+    "url": "https://unit42.paloaltonetworks.com/ai-assisted-cyber-attack-inside-a-unit-42-investigation/",
+    "source_id": "unit42",
+    "status": "queued",
+    "summary": "9月3日修订明确是入侵而非勒索软件事件；研究团队观察与攻击者自述需分开。普通Markdown或Python缓存不能直接作为恶意IOC。",
+    "observed_at": "2026-09-10T21:16:52.169778+08:00",
+    "checked_this_run": true,
+    "disclosed_at": "2026-09-02",
+    "occurred_at": null,
+    "affected_versions": null,
+    "evidence_kind": "publisher_incident_report",
+    "unknowns": [
+      "真实产品效果未验证"
+    ],
+    "authorization_effect": "none",
+    "updated_at": "2026-09-04",
+    "publisher": "Unit 42"
+  },
+  {
+    "id": "LEAD-20260910-E005",
+    "title": "Postgres MCP只读限制绕过线索",
+    "url": "https://modelcontextproblem.com/",
+    "source_id": "new-modelcontextproblem",
+    "status": "queued",
+    "summary": "聚合站指向AWS Bulletin 2026-101和另一项目公告；下一轮需核对原始来源，当前不登记受影响版本或生成规则。",
+    "observed_at": "2026-09-10T21:16:52.169778+08:00",
+    "checked_this_run": true,
+    "disclosed_at": null,
+    "occurred_at": null,
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "真实产品效果未验证"
+    ],
+    "authorization_effect": "none",
+    "claimed_disclosed_at": "2026-09-04",
+    "primary": false
+  },
+  {
+    "id": "LEAD-20260910-E006",
+    "title": "Deadbugz延迟工具描述变化线索",
+    "url": "https://www.pranavaraparla.com/vibe-coding-security/advisories/2026-09-deadbugz-mcp-supply-chain-campaign.html",
+    "source_id": "new-pranav",
+    "status": "queued",
+    "summary": "仅二手索引发现，需追溯Pillar原始报告并验证活动性质；触发次数与投递规模未作为确认事实。",
+    "observed_at": "2026-09-10T21:16:52.169778+08:00",
+    "checked_this_run": true,
+    "disclosed_at": null,
+    "occurred_at": null,
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "真实产品效果未验证"
+    ],
+    "authorization_effect": "none",
+    "claimed_disclosed_at": "2026-08-12",
+    "primary": false
+  }
+]

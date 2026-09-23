@@ -1,0 +1,310 @@
+[
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-IMPORT-001",
+    "candidate_family": "CAND-20260910-IMPORT",
+    "version": 1,
+    "title": "归档只读策略扩大对照后待修订",
+    "status": "failed_extended_normal_controls",
+    "technique_ids": [
+      "GCSA-ATI-011",
+      "GCSA-ATI-012"
+    ],
+    "source_urls": [
+      "https://embracethered.com/blog/posts/2026/breaking-claude-code-opus-5-and-automode/",
+      "https://github.com/sonirico/mcp-shell/security/advisories/GHSA-gg85-6grh-63fp"
+    ],
+    "applicable_entry": "宿主指定的外部归档只读会话",
+    "required_telemetry": [
+      "可信工具身份",
+      "实际参数类别",
+      "只读会话选择"
+    ],
+    "proposed_action": "保留执行拒绝，但字面搜索不得按可执行动作解释",
+    "false_positive_conditions": [
+      "正常搜索python3或node被SHELL-DENIED-TARGET拒绝"
+    ],
+    "remaining_bypasses": [
+      "未知工具仍是Ask",
+      "第三方工具同名无法从文本证明可信"
+    ],
+    "next_action": "按refinement-v2.zh.md分离工具动作与字面查询；保留27项全部输入后复测真实网关。",
+    "runtime_rule_ids": [
+      "SHELL-DENIED-ACTION",
+      "SHELL-DENIED-TARGET",
+      "SHELL-UNKNOWN-TOOL"
+    ],
+    "classification_note": "GCSA-ATI-001仅为相关风险，经典间接提示注入未由该模块导入链独立证明；原映射记录保留。",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/policy-results.json",
+    "previous_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/archive-policy-results.json",
+    "versions": [
+      {
+        "version": 1,
+        "status": "failed_extended_normal_controls"
+      },
+      {
+        "version": 2,
+        "status": "needs_product_implementation",
+        "design": "refinement-v2.zh.md",
+        "tests": "not_run"
+      }
+    ],
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/snapshot-hashes.json",
+    "previous_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+    "prior_status": "failed_extended_normal_controls",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "retested_at": "2026-09-16T21:12:00.954770+08:00",
+    "refinement": "refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "total": 18,
+      "passed": 14,
+      "failed": 4
+    }
+  },
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-PACKAGE-001",
+    "candidate_family": "CAND-20260910-PACKAGE",
+    "version": 1,
+    "title": "只读文档会话限制依赖切换",
+    "status": "failed_normal_controls",
+    "technique_ids": [
+      "GCSA-ATI-005",
+      "GCSA-ATI-011",
+      "GCSA-ATI-012"
+    ],
+    "source_urls": [
+      "https://github.com/jordanburke/functype/security/advisories/GHSA-wcjj-9m6g-2fr2"
+    ],
+    "applicable_entry": "已登记依赖文档工具路由",
+    "required_telemetry": [
+      "可信工具身份",
+      "会话用途",
+      "实际包切换动作"
+    ],
+    "proposed_action": "只读会话拒绝set_functype_version；普通开发更新须另行授权",
+    "false_positive_conditions": [
+      "搜索该工具名称或python3被当前候选误拒绝"
+    ],
+    "remaining_bypasses": [
+      "第三方别名或工具改名需可信注册",
+      "不处理所有包规范语义"
+    ],
+    "next_action": "按refinement-v2.zh.md分离查询文字与工具动作，并以实际MCP路由验证无安装、正常查询成功。",
+    "runtime_rule_ids": [
+      "SHELL-DENIED-ACTION",
+      "SHELL-DENIED-TARGET"
+    ],
+    "policy_file": "dependency-readonly.policy.yaml",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/policy-results.json",
+    "source_affected_versions": "functype-mcp-server <=1.4.3；原项目列1.4.4为修复版本",
+    "versions": [
+      {
+        "version": 1,
+        "status": "failed_normal_controls"
+      },
+      {
+        "version": 2,
+        "status": "needs_product_implementation",
+        "design": "refinement-v2.zh.md",
+        "tests": "not_run"
+      }
+    ],
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/snapshot-hashes.json",
+    "previous_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+    "prior_status": "failed_normal_controls",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "retested_at": "2026-09-16T21:12:00.954770+08:00",
+    "refinement": "refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "total": 13,
+      "passed": 10,
+      "failed": 3
+    }
+  },
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-EGRESS-001",
+    "candidate_family": "CAND-20260910-EGRESS",
+    "version": 1,
+    "title": "出口限制新增真实组件证据",
+    "status": "component_controls_passed_pending_integration",
+    "technique_ids": [
+      "GCSA-ATI-012",
+      "GCSA-ATI-016"
+    ],
+    "source_urls": [
+      "https://github.com/open-webui/open-webui/security/advisories/GHSA-5x7x-4c3c-qf5w",
+      "https://www.anthropic.com/research/alignment-assessment-cybersecurity-incidents"
+    ],
+    "applicable_entry": "EgressBroker已登记的IPv4回环HTTP服务",
+    "required_telemetry": [
+      "宿主范围",
+      "真实目的地",
+      "单次授权",
+      "实际连接与持久审计"
+    ],
+    "proposed_action": "拒绝跟随重定向；拒绝错绑、变更和不明敏感度请求",
+    "false_positive_conditions": [
+      "正常已登记服务和普通研究Unicode内容必须成功"
+    ],
+    "remaining_bypasses": [
+      "未验证第三方HTTP客户端、DNS、外部代理和全部执行环境出口"
+    ],
+    "next_action": "将本轮本机组件矩阵接入真实受保护会话；验证直接socket不可绕过，并对计划新增代理逐跳核对目的地。",
+    "runtime_rule_ids": [
+      "EGRESS_REDIRECT",
+      "EGRESS_BINDING",
+      "EGRESS_GRANT",
+      "EGRESS_DATA_SCOPE"
+    ],
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/egress-results.json",
+    "source_affected_versions": "Open WebUI >=0.9.5, <=0.11.0 且允许重定向；0.11.1列为修复版本；代理路径限制仍需补充",
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/snapshot-hashes.json",
+    "previous_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+    "prior_status": "component_controls_passed_pending_integration",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "retested_at": "2026-09-16T21:12:00.954770+08:00",
+    "refinement": "refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "total": 14,
+      "passed": 14,
+      "failed": 0
+    }
+  },
+  {
+    "version": 1,
+    "authorization_effect": "none",
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "platforms": [
+      "macos"
+    ],
+    "product_effect": "unknown",
+    "id": "CAND-20260910-UNICODE-001",
+    "title": "Unicode隐藏视图与引用误报改进",
+    "lead_id": "LEAD-20260910-001",
+    "technique_ids": [
+      "GCSA-ATI-002"
+    ],
+    "status": "needs_refinement",
+    "runtime_rule_ids": [
+      "OVL-004",
+      "FW-TEXT-ANOMALY"
+    ],
+    "required_telemetry": [
+      "原文/可见/规范化视图",
+      "可信来源对象",
+      "实际动作及授权"
+    ],
+    "condition": "已有规则可识别隐藏指令，但不能区分安全论文引用",
+    "proposed_action": "v1不得推广；v2建议将读取时异常作为证据并在真实动作处判权限",
+    "false_positive_conditions": [
+      "研究引用误阻断",
+      "标签测试被告警",
+      "合法旗帜不应被当恶意"
+    ],
+    "next_action": "保留全部9个样本；新增可信读取/执行分离接入后测试v2，不能靠关键词例外或模型自报研究模式放行",
+    "source_url": "https://www.microsoft.com/en-us/security/blog/2026/09/03/ascii-smuggling-crosses-over-from-ai-prompt-injection-to-phishing-evasion/",
+    "versions": [
+      {
+        "version": 1,
+        "status": "failed_normal_controls",
+        "results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json"
+      },
+      {
+        "version": 2,
+        "status": "needs_telemetry_implementation",
+        "design": "内容异常与执行授权分离；原始字符串检测失败结论不改变",
+        "tests": "not_run",
+        "integration_points": [
+          "crates/guard-core/src/lib.rs::check_text_anomaly",
+          "AGD-014/015可信来源接入"
+        ]
+      }
+    ],
+    "candidate_family": "CAND-20260910-UNICODE",
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/snapshot-hashes.json",
+    "previous_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-090035/candidates.json",
+    "prior_status": "needs_refinement",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/unicode-results.json",
+    "retested_at": "2026-09-16T21:12:00.954770+08:00",
+    "refinement": "refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "total": 9,
+      "passed": 7,
+      "failed": 2
+    }
+  },
+  {
+    "id": "CAND-20260909-MEMORY-002",
+    "candidate_family": "CAND-20260909-MEMORY",
+    "version": 2,
+    "title": "复用记忆写入确认控制",
+    "technique_ids": [
+      "GCSA-ATI-004"
+    ],
+    "runtime_rule_ids": [
+      "PRIV-004"
+    ],
+    "required_telemetry": [
+      "可信记忆事件与独立批准"
+    ],
+    "applicable_entry": "Engine::process_gated MemoryWrite",
+    "proposed_action": "等待独立确认，拒绝与超时阻止写入",
+    "false_positive_conditions": [
+      "正常资料读取不得因引用文本阻断"
+    ],
+    "source_urls": [],
+    "source_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/rework-queue.json",
+    "next_action": "核对真实客户端记忆读写适配入口与独立确认链路是否已有新接入；具备无害执行条件后用临时记忆存储跑完整读写与跨会话对照；不在本自动化中未经授权修改产品源码。",
+    "release_eligible": false,
+    "signature_status": "unsigned",
+    "authorization_effect": "none",
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/snapshot-hashes.json",
+    "previous_record": null,
+    "prior_status": "offline_control_passed_pending_integration",
+    "status": "offline_control_passed_pending_integration",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/control-v2-results.json",
+    "retested_at": "2026-09-16T21:12:00.954770+08:00",
+    "refinement": "refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0
+    }
+  }
+]

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "AUTH-NORMAL",
+    "input": "虚构主体alice，正确受众fixture-a，只读范围",
+    "expected": "完成本机正常读取",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  },
+  {
+    "id": "AUTH-AUDIENCE",
+    "input": "虚构主体alice，受众fixture-a的令牌请求fixture-b",
+    "expected": "拒绝且目标零请求",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  },
+  {
+    "id": "AUTH-SCOPE",
+    "input": "只读范围请求设置修改",
+    "expected": "拒绝且零写入",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  },
+  {
+    "id": "AUTH-ANON",
+    "input": "缺少或过期认证上下文",
+    "expected": "拒绝且零请求",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  },
+  {
+    "id": "AUTH-ORIGIN",
+    "input": "不匹配Host/Origin的本机工具请求",
+    "expected": "拒绝且零执行",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  },
+  {
+    "id": "AUTH-QUOTE",
+    "input": "正确认证上下文；正文为中文Unicode安全研究引用",
+    "expected": "正常读取成功，正文不扩大权限",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  },
+  {
+    "id": "AUTH-REVOKE",
+    "input": "已撤销会话重放旧请求",
+    "expected": "拒绝且零请求",
+    "status": "not_run",
+    "credential_kind": "仅拟议虚构字符串，不涉及真实令牌"
+  }
+]

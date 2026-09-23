@@ -1,0 +1,80 @@
+[
+  {
+    "version": 1,
+    "authorization_effect": "none",
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "platforms": [
+      "macos"
+    ],
+    "product_effect": "unknown",
+    "id": "CAND-20260910-UNICODE-001",
+    "title": "Unicode隐藏视图与引用误报改进",
+    "lead_id": "LEAD-20260910-001",
+    "technique_ids": [
+      "GCSA-ATI-002"
+    ],
+    "status": "needs_refinement",
+    "runtime_rule_ids": [
+      "OVL-004",
+      "FW-TEXT-ANOMALY"
+    ],
+    "required_telemetry": [
+      "原文/可见/规范化视图",
+      "可信来源对象",
+      "实际动作及授权"
+    ],
+    "condition": "已有规则可识别隐藏指令，但不能区分安全论文引用",
+    "proposed_action": "v1不得推广；v2建议将读取时异常作为证据并在真实动作处判权限",
+    "false_positive_conditions": [
+      "研究引用误阻断",
+      "标签测试被告警",
+      "合法旗帜不应被当恶意"
+    ],
+    "next_action": "继续在可信来源与真实动作的结合处区分引用和执行；当前桌面观察入口不会自动修复Unicode引用误报，保留原9项。",
+    "source_url": "https://www.microsoft.com/en-us/security/blog/2026/09/03/ascii-smuggling-crosses-over-from-ai-prompt-injection-to-phishing-evasion/",
+    "versions": [
+      {
+        "version": 1,
+        "status": "failed_normal_controls",
+        "results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json"
+      },
+      {
+        "version": 2,
+        "status": "needs_telemetry_implementation",
+        "design": "内容异常与执行授权分离；原始字符串检测失败结论不改变",
+        "tests": "not_run",
+        "integration_points": [
+          "crates/guard-core/src/lib.rs::check_text_anomaly",
+          "AGD-014/015可信来源接入"
+        ]
+      }
+    ],
+    "candidate_family": "CAND-20260910-UNICODE",
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/snapshot-hashes.json",
+    "previous_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/candidates.json",
+    "prior_status": "needs_refinement",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "evidence": [
+      "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/unicode-results.json",
+      "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/unicode-desktop-results.json"
+    ],
+    "retested_at": "2026-09-17T09:07:31.097034+08:00",
+    "refinement": "refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "generic": {
+        "total": 9,
+        "passed": 7,
+        "failed": 2
+      },
+      "trusted_desktop_observation": {
+        "total": 9,
+        "passed": 7,
+        "failed": 2
+      },
+      "unique_samples": 9
+    }
+  }
+]

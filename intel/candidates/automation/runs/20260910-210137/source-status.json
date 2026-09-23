@@ -1,0 +1,156 @@
+[
+  {
+    "source_id": "microsoft",
+    "url": "https://www.microsoft.com/en-us/security/blog/",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "partial_fetch_error",
+    "reason": "主页可读；AI威胁栏目返回403。保留缺口，不绕过限制；近30天分页仍待补采。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "invariant",
+    "url": "https://invariantlabs.ai/blog",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "complete_visible_listing",
+    "reason": "固定博客完整可见列表最新为2025年；窗口内无条目。Snyk迁移仍需来源评审，不代表新站无更新。",
+    "lookback_start": "2026-08-11",
+    "complete_through": "2026-09-10T21:16:52.169778+08:00",
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "embrace",
+    "url": "https://embracethered.com/blog/",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "complete_visible_listing",
+    "reason": "2026完整列表覆盖初始窗口；两篇窗口内文章已核对，相关未实现控制保留改进队列。",
+    "lookback_start": "2026-08-11",
+    "complete_through": "2026-09-10T21:16:52.169778+08:00",
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "promptarmor",
+    "url": "https://www.promptarmor.com/resources",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "listing_unavailable",
+    "reason": "固定资源页及Threat Intelligence筛选仍无可枚举文章；补充搜索未找到可靠窗口内条目，不能报告无更新。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "checkpoint",
+    "url": "https://research.checkpoint.com/",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "partial",
+    "reason": "主页窗口条目已与上午去重；完整分页及近30天回溯仍待补采。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "unit42",
+    "url": "https://unit42.paloaltonetworks.com/",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "partial",
+    "reason": "本轮新增9月2日原始调查及修訂日期；8月25日队列仍待深入处理，完整栏目枚举未完成。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "anthropic",
+    "url": "https://www.anthropic.com/research",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "enumerated_pending_processing",
+    "reason": "当前列表覆盖8月10日以前，已补齐两篇文章永久链接；两项研究继续排队，水位不前移。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "mcp-python",
+    "url": "https://github.com/modelcontextprotocol/python-sdk/security/advisories",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "complete_public_api",
+    "reason": "公开API返回6条、无下一页，披露和更新均早于8月11日；本窗口无新增或修订。",
+    "lookback_start": "2026-08-11",
+    "complete_through": "2026-09-10T21:16:52.169778+08:00",
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "mcp-typescript",
+    "url": "https://github.com/modelcontextprotocol/typescript-sdk/security/advisories",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "complete_public_api",
+    "reason": "公开API返回3条、无下一页，披露和更新均早于8月11日；本窗口无新增或修订。",
+    "lookback_start": "2026-08-11",
+    "complete_through": "2026-09-10T21:16:52.169778+08:00",
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "ghsa",
+    "url": "https://github.com/advisories",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "partial",
+    "reason": "主页新增/收录条目核对三个原项目公告；数据库全量窗口尚未枚举完成。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "atlas",
+    "url": "https://github.com/mitre-atlas/atlas-data",
+    "checked_this_run": false,
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "weekly_not_due_baseline_pending",
+    "reason": "沿用今日基线页检查；距上次不足7日。本轮未重新访问，完整版本基线仍留待处理。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "owasp",
+    "url": "https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/",
+    "checked_this_run": false,
+    "last_checked_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "weekly_not_due_baseline_pending",
+    "reason": "沿用今日基线页检查；距上次不足7日。本轮未重新访问，完整版本基线仍留待处理。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "arxiv",
+    "url": "https://arxiv.org/list/cs.CR/recent",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "partial",
+    "reason": "近期列表已检查并核对3篇旧队列摘要/日期；新增当日列表、8月历史分页尚未完成。",
+    "lookback_start": "2026-08-11",
+    "complete_through": null,
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  },
+  {
+    "source_id": "simon",
+    "url": "https://simonwillison.net/series/prompt-injection/",
+    "checked_this_run": true,
+    "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+    "status": "complete_visible_listing",
+    "reason": "固定专题指向官方标签页，最近窗口两项均已追溯并去重，随后条目日期8月8日早于窗口。",
+    "lookback_start": "2026-08-11",
+    "complete_through": "2026-09-10T21:16:52.169778+08:00",
+    "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料"
+  }
+]

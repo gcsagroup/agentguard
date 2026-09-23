@@ -1,0 +1,58 @@
+[
+  {
+    "candidate_family": "CAND-20260909-MEMORY",
+    "status": "offline_control_passed_pending_integration",
+    "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "当前相关源码摘要无变化，无新已核实原文或接入证据；不机械复测，保留原失败、依赖及实际尝试时间。"
+  },
+  {
+    "candidate_family": "CAND-20260910-IMPORT",
+    "status": "failed_extended_normal_controls",
+    "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "当前相关源码摘要无变化，无新已核实原文或接入证据；不机械复测，保留原失败、依赖及实际尝试时间。"
+  },
+  {
+    "candidate_family": "CAND-20260910-UNICODE",
+    "status": "needs_refinement",
+    "last_attempt_at": "2026-09-17T09:07:31.097034+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "当前相关源码摘要无变化，无新已核实原文或接入证据；不机械复测，保留原失败、依赖及实际尝试时间。"
+  },
+  {
+    "candidate_family": "CAND-20260910-TENANT",
+    "status": "needs_product_validation",
+    "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "当前相关源码摘要无变化，无新已核实原文或接入证据；不机械复测，保留原失败、依赖及实际尝试时间。"
+  },
+  {
+    "candidate_family": "CAND-20260910-EGRESS",
+    "status": "component_controls_passed_pending_integration",
+    "last_attempt_at": "2026-09-20T00:58:57.740033+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "新增9项控制对照及原14项均通过；真实MCP认证和完整出口隔离未验证。"
+  },
+  {
+    "candidate_family": "CAND-20260910-AUTH",
+    "status": "needs_mcp_transport_integration",
+    "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "扩充控制建议与验收矩阵，认证测试未运行，实际尝试时间保留。"
+  },
+  {
+    "candidate_family": "CAND-20260910-PACKAGE",
+    "status": "failed_normal_controls",
+    "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "当前相关源码摘要无变化，无新已核实原文或接入证据；不机械复测，保留原失败、依赖及实际尝试时间。"
+  },
+  {
+    "candidate_family": "CAND-20260910-OPAQUE",
+    "status": "needs_trusted_label_and_export_integration",
+    "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+    "checked_at": "2026-09-20T00:58:57.740033+08:00",
+    "note": "当前相关源码摘要无变化，无新已核实原文或接入证据；不机械复测，保留原失败、依赖及实际尝试时间。"
+  }
+]

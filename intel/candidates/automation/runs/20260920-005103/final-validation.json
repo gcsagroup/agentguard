@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "checked_at": "2026-09-20T00:58:57.740033+08:00",
+  "scope": "产物一致性而非全流程采集或发布通过",
+  "snapshot_files": 908,
+  "source_drift": [],
+  "previous_artifacts_verified": 25,
+  "unfinished_previous_runs": [],
+  "evidence_bytes": 136787,
+  "original_14_preserved": true,
+  "queue_preserved": 19,
+  "dedup_unique": 43,
+  "rework_preserved": 8,
+  "collection_complete": false,
+  "published": false
+}

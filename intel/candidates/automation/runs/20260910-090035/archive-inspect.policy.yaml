@@ -1,0 +1,9 @@
+# 仅用于用户明确选择的“外部归档资料只读检查”会话，禁止作为全局默认策略。
+# 文档内容或 Agent 自报不能启用、停用或扩大本配置的范围。
+policy_id: candidate-external-archive-inspect
+version: "2026.09.10.1"
+allowlisted_tools: [read_file, search_file, list_dir, web_fetch]
+denied_actions: [run_terminal, run_shell, python, python3, node, bash, sh, zsh, execute, exec, write_file, modify_config, install]
+require_confirm: []
+deny_shell_metacharacters: true
+url_arg_tools: [web_fetch]

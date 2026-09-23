@@ -1,0 +1,15 @@
+{
+  "new_candidate_tests": {
+    "status": "not_run",
+    "reason": "没有新候选、证据或相关源码/接入变化；按无变化不机械重跑原则保留历史结果",
+    "passed_this_run": 0
+  },
+  "regression": {
+    "status": "not_run",
+    "passed_this_run": 0,
+    "reason": "本轮未修改源码或规则；上一轮42项结果仅为历史证据"
+  },
+  "historical_validation": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/validation-summary.json",
+  "published": false,
+  "real_environment_verified": false
+}

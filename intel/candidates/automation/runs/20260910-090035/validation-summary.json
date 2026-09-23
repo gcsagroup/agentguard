@@ -1,0 +1,21 @@
+{
+  "regression_passed": 493,
+  "regression_failed": 0,
+  "regression_ignored": 0,
+  "archive_policy_passed": 8,
+  "module_mechanism_passed": 6,
+  "memory_control_passed": 12,
+  "unicode_attack_passed": 3,
+  "unicode_benign_passed": 4,
+  "unicode_benign_failed": 2,
+  "snapshot_unchanged": true,
+  "source_count": 14,
+  "lead_count": 15,
+  "new_candidates": 4,
+  "offline_policy_pending_review": 1,
+  "deep_processed": 4,
+  "duplicates": 1,
+  "research_queued": 10,
+  "release_rules": 0,
+  "collection_complete": false
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "candidate_family": "CAND-20260909-MEMORY",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  },
+  {
+    "candidate_family": "CAND-20260910-IMPORT",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  },
+  {
+    "candidate_family": "CAND-20260910-UNICODE",
+    "retested": true,
+    "reason": "核心桌面观察判决变化，测试两种入口"
+  },
+  {
+    "candidate_family": "CAND-20260910-TENANT",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  },
+  {
+    "candidate_family": "CAND-20260910-EGRESS",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  },
+  {
+    "candidate_family": "CAND-20260910-AUTH",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  },
+  {
+    "candidate_family": "CAND-20260910-PACKAGE",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  },
+  {
+    "candidate_family": "CAND-20260910-OPAQUE",
+    "retested": false,
+    "reason": "本轮未深入复验，原证据与最近实际尝试时间保留；相关新能力须按入口单独验收"
+  }
+]

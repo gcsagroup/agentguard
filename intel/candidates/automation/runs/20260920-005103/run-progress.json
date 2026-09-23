@@ -1,0 +1,9 @@
+{
+  "trigger": "scheduled_heartbeat",
+  "trigger_at": "2026-09-20T00:48:05.249+08:00",
+  "started_at": "2026-09-20T00:51:03.526027+08:00",
+  "status": "partial",
+  "collection_complete": false,
+  "completed_at": "2026-09-20T00:58:57.740033+08:00",
+  "report": "report.zh.md"
+}

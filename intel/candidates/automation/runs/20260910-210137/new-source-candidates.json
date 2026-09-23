@@ -1,0 +1,21 @@
+[
+  {
+    "url": "https://www.joca.cn/CN/10.11772/j.issn.1001-9081.2026040438",
+    "status": "pending_source_review",
+    "purpose": "记忆防御候选的研究线索，不自动改变信任列表"
+  },
+  {
+    "id": "modelcontextproblem",
+    "url": "https://modelcontextproblem.com/",
+    "status": "pending_review",
+    "role": "二手线索索引，必须追溯原始披露",
+    "authorization_effect": "none"
+  },
+  {
+    "id": "pranav",
+    "url": "https://www.pranavaraparla.com/vibe-coding-security/",
+    "status": "pending_review",
+    "role": "二手线索索引，必须追溯原始披露",
+    "authorization_effect": "none"
+  }
+]

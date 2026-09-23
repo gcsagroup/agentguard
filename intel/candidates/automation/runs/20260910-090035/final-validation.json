@@ -1,0 +1,20 @@
+{
+  "checked_at": "2026-09-10T13:44:29.717710+08:00",
+  "status": "passed",
+  "scope": "产物完整性与状态更新核对通过；不改变Unicode两项失败或采集部分完成的结论",
+  "local_report_links": 14,
+  "source_entries": 14,
+  "lead_entries": 15,
+  "queued_leads_retained": 10,
+  "rework_entries": 5,
+  "original_memory_versions_retained": true,
+  "original_memory_sample_hash_verified": true,
+  "snapshot_files_verified": 782,
+  "production_knowledge_and_rules_verified": 17,
+  "regression_passed": 493,
+  "unicode_failures_retained": 2,
+  "evidence_hashes_verified": 4,
+  "policy_copies_equal": true,
+  "collection_watermarks_advanced": false,
+  "published": false
+}

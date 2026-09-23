@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "last_successful_collection_at": null,
+  "pending_initial_lookback_days": 30,
+  "overlap_hours": 48,
+  "source_checkpoints": {
+    "microsoft": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。主页新增9月17日安全基础条目，登记待核验；分页与2026-08-11起缺口未补齐。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "invariant": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "complete_visible_listing",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。固定列表最新2025-06-24，当前重叠窗口未见新增列表条目；不代表迁移站点无更新或旧文未修订。",
+      "lookback_start": "2026-08-11",
+      "complete_through": "2026-09-20T21:01:39.266+08:00",
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "embrace": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "complete_visible_listing",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。固定2026列表最新8月26日，当前重叠窗口未见新条目；不代表正文修订检查完成。",
+      "lookback_start": "2026-08-11",
+      "complete_through": "2026-09-20T21:01:39.266+08:00",
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "promptarmor": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "listing_unavailable",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。资源页可读但未列出可枚举研究条目，不能判无更新。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "checkpoint": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。两条既有AI题目仍可见；PuzzleMask及旧跨账号线索正文待核验。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "unit42": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "固定主页恢复可读，列出9月14日云身份检测和9月10日SPIFFE/SPIRE身份滥用题目；登记2条待核验，正文与历史分页缺口未完成，不推进水位。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "anthropic": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。可见9月17日生物分子研究不在本轮范围；既有9月9日、8月28日和8月13日相关线索保留。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "mcp-python": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。可见6条旧公告；未取得逐条更新时间与完整性证据，保留旧水位。",
+      "lookback_start": "2026-08-11",
+      "complete_through": "2026-09-10T21:04:22.722134+08:00",
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "mcp-typescript": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。可见3条旧公告；未取得逐条更新时间，不能从旧发布日期推断无修订。",
+      "lookback_start": "2026-08-11",
+      "complete_through": "2026-09-10T21:04:22.722477+08:00",
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "ghsa": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。主页9月18日收录6条相关线索；仅索引线索，原项目版本与披露日期未知；历史分页缺口保留。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "atlas": {
+      "last_checked_at": "2026-09-17T09:07:31.097034+08:00",
+      "status": "weekly_baseline_partial",
+      "complete_through": null,
+      "reason": "补查周检基线：README区分内容版本与格式版本，并列出latest路径；2026.05为示例，不能推断为当前版本。完整数据仍待核验。",
+      "last_run": "20260917-090127"
+    },
+    "owasp": {
+      "last_checked_at": "2026-09-17T09:07:31.097034+08:00",
+      "status": "weekly_baseline_partial",
+      "complete_through": null,
+      "reason": "补查周检基线：固定2026介绍页发布日期为2025-12-09；页面链接下载文档，正文分类尚未取得，不从年份推断新修订。",
+      "last_run": "20260917-090127"
+    },
+    "arxiv": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。当前近期列表更新到9月18日，共253条；仅核对返回的前10项题目并登记3条，剩余分页及历史缺口保留。",
+      "lookback_start": "2026-08-11",
+      "complete_through": null,
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    },
+    "simon": {
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "status": "partial",
+      "reason": "本轮重新获取固定入口，相关可见内容未见实质变化。本轮重新获取固定入口，相关可见内容未见实质变化。固定专题仍为历史选集；近期标签入口未登记，不能称近期无新增。",
+      "lookback_start": "2026-08-11",
+      "complete_through": "2026-09-10T21:16:52.169778+08:00",
+      "completeness_scope": "指定公开来源入口及所列公开数据，不包含未披露或未索引资料",
+      "last_run": "20260920-210217"
+    }
+  },
+  "pilot": "../../../.artifacts/intel-automation/pilot-20260909",
+  "note": "Unit42固定主页恢复可读，2条身份线索待核验；旧采集缺口保留，源码无变化，不重复候选测试。",
+  "rework_queue": "rework-queue.json",
+  "last_run_completed_at": "2026-09-20T21:03:35.907924+08:00",
+  "last_run": {
+    "id": "20260920-210217",
+    "status": "partial",
+    "report": "runs/20260920-210217/report.zh.md",
+    "collection_complete": false
+  },
+  "dedup_index": "runs/20260920-210217/dedup-index.json",
+  "pending_queue": "runs/20260920-210217/research-queue.json",
+  "pending_source_review": "runs/20260920-210217/new-source-candidates.json",
+  "last_scheduled_execution": {
+    "id": "20260920-210217",
+    "reached_tools": true,
+    "completed_at": "2026-09-20T21:03:35.907924+08:00",
+    "collection_complete": false
+  }
+}

@@ -1,0 +1,9 @@
+# 仅用于由可信控制面选择的依赖文档只读会话；工具名称须来自已登记路由。
+# 包版本切换会安装并加载代码，不能由文档正文触发；普通开发会话不使用本策略。
+policy_id: candidate-dependency-docs-readonly
+version: "2026.09.10.1"
+allowlisted_tools: [read_file, search_file, list_dir, web_fetch]
+denied_actions: [set_functype_version, run_terminal, run_shell, python, python3, node, bash, sh, zsh, execute, exec, write_file, modify_config, install]
+require_confirm: []
+deny_shell_metacharacters: true
+url_arg_tools: [web_fetch]

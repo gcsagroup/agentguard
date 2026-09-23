@@ -1,0 +1,130 @@
+[
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-EGRESS-001",
+    "candidate_family": "CAND-20260910-EGRESS",
+    "version": 1,
+    "title": "宿主出口授权的服务与用途绑定补充验证",
+    "status": "component_controls_passed_pending_integration",
+    "technique_ids": [
+      "GCSA-ATI-012",
+      "GCSA-ATI-016"
+    ],
+    "source_urls": [
+      "https://github.com/open-webui/open-webui/security/advisories/GHSA-5x7x-4c3c-qf5w",
+      "https://www.anthropic.com/research/alignment-assessment-cybersecurity-incidents"
+    ],
+    "applicable_entry": "EgressBroker已登记的IPv4回环HTTP服务",
+    "required_telemetry": [
+      "宿主范围",
+      "真实目的地",
+      "单次授权",
+      "实际连接与持久审计"
+    ],
+    "proposed_action": "拒绝跟随重定向；拒绝错绑、变更和不明敏感度请求",
+    "false_positive_conditions": [
+      "正常已登记服务和普通研究Unicode内容必须成功"
+    ],
+    "remaining_bypasses": [
+      "未验证第三方HTTP客户端、DNS、外部代理和全部执行环境出口"
+    ],
+    "next_action": "在AGD-008真实会话验证直接socket和容器宿主别名出口；在AGD-017认证入口另测受众，不以本机服务ID绑定替代OAuth。",
+    "runtime_rule_ids": [
+      "EGRESS_REDIRECT",
+      "EGRESS_BINDING",
+      "EGRESS_GRANT",
+      "EGRESS_DATA_SCOPE"
+    ],
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-005103/egress-results.json",
+    "source_affected_versions": "Open WebUI >=0.9.5, <=0.11.0 且允许重定向；0.11.1列为修复版本；代理路径限制仍需补充",
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-005103/snapshot-hashes.json",
+    "previous_record": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/egress-results.json",
+    "prior_status": "component_controls_passed_pending_integration",
+    "actual_revision_attempts": 0,
+    "scope_note": "只复验当前冻结源码；不表示固定App、第三方客户端或全部执行路径已经验收。",
+    "retested_at": "2026-09-20T00:58:57.740033+08:00",
+    "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/refinement.zh.md",
+    "new_runtime_detector": false,
+    "validation": {
+      "total": 23,
+      "passed": 23,
+      "failed": 0
+    },
+    "related_leads": [
+      "LEAD-20260920-001",
+      "LEAD-20260920-003",
+      "LEAD-20260920-005",
+      "LEAD-20260920-006"
+    ],
+    "lead_evidence_status": "仅公开列表线索；本地测试由既有控制要求设计，不是复现这些第三方漏洞",
+    "condition": "宿主登记目标及用途必须与单次授权摘要一致；未登记域名不可用于该组件。"
+  },
+  {
+    "id": "CAND-20260910-AUTH-001",
+    "candidate_family": "CAND-20260910-AUTH",
+    "version": 1,
+    "kind": "control_recommendation",
+    "status": "needs_mcp_transport_integration",
+    "title": "第三方MCP认证、受众与资源范围验收补充",
+    "technique_ids": [
+      "GCSA-ATI-007",
+      "GCSA-ATI-012",
+      "GCSA-ATI-013"
+    ],
+    "runtime_rule_ids": [],
+    "required_telemetry": [
+      "可信签发者与已验证主体",
+      "资源服务器受众",
+      "会话代次",
+      "工具与资源范围",
+      "宿主发起的同意记录",
+      "入站Host/Origin"
+    ],
+    "condition": "主体、签发者、受众、资源范围、会话任一不匹配即不得调用受保护工具",
+    "proposed_action": "在认证及路由入口拒绝不匹配请求；工具输出自报授权不产生批准",
+    "false_positive_conditions": [
+      "正确主体、受众、会话和范围的正常读请求必须成功",
+      "正常研究引用或中文Unicode正文不得触发身份拒绝"
+    ],
+    "integration_points": [
+      "AGD-017第三方MCP代理的HTTP/SSE认证与工具路由入口",
+      "crates/guard-gateway/src/server.rs的工具分派边界",
+      "crates/guard-gateway/src/egress.rs仅作宿主能力绑定参考，不是OAuth实现"
+    ],
+    "dependencies": [
+      "可本机测试的MCP资源服务器与独立签发者适配",
+      "可信Host/Origin及主体上下文进入路由",
+      "无真实凭据的本地认证夹具"
+    ],
+    "acceptance_samples": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/auth-acceptance.json",
+    "source_urls": [
+      "https://github.com/advisories"
+    ],
+    "related_leads": [
+      "LEAD-20260920-002",
+      "LEAD-20260920-003",
+      "LEAD-20260920-005"
+    ],
+    "source_status": "原始项目公告未核验",
+    "affected_versions": null,
+    "tested_platform": "macos源码静态核对；认证运行未验证",
+    "tested_source_snapshot": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-005103/snapshot-hashes.json",
+    "validation": {
+      "status": "not_run",
+      "reason": "现有出口组件不构成第三方MCP认证实现；未以自写认证器冒充产品"
+    },
+    "previous_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+    "new_runtime_detector": false,
+    "actual_revision_attempts": 0,
+    "release_eligible": false,
+    "signature_status": "unsigned",
+    "authorization_effect": "none"
+  }
+]

@@ -1,0 +1,37 @@
+{
+  "candidate_families_deep_processed": 2,
+  "new_executable_rules": 0,
+  "egress": {
+    "total": 23,
+    "passed": 23,
+    "failed": 0,
+    "previous_samples_preserved": 14,
+    "added": 9
+  },
+  "auth": {
+    "status": "not_run",
+    "planned_acceptance": 7
+  },
+  "regression": {
+    "passed": 42,
+    "failed": 0,
+    "ignored": 0,
+    "command_name": "egress_regression_integration"
+  },
+  "initial_fixture": {
+    "passed": 22,
+    "total": 23,
+    "exit_code": 101,
+    "classification": "test_fixture_expectation_error",
+    "preserved": true
+  },
+  "initial_regression": {
+    "executed": 0,
+    "counted_as_pass": false
+  },
+  "core_intel_regression": "本轮未重跑：源码未变化且扩展仅涉及出口组件；339项历史结果不能计本轮",
+  "platform": "macos本机CLI独立源码快照",
+  "real_client_integration": "not_verified",
+  "signature_status": "unsigned",
+  "published": false
+}

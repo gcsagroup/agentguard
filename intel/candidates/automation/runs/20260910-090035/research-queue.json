@@ -1,0 +1,182 @@
+[
+  {
+    "id": "LEAD-20260910-005",
+    "source_id": "embrace",
+    "title": "恢复加密推理轨迹",
+    "url": "https://embracethered.com/blog/posts/2026/recovering-encrypted-llm-thoughts/",
+    "disclosed_at": "2026-08-16",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "需进一步核对模型及环境适用范围。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-006",
+    "source_id": "unit42",
+    "title": "AI恶意软件调查",
+    "url": "https://unit42.paloaltonetworks.com/ai-enabled-malware-analysis/",
+    "disclosed_at": "2026-08-25",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "区分研究样本、测试提交和真实端点活动；待深入提取控制要求。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-007",
+    "source_id": "anthropic",
+    "title": "多Agent系统风险",
+    "url": "https://www.anthropic.com/research",
+    "disclosed_at": "2026-08-13",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表标题 Patterns and problems in emerging multiagent systems，需继续取得文章永久链接。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-008",
+    "source_id": "anthropic",
+    "title": "自动化研究缓解对齐失败",
+    "url": "https://www.anthropic.com/research",
+    "disclosed_at": "2026-08-28",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表标题 Automated researchers can reliably mitigate alignment failures，需继续取得文章永久链接。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-009",
+    "source_id": "arxiv",
+    "title": "多模态注入评估",
+    "url": "https://arxiv.org/abs/2609.09404",
+    "disclosed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表发现；提交日期和同行评审状态待核对。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-010",
+    "source_id": "arxiv",
+    "title": "RAG文档投毒评估",
+    "url": "https://arxiv.org/abs/2609.09243",
+    "disclosed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表发现；预印本，未独立验证。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-011",
+    "source_id": "arxiv",
+    "title": "视觉补丁AgentHijack",
+    "url": "https://arxiv.org/abs/2609.09212",
+    "disclosed_at": null,
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "列表发现；日期、代码、许可、评审状态待核对。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-012",
+    "source_id": "arxiv",
+    "title": "SecOPD",
+    "url": "https://arxiv.org/abs/2608.21500",
+    "disclosed_at": "2026-08-21",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "已核对摘要；训练型防御不能直接转为字符串规则，评审状态未知。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-013",
+    "source_id": "ghsa",
+    "title": "ArgoCD MCP 未认证HTTP",
+    "url": "https://github.com/advisories/GHSA-p2x5-x87w-v2xj",
+    "disclosed_at": "2026-08-29",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "数据库条目标为Unreviewed，需核对原项目 GHSA-rp45-5x3v-48mr 及修复版本后再生成版本规则。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  },
+  {
+    "id": "LEAD-20260910-014",
+    "source_id": "new-joca",
+    "title": "高维离群点与语义复核记忆防御",
+    "url": "https://www.joca.cn/CN/10.11772/j.issn.1001-9081.2026040438",
+    "disclosed_at": "2026-09-02",
+    "occurred_at": null,
+    "observed_at": "2026-09-10T13:38:23.721610+08:00",
+    "status": "queued",
+    "summary": "已核对期刊摘要及接受日期；新来源待评审，未重现指标，加入记忆候选的研究队列。",
+    "affected_versions": null,
+    "evidence_kind": "lead_only",
+    "unknowns": [
+      "适用产品版本和真实环境效果需逐项验证"
+    ],
+    "primary": true,
+    "authorization_effect": "none"
+  }
+]

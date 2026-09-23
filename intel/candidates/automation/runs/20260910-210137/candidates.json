@@ -1,0 +1,254 @@
+[
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-IMPORT-001",
+    "candidate_family": "CAND-20260910-IMPORT",
+    "version": 1,
+    "title": "归档只读策略扩大对照后待修订",
+    "status": "failed_extended_normal_controls",
+    "technique_ids": [
+      "GCSA-ATI-011",
+      "GCSA-ATI-012"
+    ],
+    "source_urls": [
+      "https://embracethered.com/blog/posts/2026/breaking-claude-code-opus-5-and-automode/",
+      "https://github.com/sonirico/mcp-shell/security/advisories/GHSA-gg85-6grh-63fp"
+    ],
+    "applicable_entry": "宿主指定的外部归档只读会话",
+    "required_telemetry": [
+      "可信工具身份",
+      "实际参数类别",
+      "只读会话选择"
+    ],
+    "proposed_action": "保留执行拒绝，但字面搜索不得按可执行动作解释",
+    "false_positive_conditions": [
+      "正常搜索python3或node被SHELL-DENIED-TARGET拒绝"
+    ],
+    "remaining_bypasses": [
+      "未知工具仍是Ask",
+      "第三方工具同名无法从文本证明可信"
+    ],
+    "next_action": "按refinement-v2.zh.md分离工具动作与字面查询；保留27项全部输入后复测真实网关。",
+    "runtime_rule_ids": [
+      "SHELL-DENIED-ACTION",
+      "SHELL-DENIED-TARGET",
+      "SHELL-UNKNOWN-TOOL"
+    ],
+    "classification_note": "GCSA-ATI-001仅为相关风险，经典间接提示注入未由该模块导入链独立证明；原映射记录保留。",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/policy-results.json",
+    "previous_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/archive-policy-results.json",
+    "versions": [
+      {
+        "version": 1,
+        "status": "failed_extended_normal_controls"
+      },
+      {
+        "version": 2,
+        "status": "needs_product_implementation",
+        "design": "refinement-v2.zh.md",
+        "tests": "not_run"
+      }
+    ]
+  },
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-EGRESS-001",
+    "candidate_family": "CAND-20260910-EGRESS",
+    "version": 1,
+    "title": "出口限制新增真实组件证据",
+    "status": "component_controls_passed_pending_integration",
+    "technique_ids": [
+      "GCSA-ATI-012",
+      "GCSA-ATI-016"
+    ],
+    "source_urls": [
+      "https://github.com/open-webui/open-webui/security/advisories/GHSA-5x7x-4c3c-qf5w",
+      "https://www.anthropic.com/research/alignment-assessment-cybersecurity-incidents"
+    ],
+    "applicable_entry": "EgressBroker已登记的IPv4回环HTTP服务",
+    "required_telemetry": [
+      "宿主范围",
+      "真实目的地",
+      "单次授权",
+      "实际连接与持久审计"
+    ],
+    "proposed_action": "拒绝跟随重定向；拒绝错绑、变更和不明敏感度请求",
+    "false_positive_conditions": [
+      "正常已登记服务和普通研究Unicode内容必须成功"
+    ],
+    "remaining_bypasses": [
+      "未验证第三方HTTP客户端、DNS、外部代理和全部执行环境出口"
+    ],
+    "next_action": "将本轮本机组件矩阵接入真实受保护会话；验证直接socket不可绕过，并对计划新增代理逐跳核对目的地。",
+    "runtime_rule_ids": [
+      "EGRESS_REDIRECT",
+      "EGRESS_BINDING",
+      "EGRESS_GRANT",
+      "EGRESS_DATA_SCOPE"
+    ],
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+    "source_affected_versions": "Open WebUI >=0.9.5, <=0.11.0 且允许重定向；0.11.1列为修复版本；代理路径限制仍需补充"
+  },
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-AUTH-001",
+    "candidate_family": "CAND-20260910-AUTH",
+    "version": 1,
+    "title": "入站身份不能借用出站凭据",
+    "status": "needs_mcp_transport_integration",
+    "technique_ids": [
+      "GCSA-ATI-007",
+      "GCSA-ATI-012",
+      "GCSA-ATI-013",
+      "GCSA-ATI-018"
+    ],
+    "source_urls": [
+      "https://github.com/argoproj-labs/mcp-for-argocd/security/advisories/GHSA-rp45-5x3v-48mr"
+    ],
+    "applicable_entry": "网络MCP会话认证和服务端凭据代理",
+    "required_telemetry": [
+      "认证主体",
+      "连接会话",
+      "受众和服务目标",
+      "工具权限"
+    ],
+    "proposed_action": "每个入站请求独立认证并绑定会话；出站凭据不承担入站身份校验",
+    "false_positive_conditions": [
+      "认证且获授权的正常读请求应完成"
+    ],
+    "remaining_bypasses": [
+      "EgressBroker会话测试不是HTTP/SSE认证实现",
+      "本地监听仍需Host/Origin校验"
+    ],
+    "next_action": "在AGD-017第三方MCP代理和连接认证入口验证无凭据、错主体、旧会话、正常身份及Host/Origin；所有下游用本机合成服务。",
+    "runtime_rule_ids": [],
+    "source_affected_versions": "argocd-mcp =0.8.0；原项目列0.9.0为修复版本",
+    "component_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+    "real_third_party_reproduction": "not_run"
+  },
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-PACKAGE-001",
+    "candidate_family": "CAND-20260910-PACKAGE",
+    "version": 1,
+    "title": "只读文档会话限制依赖切换",
+    "status": "failed_normal_controls",
+    "technique_ids": [
+      "GCSA-ATI-005",
+      "GCSA-ATI-011",
+      "GCSA-ATI-012"
+    ],
+    "source_urls": [
+      "https://github.com/jordanburke/functype/security/advisories/GHSA-wcjj-9m6g-2fr2"
+    ],
+    "applicable_entry": "已登记依赖文档工具路由",
+    "required_telemetry": [
+      "可信工具身份",
+      "会话用途",
+      "实际包切换动作"
+    ],
+    "proposed_action": "只读会话拒绝set_functype_version；普通开发更新须另行授权",
+    "false_positive_conditions": [
+      "搜索该工具名称或python3被当前候选误拒绝"
+    ],
+    "remaining_bypasses": [
+      "第三方别名或工具改名需可信注册",
+      "不处理所有包规范语义"
+    ],
+    "next_action": "按refinement-v2.zh.md分离查询文字与工具动作，并以实际MCP路由验证无安装、正常查询成功。",
+    "runtime_rule_ids": [
+      "SHELL-DENIED-ACTION",
+      "SHELL-DENIED-TARGET"
+    ],
+    "policy_file": "dependency-readonly.policy.yaml",
+    "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/policy-results.json",
+    "source_affected_versions": "functype-mcp-server <=1.4.3；原项目列1.4.4为修复版本",
+    "versions": [
+      {
+        "version": 1,
+        "status": "failed_normal_controls"
+      },
+      {
+        "version": 2,
+        "status": "needs_product_implementation",
+        "design": "refinement-v2.zh.md",
+        "tests": "not_run"
+      }
+    ]
+  },
+  {
+    "signature_status": "unsigned",
+    "release_eligible": false,
+    "authorization_effect": "none",
+    "case_id": null,
+    "case_mapping": "现有6个正式案例无精确相同记录；只登记候选关系，不分配或改写正式案例ID。",
+    "tested_platform": "macos",
+    "other_platforms": "未测试",
+    "affected_product_version": "源码快照摘要见snapshot-hashes.json",
+    "id": "CAND-20260910-OPAQUE-001",
+    "candidate_family": "CAND-20260910-OPAQUE",
+    "version": 1,
+    "title": "不透明会话块的导出与重放控制",
+    "status": "needs_trusted_label_and_export_integration",
+    "technique_ids": [
+      "GCSA-ATI-003",
+      "GCSA-ATI-013",
+      "GCSA-ATI-015"
+    ],
+    "source_urls": [
+      "https://arxiv.org/abs/2608.09867",
+      "https://embracethered.com/blog/posts/2026/recovering-encrypted-llm-thoughts/"
+    ],
+    "applicable_entry": "受控日志导出和轨迹导入入口",
+    "required_telemetry": [
+      "可信字段类型",
+      "来源用户及会话",
+      "目标用途",
+      "敏感度标签"
+    ],
+    "proposed_action": "不透明块保留Unknown/Sensitive标签；公共导出排除原始块，导入不能自行成为可信模型上下文",
+    "false_positive_conditions": [
+      "普通安全研究、普通base64资料及合法会话恢复不应被全局阻断"
+    ],
+    "remaining_bypasses": [
+      "未接入第三方隐藏会话格式",
+      "真实模型API当前修复状态未知",
+      "不能检测密文中是否含凭据"
+    ],
+    "next_action": "在真实导出器按结构化字段处理，再验证源文件不变、导出不含原始块、普通资料和已授权同会话恢复成功；不读取真实凭据或私有会话。",
+    "runtime_rule_ids": [
+      "EGRESS_DATA_SCOPE"
+    ],
+    "component_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+    "component_scope": "仅宿主已给Unknown/Sensitive标签时拒绝发送；不是密文识别或解密",
+    "source_conflict": "论文§5.2称披露后同样攻击不再成功；8月16日博客报告另一端点时好时坏。环境和时间不同，当前可利用性未知。"
+  }
+]

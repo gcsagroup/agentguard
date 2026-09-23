@@ -1,0 +1,48 @@
+{
+  "status": "partial",
+  "trigger": "scheduled_heartbeat",
+  "scheduler_reached_tools": true,
+  "daily_sources_checked": 12,
+  "weekly_sources_not_due": 2,
+  "reviewed_leads": 16,
+  "new_leads": 8,
+  "duplicate_observations": 8,
+  "research_queue": 19,
+  "dedup_entries": 31,
+  "deep_candidate_families": 5,
+  "new_candidate_families": 0,
+  "new_policy_admission_passed": 0,
+  "validation": {
+    "policies": {
+      "total": 31,
+      "passed": 24,
+      "failed": 7
+    },
+    "unicode": {
+      "total": 9,
+      "passed": 7,
+      "failed": 2
+    },
+    "memory_control": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0
+    },
+    "egress": {
+      "total": 14,
+      "passed": 14,
+      "failed": 0
+    }
+  },
+  "regressions": {
+    "core-regression": 377,
+    "egress-regression": 42
+  },
+  "regression_passed": 419,
+  "regression_failed": 0,
+  "regression_ignored": 0,
+  "initial_environment_failure": "快照漏掉55个编译内嵌资源，已补齐并复验；原日志保留",
+  "collection_complete": false,
+  "published_rules": 0,
+  "real_client_integration": "not_verified"
+}

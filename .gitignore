@@ -9,6 +9,10 @@ node_modules/
 dist/
 **/dist/
 
+# Python 编译缓存
+**/__pycache__/
+*.py[cod]
+
 # Tauri / desktop
 apps/desktop-*/src-tauri/target/
 apps/desktop-*/dist/

@@ -1,0 +1,26 @@
+[
+  {
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-210217/search-leads.txt",
+    "sha256": "82c7b830b71d6c2d362d8f4f362436b2d0d92d0a7b048db2e9ff853f905cb805",
+    "bytes": 14034,
+    "hash_scope": "工具返回的可见文本或搜索摘要，不是原始HTTP全文"
+  },
+  {
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-210217/source-pages-0.txt",
+    "sha256": "f3be2e8af9f4b7ea41aa67fec49533dc9e86d922a76fd243b2cbea29312c8e15",
+    "bytes": 31997,
+    "hash_scope": "工具返回的可见文本或搜索摘要，不是原始HTTP全文"
+  },
+  {
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-210217/source-pages-1.txt",
+    "sha256": "0f715798d88b7a42fca381ca5f8d5071a8c49e64d8d16c995e0cea68a7581824",
+    "bytes": 29443,
+    "hash_scope": "工具返回的可见文本或搜索摘要，不是原始HTTP全文"
+  },
+  {
+    "path": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-210217/source-pages-2.txt",
+    "sha256": "3c69e0f73f6ac3f2dd5ab5b8c84687b19da7f5628997a9ca3ec89f735026cb59",
+    "bytes": 27905,
+    "hash_scope": "工具返回的可见文本或搜索摘要，不是原始HTTP全文"
+  }
+]

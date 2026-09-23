@@ -1,0 +1,959 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "case_id": "GCSA-CASE-006",
+      "candidate_family": "CAND-20260909-MEMORY",
+      "status": "offline_control_passed_pending_integration",
+      "versions": [
+        {
+          "id": "CAND-20260909-MEMORY-001",
+          "version": 1,
+          "status": "rejected",
+          "reason": "子串阻断漏报1/3、误报2/3",
+          "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/pilot-20260909/engine-results.json"
+        },
+        {
+          "id": "CAND-20260909-MEMORY-002",
+          "version": 2,
+          "status": "offline_control_passed",
+          "kind": "复用已有记忆写入确认控制 PRIV-004",
+          "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/pilot-20260909/control-v2-results.json"
+        }
+      ],
+      "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+      "samples_sha256": "9d24f40fe31d233c5ed41c36a7b54612e82d121159549a333ef79ca469b64988",
+      "reusable_parts": [
+        "原始案例、ATI映射与全部正负例",
+        "PRIV-004 和 on_memory_write=require_confirm 的已有引擎控制"
+      ],
+      "unresolved": [
+        "指定客户端的真实记忆写入是否全部经过此入口",
+        "事件来源由可信执行器产生",
+        "确认与实际目标、内容摘要和单次请求绑定",
+        "实际持久存储副作用及跨会话结果验证"
+      ],
+      "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+      "retry_on": [
+        "新证据",
+        "相关引擎源码摘要变化",
+        "记忆接入能力变化",
+        "用户授权推进产品接入"
+      ],
+      "archive_allowed": false,
+      "release_eligible": false,
+      "last_checked_at": "2026-09-22T02:50:00+08:00",
+      "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/control-v2-results.json",
+      "latest_check": "2026-09-22 复跑 PRIV-004 引擎入口通过；真实客户端记忆读写是否全部经过此路径仍未验证，不当新产品覆盖。",
+      "new_research_leads": [
+        "LEAD-20260910-014"
+      ],
+      "new_research_status": "中文期刊仅摘要核对，尚未重现结果；不能作为产品接入或防御改进已完成的证据。",
+      "history": [
+        {
+          "case_id": "GCSA-CASE-006",
+          "candidate_family": "CAND-20260909-MEMORY",
+          "status": "offline_control_passed_pending_integration",
+          "versions": [
+            {
+              "id": "CAND-20260909-MEMORY-001",
+              "version": 1,
+              "status": "rejected",
+              "reason": "子串阻断漏报1/3、误报2/3",
+              "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/pilot-20260909/engine-results.json"
+            },
+            {
+              "id": "CAND-20260909-MEMORY-002",
+              "version": 2,
+              "status": "offline_control_passed",
+              "kind": "复用已有记忆写入确认控制 PRIV-004",
+              "evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/pilot-20260909/control-v2-results.json"
+            }
+          ],
+          "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/pilot-20260909/samples.json",
+          "samples_sha256": "9d24f40fe31d233c5ed41c36a7b54612e82d121159549a333ef79ca469b64988",
+          "reusable_parts": [
+            "原始案例、ATI映射与全部正负例",
+            "PRIV-004 和 on_memory_write=require_confirm 的已有引擎控制"
+          ],
+          "unresolved": [
+            "指定客户端的真实记忆写入是否全部经过此入口",
+            "事件来源由可信执行器产生",
+            "确认与实际目标、内容摘要和单次请求绑定",
+            "实际持久存储副作用及跨会话结果验证"
+          ],
+          "next_action": "核对真实客户端记忆读写适配入口与独立确认链路是否已有新接入；具备无害执行条件后用临时记忆存储跑完整读写与跨会话对照；不在本自动化中未经授权修改产品源码。",
+          "next_check_at": "2026-09-10T21:00:00+08:00",
+          "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+          "retry_on": [
+            "新证据",
+            "相关引擎源码摘要变化",
+            "记忆接入能力变化",
+            "用户授权推进产品接入"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "last_checked_at": "2026-09-10T13:44:29.717710+08:00",
+          "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/control-v2-results.json",
+          "latest_check": "PRIV-004 原有12项离线对照在本轮快照复验通过；真实记忆读写入口未验证，AGD-021/022接入验收仍待完成。",
+          "new_research_leads": [
+            "LEAD-20260910-014"
+          ],
+          "new_research_status": "中文期刊仅摘要核对，尚未重现结果；不能作为产品接入或防御改进已完成的证据。"
+        }
+      ],
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/candidates.json",
+      "current_source_requires_revalidation": false,
+      "attempt_status": "offline_control_passed_pending_integration",
+      "validation": {
+        "total": 12,
+        "passed": 12,
+        "failed": 0
+      },
+      "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/refinement.zh.md",
+      "actual_revision_attempts": 0,
+      "real_client_integration": "not_verified",
+      "last_check_note": "2026-09-22 复跑 PRIV-004 引擎入口通过；真实客户端记忆读写是否全部经过此路径仍未验证，不当新产品覆盖。"
+    },
+    {
+      "candidate_family": "CAND-20260910-IMPORT",
+      "status": "failed_extended_normal_controls",
+      "versions": [
+        {
+          "id": "CAND-20260910-IMPORT-001",
+          "version": 1,
+          "status": "offline_policy_passed_pending_review"
+        }
+      ],
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/candidates.json",
+      "candidate_id": "CAND-20260910-IMPORT-001",
+      "required_telemetry": [
+        "可信工具身份",
+        "实际参数类别",
+        "只读会话选择"
+      ],
+      "unresolved": [
+        "正常搜索python3或node被SHELL-DENIED-TARGET拒绝",
+        "未知工具仍是Ask",
+        "第三方工具同名无法从文本证明可信"
+      ],
+      "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。",
+      "last_checked_at": "2026-09-22T02:50:00+08:00",
+      "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "retry_on": [
+        "新证据",
+        "相关引擎或接入变化",
+        "用户授权产品实现"
+      ],
+      "archive_allowed": false,
+      "release_eligible": false,
+      "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/policy-results.json",
+      "attempt_status": "failed_extended_normal_controls",
+      "history": [
+        {
+          "candidate_family": "CAND-20260910-IMPORT",
+          "status": "offline_policy_passed_pending_review",
+          "versions": [
+            {
+              "id": "CAND-20260910-IMPORT-001",
+              "version": 1,
+              "status": "offline_policy_passed_pending_review"
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-090035/candidates.json",
+          "candidate_id": "CAND-20260910-IMPORT-001",
+          "required_telemetry": [
+            "控制面选择的只读归档会话",
+            "真实工具和参数"
+          ],
+          "unresolved": [
+            "不能用于用户已授权的通用代码工作",
+            "Python -I只适用标准库解码，不能代替OS隔离"
+          ],
+          "next_action": "审核该专用策略，随后核对网关实际工具路由，验证完整归档检查任务；不自动部署",
+          "last_checked_at": "2026-09-10T13:44:29.717710+08:00",
+          "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+          "next_check_at": "2026-09-10T21:00:00+08:00",
+          "retry_on": [
+            "可信接入或隔离能力变化",
+            "新证据",
+            "相关源码变化",
+            "用户授权产品接入"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "latest_evidence": [
+            "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/archive-policy-results.json",
+            "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/module-shadow-results.json"
+          ],
+          "attempt_status": "策略离线通过；真实客户端执行未验证",
+          "history": []
+        },
+        {
+          "candidate_family": "CAND-20260910-IMPORT",
+          "status": "failed_extended_normal_controls",
+          "versions": [
+            {
+              "id": "CAND-20260910-IMPORT-001",
+              "version": 1,
+              "status": "offline_policy_passed_pending_review"
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+          "candidate_id": "CAND-20260910-IMPORT-001",
+          "required_telemetry": [
+            "可信工具身份",
+            "实际参数类别",
+            "只读会话选择"
+          ],
+          "unresolved": [
+            "正常搜索python3或node被SHELL-DENIED-TARGET拒绝",
+            "未知工具仍是Ask",
+            "第三方工具同名无法从文本证明可信"
+          ],
+          "next_action": "按refinement-v2.zh.md分离工具动作与字面查询；保留27项全部输入后复测真实网关。",
+          "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+          "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+          "next_check_at": "2026-09-16T21:00:00+08:00",
+          "retry_on": [
+            "新证据",
+            "相关引擎或接入变化",
+            "用户授权产品实现"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/policy-results.json",
+          "attempt_status": "failed_extended_normal_controls",
+          "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+          "failure_class": [
+            "正常对照误报",
+            "参数上下文表达能力不足"
+          ],
+          "reusable_parts": [
+            "SHELL-DENIED-ACTION",
+            "SHELL-DENIED-TARGET",
+            "SHELL-UNKNOWN-TOOL"
+          ],
+          "current_version_records": [
+            {
+              "version": 1,
+              "status": "failed_extended_normal_controls"
+            },
+            {
+              "version": 2,
+              "status": "needs_product_implementation",
+              "design": "refinement-v2.zh.md",
+              "tests": "not_run"
+            }
+          ],
+          "current_source_requires_revalidation": true
+        }
+      ],
+      "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+      "failure_class": [
+        "正常对照误报",
+        "参数上下文表达能力不足"
+      ],
+      "reusable_parts": [
+        "SHELL-DENIED-ACTION",
+        "SHELL-DENIED-TARGET",
+        "SHELL-UNKNOWN-TOOL"
+      ],
+      "current_version_records": [
+        {
+          "version": 1,
+          "status": "failed_extended_normal_controls"
+        },
+        {
+          "version": 2,
+          "status": "needs_product_implementation",
+          "design": "refinement-v2.zh.md",
+          "tests": "not_run"
+        }
+      ],
+      "current_source_requires_revalidation": false,
+      "validation": {
+        "total": 18,
+        "passed": 14,
+        "failed": 4
+      },
+      "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+      "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/refinement.zh.md",
+      "actual_revision_attempts": 0,
+      "real_client_integration": "not_verified",
+      "last_check_note": "2026-09-22 主动防御第一波明确禁止宽泛子串拦截；IMPORT 正常对照误报保留，不改生效情报包。"
+    },
+    {
+      "candidate_family": "CAND-20260910-UNICODE",
+      "status": "needs_refinement",
+      "versions": [
+        {
+          "version": 1,
+          "status": "failed_normal_controls",
+          "results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json"
+        },
+        {
+          "version": 2,
+          "status": "needs_telemetry_implementation",
+          "design": "内容异常与执行授权分离；原始字符串检测失败结论不改变",
+          "tests": "not_run",
+          "integration_points": [
+            "crates/guard-core/src/lib.rs::check_text_anomaly",
+            "AGD-014/015可信来源接入"
+          ]
+        }
+      ],
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260917-090127/candidates.json",
+      "candidate_id": "CAND-20260910-UNICODE-001",
+      "required_telemetry": [
+        "原文/可见/规范化视图",
+        "可信来源对象",
+        "实际动作及授权"
+      ],
+      "unresolved": [
+        "研究引用误阻断",
+        "标签测试被告警",
+        "合法旗帜不应被当恶意"
+      ],
+      "next_action": "继续在可信来源与真实动作的结合处区分引用和执行；当前桌面观察入口不会自动修复Unicode引用误报，保留原9项。",
+      "last_checked_at": "2026-09-22T02:50:00+08:00",
+      "last_attempt_at": "2026-09-17T09:07:31.097034+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "retry_on": [
+        "可信接入或隔离能力变化",
+        "新证据",
+        "相关源码变化",
+        "用户授权产品接入"
+      ],
+      "archive_allowed": false,
+      "release_eligible": false,
+      "preserved_samples_and_results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json",
+      "failure_class": [
+        "正常引用误阻断",
+        "正常标签测试告警",
+        "缺少可信上下文",
+        "字符串规则表达能力不足"
+      ],
+      "attempt_status": "needs_refinement",
+      "history": [
+        {
+          "candidate_family": "CAND-20260910-UNICODE",
+          "status": "needs_refinement",
+          "versions": [
+            {
+              "version": 1,
+              "status": "failed_normal_controls",
+              "results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json"
+            },
+            {
+              "version": 2,
+              "status": "needs_telemetry_implementation",
+              "design": "内容异常与执行授权分离；原始字符串检测失败结论不改变",
+              "tests": "not_run",
+              "integration_points": [
+                "crates/guard-core/src/lib.rs::check_text_anomaly",
+                "AGD-014/015可信来源接入"
+              ]
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-090035/candidates.json",
+          "candidate_id": "CAND-20260910-UNICODE-001",
+          "required_telemetry": [
+            "原文/可见/规范化视图",
+            "可信来源对象",
+            "实际动作及授权"
+          ],
+          "unresolved": [
+            "研究引用误阻断",
+            "标签测试被告警",
+            "合法旗帜不应被当恶意"
+          ],
+          "next_action": "保留全部9个样本；新增可信读取/执行分离接入后测试v2，不能靠关键词例外或模型自报研究模式放行",
+          "last_checked_at": "2026-09-10T13:44:29.717710+08:00",
+          "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+          "next_check_at": "2026-09-10T21:00:00+08:00",
+          "retry_on": [
+            "可信接入或隔离能力变化",
+            "新证据",
+            "相关源码变化",
+            "用户授权产品接入"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "preserved_samples_and_results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json",
+          "failure_class": [
+            "正常引用误阻断",
+            "正常标签测试告警",
+            "缺少可信上下文",
+            "字符串规则表达能力不足"
+          ],
+          "attempt_status": "v1 已实测未通过；v2 设计待接入，未执行"
+        },
+        {
+          "candidate_family": "CAND-20260910-UNICODE",
+          "status": "needs_refinement",
+          "versions": [
+            {
+              "version": 1,
+              "status": "failed_normal_controls",
+              "results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json"
+            },
+            {
+              "version": 2,
+              "status": "needs_telemetry_implementation",
+              "design": "内容异常与执行授权分离；原始字符串检测失败结论不改变",
+              "tests": "not_run",
+              "integration_points": [
+                "crates/guard-core/src/lib.rs::check_text_anomaly",
+                "AGD-014/015可信来源接入"
+              ]
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/candidates.json",
+          "candidate_id": "CAND-20260910-UNICODE-001",
+          "required_telemetry": [
+            "原文/可见/规范化视图",
+            "可信来源对象",
+            "实际动作及授权"
+          ],
+          "unresolved": [
+            "研究引用误阻断",
+            "标签测试被告警",
+            "合法旗帜不应被当恶意"
+          ],
+          "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。",
+          "last_checked_at": "2026-09-16T21:12:00.954770+08:00",
+          "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+          "next_check_at": "2026-09-17T09:00:00+08:00",
+          "retry_on": [
+            "可信接入或隔离能力变化",
+            "新证据",
+            "相关源码变化",
+            "用户授权产品接入"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "preserved_samples_and_results": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-090035/unicode-results.json",
+          "failure_class": [
+            "正常引用误阻断",
+            "正常标签测试告警",
+            "缺少可信上下文",
+            "字符串规则表达能力不足"
+          ],
+          "attempt_status": "needs_refinement",
+          "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/unicode-results.json",
+          "current_source_requires_revalidation": false,
+          "validation": {
+            "total": 9,
+            "passed": 7,
+            "failed": 2
+          },
+          "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+          "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/refinement.zh.md",
+          "actual_revision_attempts": 0,
+          "real_client_integration": "not_verified"
+        }
+      ],
+      "latest_evidence": [
+        "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/unicode-results.json",
+        "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260917-090127/unicode-desktop-results.json"
+      ],
+      "current_source_requires_revalidation": false,
+      "validation": {
+        "generic": {
+          "total": 9,
+          "passed": 7,
+          "failed": 2
+        },
+        "trusted_desktop_observation": {
+          "total": 9,
+          "passed": 7,
+          "failed": 2
+        },
+        "unique_samples": 9
+      },
+      "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+      "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260917-090127/refinement.zh.md",
+      "actual_revision_attempts": 0,
+      "real_client_integration": "not_verified",
+      "last_check_note": "2026-09-22 主动防御第一波未为 UNICODE 写关键词规则；正常对照失败保留。"
+    },
+    {
+      "candidate_family": "CAND-20260910-TENANT",
+      "status": "needs_product_validation",
+      "versions": [
+        {
+          "id": "CAND-20260910-TENANT-001",
+          "version": 1,
+          "status": "needs_product_validation"
+        }
+      ],
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-090035/candidates.json",
+      "candidate_id": "CAND-20260910-TENANT-001",
+      "required_telemetry": [
+        "经认证租户/会话",
+        "内部服务路由",
+        "资源所有者",
+        "读写权限"
+      ],
+      "unresolved": [
+        "不能仅按私网IP断言可信",
+        "合法包读取应正常完成"
+      ],
+      "next_action": "AGD-008出口和AGD-017代理集成后以两个合成会话测试资源读写、共享缓存、重启和撤销；禁止触碰原报告服务",
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "retry_on": [
+        "可信接入或隔离能力变化",
+        "新证据",
+        "相关源码变化",
+        "用户授权产品接入"
+      ],
+      "archive_allowed": false,
+      "release_eligible": false,
+      "attempt_status": "控制要求已整理；无真实副作用验证，未运行新测试",
+      "last_check_note": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。"
+    },
+    {
+      "candidate_family": "CAND-20260910-EGRESS",
+      "status": "component_controls_passed_pending_integration",
+      "versions": [
+        {
+          "id": "CAND-20260910-EGRESS-001",
+          "version": 1,
+          "status": "needs_runtime_validation"
+        }
+      ],
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/candidates.json",
+      "candidate_id": "CAND-20260910-EGRESS-001",
+      "required_telemetry": [
+        "宿主范围",
+        "真实目的地",
+        "单次授权",
+        "实际连接与持久审计"
+      ],
+      "unresolved": [
+        "正常已登记服务和普通研究Unicode内容必须成功",
+        "未验证第三方HTTP客户端、DNS、外部代理和全部执行环境出口"
+      ],
+      "next_action": "在AGD-008真实会话验证直接socket和容器宿主别名出口；在AGD-017认证入口另测受众，不以本机服务ID绑定替代OAuth。",
+      "last_checked_at": "2026-09-22T02:50:00+08:00",
+      "last_attempt_at": "2026-09-20T00:58:57.740033+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "retry_on": [
+        "新证据",
+        "相关引擎或接入变化",
+        "用户授权产品实现"
+      ],
+      "archive_allowed": false,
+      "release_eligible": false,
+      "attempt_status": "component_controls_passed_pending_integration",
+      "history": [
+        {
+          "candidate_family": "CAND-20260910-EGRESS",
+          "status": "needs_runtime_validation",
+          "versions": [
+            {
+              "id": "CAND-20260910-EGRESS-001",
+              "version": 1,
+              "status": "needs_runtime_validation"
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-090035/candidates.json",
+          "candidate_id": "CAND-20260910-EGRESS-001",
+          "required_telemetry": [
+            "控制面签发的范围",
+            "隔离后端出口探测",
+            "实际目标和回执"
+          ],
+          "unresolved": [
+            "正常授权目标仍需可访问",
+            "环境自报不能证明网络已断开"
+          ],
+          "next_action": "复用AGD-008和现有egress模块，以受控本地两目标对照实际网络出口，补参数与重定向变化场景；不访问真实第三方目标",
+          "last_checked_at": "2026-09-10T13:44:29.717710+08:00",
+          "last_attempt_at": "2026-09-10T13:44:29.717710+08:00",
+          "next_check_at": "2026-09-10T21:00:00+08:00",
+          "retry_on": [
+            "可信接入或隔离能力变化",
+            "新证据",
+            "相关源码变化",
+            "用户授权产品接入"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "attempt_status": "控制要求已整理；无真实副作用验证，未运行新测试",
+          "history": []
+        },
+        {
+          "candidate_family": "CAND-20260910-EGRESS",
+          "status": "component_controls_passed_pending_integration",
+          "versions": [
+            {
+              "id": "CAND-20260910-EGRESS-001",
+              "version": 1,
+              "status": "needs_runtime_validation"
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+          "candidate_id": "CAND-20260910-EGRESS-001",
+          "required_telemetry": [
+            "宿主范围",
+            "真实目的地",
+            "单次授权",
+            "实际连接与持久审计"
+          ],
+          "unresolved": [
+            "正常已登记服务和普通研究Unicode内容必须成功",
+            "未验证第三方HTTP客户端、DNS、外部代理和全部执行环境出口"
+          ],
+          "next_action": "将本轮本机组件矩阵接入真实受保护会话；验证直接socket不可绕过，并对计划新增代理逐跳核对目的地。",
+          "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+          "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+          "next_check_at": "2026-09-16T21:00:00+08:00",
+          "retry_on": [
+            "新证据",
+            "相关引擎或接入变化",
+            "用户授权产品实现"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "attempt_status": "component_controls_passed_pending_integration",
+          "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+          "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+          "failure_class": [
+            "接入验证缺失"
+          ],
+          "reusable_parts": [
+            "EGRESS_REDIRECT",
+            "EGRESS_BINDING",
+            "EGRESS_GRANT",
+            "EGRESS_DATA_SCOPE"
+          ],
+          "current_version_records": [
+            {
+              "version": 1,
+              "status": "component_controls_passed_pending_integration"
+            }
+          ],
+          "current_source_requires_revalidation": true
+        },
+        {
+          "candidate_family": "CAND-20260910-EGRESS",
+          "status": "component_controls_passed_pending_integration",
+          "versions": [
+            {
+              "id": "CAND-20260910-EGRESS-001",
+              "version": 1,
+              "status": "needs_runtime_validation"
+            }
+          ],
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/candidates.json",
+          "candidate_id": "CAND-20260910-EGRESS-001",
+          "required_telemetry": [
+            "宿主范围",
+            "真实目的地",
+            "单次授权",
+            "实际连接与持久审计"
+          ],
+          "unresolved": [
+            "正常已登记服务和普通研究Unicode内容必须成功",
+            "未验证第三方HTTP客户端、DNS、外部代理和全部执行环境出口"
+          ],
+          "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。",
+          "last_checked_at": "2026-09-17T09:07:31.097034+08:00",
+          "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+          "next_check_at": "2026-09-17T21:00:00+08:00",
+          "retry_on": [
+            "新证据",
+            "相关引擎或接入变化",
+            "用户授权产品实现"
+          ],
+          "archive_allowed": false,
+          "release_eligible": false,
+          "attempt_status": "component_controls_passed_pending_integration",
+          "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+          "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/egress-results.json",
+          "failure_class": [
+            "接入验证缺失"
+          ],
+          "reusable_parts": [
+            "EGRESS_REDIRECT",
+            "EGRESS_BINDING",
+            "EGRESS_GRANT",
+            "EGRESS_DATA_SCOPE"
+          ],
+          "current_version_records": [
+            {
+              "version": 1,
+              "status": "component_controls_passed_pending_integration"
+            }
+          ],
+          "current_source_requires_revalidation": false,
+          "validation": {
+            "total": 14,
+            "passed": 14,
+            "failed": 0
+          },
+          "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+          "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/refinement.zh.md",
+          "actual_revision_attempts": 0,
+          "real_client_integration": "not_verified"
+        }
+      ],
+      "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+      "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260920-005103/egress-results.json",
+      "failure_class": [
+        "接入验证缺失"
+      ],
+      "reusable_parts": [
+        "EGRESS_REDIRECT",
+        "EGRESS_BINDING",
+        "EGRESS_GRANT",
+        "EGRESS_DATA_SCOPE"
+      ],
+      "current_version_records": [
+        {
+          "version": 1,
+          "status": "component_controls_passed_pending_integration"
+        }
+      ],
+      "current_source_requires_revalidation": false,
+      "validation": {
+        "total": 23,
+        "passed": 23,
+        "failed": 0
+      },
+      "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+      "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/refinement.zh.md",
+      "actual_revision_attempts": 0,
+      "real_client_integration": "not_verified",
+      "last_check_note": "2026-09-22 复跑 egress_control（含过期授权与已撤销会话不能派发）；真实隔离会话的直接 socket/宿主别名仍以既有 AGD-008 为准。",
+      "new_research_leads": [
+        "LEAD-20260920-001",
+        "LEAD-20260920-003",
+        "LEAD-20260920-005",
+        "LEAD-20260920-006"
+      ]
+    },
+    {
+      "candidate_family": "CAND-20260910-AUTH",
+      "versions": [],
+      "candidate_id": "CAND-20260910-AUTH-001",
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/candidates.json",
+      "status": "needs_mcp_transport_integration",
+      "required_telemetry": [
+        "认证主体",
+        "连接会话",
+        "受众和服务目标",
+        "工具权限"
+      ],
+      "unresolved": [
+        "认证且获授权的正常读请求应完成",
+        "EgressBroker会话测试不是HTTP/SSE认证实现",
+        "MCP HTTP/SSE 传输层认证仍待接入；控制 HTTP 已拒绝非回环 Host/Origin"
+      ],
+      "next_action": "按本轮auth-acceptance.json七项验收接入AGD-017认证及路由；独立核对受众、范围、Host/Origin和撤销，不能用出口服务ID检查替代。",
+      "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+      "last_checked_at": "2026-09-22T02:50:00+08:00",
+      "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "release_eligible": false,
+      "archive_allowed": false,
+      "retry_on": [
+        "新证据",
+        "相关引擎或接入变化",
+        "用户授权产品实现"
+      ],
+      "latest_evidence": "/Users/lazy/Projects/agent-guard/docs/evidence/intel-auth-egress-memory-2026-09-22.json",
+      "failure_class": [
+        "接入验证缺失"
+      ],
+      "reusable_parts": [],
+      "attempt_status": "needs_mcp_transport_integration",
+      "current_version_records": [
+        {
+          "version": 1,
+          "status": "needs_mcp_transport_integration"
+        }
+      ],
+      "current_source_requires_revalidation": true,
+      "last_check_note": "2026-09-22 组件核对 AUTH-NORMAL/AUDIENCE/SCOPE/ANON/QUOTE 及控制 HTTP 非回环 Host/Origin 拒绝；MCP HTTP/SSE 传输层认证仍待接入，不把离线对照写成产品覆盖。",
+      "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260920-005103/refinement.zh.md",
+      "new_research_leads": [
+        "LEAD-20260920-002",
+        "LEAD-20260920-003",
+        "LEAD-20260920-005"
+      ]
+    },
+    {
+      "candidate_family": "CAND-20260910-PACKAGE",
+      "versions": [],
+      "candidate_id": "CAND-20260910-PACKAGE-001",
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/candidates.json",
+      "status": "failed_normal_controls",
+      "required_telemetry": [
+        "可信工具身份",
+        "会话用途",
+        "实际包切换动作"
+      ],
+      "unresolved": [
+        "搜索该工具名称或python3被当前候选误拒绝",
+        "第三方别名或工具改名需可信注册",
+        "不处理所有包规范语义"
+      ],
+      "next_action": "按本轮 refinement.zh.md 的具体接入点与验收矩阵继续；保留全部原失败及新增正常对照。",
+      "last_attempt_at": "2026-09-16T21:12:00.954770+08:00",
+      "last_checked_at": "2026-09-22T02:50:00+08:00",
+      "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "release_eligible": false,
+      "archive_allowed": false,
+      "retry_on": [
+        "新证据",
+        "相关引擎或接入变化",
+        "用户授权产品实现"
+      ],
+      "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/policy-results.json",
+      "failure_class": [
+        "正常对照误报",
+        "参数上下文表达能力不足"
+      ],
+      "reusable_parts": [
+        "SHELL-DENIED-ACTION",
+        "SHELL-DENIED-TARGET"
+      ],
+      "attempt_status": "failed_normal_controls",
+      "current_version_records": [
+        {
+          "version": 1,
+          "status": "failed_normal_controls"
+        },
+        {
+          "version": 2,
+          "status": "needs_product_implementation",
+          "design": "refinement-v2.zh.md",
+          "tests": "not_run"
+        }
+      ],
+      "current_source_requires_revalidation": false,
+      "history": [
+        {
+          "candidate_family": "CAND-20260910-PACKAGE",
+          "versions": [],
+          "candidate_id": "CAND-20260910-PACKAGE-001",
+          "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+          "status": "failed_normal_controls",
+          "required_telemetry": [
+            "可信工具身份",
+            "会话用途",
+            "实际包切换动作"
+          ],
+          "unresolved": [
+            "搜索该工具名称或python3被当前候选误拒绝",
+            "第三方别名或工具改名需可信注册",
+            "不处理所有包规范语义"
+          ],
+          "next_action": "按refinement-v2.zh.md分离查询文字与工具动作，并以实际MCP路由验证无安装、正常查询成功。",
+          "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+          "last_checked_at": "2026-09-10T21:16:52.169778+08:00",
+          "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+          "next_check_at": "2026-09-16T21:00:00+08:00",
+          "release_eligible": false,
+          "archive_allowed": false,
+          "retry_on": [
+            "新证据",
+            "相关引擎或接入变化",
+            "用户授权产品实现"
+          ],
+          "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/policy-results.json",
+          "failure_class": [
+            "正常对照误报",
+            "参数上下文表达能力不足"
+          ],
+          "reusable_parts": [
+            "SHELL-DENIED-ACTION",
+            "SHELL-DENIED-TARGET"
+          ],
+          "attempt_status": "failed_normal_controls",
+          "current_version_records": [
+            {
+              "version": 1,
+              "status": "failed_normal_controls"
+            },
+            {
+              "version": 2,
+              "status": "needs_product_implementation",
+              "design": "refinement-v2.zh.md",
+              "tests": "not_run"
+            }
+          ],
+          "current_source_requires_revalidation": true
+        }
+      ],
+      "validation": {
+        "total": 13,
+        "passed": 10,
+        "failed": 3
+      },
+      "preserved_samples": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260916-210111/harness/src/bin",
+      "refinement": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260916-210111/refinement.zh.md",
+      "actual_revision_attempts": 0,
+      "real_client_integration": "not_verified",
+      "last_check_note": "2026-09-22 主动防御第一波明确禁止宽泛子串拦截；PACKAGE 正常对照误报保留，不改生效情报包。"
+    },
+    {
+      "candidate_family": "CAND-20260910-OPAQUE",
+      "versions": [],
+      "candidate_id": "CAND-20260910-OPAQUE-001",
+      "candidate_record": "/Users/lazy/Projects/agent-guard/intel/candidates/automation/runs/20260910-210137/candidates.json",
+      "status": "needs_trusted_label_and_export_integration",
+      "required_telemetry": [
+        "可信字段类型",
+        "来源用户及会话",
+        "目标用途",
+        "敏感度标签"
+      ],
+      "unresolved": [
+        "普通安全研究、普通base64资料及合法会话恢复不应被全局阻断",
+        "未接入第三方隐藏会话格式",
+        "真实模型API当前修复状态未知",
+        "不能检测密文中是否含凭据"
+      ],
+      "next_action": "在真实导出器按结构化字段处理，再验证源文件不变、导出不含原始块、普通资料和已授权同会话恢复成功；不读取真实凭据或私有会话。",
+      "last_attempt_at": "2026-09-10T21:16:52.169778+08:00",
+      "last_checked_at": "2026-09-20T21:03:35.907924+08:00",
+      "reconciled_at": "2026-09-16T14:46:50.133749+08:00",
+      "next_check_at": "2026-09-21T09:00:00+08:00",
+      "release_eligible": false,
+      "archive_allowed": false,
+      "retry_on": [
+        "新证据",
+        "相关引擎或接入变化",
+        "用户授权产品实现"
+      ],
+      "latest_evidence": "/Users/lazy/Projects/agent-guard/.artifacts/intel-automation/20260910-210137/egress-results.json",
+      "failure_class": [
+        "接入验证缺失"
+      ],
+      "reusable_parts": [
+        "EGRESS_DATA_SCOPE"
+      ],
+      "attempt_status": "needs_trusted_label_and_export_integration",
+      "current_version_records": [
+        {
+          "version": 1,
+          "status": "needs_trusted_label_and_export_integration"
+        }
+      ],
+      "current_source_requires_revalidation": true,
+      "last_check_note": "源码摘要、已核验证据与接入条件无变化；本轮不机械重跑，不改变历史失败、实际尝试时间或准入状态。"
+    }
+  ],
+  "updated_at": "2026-09-20T21:03:35.907924+08:00",
+  "note": "本轮八项改进队列均已核对；无新已核验原文或相关源码变化，不重复测试，不生成重复候选。"
+}

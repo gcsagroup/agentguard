@@ -1,0 +1,30 @@
+{
+  "status": "partial",
+  "trigger": "scheduled_heartbeat",
+  "daily_sources_checked": 12,
+  "weekly_baselines_checked": 2,
+  "reviewed_leads": 14,
+  "duplicate_observations": 14,
+  "new_leads": 0,
+  "metadata_updates": 2,
+  "research_queue": 19,
+  "dedup_entries": 31,
+  "deep_candidate_families": 1,
+  "new_candidate_families": 0,
+  "new_policy_admission_passed": 0,
+  "unicode_generic": {
+    "passed": 7,
+    "failed": 2
+  },
+  "unicode_desktop": {
+    "passed": 7,
+    "failed": 2
+  },
+  "unique_samples": 9,
+  "regression_passed": 339,
+  "regression_failed": 0,
+  "regression_ignored": 0,
+  "unrerun_candidate_families": 7,
+  "collection_complete": false,
+  "published_rules": 0
+}

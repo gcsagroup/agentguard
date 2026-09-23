@@ -1,0 +1,50 @@
+[
+  {
+    "id": "argocd",
+    "url": "https://api.github.com/repos/argoproj-labs/mcp-for-argocd/security-advisories/GHSA-rp45-5x3v-48mr",
+    "path": "argocd-api.json",
+    "sha256": "5f5978e921836f4d0e5134ebf5684ab437f5a74ba6033df2087d17ca750de01e",
+    "hash_scope": "完整API响应字节",
+    "fetched_at": "2026-09-10T13:04:22.722663+00:00"
+  },
+  {
+    "id": "webui",
+    "url": "https://api.github.com/repos/open-webui/open-webui/security-advisories/GHSA-5x7x-4c3c-qf5w",
+    "path": "webui-api.json",
+    "sha256": "862e2eebc35d01ecbdd7859374c79e3c219b738dd66dea0b2dcc15505e81b4cb",
+    "hash_scope": "完整API响应字节",
+    "fetched_at": "2026-09-10T13:04:22.722762+00:00"
+  },
+  {
+    "id": "functype",
+    "url": "https://api.github.com/repos/jordanburke/functype/security-advisories/GHSA-wcjj-9m6g-2fr2",
+    "path": "functype-api.json",
+    "sha256": "85a86b7b187671afd193cf23226e698bd76b13c1d13ad4516b8039841c0a201b",
+    "hash_scope": "完整API响应字节",
+    "fetched_at": "2026-09-10T13:04:23.525781+00:00"
+  },
+  {
+    "id": "mcp-shell-wrapper",
+    "url": "https://api.github.com/repos/sonirico/mcp-shell/security-advisories/GHSA-gg85-6grh-63fp",
+    "path": "mcp-shell-wrapper-api.json",
+    "sha256": "18ace084637f927654b539808f8ad4251b3492c8ab1f13fe517315a5d92ade14",
+    "hash_scope": "完整API响应字节",
+    "fetched_at": "2026-09-10T13:04:23.526160+00:00"
+  },
+  {
+    "id": "LEAD-20260910-005",
+    "url": "https://embracethered.com/blog/posts/2026/recovering-encrypted-llm-thoughts/",
+    "path": "LEAD-20260910-005-summary.json",
+    "sha256": "e7844d593362ad6a60db4ba575ec00e212471bab3c467d452af94d8351a56723",
+    "hash_scope": "本地核对摘要，非原文全文",
+    "fetched_at": "2026-09-10T21:16:52.169778+08:00"
+  },
+  {
+    "id": "LEAD-20260910-E007",
+    "url": "https://simonwillison.net/tags/prompt-injection/",
+    "path": "LEAD-20260910-E007-summary.json",
+    "sha256": "f64e7dcaf6a4ac34b8b1a3ebd152d7138aa8499b6107ff2f363d6ff2641510f8",
+    "hash_scope": "本地核对摘要，非原文全文",
+    "fetched_at": "2026-09-10T21:16:52.169778+08:00"
+  }
+]

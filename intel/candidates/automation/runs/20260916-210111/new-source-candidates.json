@@ -1,0 +1,87 @@
+[
+  {
+    "url": "https://www.joca.cn/CN/10.11772/j.issn.1001-9081.2026040438",
+    "status": "pending_source_review",
+    "purpose": "记忆防御候选的研究线索，不自动改变信任列表"
+  },
+  {
+    "id": "modelcontextproblem",
+    "url": "https://modelcontextproblem.com/",
+    "status": "pending_review",
+    "role": "二手线索索引，必须追溯原始披露",
+    "authorization_effect": "none"
+  },
+  {
+    "id": "pranav",
+    "url": "https://www.pranavaraparla.com/vibe-coding-security/",
+    "status": "pending_review",
+    "role": "二手线索索引，必须追溯原始披露",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://simonwillison.net/tags/prompt-injection/",
+    "status": "pending_review",
+    "reason": "固定专题指向的近期入口，当前精确URL清单未包含",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://api.github.com/repos/modelcontextprotocol/python-sdk/security-advisories?per_page=100",
+    "status": "pending_review",
+    "reason": "可补完整公告及更新日期；当前固定URL未登记",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://api.github.com/repos/modelcontextprotocol/typescript-sdk/security-advisories?per_page=100",
+    "status": "pending_review",
+    "reason": "可补完整公告及更新日期；当前固定URL未登记",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://learn.microsoft.com/en-us/defender-endpoint/ai-agent-runtime-protection-overview",
+    "status": "pending_review",
+    "reason": "双语检索发现的官方防御文档，未打开原文",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://developer.chrome.com/docs/agents/security",
+    "status": "pending_review",
+    "reason": "双语检索发现的官方Agent安全文档，未打开原文",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://docs.cloud.google.com/data-agent-kit/prompt-injection-risk?hl=zh-tw",
+    "status": "pending_review",
+    "reason": "双语检索发现的官方防御文档，未打开原文",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://github.com/zereight/gitlab-mcp/security/advisories/GHSA-2h44-8472-frjj",
+    "status": "pending_review",
+    "reason": "新线索原文入口，当前仅保存列表或检索摘要",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://github.com/zereight/gitlab-mcp/security/advisories/GHSA-5648-rgj9-v224",
+    "status": "pending_review",
+    "reason": "新线索原文入口，当前仅保存列表或检索摘要",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://arxiv.org/abs/2609.16694",
+    "status": "pending_review",
+    "reason": "新线索原文入口，当前仅保存列表或检索摘要",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://arxiv.org/abs/2609.16098",
+    "status": "pending_review",
+    "reason": "新线索原文入口，当前仅保存列表或检索摘要",
+    "authorization_effect": "none"
+  },
+  {
+    "url": "https://arxiv.org/abs/2609.16541",
+    "status": "pending_review",
+    "reason": "新线索原文入口，当前仅保存列表或检索摘要",
+    "authorization_effect": "none"
+  }
+]

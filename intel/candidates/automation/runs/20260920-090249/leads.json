@@ -1,0 +1,154 @@
+[
+  {
+    "id": "LEAD-20260910-001",
+    "title": "Unicode 标签字符绕过过滤",
+    "source_id": "microsoft",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260910-002",
+    "title": "Claude Code Auto Mode 的模块遮蔽链",
+    "source_id": "embrace",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260910-003",
+    "title": "沙箱跨账号共享内部状态通道",
+    "source_id": "checkpoint",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260910-004",
+    "title": "近期安全事件的对齐评估",
+    "source_id": "anthropic",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260910-005",
+    "title": "恢复加密推理轨迹",
+    "source_id": "embrace",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260910-007",
+    "title": "多Agent系统风险",
+    "source_id": "anthropic",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260910-008",
+    "title": "自动化研究缓解对齐失败",
+    "source_id": "anthropic",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260916-004",
+    "title": "PuzzleMask：自然语言隐蔽指令风险",
+    "source_id": "checkpoint",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-001",
+    "title": "Obot：远程MCP目标URL的SSRF",
+    "source_id": "ghsa",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-002",
+    "title": "Obot：MCP注册API缺少认证",
+    "source_id": "ghsa",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-003",
+    "title": "Obot：OAuth受众混淆",
+    "source_id": "ghsa",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-004",
+    "title": "Mnemosyne记忆同步服务JWT验证缺陷",
+    "source_id": "ghsa",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-005",
+    "title": "Process Compose：浏览器DNS重绑定涉及本地MCP工具",
+    "source_id": "ghsa",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-006",
+    "title": "ToolHive：容器MCP服务访问宿主服务",
+    "source_id": "ghsa",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-007",
+    "title": "Inference-Engine Fingerprinting Attacks are Practical",
+    "source_id": "arxiv",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-008",
+    "title": "Silence Is Endorsement: Verification-Status Laundering in LLM Agent Pipelines",
+    "source_id": "arxiv",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-009",
+    "title": "ResumeShield: Channel Separation and an Open Benchmark for Indirect Prompt Injection in AI Resume Screening",
+    "source_id": "arxiv",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-010",
+    "title": "安全基础措施与AI风险降低",
+    "source_id": "microsoft",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  },
+  {
+    "id": "LEAD-20260920-012",
+    "title": "WebMCP工具安全性官方中文文档线索",
+    "source_id": "search",
+    "status": "duplicate_listing_or_search_observation",
+    "observed_at": "2026-09-20T09:04:39.702188+08:00",
+    "primary_reverified": false
+  }
+]

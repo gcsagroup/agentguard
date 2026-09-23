@@ -1,0 +1,100 @@
+[
+  {
+    "id": "LEAD-20260910-001",
+    "title": "Unicode 标签字符绕过过滤",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-002",
+    "title": "Claude Code Auto Mode 的模块遮蔽链",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-005",
+    "title": "恢复加密推理轨迹",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-003",
+    "title": "沙箱跨账号共享内部状态通道",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-004",
+    "title": "近期安全事件的对齐评估",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-007",
+    "title": "多Agent系统风险",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-008",
+    "title": "自动化研究缓解对齐失败",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260910-E004",
+    "title": "Unit 42：AI辅助企业入侵调查",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260916-001",
+    "title": "MCP GitLab SSRF：CVE-2026-61559",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260916-002",
+    "title": "MCP GitLab DNS重绑定：CVE-2026-61568",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260916-003",
+    "title": "MCP GitLab多项控制缺陷：GHSA-5648-rgj9-v224",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260916-004",
+    "title": "PuzzleMask：自然语言隐蔽指令风险",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260916-006",
+    "title": "Universal Defenses for Tool-Integrated LLM Agents Against Adversarial Attacks",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  },
+  {
+    "id": "LEAD-20260916-008",
+    "title": "How to secure edge AI in customer-owned environments",
+    "status": "duplicate_observation",
+    "observed_at": "2026-09-17T09:07:31.097034+08:00",
+    "evidence_kind": "listing_or_search_only"
+  }
+]
