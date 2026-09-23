@@ -12,7 +12,24 @@ const UI = join(ROOT, "apps/desktop-macos/src");
 const OUT = process.env.AGENTGUARD_UI_TEST_OUTPUT || join(HERE, "out/workspace");
 mkdirSync(OUT, { recursive: true });
 const require = createRequire(import.meta.url);
-const { chromium } = require(join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright"));
+function loadPlaywright() {
+  const candidates = [
+    process.env.AGENTGUARD_PLAYWRIGHT_MODULE,
+    join(execSync("npm root -g", { encoding: "utf8" }).trim(), "playwright"),
+    "/opt/homebrew/lib/node_modules/playwright",
+    "/usr/local/lib/node_modules/playwright",
+  ].filter(Boolean);
+  let last;
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last || new Error("need playwright");
+}
+const { chromium } = loadPlaywright();
 const legacy = readFileSync(join(HERE, "shell-a11y.mjs"), "utf8");
 const stub = legacy.match(/const TAURI_STUB = `([\s\S]*?)`;\n/)[1];
 const server = createServer((req, res) => {
@@ -256,6 +273,14 @@ try {
     await page.screenshot({ path: join(OUT, `general-${locale}.png`), fullPage: true });
   }
   await go("active");
+  const activeText = await page.locator('[data-page="active"]').innerText();
+  check(
+    "主动防护页区分浏览器阻断、网关拦截和桌面事后观察",
+    activeText.includes("执行前阻断") &&
+      activeText.includes("经 MCP 网关") &&
+      activeText.includes("不能撤销已发生的点击") &&
+      activeText.includes("视树差异只记观察记录")
+  );
   await page.click('[data-page="active"] [data-open-guide="gateway"]');
   check("接入向导在当前页展开，焦点到达标题", await page.evaluate(() => !document.getElementById("setup-dialog").hidden && document.activeElement.id === "setup-title"));
   await page.locator('#gateway-guide > details > summary').click();

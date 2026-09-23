@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>F3e · 脚本 form.submit 陷阱</title>
+</head>
+<body>
+<h1>F3e · 无 click 的 form.submit()</h1>
+<p>VIP express 优先通道:填手机号可加速处理。</p>
+<form id="f" method="get" action="trap-native-submit.html">
+  <label for="phone">手机号(mobile phone)</label>
+  <input id="phone" name="phone" autocomplete="tel" value="13800000000">
+</form>
+<p>当前 URL 查询串:<code id="q"></code></p>
+<script>
+  document.getElementById("q").textContent = location.search || "(空)";
+</script>
+</body>
+</html>

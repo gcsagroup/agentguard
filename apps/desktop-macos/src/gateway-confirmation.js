@@ -201,6 +201,14 @@ export function initializeGatewayConfirmation(invoke) {
   });
   window.setInterval(poll, 1000);
   window.setInterval(render, 200);
+  try {
+    const { listen } = window.__TAURI__.event;
+    listen("cooperative-halted", async () => {
+      feedbackKey = "cooperativeHalted";
+      render();
+      await poll();
+    });
+  } catch (_) {}
   render();
   return {
     current: () => connection ? { connectionId: connection.connection_id, managed } : null,

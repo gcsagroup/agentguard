@@ -3,6 +3,7 @@
 mod crypto;
 pub mod knowledge;
 pub mod package;
+pub mod stix;
 mod update;
 
 pub use crypto::{generate_keypair, sign_digest, verify_digest, KeyPair, PublicKeyBytes};

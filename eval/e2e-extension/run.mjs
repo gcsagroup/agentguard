@@ -3,16 +3,16 @@
  * # 这是什么、不是什么
  *
  * 把 `apps/extension-chromium` **原样**作为未打包扩展装进真 Chromium(Playwright 持久化上下文,
- * `--load-extension`),对着 `eval/acceptance-fixtures/` 的六个页面跑 Chrome 验收清单
+ * `--load-extension`),对着 `eval/acceptance-fixtures/` 的页面跑 Chrome 验收清单
  * (docs/acceptance-chrome.md)F1–F5 的等价用例与 P2-3 的告警风暴回归,每一条都是机器判据:
  *
  *   F1  隐藏注入文本 → background 的 `recent` 出现 invisible_injection,popup「最近」列表有条目;
  *   F2  付款 CTA 点击 → 页面处理器**没有**运行、只阻断提示(role=alertdialog)出现;
  *       页面篡改并真实点击提示也不能重放动作；提示内不存在 allow；`recent` 有 prevented/payment_cta;
- *   F3  陷阱语境下的 PII 表单提交 → URL 始终不变，提示关闭后再次提交仍阻断;
+ *   F3  陷阱语境下的 PII 表单提交与未改写原型的 form.submit() → URL 始终不变;
  *   F4  付款形状非只读请求由静态 DNR 硬拦:fetch/XHR/beacon/form 均不触达服务器,没有页面可伪造的
  *       “允许一次”;伪 decision/scope 消息与旧 15 秒超时都不能让请求在稍后发出;
- *   F5  GET /pay/status、普通 POST 与已知前缀/嵌套查询误报样例 → 不弹、直达服务器;
+ *   F5  GET /pay/status、普通 POST、已知前缀/嵌套查询误报样例与普通 form.submit() → 不弹、直达服务器;
  *   M   变异风暴(真机报告 P2-3):每 50 ms 改 DOM、每秒重渲染同一段隐藏注入、页面有个付款按钮 →
  *       5 秒只多一条(M1)、注入与按钮各只报一次(M2)、后到的另一段注入仍报且只报一次(M3)、
  *       30 段突发全部计数但 ≤4 条(M4,两轮扫描 ≥1.5 s);
@@ -394,6 +394,38 @@ try {
     await page.waitForTimeout(400);
     record("F3c", "a second privacy-trap submit remains blocked with no in-page release", page.url() === urlBefore && !page.url().includes("phone="), `url=${page.url()}`);
   }
+
+  await page.goto(fixture("trap-native-submit.html"));
+  const nativeBefore = page.url();
+  await page.evaluate(() => document.getElementById("f").submit());
+  await page.waitForSelector(DIALOG, { state: "visible", timeout: 5000 }).catch(() => null);
+  record(
+    "F3e",
+    "direct form.submit() on a privacy-trap GET form is held before navigation",
+    (await page.locator(DIALOG).count()) === 1 && page.url() === nativeBefore && !page.url().includes("phone="),
+    `url=${page.url()} dialog=${await page.locator(DIALOG).count()}`
+  );
+  if ((await page.locator(DIALOG).count()) === 1) await page.click(CLOSE);
+
+  hits.length = 0;
+  await page.goto(fixture("search-native-submit.html"));
+  await Promise.all([
+    page.waitForURL((url) => {
+      try {
+        return new URL(url).pathname === "/search";
+      } catch {
+        return false;
+      }
+    }, { timeout: 5000 }).catch(() => null),
+    page.evaluate(() => document.getElementById("s").submit()).catch(() => {}),
+  ]);
+  await waitUntil(() => (sawHit("GET", "/search") ? true : null)).catch(() => null);
+  record(
+    "F5e",
+    "ordinary form.submit() is not blocked by the native-submit wrap",
+    sawHit("GET", "/search") && (await page.locator(DIALOG).count()) === 0,
+    `hits=${JSON.stringify(hits)} dialog=${await page.locator(DIALOG).count()}`
+  );
 
   // 页面在 head 里尽早注册 window capture + stopImmediatePropagation。manifest 的
   // document_start window-capture 监听必须先到，页面处理器仍不得运行。

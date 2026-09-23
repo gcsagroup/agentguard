@@ -925,6 +925,28 @@ impl GatewayConfirm {
     pub(crate) fn deny_test_action(&self, id: &str, request_id: &str) -> Result<(), String> {
         self.answer(id, request_id, false)
     }
+
+    /// 桌面独立高风险后拒绝待确认工具并暂停工作区；旧批准随暂停失效。
+    pub(crate) fn halt_after_desktop_risk(&self) -> Result<bool, String> {
+        let (id, pending_id, supports_workspace) = {
+            let slot = self.0.lock().map_err(|_| "GATEWAY_STATE")?;
+            let Some(connection) = slot.as_ref() else {
+                return Ok(false);
+            };
+            (
+                connection.id.clone(),
+                connection.displayed.as_ref().map(|request| request.id.clone()),
+                connection.supports_workspace,
+            )
+        };
+        if let Some(request_id) = pending_id {
+            let _ = self.answer(&id, &request_id, false);
+        }
+        if supports_workspace {
+            let _ = self.workspace_lifecycle(&id, "pause");
+        }
+        Ok(true)
+    }
 }
 
 impl GatewayConfirm {
@@ -1844,6 +1866,36 @@ mod tests {
             assert_eq!(actual.session_id, status.session_id);
             assert_eq!(server.join().unwrap().len(), 2);
         }
+    }
+
+    #[test]
+    fn 未连接时桌面高风险不停住网关() {
+        assert!(!GatewayConfirm::default().halt_after_desktop_risk().unwrap());
+    }
+
+    #[test]
+    fn 桌面高风险暂停工作区并使旧预览失效() {
+        let (mut connection, mut status, _) = workspace_fixture();
+        status.session_state = "paused".into();
+        status.pending_review = None;
+        let envelope = serde_json::json!({"service":"agentguard-mcp","workspace_protocol":1,"instance_id":status.instance_id,"session_id":status.session_id});
+        let (port, server) = mock_workspace(vec![
+            ("/workspace/pause", 200, envelope),
+            (
+                "/workspace/status",
+                200,
+                serde_json::to_value(&status).unwrap(),
+            ),
+        ]);
+        connection.port = port;
+        let manager = GatewayConfirm::default();
+        *manager.0.lock().unwrap() = Some(connection);
+        assert!(manager.halt_after_desktop_risk().unwrap());
+        let stored = manager.0.lock().unwrap();
+        let workspace = stored.as_ref().unwrap().workspace.as_ref().unwrap();
+        assert_eq!(workspace.session_state, "paused");
+        assert!(workspace.pending_review.is_none());
+        assert_eq!(server.join().unwrap().len(), 2);
     }
 
     #[test]

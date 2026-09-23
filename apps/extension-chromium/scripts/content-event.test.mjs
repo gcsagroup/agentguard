@@ -139,7 +139,7 @@ function installHarness() {
     return e;
   }
 
-  return { button, dispatchClick, form, prompts, submit };
+  return { button, dispatch, dispatchClick, document, event, form, prompts, submit };
 }
 
 test("付款按钮每次都阻断且页面提示没有放行路径", () => {
@@ -170,6 +170,35 @@ test("开放 Shadow DOM 的付款按钮按 composedPath 阻断", () => {
   const event = h.dispatchClick(host, [button, { closest: () => null }, host]);
   assert.equal(event.defaultPrevented, true, "shadow host 的事件重定向不得隐藏内部付款按钮");
   assert.equal(h.prompts.length, 1);
+});
+
+test("脚本 form.submit 对陷阱表单同步阻断且普通表单不拦", () => {
+  const h = installHarness();
+  h.document.body.innerText = "VIP express 优先通道";
+  h.form.querySelectorAll = (selector) => {
+    if (selector === "input, textarea, select") {
+      return [{
+        type: "tel",
+        value: "13800000000",
+        name: "phone",
+        id: "phone",
+        required: false,
+        placeholder: "",
+        getAttribute: () => "",
+      }];
+    }
+    return [];
+  };
+  const trap = h.event(h.form);
+  h.dispatch("agentguard-native-submit", trap);
+  assert.equal(trap.defaultPrevented, true, "未改写原型的 form.submit 必须同步拦住陷阱表单");
+  assert.equal(h.prompts.length, 1);
+
+  h.form.querySelectorAll = () => [];
+  h.document.body.innerText = "普通搜索";
+  const ordinary = h.event(h.form);
+  h.dispatch("agentguard-native-submit", ordinary);
+  assert.equal(ordinary.defaultPrevented, false, "普通表单的 form.submit 不得误拦");
 });
 
 test("源码不包含动作重放或页面内 allow 回调", () => {

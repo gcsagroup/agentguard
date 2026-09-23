@@ -13,7 +13,7 @@ The executor can be Codex, computer-use, or another agent capable of driving rea
 
 ## 0. Scope and Honest Preconditions (Read First)
 
-- **First-GA browser scope is only the Chromium package shared by Chrome and Edge.** The repository provides fixtures and 39 Chromium E2E assertions; release Chrome and Edge still require separate manual evidence bound to the candidate ZIP. Firefox is source-only prototype material and cannot receive a release PASS.
+- **First-GA browser scope is only the Chromium package shared by Chrome and Edge.** The repository provides fixtures and 41 base Chromium E2E assertions and 54 experimental webmail checks; release Chrome and Edge still require separate manual evidence bound to the candidate ZIP. Firefox is source-only prototype material and cannot receive a release PASS.
 - **The desktop shells have native observation paths wired in:** macOS uses AXUIElement, ScreenCaptureKit,
   and Vision OCR; Windows uses UI Automation, GDI `BitBlt`, and `Windows.Media.Ocr`. However, “the code is
   wired” does not mean “it works on this real device.” Assess each case from runtime capability, operating-
@@ -74,7 +74,7 @@ mkdir -p evidence/{chrome,edge,windows,macos,android,ios,ios-testflight}
 
 ### A.1 Automation
 
-Run `make e2e-extension` first. It executes 39 machine assertions in a test Chromium, covering block-only DOM behavior, open Shadow DOM, static-DNR positive and negative cases, legacy page messages, upgrade cleanup, mutation storms, and the popup. Preserve `eval/e2e-extension/out/report.json` and its actual Chromium version.
+Run `make e2e-extension` first. It executes 95 checks (41 base and 54 experimental webmail checks) in a test Chromium, covering block-only DOM behavior, open Shadow DOM, static-DNR positive and negative cases, legacy page messages, upgrade cleanup, mutation storms, and the popup. Preserve `eval/e2e-extension/out/report.json` and its actual Chromium version.
 
 ### A.2 Release Chrome / Edge
 

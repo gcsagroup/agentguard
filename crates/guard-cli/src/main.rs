@@ -31,8 +31,9 @@ use guard_eval::{
     write_scoreboard_html, write_scoreboard_json, AcceptanceReport, EvalRunner,
     MacCapabilitiesSummary, ScoreboardReport,
 };
+use guard_intel::knowledge::KnowledgeCatalog;
 use guard_intel::{
-    fetch_from_manifest, generate_keypair, load_or_default, persist_bundle, KeyPair,
+    fetch_from_manifest, generate_keypair, load_or_default, persist_bundle, stix, KeyPair,
     PublicKeyBytes, ThreatBundle,
 };
 use guard_localapi::{resolve_api_token, serve as serve_local_api, ApiConfig};
@@ -251,6 +252,20 @@ enum Commands {
         /// Dry-run: verify + print, do not write `--out`.
         #[arg(long, default_value_t = false)]
         dry_run: bool,
+    },
+    /// 把知识库导出为本地 STIX 2.1 bundle。不外发，不改生效规则包。
+    StixExport {
+        #[arg(long, default_value = "intel/knowledge/v0.1/catalog.json")]
+        catalog: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// 读入 STIX 2.1 bundle，保留未知字段后写回。不外发，不改生效规则包。
+    StixImport {
+        #[arg(long)]
+        bundle: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
     },
     /// Show Pro / enterprise policy status from a YAML file.
     PolicyStatus {
@@ -1546,6 +1561,41 @@ fn run_cli() -> Result<()> {
                     println!("dry-run: not writing {}", out.display());
                 }
             }
+        }
+        Commands::StixExport { catalog, out } => {
+            let catalog =
+                KnowledgeCatalog::from_path(&catalog).map_err(|error| anyhow::anyhow!(error))?;
+            let bytes =
+                stix::export_catalog_json(&catalog).map_err(|error| anyhow::anyhow!(error))?;
+            if let Some(parent) = out.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)?;
+                }
+            }
+            std::fs::write(&out, bytes)?;
+            println!(
+                "wrote {} local-only authorization-effect=none",
+                out.display()
+            );
+        }
+        Commands::StixImport { bundle, out } => {
+            let bytes = std::fs::read(&bundle)?;
+            let imported = stix::import_bundle(&bytes).map_err(|error| anyhow::anyhow!(error))?;
+            let encoded = serde_json::to_vec_pretty(&imported.to_value())?;
+            if let Some(parent) = out.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)?;
+                }
+            }
+            std::fs::write(&out, encoded)?;
+            println!(
+                "wrote {} techniques={} cases={} iocs={} mitigations={} local-only authorization-effect=none",
+                out.display(),
+                imported.technique_ids().len(),
+                imported.case_ids().len(),
+                imported.observable_values().len(),
+                imported.mitigations().len()
+            );
         }
         Commands::PolicyStatus { policy } => {
             let p = DevicePolicy::from_path(&policy)?;

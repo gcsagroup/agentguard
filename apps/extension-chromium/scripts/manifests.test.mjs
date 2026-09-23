@@ -30,7 +30,15 @@ const jsFiles = (m) =>
     .filter((v, i, a) => a.indexOf(v) === i);
 
 test("Chromium manifest 装入完整内容脚本", () => {
-  assert.deepEqual(jsFiles(chrome), ["content.js", "guard-gate.js", "guard-mail.js", "guard-modal.js", "guard-strings.js", "mail-content.js"]);
+  assert.deepEqual(jsFiles(chrome), [
+    "content.js",
+    "guard-gate.js",
+    "guard-mail.js",
+    "guard-modal.js",
+    "guard-native-submit.js",
+    "guard-strings.js",
+    "mail-content.js",
+  ]);
 });
 
 test("GA 权限没有 Native Messaging，通知权限有 DOM 阻断用途", () => {
@@ -47,9 +55,18 @@ test("Chromium 后台运行模块 service worker", () => {
 });
 
 test("Chromium 不注入 MAIN world 页面判决代码", () => {
-  assert.ok(!(chrome.content_scripts || []).some((cs) => cs.world === "MAIN"));
+  const main = (chrome.content_scripts || []).filter((cs) => cs.world === "MAIN");
+  assert.deepEqual(
+    main.map((cs) => cs.js),
+    [["guard-native-submit.js"]],
+    "MAIN world 只允许原生 submit 包装"
+  );
   assert.ok(!jsFiles(chrome).includes("guard-page.js"));
   assert.ok(!fs.existsSync(path.join(ext, "guard-page.js")), "guard-page.js 应从扩展源码中删除");
+  const nativeSubmit = fs.readFileSync(path.join(ext, "guard-native-submit.js"), "utf8");
+  assert.doesNotMatch(nativeSubmit, /postMessage|__agentguard_(?:req_gate|req_decision|scope)__|onAllow|gateApproved|replayApproved|chrome\./);
+  assert.match(nativeSubmit, /HTMLFormElement\.prototype/);
+  assert.match(nativeSubmit, /agentguard-native-submit/);
 });
 
 test("Chromium 默认启用付款形状静态 DNR 硬阻断", () => {
@@ -112,6 +129,7 @@ test("DOM 只阻断脚本在 document_start 覆盖所有 frame", () => {
   const content = fs.readFileSync(path.join(ext, "content.js"), "utf8");
   assert.match(content, /window\.addEventListener\(\s*["']click["']/);
   assert.match(content, /window\.addEventListener\(\s*["']submit["']/);
+  assert.match(content, /window\.addEventListener\(\s*["']agentguard-native-submit["']/);
   assert.doesNotMatch(content, /requestSubmit|gateApproved|replayApproved|onAllow/);
 });
 

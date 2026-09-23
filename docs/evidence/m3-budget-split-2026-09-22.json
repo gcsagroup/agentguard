@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-22",
+  "base_commit": "c0ce91f52b4ac4a309873058e8f49124a44c27ec",
+  "scope": "AGD-027 新口径四轮 CLI 性能；原生读取 p95≤20ms，首次启动只记录。不是完整 M1 或发布验收",
+  "artifact_directory": ".artifacts/m3-budget-split-2026-09-22",
+  "performance_passed": true,
+  "original_100ms_startup_still_failed_rounds": [1, 2],
+  "sources_verified": 250,
+  "successful_reads": 420,
+  "negative_cases_rejected": 11,
+  "order": ["dev", "release", "release", "dev"],
+  "budgets": {
+    "native_read_p95_ms": 20,
+    "isolated_read_p95_ms": 500,
+    "native_startup_ms": null,
+    "isolated_startup_ms": 2000,
+    "gateway_peak_rss_mib": 32
+  },
+  "builds": {
+    "dev": {
+      "binary": ".artifacts/m3-budget-split-2026-09-22/dev/agentguard-mcp",
+      "sha256": "f5adcd850f6d1de21fa10a3806fb7ab2027bc35f18d9b5b4b4ba7ec7652a6866"
+    },
+    "release": {
+      "binary": ".artifacts/m3-budget-split-2026-09-22/release/agentguard-mcp",
+      "sha256": "8b03ea2de9ae04e07a88c98d6a8df160b382f0c34b2f7f38c37e5a8c49e325e6"
+    }
+  },
+  "hashes": {
+    "plan.json": "04fef92ecc1eb543d487c865f17c29971773759c15d6808d53b0e5c97ec6bec3",
+    "comparison.json": "82570b209fe72b75515ca72e6cd338b2e0a8e6a89717d4795d6625e9d1eac719",
+    "verification.json": "3394b9e1b7781edbbe52958f8b08cb7e020172af12e920c1dcc4663ffa75ed9b",
+    "agd-isolation-benchmark.mjs": "9178762d21dd475febb0481c813f25ceee3e8eab0b185819922d5d799ae22d3a",
+    "docker-vm-preflight.mjs": "97f31bc9b3f47d6065e89fa2ac2be5396ae460ad42f7c5e4b067a9d2d6229e27",
+    "verify-m3-performance.py": "e4d9b10388db0ecb6d8ad01a249d2dd8c2b02f5cb7d684ae8e70eeedb3142684"
+  },
+  "reports": [
+    {
+      "round": 1,
+      "path": "eval/out/AGD-002/20260921T170900806Z-81719-benchmark/report.json",
+      "sha256": "ab61defbbae3d4e973046c8d61d18204479d84b0e71f435b03a5b997fc4b6c41"
+    },
+    {
+      "round": 2,
+      "path": "eval/out/AGD-002/20260921T170914365Z-82320-benchmark/report.json",
+      "sha256": "216305bec99eba84d091a1788428517aa1cfd1e75e441c5a85c6f2c5951ac94a"
+    },
+    {
+      "round": 3,
+      "path": "eval/out/AGD-002/20260921T170925923Z-82933-benchmark/report.json",
+      "sha256": "0f3ae32e40ee05add9255807234815a4670074391da1dcebd8159b50a7d04fe4"
+    },
+    {
+      "round": 4,
+      "path": "eval/out/AGD-002/20260921T170936412Z-83479-benchmark/report.json",
+      "sha256": "406c8e791d01708b98cfde4f63ddde3c2db9f3d9864097fd4812170e0491d6ee"
+    }
+  ]
+}

@@ -76,7 +76,7 @@ def verify(directory, repository):
         folder = directory / "warm-preflight" if corrected else directory
         plan, comparison = read(folder / "comparison-plan.json"), read(folder / "comparison.json")
         assert comparison["completed"] and comparison["plan_sha256"] == sha(folder / "comparison-plan.json")
-        assert plan["order"] == ["dev", "dev"] and plan["budgets"] == performance.BUDGETS
+        assert plan["order"] == ["dev", "dev"] and plan["budgets"] == performance.LEGACY_BUDGETS
         assert plan["route_order"] == performance.ROUTES
         assert plan["warmup_per_route"] == 5 and plan["measured_per_route"] == 30
         assert len(comparison["runs"]) == 2
@@ -102,7 +102,7 @@ def verify(directory, repository):
             path = repository / relative
             assert sha(path) == row["report_sha256"]
             report = read(path)
-            checks = performance.check_samples(report, expected)
+            checks = performance.check_samples(report, expected, plan["budgets"])
             assert checks == row["checks"] and sum(c["passed"] for c in checks) == row["passing_budgets"]
             result = {"round": number, "checks": checks, "passing_budgets": row["passing_budgets"]}
             if corrected:

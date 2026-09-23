@@ -2,7 +2,7 @@
 
 由 `guard-cli capability-claims` 生成。每条声明的**锚文本**都被核对确实印在所列文档里,每条**证明测试**都被核对确实存在——任一不成立,命令失败。`mechanism` 是描述性的,不被机器核对;钉住"能力还在"的是那条测试。
 
-**36 条声明,95 条去重证明测试。**
+**36 条声明,96 条去重证明测试。**
 
 ## acceptance
 
@@ -57,14 +57,14 @@
 
 | 声明 | 印在 | 兑现 | 证明测试 |
 |---|---|---|---|
-| 首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作 | `docs/浏览器执行前阻断.md` | manifest 在 document_start 向所有可注入 frame 装 isolated content script;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调 | `付款 CTA 要执行前拦下`<br/>`隐私陷阱 PII 提交要执行前拦下`<br/>`首个 GA 的 DOM 门只阻断且没有页面内放行或动作重放`<br/>`付款按钮每次都阻断且页面提示没有放行路径`<br/>`危险表单提交也没有可泄漏的批准状态`<br/>`DOM 只阻断脚本在 document_start 覆盖所有 frame` |
+| 首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作 | `docs/浏览器执行前阻断.md` | manifest 在 document_start 向所有可注入 frame 装 isolated content script;MAIN world 仅包装未改写的 form.submit 并把探测交给 isolated 门;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调 | `付款 CTA 要执行前拦下`<br/>`隐私陷阱 PII 提交要执行前拦下`<br/>`首个 GA 的 DOM 门只阻断且没有页面内放行或动作重放`<br/>`付款按钮每次都阻断且页面提示没有放行路径`<br/>`危险表单提交也没有可泄漏的批准状态`<br/>`脚本 form.submit 对陷阱表单同步阻断且普通表单不拦`<br/>`DOM 只阻断脚本在 document_start 覆盖所有 frame` |
 | 明确付款关键词的 HTTP(S) 非 GET/HEAD 请求仅在已声明资源类型上由静态 DNR 默认硬拦,页面不能放行 | `docs/浏览器执行前阻断.md` | Chromium GA manifest 默认启用 payment_shape_block;规则按非 GET/HEAD + 明确路径关键词或 op/action/operation 查询值 + main_frame/sub_frame/xmlhttprequest/ping 在浏览器网络层 block | `Chromium 默认启用付款形状静态 DNR 硬阻断` |
 | 首个 GA 只交付 Chrome/Edge 共用的 Chromium 包,GA manifest 禁用 Native Messaging;Firefox 仅保留源码原型且不作为验收门 | `docs/跨浏览器.md` | manifest.json 是唯一 GA 浏览器 manifest且不含 nativeMessaging;package-store.sh 只生成 Chrome/Edge ZIP并拒绝 --firefox | `GA 权限没有 Native Messaging，通知权限有 DOM 阻断用途`<br/>`Chromium manifest 装入完整内容脚本` |
-| 页面消息不是允许或 scope 的信任根,伪造旧 decision/scope 不能配置网络放行 | `docs/浏览器执行前阻断.md` | 删除 guard-page.js 与全部 MAIN-world 注入;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外 | `Chromium 不注入 MAIN world 页面判决代码`<br/>`内容脚本没有公开 request decision scope 消息信任根` |
+| 页面消息不是允许或 scope 的信任根,伪造旧 decision/scope 不能配置网络放行 | `docs/浏览器执行前阻断.md` | 删除 guard-page.js 与公开 request/decision/scope 通道;MAIN world 仅允许原生 submit 包装且不做判决;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外 | `Chromium 不注入 MAIN world 页面判决代码`<br/>`内容脚本没有公开 request decision scope 消息信任根` |
 
 说明:
 
-- **首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作**:只承诺浏览器实际注入脚本且能观察到 click/submit 的 HTTP(S) frame;直接 form.submit()、未注入 frame 与不触发被监听事件的路径不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证
+- **首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作**:只承诺浏览器实际注入脚本的 HTTP(S) frame。click/submit 与未改写原型的 form.submit() 由 isolated 门同步阻断;页面从 iframe 恢复原生 submit、未注入 frame、不触发被监听事件的路径仍不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证
 - **明确付款关键词的 HTTP(S) 非 GET/HEAD 请求仅在已声明资源类型上由静态 DNR 默认硬拦,页面不能放行**:声明面只到 HTTP(S) 非 GET/HEAD、规则列出的路径组件关键词(含明确编码变体)或 op/action/operation 查询值及字符边界,以及 fetch/XHR、beacon、顶层/子框架 form 导航;不看 body,不覆盖自定义别名或未声明表面,无网络一次性放行;Chrome/Edge 商店候选仍须分别留证
 - **首个 GA 只交付 Chrome/Edge 共用的 Chromium 包,GA manifest 禁用 Native Messaging;Firefox 仅保留源码原型且不作为验收门**:Firefox 排除由 package-store.test.sh 的真实打包回归另行钉住;Firefox 原型文件存在或结构相似不能升级为支持声明;Chrome 与 Edge 仍需分别完成商店候选验收;Safari 是独立产品线
 - **页面消息不是允许或 scope 的信任根,伪造旧 decision/scope 不能配置网络放行**:敌对 E2E 另测伪 decision/scope 与旧 15 秒超时;结构测试防止公开通道回归;页面提示只是可被页面影响的信息层,没有授权能力

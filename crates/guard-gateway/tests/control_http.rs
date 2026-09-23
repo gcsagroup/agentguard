@@ -485,3 +485,26 @@ fn nonreading_client_hits_total_write_deadline_and_frees_slot() {
     let _ = slow.shutdown(Shutdown::Both);
     assert_eq!(status(&get(&server)), 200);
 }
+
+#[test]
+fn auth_origin_rejects_non_loopback_host_and_origin() {
+    let server = fixture(limits(), |_| panic!("非回环 Host/Origin 不能到达处理器"));
+    for wire in [
+        "GET /status HTTP/1.1\r\nHost: example.com\r\n\r\n",
+        "GET /status HTTP/1.1\r\nHost: 8.8.8.8\r\n\r\n",
+        "GET /status HTTP/1.1\r\nHost: 127.0.0.1\r\nOrigin: http://evil.example\r\n\r\n",
+        "GET /status HTTP/1.1\r\nHost: 127.0.0.1\r\nOrigin: https://127.0.0.1\r\n\r\n",
+    ] {
+        assert_eq!(status(&request(&server, wire.as_bytes())), 400, "{wire}");
+    }
+    let ok = fixture(limits(), |_| {
+        ControlResponse::json(200, json!({"ok": true}))
+    });
+    assert_eq!(
+        status(&request(
+            &ok,
+            b"GET /status HTTP/1.1\r\nHost: 127.0.0.1:8790\r\nOrigin: http://127.0.0.1:8790\r\n\r\n"
+        )),
+        200
+    );
+}

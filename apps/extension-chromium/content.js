@@ -290,6 +290,27 @@ function formHasTrapPII(form) {
   return false;
 }
 
+function formHasPaymentCta(form) {
+  try {
+    for (const el of form.querySelectorAll(ACTIONABLE_SELECTOR)) {
+      if (ctaText(el)) return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+function findingsForForm(form, submitter) {
+  const findings = [];
+  if (!form) return findings;
+  if (!self.AgentGuardMail?.providerForUrl(location.href) && formHasTrapPII(form)) {
+    findings.push({ kind: "privacy_trap" });
+  }
+  if ((submitter && ctaText(submitter)) || formHasPaymentCta(form)) {
+    findings.push({ kind: "payment_cta" });
+  }
+  return findings;
+}
+
 function reportPrevented(reason, kind) {
   try {
     chrome.runtime.sendMessage({
@@ -328,7 +349,7 @@ function gateEvent(e, findings) {
 }
 
 // document_start + window capture：先于页面脚本安装，并覆盖所有 manifest 指定 frame。
-// 这只保证明确声明的、会产生 click/submit 事件且标签可识别的 DOM 支持面。
+// 未改写原型的 form.submit() 由 MAIN world 包装后走同一扇门。页面恢复原生方法后不在保证内。
 window.addEventListener(
   "click",
   (e) => {
@@ -343,12 +364,16 @@ window.addEventListener(
 window.addEventListener(
   "submit",
   (e) => {
-    const form = e.target;
-    if (!form) return;
-    const findings = [];
-    if (!self.AgentGuardMail?.providerForUrl(location.href) && formHasTrapPII(form)) findings.push({ kind: "privacy_trap" });
-    if (e.submitter && ctaText(e.submitter)) findings.push({ kind: "payment_cta" });
-    gateEvent(e, findings);
+    gateEvent(e, findingsForForm(e.target, e.submitter));
+  },
+  true
+);
+
+// 未改写原型的 form.submit() 不产生 submit 事件；MAIN world 包装后发来此探测。
+window.addEventListener(
+  "agentguard-native-submit",
+  (e) => {
+    gateEvent(e, findingsForForm(e.target, null));
   },
   true
 );

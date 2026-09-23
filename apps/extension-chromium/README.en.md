@@ -42,7 +42,7 @@ From `document_start`, the browser injects the isolated content script into ever
 
 Any in-page notice is informational only. A page can delete, cover, imitate, or otherwise influence it, so it is not trusted authorization UI and no click inside the page can change the block decision. If a user understands the risk and still wants to continue, they must first use the browser's trusted extension-management surface (`chrome://extensions` in Chrome or `edge://extensions` in Edge) to disable or remove AgentGuard, then independently repeat the original action. The first GA has no temporary exception.
 
-DOM protection covers only HTTP(S) frames where the browser actually injects the content script and an observable click/submit event occurs. Direct `form.submit()`, uninjected pages or schemes, and script paths that emit no observed event are outside that guarantee. A page can compromise the visibility or authenticity of the information notice, but cannot use that to create release state.
+DOM protection covers HTTP(S) frames where the browser actually injects the content script. Observable click/submit events, and unmodified `form.submit()`, are stopped before execution. A page that restores the native method from an iframe, uninjected pages or schemes, and other script paths that emit no observed event remain outside that guarantee. A page can compromise the visibility or authenticity of the information notice, but cannot use that to create release state.
 
 ### Static DNR network hard block
 

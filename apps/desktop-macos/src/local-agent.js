@@ -244,5 +244,13 @@ ${uiText("localAgentModelDataGranted")}` : "");
   window.addEventListener("agentguard-locale-change", () => { renderModels(); renderSteps(true); render(); });
   window.addEventListener("focus", poll);
   window.setInterval(poll, 1000);
+  try {
+    const { listen } = window.__TAURI__.event;
+    listen("cooperative-halted", async () => {
+      setFeedback("cooperativeHalted");
+      render();
+      await poll();
+    });
+  } catch (_) {}
   render(); poll();
 }

@@ -13,7 +13,7 @@
 
 ## 0. 範圍與誠實前提（先讀）
 
-- **首個 GA 的瀏覽器範圍只有 Chrome / Edge 共用的 Chromium 套件。** 儲存庫提供測試夾具與 39 條 Chromium E2E；正式 Chrome 與 Edge 仍須分別綁定候選 ZIP 做人工檢查。Firefox 僅為原始碼原型，不執行發佈驗收，也不產生 PASS。
+- **首個 GA 的瀏覽器範圍只有 Chrome / Edge 共用的 Chromium 套件。** 儲存庫提供測試夾具與 41 條基礎 Chromium E2E 及 54 條實驗性郵件檢查；正式 Chrome 與 Edge 仍須分別綁定候選 ZIP 做人工檢查。Firefox 僅為原始碼原型，不執行發佈驗收，也不產生 PASS。
 - **桌面殼程式已接入原生觀測鏈路**：macOS 已接入 AXUIElement、ScreenCaptureKit 與 Vision OCR；
   Windows 已接入 UI Automation、GDI `BitBlt` 與 `Windows.Media.Ocr`。但「程式碼已接線」不等於
   「這台真機可用」：仍須依執行階段 capability、系統權限、實際事件/影格/OCR 輸出及證據逐項判定。這表示：
@@ -69,7 +69,7 @@ mkdir -p evidence/{chrome,edge,windows,macos,android,ios,ios-testflight}
 
 ### A.1 自動化
 
-先執行 `make e2e-extension`。它在測試 Chromium 中完成 39 條機器判據，包括 block-only DOM、開放 Shadow DOM、靜態 DNR 正負例、舊頁面訊息、升級清理、變異風暴與 popup。必須保存 `eval/e2e-extension/out/report.json`，並保留報告中的真實 Chromium 版本。
+先執行 `make e2e-extension`。它在測試 Chromium 中完成 95 條檢查（41 條基礎、54 條實驗性郵件檢查），包括 block-only DOM、開放 Shadow DOM、靜態 DNR 正負例、舊頁面訊息、升級清理、變異風暴與 popup。必須保存 `eval/e2e-extension/out/report.json`，並保留報告中的真實 Chromium 版本。
 
 ### A.2 Chrome / Edge 正式版
 

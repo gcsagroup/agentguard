@@ -24,7 +24,7 @@ AgentGuard Web Shield 为 Chrome / Edge 页面提供三项边界明确的有限�
 
 静态 DNR 仅在以下条件同时成立时硬阻断：URL 为 HTTP(S)；方法不是 GET/HEAD；路径组件以 `pay`、`payment`、`checkout`、`charge`、`transfer`、`remit`、`purchase`、`orderconfirm` / `order-confirm` / `order_confirm` 或 `confirmorder` / `confirm-order` / `confirm_order` 开头并满足字符边界，或查询键 `op`、`action`、`operation` 的值明确等于这些标记；资源类型为上述四类。路径规则还明确覆盖核心标记逐字节百分号编码与 `%2F` 分隔符。它不检查请求 body，也不覆盖 body-only 付款意图、自定义别名、未明确列出的编码/混淆形式、任意查询键或值、WebSocket/WebTransport、GET/HEAD 或其他资源类型。
 
-**如实限制**：DOM 阻断只覆盖浏览器实际注入内容脚本、且会产生可观察 click/submit 事件的 HTTP(S) frame；直接 `form.submit()`、未注入的页面/协议及不产生被监听事件的脚本路径不在该保证内。网页可影响信息提示的可见性或真实性，但不能借此生成放行状态。静态 DNR 与 DOM 阻断都是 block-only，没有网页内批准、scope 例外或一次性放行。扩展不监控浏览器之外的原生 App。
+**如实限制**：DOM 阻断覆盖浏览器实际注入内容脚本的 HTTP(S) frame。可观察的 click/submit 与未改写原型的 `form.submit()` 会在执行前被同步阻断。页面从 iframe 恢复原生方法、未注入的页面/协议及其它不产生被监听事件的脚本路径不在该保证内。网页可影响信息提示的可见性或真实性，但不能借此生成放行状态。静态 DNR 与 DOM 阻断都是 block-only，没有网页内批准、scope 例外或一次性放行。扩展不监控浏览器之外的原生 App。
 
 ## 隐私
 

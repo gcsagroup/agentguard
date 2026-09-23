@@ -387,12 +387,11 @@ fn read_request(
             return Err(400);
         }
     }
-    if headers.get("host").is_none_or(|host| {
-        host.is_empty()
-            || host
-                .bytes()
-                .any(|byte| byte.is_ascii_whitespace() || byte == b',')
-    }) || headers.contains_key("transfer-encoding")
+    if headers.get("host").is_none_or(|host| !loopback_host(host))
+        || headers
+            .get("origin")
+            .is_some_and(|origin| !loopback_origin(origin))
+        || headers.contains_key("transfer-encoding")
         || headers.contains_key("upgrade")
         || headers.contains_key("expect")
         || headers.get("connection").is_some_and(|value| {
@@ -434,6 +433,41 @@ fn read_request(
     // 每次只读取声明范围，永不解析第二个请求；关闭连接会丢弃后到的流水线数据。
     remaining(deadline, shared).map_err(|_| 408u16)?;
     Ok(request)
+}
+
+fn loopback_host(value: &str) -> bool {
+    if value.is_empty()
+        || value
+            .bytes()
+            .any(|byte| byte.is_ascii_whitespace() || byte == b',')
+    {
+        return false;
+    }
+    let host = match value.rsplit_once(':') {
+        Some((name, port))
+            if !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) =>
+        {
+            name
+        }
+        _ => value,
+    };
+    host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1"
+}
+
+fn loopback_origin(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    let rest = if let Some(path) = lower.strip_prefix("http://127.0.0.1") {
+        path
+    } else if let Some(path) = lower.strip_prefix("http://localhost") {
+        path
+    } else {
+        return false;
+    };
+    rest.is_empty()
+        || rest == "/"
+        || rest
+            .strip_prefix(':')
+            .is_some_and(|port| port.bytes().all(|byte| byte.is_ascii_digit()) && !port.is_empty())
 }
 
 fn token_byte(byte: u8) -> bool {

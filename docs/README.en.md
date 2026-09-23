@@ -6,9 +6,13 @@
 
 # AgentGuard documentation portal
 
+[2026-09-23 source integration, validation and branch recovery (Chinese)](source-integration-cleanup-2026-09-23.zh.md) — Only main remains locally; archives preserve historical failure evidence. Release remains No-Go.
+
 This portal is the trilingual entry point. Trilingual coverage includes the root README, this portal, the `1.0.0-rc.1` release notes, the changelog, privacy disclosures, component READMEs, primary store copy, and the technical and acceptance documents maintained in this update. Other deep technical and audit documents remain in their original languages and are labeled below by purpose and status.
 
 > `1.0.0-rc.1` is a source release candidate. Code signing, notarization, store publication, and real-device end-to-end acceptance evidence are incomplete. The production release decision remains **No-Go**.
+
+[Active-defense first wave (Simplified Chinese, 2026-09-22)](agd-active-defense-2026-09-22.zh.md) — Chrome candidate-ZIP B1/B2/B3/B5, same-session gateway halt after independent desktop risk, AUTH/EGRESS/MEMORY entry checks. Not store or release acceptance.
 
 [M0/M1 source integration and validation (Simplified Chinese, 2026-09-14)](agentguard-source-merge-2026-09-14.zh.md)
 

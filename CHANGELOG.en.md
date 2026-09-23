@@ -6,6 +6,28 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### Source integration and local branch cleanup (2026-09-23)
+
+- Integrated active defense, local STIX round trips and performance-budget work. Only main and the primary checkout remain locally: 36 merged branches were removed, seven old worktrees were fully archived and restoration-verified, and two stale registrations were pruned.
+- Workspace and MSRV each passed 1,551 tests; desktop passed 139, Chromium E2E 95 and frontend 136. All three dependency audits and an actual STIX CLI round trip passed. Fixed App 024 was not rebuilt; F13 remains deferred and release remains No-Go. See the [verification and recovery record (Chinese)](docs/source-integration-cleanup-2026-09-23.zh.md).
+
+### AGD-031: local STIX 2.1 import/export (2026-09-22)
+
+- The knowledge catalog can be exported to a local STIX 2.1 bundle and read back. Techniques, cases, IOCs and mitigations round-trip; unknown fields are kept and dangling references are rejected. Nothing is sent externally and the live rule bundle is unchanged. See the [record](docs/agd-031-stix-2026-09-22.zh.md).
+
+### Active defense first wave: real blocks, honest observation (2026-09-22)
+
+- Official Chrome 153 loaded the candidate ZIP: B1/B2/B3/B5 passed; B4 is N/A with no previous public release; Edge is BLOCKED because it is not installed. This is not a store-gate PASS. See the [Chrome record](docs/chrome-native-b15-2026-09-22.zh.md).
+- Explicit desktop injection still confirms and now pauses or denies the same-session gateway and local task; view-tree differences stay observational. The active-protection page states browser block, cooperative gateway intercept, and post-hoc desktop observation separately.
+- AUTH/EGRESS/PRIV-004 reused existing entries; IMPORT/PACKAGE/UNICODE did not get keyword rules. Fixed App 024 was not rebuilt; full M1 and release remain No-Go. See the [round record](docs/agd-active-defense-2026-09-22.zh.md).
+- Second wave: unmodified `form.submit()` synchronously blocks trap/payment forms and leaves ordinary forms alone; verified intel has no exact payment aliases, so static DNR is unchanged. Base E2E is now 41 cases, with another 54 experimental webmail checks for 95 total.
+
+### AGD-027 budget split and four-round re-run on current source (2026-09-22)
+
+- After the agreed split, signed first-start is a recorded limit and native read p95 is re-frozen at ≤20 ms. `synchronous=FULL` is unchanged; fixed App 024 was not rebuilt.
+- Current source `c0ce91f` with 250 frozen inputs passed all four rounds 6/6; both development builds passed the five hard budgets. Native read p95 was 8.140/9.082/8.558/8.988 ms. Rounds 1 and 2 still recorded native start at 655.6/559.9 ms, which would fail the original 100 ms gate.
+- An independent verifier recomputed all 24 checks from raw samples and rejected eleven negative cases. Plan v1.00 marks AGD-027 complete; counts are 29/1/0/2. F13 remains deferred; full original M1 and release remain No-Go. See the [budget-split record](docs/agd-027-budget-split-2026-09-22.zh.md).
+
 ### iOS element detection isolated before other audits (2026-09-17)
 
 - Build 34 runs element detection before other audits and records stage trees, screenshots and issue types. All categories and rejection of unmapped reports are retained. Exact source commit bc0433d passed all 13 CI jobs and the complete iOS 18.5 development gate. The earlier text-detection report did not recur in this run; build 33 failure evidence is retained.

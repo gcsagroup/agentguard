@@ -153,15 +153,16 @@ claims:
     source:
       doc: docs/浏览器执行前阻断.md
       anchor: "页面内提示不是授权 UI"
-    mechanism: manifest 在 document_start 向所有可注入 frame 装 isolated content script;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调
+    mechanism: manifest 在 document_start 向所有可注入 frame 装 isolated content script;MAIN world 仅包装未改写的 form.submit 并把探测交给 isolated 门;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调
     proven_by:
       - { test: 付款 CTA 要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: 隐私陷阱 PII 提交要执行前拦下, file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: 首个 GA 的 DOM 门只阻断且没有页面内放行或动作重放, file: apps/extension-chromium/scripts/gate.test.mjs }
       - { test: 付款按钮每次都阻断且页面提示没有放行路径, file: apps/extension-chromium/scripts/content-event.test.mjs }
       - { test: 危险表单提交也没有可泄漏的批准状态, file: apps/extension-chromium/scripts/content-event.test.mjs }
+      - { test: 脚本 form.submit 对陷阱表单同步阻断且普通表单不拦, file: apps/extension-chromium/scripts/content-event.test.mjs }
       - { test: DOM 只阻断脚本在 document_start 覆盖所有 frame, file: apps/extension-chromium/scripts/manifests.test.mjs }
-    note: 只承诺浏览器实际注入脚本且能观察到 click/submit 的 HTTP(S) frame;直接 form.submit()、未注入 frame 与不触发被监听事件的路径不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证
+    note: 只承诺浏览器实际注入脚本的 HTTP(S) frame。click/submit 与未改写原型的 form.submit() 由 isolated 门同步阻断;页面从 iframe 恢复原生 submit、未注入 frame、不触发被监听事件的路径仍不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证
 
   - id: browser-fetch-gate
     claim: 明确付款关键词的 HTTP(S) 非 GET/HEAD 请求仅在已声明资源类型上由静态 DNR 默认硬拦,页面不能放行
@@ -192,7 +193,7 @@ claims:
     source:
       doc: docs/浏览器执行前阻断.md
       anchor: "页面消息不再是信任根"
-    mechanism: 删除 guard-page.js 与全部 MAIN-world 注入;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外
+    mechanism: 删除 guard-page.js 与公开 request/decision/scope 通道;MAIN world 仅允许原生 submit 包装且不做判决;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外
     proven_by:
       - { test: Chromium 不注入 MAIN world 页面判决代码, file: apps/extension-chromium/scripts/manifests.test.mjs }
       - { test: 内容脚本没有公开 request decision scope 消息信任根, file: apps/extension-chromium/scripts/manifests.test.mjs }

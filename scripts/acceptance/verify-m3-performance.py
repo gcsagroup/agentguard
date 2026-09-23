@@ -17,8 +17,13 @@ spec.loader.exec_module(helpers)
 read, sha, audit_rows = helpers.read, helpers.sha, helpers.audit_rows
 
 ROUTES = ["direct_host_read", "native_gateway_read", "isolated_gateway_read"]
-BUDGETS = {"native_read_p95_ms": 10, "isolated_read_p95_ms": 500,
-           "native_startup_ms": 100, "isolated_startup_ms": 2000,
+# 旧四轮计划冻结的原预算。核对历史证据必须用当时的计划值，不能改成当前口径。
+LEGACY_BUDGETS = {"native_read_p95_ms": 10, "isolated_read_p95_ms": 500,
+                  "native_startup_ms": 100, "isolated_startup_ms": 2000,
+                  "gateway_peak_rss_mib": 32}
+# 用户已同意的 AGD-027 口径：原生读取按现网关重冻；签名环境下的首次启动只记录。
+BUDGETS = {"native_read_p95_ms": 20, "isolated_read_p95_ms": 500,
+           "native_startup_ms": None, "isolated_startup_ms": 2000,
            "gateway_peak_rss_mib": 32}
 
 
@@ -27,8 +32,13 @@ def finite(value):
     return value
 
 
-def check_samples(report, expected):
-    """从逐次样本重算六项预算，不接受汇总中的 passed 代替计算。"""
+def check_samples(report, expected, budgets=None):
+    """从逐次样本重算六项预算，不接受汇总中的 passed 代替计算。
+
+    默认沿用历史 10 ms / 100 ms，避免改当前口径后把旧证据重算错。
+    `maximum` 为 None 表示该项只记录、不计入硬门槛。
+    """
+    budgets = LEGACY_BUDGETS if budgets is None else budgets
     assert report["parameters"]["candidateSha256"] == expected
     assert report["parameters"]["warmupCount"] == 5
     assert report["parameters"]["measuredCount"] == 30
@@ -47,14 +57,22 @@ def check_samples(report, expected):
         isolated = route["name"] == ROUTES[2]
         p95 = sorted(s["elapsedMs"] for s in route["measured"])[28]
         assert route["gatewayRss"]["samples"] > 0
+        read_max = budgets["isolated_read_p95_ms"] if isolated else budgets["native_read_p95_ms"]
+        start_max = budgets["isolated_startup_ms"] if isolated else budgets["native_startup_ms"]
+        mem_max = budgets["gateway_peak_rss_mib"]
         for metric, actual, maximum in [
-            ("read_p95_ms", p95, 500 if isolated else 10),
-            ("startup_ms", route["startupMs"], 2000 if isolated else 100),
-            ("memory_mib", route["gatewayRss"]["sampledPeakMiB"], 32),
+            ("read_p95_ms", p95, read_max),
+            ("startup_ms", route["startupMs"], start_max),
+            ("memory_mib", route["gatewayRss"]["sampledPeakMiB"], mem_max),
         ]:
             finite(actual)
+            if maximum is None:
+                passed = True
+            else:
+                finite(maximum)
+                passed = actual <= maximum
             checks.append({"route": route["name"], "metric": metric,
-                           "actual": actual, "maximum": maximum, "passed": actual <= maximum})
+                           "actual": actual, "maximum": maximum, "passed": passed})
     assert len(checks) == 6
     return checks
 
@@ -112,7 +130,7 @@ def verify(out, repository):
     assert report["plan_sha256"] == sha(out / "comparison-plan.json")
     assert plan["prior_plan_sha256"] == sha(out / "plan.json")
     assert plan["order"] == ["dev", "release", "release", "dev"]
-    assert plan["budgets"] == BUDGETS and plan["route_order"] == ROUTES
+    assert plan["budgets"] == LEGACY_BUDGETS and plan["route_order"] == ROUTES
     # 历史结果绑定当时的脚本字节；后续前置检查修正不能改写旧轮次。
     benchmark = out / "benchmark-source-original.mjs"
     if not benchmark.exists():
@@ -138,7 +156,7 @@ def verify(out, repository):
         assert row["report_sha256"] == sha(repository / path)
         expected = builds[profile]["binary_sha256"]
         assert row["candidate_sha256"] == expected
-        checks = check_samples(read(repository / path), expected)
+        checks = check_samples(read(repository / path), expected, plan["budgets"])
         assert checks == row["checks"]
         assert sum(c["passed"] for c in checks) == row["passing_budgets"]
         summaries.append({"round": number, "profile": profile, "checks": checks})

@@ -6,14 +6,14 @@ The first-GA browser product is one Chromium MV3 ZIP shared by Chrome and Edge. 
 
 Acceptance has two layers:
 
-- `make e2e-extension` runs 39 machine assertions in a test Chromium and proves the blocking behavior of source and packaged content;
+- `make e2e-extension` runs 41 base assertions and 54 experimental webmail checks in a test Chromium, 95 in total, covering bounded blocking behavior and known gaps;
 - the candidate ZIP must still be installed and exercised separately in release Chrome and release Edge, including upgrade and permission evidence.
 
 Automation does not replace store signing, release browsers, candidate-ZIP identity, or other platform evidence. The strict gate requires separate structured acceptance evidence for Chrome and Edge; one Chromium test report cannot stand in for both release browsers.
 
 ## Automated acceptance
 
-`make e2e-extension` installs the extension in a real Chromium persistent context, writes `eval/e2e-extension/out/report.json`, and prints one final marker: `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. Its 39 cases are grouped below.
+`make e2e-extension` installs the extension in a real Chromium persistent context, writes `eval/e2e-extension/out/report.json`, and prints one final marker: `AGENTGUARD_E2E_EXTENSION=PASS|FAIL`. Its 41 base cases are grouped below. Another 54 experimental webmail checks use synthetic Gmail/Outlook DOM, including confirmation that direct API requests bypass the DOM gate; they do not qualify real mail services or Edge.
 
 | Group | Machine assertion |
 |---|---|
@@ -21,9 +21,9 @@ Automation does not replace store signing, release browsers, candidate-ZIP ident
 | U1 | Upgrade to the no-Native GA clears legacy pause, host blocklist, dynamic DNR, and badge |
 | F1 / F1b | Hidden injection reaches Recent; URL is minimized and title clamped instead of storing raw sensitive URLs |
 | F2a–F2f / H0 / H1 / H5 | Normal, early-capture, and open-Shadow-DOM payment CTAs are stopped before page handlers; notice has only Close; page tampering cannot authorize or replay; every click is blocked and recorded again |
-| F3a–F3d | Privacy-trap forms and payment actions in an ordinary child frame are stopped before navigation/POST; closing the notice does not submit |
+| F3a–F3e | Privacy-trap forms, scripted `form.submit()`, and payment actions in an ordinary child frame are stopped before navigation/POST; closing the notice does not submit |
 | F4a–F4e / H2–H4 | fetch, XHR, sendBeacon, form, declared encodings, and operation queries are blocked by DNR before the server; legacy decision/scope messages and the removed 15-second timeout cannot release |
-| F5a–F5d | GET, ordinary POST, body-only payment semantics, pay-prefixed ordinary words, and nested query text are not falsely blocked |
+| F5a–F5e | GET, ordinary POST, body-only payment semantics, pay-prefixed ordinary words, nested query text, and ordinary `form.submit()` are not falsely blocked |
 | M1–M4 | Mutation storms are deduplicated and throttled without losing a distinct later finding |
 | P1–P4 | GA has no Native permission and hides unavailable controls; counters, Recent, and visible trilingual copy are correct |
 
@@ -34,7 +34,7 @@ make check-extension-gate
 make e2e-extension
 ```
 
-Success requires exit code 0, a final `AGENTGUARD_E2E_EXTENSION=PASS` line, `all_pass: true` in `report.json`, and exactly the 39 expected PASS records. Preserve the Chromium version in the report; never relabel it as release Chrome or Edge evidence.
+Success requires exit code 0, a final `AGENTGUARD_E2E_EXTENSION=PASS` line, `all_pass: true` in `report.json`, and the 95 expected PASS records (41 base and 54 experimental webmail checks). A PASS for a known bypass confirms that the gap remains reproducible; it does not mean protection succeeded. Preserve the Chromium version in the report; never relabel it as release Chrome or Edge evidence.
 
 ## Manual candidate-ZIP acceptance in Chrome / Edge
 
@@ -45,7 +45,7 @@ Run separately in both release browsers using the same store-candidate ZIP. Do n
 | B1 | Record ZIP SHA-256, manifest version, and release-browser version; unpack and load | Chrome and Edge use the same SHA-256; manifest lacks `nativeMessaging`; no unexpected permission prompt | Hash, versions, extension-details page |
 | B2 | Install in a clean profile and open onboarding and popup | Icons, trilingual copy, and permission disclosure render correctly; no Native control is visible; `payment_shape_block` is enabled | Onboarding, popup, ruleset state |
 | B3 | Repeat F2, H5, F3, F4a/F4c/F4d, and F5a/F5b/F5d against local fixtures | Payment/trap actions have no side effect; positive network cases make zero server requests; negatives arrive; notice has only Close and closing never executes | Page result, Network panel, server counts |
-| B4 | Upgrade in place from the previous public version to the same candidate ZIP | No new Native permission; legacy pause, dynamic host rules, and badge are cleared; representative blocking covered by the 39 cases still works | Before/after permissions, storage/rules, popup |
+| B4 | Upgrade in place from the previous public version to the same candidate ZIP | No new Native permission; legacy pause, dynamic host rules, and badge are cleared; representative blocking covered by the 41 cases still works | Before/after permissions, storage/rules, popup |
 | B5 | Disable, re-enable, uninstall, then exercise the documented rollback to the previous candidate | Browser state is predictable and no page-approval state remains; rollback is not recorded as a PASS for the current candidate | Operation log and final extension state |
 
 If either browser is missing, any row is indeterminate, or evidence is not bound to the candidate ZIP, record `BLOCKED`; do not collapse the result into “Chromium passed.”
@@ -61,7 +61,7 @@ The Chrome report contains the exact line `AGENTGUARD_ACCEPTANCE_CHROME=PASS`; t
 
 ## Explicit boundaries
 
-- The DOM guarantee covers only HTTP(S) frames where the extension is actually injected and can observe a recognizable `click` / `submit` event. Direct `form.submit()`, uninjected special frames, custom pointer/keyboard pre-handlers, and native-app actions are outside it.
+- The DOM guarantee covers HTTP(S) frames where the extension is actually injected: observable `click` / `submit`, and unmodified `form.submit()`. A page that restores the native method from an iframe, uninjected special frames, custom pointer/keyboard pre-handlers, and native-app actions are outside it.
 - Static DNR covers only the documented HTTP(S), non-GET/HEAD, payment keywords/encodings, query keys, and resource types. It does not inspect bodies or cover undeclared aliases, double encoding, WebSocket/WebTransport, or undeclared resource types.
 - The page notice is a page-influenceable information layer, not an authorization surface. Continuing requires disabling or removing protection in the extension manager and independently repeating the action.
 - Firefox and Safari prototypes, historical screenshots, and old acceptance reports are not first-GA Chrome / Edge evidence.

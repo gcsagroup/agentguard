@@ -240,8 +240,8 @@
       "area": "browser",
       "claim": "首个 GA 的 Chrome/Edge 扩展在页面动作执行前只阻断付款/陷阱提交,不在网页内授权或重放动作",
       "id": "browser-preexec-block",
-      "mechanism": "manifest 在 document_start 向所有可注入 frame 装 isolated content script;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调",
-      "note": "只承诺浏览器实际注入脚本且能观察到 click/submit 的 HTTP(S) frame;直接 form.submit()、未注入 frame 与不触发被监听事件的路径不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证",
+      "mechanism": "manifest 在 document_start 向所有可注入 frame 装 isolated content script;MAIN world 仅包装未改写的 form.submit 并把探测交给 isolated 门;content.js 捕获 click/submit 后同步 preventDefault + stopImmediatePropagation;guard-modal.js 只显示信息层,没有 allow 回调",
+      "note": "只承诺浏览器实际注入脚本的 HTTP(S) frame。click/submit 与未改写原型的 form.submit() 由 isolated 门同步阻断;页面从 iframe 恢复原生 submit、未注入 frame、不触发被监听事件的路径仍不在保证内;页面提示可被网页影响,只作信息层。用户若坚持继续,只能从 chrome://extensions 或 edge://extensions 停用/移除保护后自行重做;Chrome/Edge 商店候选仍须分别留证",
       "proven_by": [
         {
           "file": "apps/extension-chromium/scripts/gate.test.mjs",
@@ -262,6 +262,10 @@
         {
           "file": "apps/extension-chromium/scripts/content-event.test.mjs",
           "test": "危险表单提交也没有可泄漏的批准状态"
+        },
+        {
+          "file": "apps/extension-chromium/scripts/content-event.test.mjs",
+          "test": "脚本 form.submit 对陷阱表单同步阻断且普通表单不拦"
         },
         {
           "file": "apps/extension-chromium/scripts/manifests.test.mjs",
@@ -315,7 +319,7 @@
       "area": "browser",
       "claim": "页面消息不是允许或 scope 的信任根,伪造旧 decision/scope 不能配置网络放行",
       "id": "browser-page-message-not-authority",
-      "mechanism": "删除 guard-page.js 与全部 MAIN-world 注入;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外",
+      "mechanism": "删除 guard-page.js 与公开 request/decision/scope 通道;MAIN world 仅允许原生 submit 包装且不做判决;content.js 不监听/发布公开判决或 scope 消息;静态 DNR 无页面例外",
       "note": "敌对 E2E 另测伪 decision/scope 与旧 15 秒超时;结构测试防止公开通道回归;页面提示只是可被页面影响的信息层,没有授权能力",
       "proven_by": [
         {
@@ -850,7 +854,7 @@
     }
   ],
   "report": {
-    "distinct_tests": 95,
+    "distinct_tests": 96,
     "problems": [],
     "total_claims": 36
   }

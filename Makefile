@@ -178,6 +178,7 @@ check-extension-gate: node-toolchain-check
 	node apps/extension-chromium/scripts/gate.test.mjs
 	node apps/extension-chromium/scripts/mail.test.mjs
 	node apps/extension-chromium/scripts/content-event.test.mjs
+	node apps/extension-chromium/scripts/native-submit.test.mjs
 	node apps/extension-chromium/scripts/manifests.test.mjs
 	node apps/extension-chromium/scripts/strings.test.mjs
 	bash apps/extension-chromium/scripts/package-store.test.sh
@@ -200,7 +201,7 @@ shell-a11y: node-toolchain-check
 	node eval/ui-preview/shell-a11y.mjs
 
 ## Chromium 扩展真浏览器 E2E(开发工具,不进 release-gate:需要 playwright+Chromium)。
-## 把 apps/extension-chromium 原样装进真 Chromium,对 eval/acceptance-fixtures 跑 39 条机器判据
+## 把 apps/extension-chromium 原样装进真 Chromium,跑 41 条基础判据和 54 条实验性邮箱检查
 ## (规则支持/注入上报/DOM 与 open Shadow/frame 只阻断/DNR 正负例/升级清理/变异节流/popup)。
 ## 结论落 eval/e2e-extension/out/report.json,最后一行 AGENTGUARD_E2E_EXTENSION=PASS|FAIL。
 ## 首个 GA 无 Native Messaging；Firefox 仅保留源码原型，不打包、不提交、不作 GA 门禁。

@@ -2234,6 +2234,7 @@ fn start_sck_auto_poller(
                                 bring_to_front(&app);
                             }
                         });
+                        halt_cooperative_followups(&app, &dto.decisions);
                     }
                     Ok(None) => {}
                     Err(e) => {
@@ -3102,6 +3103,7 @@ fn start_ax_auto_poller(
                                 bring_to_front(&app);
                             }
                         });
+                        halt_cooperative_followups(&app, &dto.decisions);
                     }
                     Ok(None) => {}
                     Err(e) => {
@@ -3284,6 +3286,35 @@ fn process_one(
         enqueue_confirm(state, engine, req)?;
     }
     Ok(to_dto(&d))
+}
+
+fn independent_observation_risk(d: &DecisionDto) -> bool {
+    d.require_confirm && matches!(d.action.as_str(), "Block" | "Alert")
+}
+
+/// 独立高风险观察不能撤销外部点击，但应停住同一会话里经网关的后续工具。
+fn halt_cooperative_followups(app: &AppHandle, decisions: &[DecisionDto]) {
+    let rules: Vec<String> = decisions
+        .iter()
+        .filter(|d| independent_observation_risk(d))
+        .map(|d| d.rule_id.clone())
+        .collect();
+    if rules.is_empty() {
+        return;
+    }
+    let _ = app.emit("cooperative-halted", serde_json::json!({ "rules": rules }));
+    // 工作区暂停可能走 HTTP，不能占用观察轮询线程。
+    let app = app.clone();
+    let _ = std::thread::Builder::new()
+        .name("agentguard-halt".into())
+        .spawn(move || {
+            if let Some(manager) = app.try_state::<local_agent::AgentManager>() {
+                let _ = manager.halt_after_desktop_risk();
+            }
+            if let Some(gateway) = app.try_state::<gateway_confirm::GatewayConfirm>() {
+                let _ = gateway.halt_after_desktop_risk();
+            }
+        });
 }
 
 fn to_dto(d: &Decision) -> DecisionDto {
@@ -3482,6 +3513,7 @@ pub fn run() {
                                     if dto.decisions.iter().any(|d| d.require_confirm) {
                                         let _ = task_app.emit("sck-confirm-needed", ());
                                     }
+                                    halt_cooperative_followups(&task_app, &dto.decisions);
                                 }
                                 Err(e) => {
                                     let _ = task_app
@@ -4862,5 +4894,25 @@ mod 桌面被动观察回归 {
         let pending = state.pending.lock().unwrap();
         assert_eq!(pending.len(), 1);
         assert!(pending.front().unwrap().request.audit_id.is_some());
+        assert!(independent_observation_risk(&decisions[0]));
+    }
+
+    #[test]
+    fn 视树差异只记录观察不停住网关() {
+        let state = state();
+        let decisions = process_events(
+            &state,
+            vec![event(
+                EventType::ScreenFrame,
+                "[AG_VIEWTREE_TREE_ONLY] 普通设置文字",
+                1,
+            )],
+        )
+        .unwrap();
+        assert_eq!(decisions[0].rule_id, "OVL-010");
+        assert_eq!(decisions[0].action, "LogOnly");
+        assert!(!decisions[0].require_confirm);
+        assert!(!independent_observation_risk(&decisions[0]));
+        assert!(state.pending.lock().unwrap().is_empty());
     }
 }

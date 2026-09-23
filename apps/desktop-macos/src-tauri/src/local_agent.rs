@@ -1180,6 +1180,22 @@ impl AgentManager {
         run.view()
     }
 
+    /// 桌面独立高风险后暂停当前本地任务；没有运行中的任务则忽略。
+    pub(crate) fn halt_after_desktop_risk(&self) -> Result<(), String> {
+        let run = self.0.lock().map_err(|_| "LOCAL_AGENT_STATE")?.clone();
+        let Some(run) = run else {
+            return Ok(());
+        };
+        let phase = run.view()?.phase;
+        if matches!(
+            phase.as_str(),
+            "running" | "awaiting_review" | "ready" | "paused"
+        ) {
+            let _ = run.control("pause");
+        }
+        Ok(())
+    }
+
     pub(crate) fn control_connection(
         &self,
         connection: &str,

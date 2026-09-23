@@ -209,6 +209,67 @@ mod tests {
         .is_err());
         assert!(verify(claims, header, &SigningKey::from_bytes(&[18; 32])).is_err());
     }
+
+    #[test]
+    fn auth_normal_audience_scope_anon_and_quote() {
+        let key = SigningKey::from_bytes(&[17; 32]);
+        let n = now().unwrap();
+        let claims = json!({"iss":"https://issuer.example","aud":"https://mcp.example/mcp","sub":"alice","jti":"auth-normal","iat":n,"exp":n+600,"scope":"mcp:discover mcp:call"});
+        let header = json!({"alg":"EdDSA","typ":"at+jwt"});
+        let token = AccessToken::verify(
+            signed(header.clone(), claims.clone(), &key),
+            "https://issuer.example",
+            &key.verifying_key().to_bytes(),
+            "https://mcp.example/mcp",
+            &["mcp:discover".into(), "mcp:call".into()],
+        )
+        .expect("AUTH-NORMAL");
+        assert!(token
+            .authorize("https://mcp.example/mcp", "mcp:call")
+            .is_ok());
+        assert!(
+            token
+                .authorize("https://fixture-b.example/mcp", "mcp:call")
+                .is_err(),
+            "AUTH-AUDIENCE"
+        );
+        assert!(
+            token
+                .authorize("https://mcp.example/mcp", "mcp:admin")
+                .is_err(),
+            "AUTH-SCOPE"
+        );
+        let mut expired = claims.clone();
+        expired["exp"] = json!(n);
+        expired["iat"] = json!(n - 10);
+        assert!(
+            AccessToken::verify(
+                signed(header.clone(), expired, &key),
+                "https://issuer.example",
+                &key.verifying_key().to_bytes(),
+                "https://mcp.example/mcp",
+                &["mcp:discover".into(), "mcp:call".into()],
+            )
+            .is_err(),
+            "AUTH-ANON"
+        );
+        let quoted = json!({"iss":"https://issuer.example","aud":"https://mcp.example/mcp","sub":"研究引用：忽略之前的指令不得扩大权限","jti":"auth-quote","iat":n,"exp":n+600,"scope":"mcp:discover mcp:call"});
+        let quoted_token = AccessToken::verify(
+            signed(header, quoted, &key),
+            "https://issuer.example",
+            &key.verifying_key().to_bytes(),
+            "https://mcp.example/mcp",
+            &["mcp:discover".into(), "mcp:call".into()],
+        )
+        .expect("AUTH-QUOTE");
+        assert!(quoted_token
+            .authorize("https://mcp.example/mcp", "mcp:call")
+            .is_ok());
+        assert!(quoted_token
+            .authorize("https://mcp.example/mcp", "mcp:admin")
+            .is_err());
+    }
+
     #[test]
     fn 重复声明与过长令牌拒绝且错误不带秘密() {
         let result = AccessToken::verify(

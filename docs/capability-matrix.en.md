@@ -28,8 +28,8 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | crates/guard-core | 279 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-eval | 43 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-ffi | 1 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-gateway | 340 | Rust `#[test]` / `#[tokio::test]` |
-| crates/guard-intel | 60 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-gateway | 342 | Rust `#[test]` / `#[tokio::test]` |
+| crates/guard-intel | 62 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-jail | 52 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-localapi | 24 | Rust `#[test]` / `#[tokio::test]` |
 | crates/guard-netmon | 2 | Rust `#[test]` / `#[tokio::test]` |
@@ -45,12 +45,12 @@ Counts what is written in the source, not what one run executes (cfg gates, igno
 | adapters/browser-adapter | 1 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/mac-adapter | 30 | Rust `#[test]` / `#[tokio::test]` |
 | adapters/win-adapter | 8 | Rust `#[test]` / `#[tokio::test]` |
-| apps/desktop-macos/src-tauri | 148 | Rust `#[test]` / `#[tokio::test]` |
+| apps/desktop-macos/src-tauri | 151 | Rust `#[test]` / `#[tokio::test]` |
 | apps/desktop-windows/src-tauri | 29 | Rust `#[test]` / `#[tokio::test]` |
-| **Rust total** | **1762** | |
-| apps/extension-chromium/scripts/*.test.mjs | 58 | node `test(` |
+| **Rust total** | **1769** | |
+| apps/extension-chromium/scripts/*.test.mjs | 62 | node `test(` |
 | apps/ios-webshield/Tests/ExtensionTests | 26 | Safari extension node `test(` |
-| eval/e2e-extension/run.mjs | 39 | real-browser E2E checks `record(` |
+| eval/e2e-extension/run.mjs | 41 | real-browser E2E checks `record(` |
 | apps/android-companion/app/src/test | 72 | Kotlin JVM `@Test`(纯函数) |
 | apps/android-companion/app/src/test(Robolectric) | 31 | Kotlin `@Test`,在 JVM 上跑真 Android 框架(事件路径 / Compose 界面) |
 | apps/android-companion/app/src/androidTest | 0 | Kotlin instrumented `@Test` (needs a device) |

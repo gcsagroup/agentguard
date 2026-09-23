@@ -1,0 +1,72 @@
+{
+  "date": "2026-09-22",
+  "scope": "接通已有 AUTH/EGRESS/PRIV-004 入口；IMPORT/PACKAGE/UNICODE 仍留队列",
+  "bundle_unchanged": true,
+  "keyword_rules_added": false,
+  "results": [
+    {
+      "id": "AUTH-NORMAL-AUDIENCE-SCOPE-ANON-QUOTE",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "guard-gateway",
+        "auth_normal_audience_scope_anon_and_quote"
+      ],
+      "exit": 0,
+      "passed": true,
+      "stderr_tail": "    Blocking waiting for file lock on package cache\n    Blocking waiting for file lock on package cache\n   Compiling guard-gateway v1.0.0-rc.1 (/Users/lazy/Projects/agent-guard/crates/guard-gateway)\n    Finished `test` profile [optimized + debuginfo] target(s) in 14.92s\n     Running unittests src/lib.rs (target/debug/deps/guard_gateway-b62a9ae90b60371a)\n     Running unittests src/bin/agentguard_mcp.rs (target/debug/deps/agentguard_mcp-77c4444b37e68099)\n     Running tests/control_http.rs (target/debug/deps/control_http-dfa27e2939afe172)\n     Running tests/egress_control.rs (target/debug/deps/egress_control-c6af21391cf6bce1)\n     Running tests/mcp_remote.rs (target/debug/deps/mcp_remote-c11e644dee58578c)\n     Running tests/stdio_lifecycle.rs (target/debug/deps/stdio_lifecycle-6a2e495a5ad30dfb)\n     Running tests/workspace_control.rs (target/debug/deps/workspace_control-0ee0c2d42b8c21d0)\n     Running tests/writeback_engine.rs (target/debug/deps/writeback_engine-b0178f1492121f4a)\n"
+    },
+    {
+      "id": "AUTH-ORIGIN",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "guard-gateway",
+        "--test",
+        "control_http",
+        "auth_origin_rejects_non_loopback_host_and_origin"
+      ],
+      "exit": 0,
+      "passed": true,
+      "stderr_tail": "    Finished `test` profile [optimized + debuginfo] target(s) in 0.15s\n     Running tests/control_http.rs (target/debug/deps/control_http-dfa27e2939afe172)\n"
+    },
+    {
+      "id": "AUTH-REVOKE-EGRESS",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "guard-gateway",
+        "--test",
+        "egress_control"
+      ],
+      "exit": 0,
+      "passed": true,
+      "stderr_tail": "    Finished `test` profile [optimized + debuginfo] target(s) in 0.18s\n     Running tests/egress_control.rs (target/debug/deps/egress_control-c6af21391cf6bce1)\n"
+    },
+    {
+      "id": "MEMORY-PRIV-004",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "guard-core",
+        "持久记忆中的安装文档不当作待执行安装且保存仍需批准"
+      ],
+      "exit": 0,
+      "passed": true,
+      "stderr_tail": "   Compiling base64ct v1.8.3\n   Compiling serde_core v1.0.229\n   Compiling serde v1.0.229\n   Compiling serde_json v1.0.151\n   Compiling hashbrown v0.17.1\n   Compiling percent-encoding v2.3.2\n   Compiling sha2 v0.10.9\n   Compiling idna v1.1.0\n   Compiling form_urlencoded v1.2.2\n   Compiling ed25519-dalek v2.2.0\n   Compiling pem-rfc7468 v0.7.0\n   Compiling der v0.7.10\n   Compiling url v2.5.8\n   Compiling indexmap v2.14.0\n   Compiling ureq v2.12.1\n   Compiling spki v0.7.3\n   Compiling pkcs8 v0.10.2\n   Compiling sec1 v0.7.3\n   Compiling elliptic-curve v0.13.8\n   Compiling primeorder v0.13.6\n   Compiling ecdsa v0.16.9\n   Compiling p256 v0.13.2\n   Compiling serde_yaml v0.9.34+deprecated\n   Compiling guard-schema v1.0.0-rc.1 (/Users/lazy/Projects/agent-guard/crates/guard-schema)\n   Compiling guard-privacy v1.0.0-rc.1 (/Users/lazy/Projects/agent-guard/crates/guard-privacy)\n   Compiling guard-intel v1.0.0-rc.1 (/Users/lazy/Projects/agent-guard/crates/guard-intel)\n   Compiling guard-audit v1.0.0-rc.1 (/Users/lazy/Projects/agent-guard/crates/guard-audit)\n   Compiling guard-core v1.0.0-rc.1 (/Users/lazy/Projects/agent-guard/crates/guard-core)\n    Finished `test` profile [optimized + debuginfo] target(s) in 17.49s\n     Running unittests src/lib.rs (target/debug/deps/guard_core-33048257cbfe3177)\n     Running tests/桌面观察告警.rs (target/debug/deps/桌面观察告警-1f20e858e7316ea6)\n"
+    }
+  ],
+  "remaining": [
+    "IMPORT/PACKAGE 正常查询误报未解决，不写子串拦截",
+    "UNICODE 正常对照失败保留",
+    "EGRESS 真实隔离会话的直接 socket/宿主别名核验仍以既有 AGD-008 记录为准，本批只复跑组件入口"
+  ]
+}

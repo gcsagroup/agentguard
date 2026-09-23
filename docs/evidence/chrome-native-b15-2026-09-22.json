@@ -1,0 +1,82 @@
+{
+  "date": "2026-09-22",
+  "zip": "apps/extension-chromium/dist/agentguard-extension.zip",
+  "zipSha": "cc85c0aeae77aa2b15c886729f53c052add4d45dfef7a52b06e3a32d72e5b0f5",
+  "method": "official headed Chrome; CDP Extensions.loadUnpacked of the candidate ZIP unpack; not the chrome://extensions directory picker; B4 N/A; Edge missing",
+  "reports": [
+    {
+      "browser": "chrome",
+      "version": "Google Chrome 153.0.8010.52",
+      "zipSha": "cc85c0aeae77aa2b15c886729f53c052add4d45dfef7a52b06e3a32d72e5b0f5",
+      "cases": [
+        {
+          "id": "B1",
+          "name": "candidate ZIP identity, official browser, no nativeMessaging",
+          "status": "PASS",
+          "detail": "sha256=cc85c0aeae77aa2b15c886729f53c052add4d45dfef7a52b06e3a32d72e5b0f5 version=Google Chrome 153.0.8010.52 native=false"
+        },
+        {
+          "id": "B2",
+          "name": "clean profile: popup/onboarding render, static ruleset enabled, no Native controls",
+          "status": "PASS",
+          "detail": "id=gjhlaaclgojanmkhfgjmoaoifghblnmb ruleset=true nativeHidden=true"
+        },
+        {
+          "id": "B3",
+          "name": "F2/H5/F3/F4a/F4c/F4d/F5a/F5b/F5d against local fixtures",
+          "status": "PASS",
+          "detail": "pay=true shadow=true trap=true fetch=true beaconQueued=true hits=[{\"method\":\"GET\",\"path\":\"/favicon.ico\"},{\"method\":\"GET\",\"path\":\"/pay/status\"},{\"method\":\"POST\",\"path\":\"/api/search\"},{\"method\":\"POST\",\"path\":\"/payroll\"}]"
+        },
+        {
+          "id": "B4",
+          "name": "upgrade from previous public version",
+          "status": "N/A",
+          "detail": "no confirmed previous public release"
+        },
+        {
+          "id": "B5",
+          "name": "restart keeps block-only; launching without the extension leaves no page-approval residue",
+          "status": "PASS",
+          "detail": "restartBlocked=true uninstalledNoDialog=true"
+        }
+      ]
+    },
+    {
+      "browser": "edge",
+      "version": null,
+      "zipSha": "cc85c0aeae77aa2b15c886729f53c052add4d45dfef7a52b06e3a32d72e5b0f5",
+      "cases": [
+        {
+          "id": "B1",
+          "name": "load",
+          "status": "BLOCKED",
+          "detail": "Microsoft Edge.app not installed"
+        },
+        {
+          "id": "B2",
+          "name": "popup",
+          "status": "BLOCKED",
+          "detail": "browser missing"
+        },
+        {
+          "id": "B3",
+          "name": "fixtures",
+          "status": "BLOCKED",
+          "detail": "browser missing"
+        },
+        {
+          "id": "B4",
+          "name": "upgrade",
+          "status": "N/A",
+          "detail": "no previous public release"
+        },
+        {
+          "id": "B5",
+          "name": "lifecycle",
+          "status": "BLOCKED",
+          "detail": "browser missing"
+        }
+      ]
+    }
+  ]
+}
