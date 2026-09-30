@@ -935,7 +935,10 @@ impl GatewayConfirm {
             };
             (
                 connection.id.clone(),
-                connection.displayed.as_ref().map(|request| request.id.clone()),
+                connection
+                    .displayed
+                    .as_ref()
+                    .map(|request| request.id.clone()),
                 connection.supports_workspace,
             )
         };

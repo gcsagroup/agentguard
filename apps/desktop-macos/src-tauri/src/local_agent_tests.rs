@@ -166,6 +166,22 @@ impl ModelFixture {
     }
 
     fn request(&self, path: &str) -> String {
+        if path == "/v1/chat/completions" {
+            // 首次模型请求要等独立的网关初始化完成；8 秒收件期限只计模型请求本身。
+            // CI 上的 Python 冷启动曾超过 8 秒，与本组停止／迟到回执语义无关。
+            let run = self
+                .run
+                .lock()
+                .unwrap()
+                .as_ref()
+                .and_then(std::sync::Weak::upgrade)
+                .unwrap();
+            let deadline = Instant::now() + Duration::from_secs(15);
+            while run.view().unwrap().phase == "starting" {
+                assert!(Instant::now() < deadline, "合成网关初始化应在 15 秒内完成");
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
         let request = self
             .requests
             .recv_timeout(Duration::from_secs(8))
