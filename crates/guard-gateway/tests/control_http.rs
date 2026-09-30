@@ -102,13 +102,17 @@ fn wait_for(mut condition: impl FnMut() -> bool) {
 }
 
 fn assert_listener_closed(address: SocketAddr, phase: &str) {
-    // 失败时保留探测双方的地址和 socket 信息，为残留监听或端口复用提供定位线索。
-    // 仍要求第一次探测就失败，不重试、不吞掉成功连接。
+    // Windows 在目标端口刚释放时可能把同一端口分给探测端，形成回环自连。
+    // 这种连接没有到达监听器；其它成功连接仍表示监听器可能残留。
     let connection = TcpStream::connect(address);
-    assert!(
-        connection.is_err(),
-        "监听入口销毁后仍可连接：phase={phase}, target={address}, connection={connection:?}"
-    );
+    if let Ok(stream) = &connection {
+        let self_connected =
+            stream.local_addr().ok() == Some(address) && stream.peer_addr().ok() == Some(address);
+        assert!(
+            self_connected,
+            "监听入口销毁后仍可连接：phase={phase}, target={address}, connection={connection:?}"
+        );
+    }
 }
 
 #[test]
@@ -373,15 +377,17 @@ fn dropping_idle_or_unstarted_listener_releases_port_and_workers() {
             assert!(server.start(Arc::new(ok)).is_err());
         }
         drop(server);
-        assert_listener_closed(
-            address,
-            if start {
-                "已启动的空闲入口"
-            } else {
-                "未启动的入口"
-            },
-        );
-        let rebound = std::net::TcpListener::bind(address).unwrap();
+        // 直接重绑原地址证明端口已释放，避免连接探测刚好自连占住该端口。
+        let rebound = std::net::TcpListener::bind(address).unwrap_or_else(|error| {
+            panic!(
+                "监听入口销毁后端口未释放：phase={}, target={address}, error={error}",
+                if start {
+                    "已启动的空闲入口"
+                } else {
+                    "未启动的入口"
+                }
+            )
+        });
         drop(rebound);
     }
 }
