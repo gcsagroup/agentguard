@@ -1,6 +1,6 @@
 # GCSA AgentGuard 开发计划
 
-2026-10-01：按 Android Debug／Release 构建开关和中继端点校验修正三语[隐私说明草案](privacy-policy.md)：当前 Release 不提供 Android 中继，Debug 开发构建才可由用户配置；明文 HTTP 仅限 `127.0.0.1`，LAN 须用 HTTPS；跨平台候选不再共用单一产品版本号。这是源码披露修正，不构成正式隐私政策、真机验收或 GA 发布证据。
+2026-10-01：按 Android Debug／Release 构建开关和中继端点校验修正三语[隐私说明草案](privacy-policy.md)：当前 Release 不提供 Android 中继，Debug 开发构建才可由用户配置；明文 HTTP 仅限 `127.0.0.1`，LAN 须用 HTTPS，并移除网络配置中无用的 `localhost`／`10.0.2.2` 明文例外；跨平台候选不再共用单一产品版本号。这不构成正式隐私政策、真机验收或 GA 发布证据。
 
 2026-10-01：`63bdda5` 的远端 CI 13／13 成功；后续文档提交 `4ea9bc1` 的 CI 为 12／13，macOS 原生壳再现既有 8 秒合成网关启动超时，138 项通过／1 项失败／11 项忽略，根因仍未关闭。同期从准确 CI 取回 Android Debug APK，核对包元数据与签名后，另制备与 Pixel 旧安装同证书的开发重签副本，122 个非签名文件和 CI 原包一致；本机重建受 Maven TLS 握手失败阻断。尚未在 Pixel 安装；Chrome 当前源码共用 ZIP 已重新打包并建立独立资料，加载本地扩展及手机更新均待具体确认。相关真实平台验收和 12 类 RC 证据未完成，发布仍为 No-Go。见[AGD-032 接续记录](agd-032-ci-gateway-2026-09-30.zh.md)。
 
