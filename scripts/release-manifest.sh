@@ -3,8 +3,7 @@
 #
 # 这不是代码签名。它能回答的问题只有一个：**你手上这个文件，和发布方生成的那个
 # 是不是同一个字节序列**——前提是你从一条独立的渠道拿到了这份清单。它答不了
-# "这个文件真的来自 AgentGuard 吗"，那需要一个签名身份，本项目没有（见
-# docs/release-security.md 的"没有代码签名身份"一节）。
+# "这个文件真的来自 AgentGuard 吗"，那需要按各平台发布门禁独立核对签名身份。
 #
 # 把这条限制说清楚，比装作有更有用：一个只有 checksum 的发布，如果 checksum 和
 # 产物放在同一个页面上，攻击者改了产物顺手就把 checksum 也改了。
@@ -38,12 +37,12 @@ while IFS= read -r file; do
   FILES[${#FILES[@]}]="$file"
 done < <(cd "$DIR" && find . -maxdepth 2 -type f \
   \( -name '*.tar.gz' -o -name '*.tgz' -o -name '*.zip' -o -name '*.dmg' \
-     -o -name '*.msi' -o -name '*.exe' -o -name '*.apk' -o -name '*.aab' \
-     -o -name '*.deb' -o -name '*.crx' \) \
+     -o -name '*.pkg' -o -name '*.ipa' -o -name '*.msi' -o -name '*.exe' \
+     -o -name '*.apk' -o -name '*.aab' -o -name '*.deb' -o -name '*.crx' \) \
   ! -name 'SHA256SUMS' | sed 's|^\./||' | sort)
 
 if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "在 $DIR 里没找到任何发布产物（tar.gz/zip/dmg/msi/exe/apk/aab/deb/crx）" >&2
+  echo "在 $DIR 里没找到任何发布产物（tar.gz/zip/dmg/pkg/ipa/msi/exe/apk/aab/deb/crx）" >&2
   exit 1
 fi
 
@@ -68,5 +67,6 @@ echo "写出 ${OUT}（${#FILES[@]} 个产物）"
 cat "$OUT"
 echo
 printf '核对：cd %q && %s %q\n' "$DIR" "$VERIFY_CMD" "$OUT"
-echo "注意：checksum 只证明字节一致，不证明来源。本项目没有代码签名身份——"
-echo "      这份清单必须通过和产物**不同**的渠道分发，否则它什么都不保证。"
+echo "注意：checksum 只证明字节一致，不证明签名身份或来源。"
+echo "      签名须按各平台发布门禁另行核对；清单应通过独立渠道分发。"
+echo "      只扫描目录两级内的受支持独立文件；.app 目录须先制成分发包。"
