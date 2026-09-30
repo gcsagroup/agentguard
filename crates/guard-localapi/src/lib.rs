@@ -1079,6 +1079,15 @@ mod tests {
         panic!("server on 127.0.0.1:{port} did not become ready in time");
     }
 
+    /// 给 HTTP 集成测试选一个空闲的本机端口，避免与并行测试或本机服务撞端口。
+    fn available_loopback_port() -> u16 {
+        std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port()
+    }
+
     /// P1-7:审计库位置——符号链接、非普通文件、世界可写目录一律拒;私有目录放行并建成 0700。
     #[cfg(unix)]
     #[test]
@@ -1145,6 +1154,8 @@ mod tests {
     /// P1-7:请求体超过上限 → 413;limit 查询参数被夹到上限(不是 500 就是 413,绝不 OOM)。
     #[test]
     fn 请求体上限与limit夹紧() {
+        let port = available_loopback_port();
+        let base = format!("http://127.0.0.1:{port}");
         let dir = tempfile::tempdir().unwrap();
         let audit = dir.path().join("a.db");
         let rules =
@@ -1155,7 +1166,7 @@ mod tests {
         let handle = thread::spawn(move || {
             let _ = serve(
                 ApiConfig {
-                    bind: "127.0.0.1:18769".parse().unwrap(),
+                    bind: ([127, 0, 0, 1], port).into(),
                     rules,
                     audit_db: audit,
                     intel: None,
@@ -1174,13 +1185,13 @@ mod tests {
                 Some(flag),
             );
         });
-        wait_ready(18769);
+        wait_ready(port);
         let auth = "Bearer test-token-rc1-0123456789abcdef";
 
         // 超大 body → 413(confirm 走 read_json,events 走 read_body_capped,两条路都试)。
         let huge = "x".repeat(MAX_BODY_BYTES + 1);
         for path in ["/v1/confirm", "/v1/events"] {
-            let r = ureq::post(&format!("http://127.0.0.1:18769{path}"))
+            let r = ureq::post(&format!("{base}{path}"))
                 .set("Authorization", auth)
                 .set("Content-Type", "application/json")
                 .send_string(&huge);
@@ -1191,14 +1202,14 @@ mod tests {
             }
         }
         // 恰在上限内的合法小 body 仍然正常。
-        let ok = ureq::post("http://127.0.0.1:18769/v1/confirm")
+        let ok = ureq::post(&format!("{base}/v1/confirm"))
             .set("Authorization", auth)
             .set("Content-Type", "application/json")
             .send_string(r#"{"approve":true}"#)
             .unwrap();
         assert_eq!(ok.status(), 200);
         // limit 巨大 → 仍 200(被夹到 MAX_LIST_LIMIT),不是把整表拉进内存。
-        let r = ureq::get("http://127.0.0.1:18769/v1/audit/recent?limit=99999999999")
+        let r = ureq::get(&format!("{base}/v1/audit/recent?limit=99999999999"))
             .set("Authorization", auth)
             .call()
             .unwrap();
@@ -1210,6 +1221,8 @@ mod tests {
 
     #[test]
     fn health_open_status_requires_token() {
+        let port = available_loopback_port();
+        let base = format!("http://127.0.0.1:{port}");
         let dir = tempfile::tempdir().unwrap();
         let audit = dir.path().join("a.db");
         let rules =
@@ -1221,7 +1234,7 @@ mod tests {
         let handle = thread::spawn(move || {
             let _ = serve(
                 ApiConfig {
-                    bind: "127.0.0.1:18766".parse().unwrap(),
+                    bind: ([127, 0, 0, 1], port).into(),
                     rules,
                     audit_db: audit,
                     intel: None,
@@ -1240,18 +1253,18 @@ mod tests {
                 Some(flag),
             );
         });
-        wait_ready(18766);
-        let health = ureq::get("http://127.0.0.1:18766/health").call().unwrap();
+        wait_ready(port);
+        let health = ureq::get(&format!("{base}/health")).call().unwrap();
         assert_eq!(health.status(), 200);
 
-        let denied = ureq::get("http://127.0.0.1:18766/v1/status").call();
+        let denied = ureq::get(&format!("{base}/v1/status")).call();
         match denied {
             Err(ureq::Error::Status(code, _)) => assert_eq!(code, 401),
             Ok(r) => assert_eq!(r.status(), 401),
             Err(e) => panic!("unexpected: {e}"),
         }
 
-        let st = ureq::get("http://127.0.0.1:18766/v1/status")
+        let st = ureq::get(&format!("{base}/v1/status"))
             .set("Authorization", "Bearer test-token-rc1-0123456789abcdef")
             .call()
             .unwrap();
@@ -1264,6 +1277,8 @@ mod tests {
 
     #[test]
     fn events_endpoint_ingests_android_envelope() {
+        let port = available_loopback_port();
+        let base = format!("http://127.0.0.1:{port}");
         let dir = tempfile::tempdir().unwrap();
         let audit = dir.path().join("a.db");
         let rules =
@@ -1273,7 +1288,7 @@ mod tests {
         let handle = thread::spawn(move || {
             let _ = serve(
                 ApiConfig {
-                    bind: "127.0.0.1:18767".parse().unwrap(),
+                    bind: ([127, 0, 0, 1], port).into(),
                     rules,
                     audit_db: audit,
                     intel: None,
@@ -1292,11 +1307,11 @@ mod tests {
                 Some(flag),
             );
         });
-        wait_ready(18767);
+        wait_ready(port);
 
         // Unauthenticated → 401.
-        let denied = ureq::post("http://127.0.0.1:18767/v1/events")
-            .send_string(r#"{"type":"batch","events":[]}"#);
+        let denied =
+            ureq::post(&format!("{base}/v1/events")).send_string(r#"{"type":"batch","events":[]}"#);
         match denied {
             Err(ureq::Error::Status(code, _)) => assert_eq!(code, 401),
             other => panic!("expected 401, got {other:?}"),
@@ -1310,7 +1325,7 @@ mod tests {
                 {"type": "ui_text", "app": "com.evil.overlay", "text": "确认支付 ￥99"}
             ]
         }"#;
-        let resp = ureq::post("http://127.0.0.1:18767/v1/events")
+        let resp = ureq::post(&format!("{base}/v1/events"))
             .set("Authorization", "Bearer tok-0123456789abcdef0123456789")
             .send_string(envelope)
             .unwrap();
@@ -1321,7 +1336,7 @@ mod tests {
         assert_eq!(body["decisions"][0]["action"], "Block");
 
         // Malformed envelope → 400.
-        let bad = ureq::post("http://127.0.0.1:18767/v1/events")
+        let bad = ureq::post(&format!("{base}/v1/events"))
             .set("Authorization", "Bearer tok-0123456789abcdef0123456789")
             .send_string("not json");
         match bad {
@@ -1451,6 +1466,8 @@ mod tests {
     /// 实现能过一条只看状态码的测试。
     #[test]
     fn 端到端_伪造的干净调查清不掉锁存的风险() {
+        let port = available_loopback_port();
+        let base = format!("http://127.0.0.1:{port}");
         let dir = tempfile::tempdir().unwrap();
         let rules =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
@@ -1473,7 +1490,7 @@ mod tests {
         let handle = thread::spawn(move || {
             let _ = serve(
                 ApiConfig {
-                    bind: "127.0.0.1:18781".parse().unwrap(),
+                    bind: ([127, 0, 0, 1], port).into(),
                     rules,
                     audit_db: audit,
                     intel: None,
@@ -1492,12 +1509,12 @@ mod tests {
                 Some(flag),
             );
         });
-        wait_ready(18781);
+        wait_ready(port);
 
         // 返回 `bool` 而不是 `Result`:ureq 的错误类型很大(clippy 的
         // `result_large_err` 会说),而这条测试只关心这次 POST 有没有被接受。
         let post = |body: String, headers: Vec<(&str, String)>| -> bool {
-            let mut r = ureq::post("http://127.0.0.1:18781/v1/events")
+            let mut r = ureq::post(&format!("{base}/v1/events"))
                 .set("Authorization", &format!("Bearer {token}"))
                 .set("Content-Type", "application/json");
             for (k, v) in headers {
@@ -1506,7 +1523,7 @@ mod tests {
             r.send_string(&body).is_ok()
         };
         let risk_latched = || -> bool {
-            let s: String = ureq::get("http://127.0.0.1:18781/v1/status")
+            let s: String = ureq::get(&format!("{base}/v1/status"))
                 .set("Authorization", &format!("Bearer {token}"))
                 .call()
                 .unwrap()
@@ -1594,7 +1611,7 @@ mod tests {
         //    3 次无签名(1、2、5 的重锁存)、1 次坏签名(3)、1 次验过(4)、1 次重放(5)。
         //    回应体里也要带这次的结论,手机端 / 验收脚本都能直接读。
         let status: serde_json::Value = serde_json::from_str(
-            &ureq::get("http://127.0.0.1:18781/v1/status")
+            &ureq::get(&format!("{base}/v1/status"))
                 .set("Authorization", &format!("Bearer {token}"))
                 .call()
                 .unwrap()
@@ -1609,7 +1626,7 @@ mod tests {
         assert_eq!(ingress["last"]["state"], "replayed", "{ingress}");
         assert_eq!(ingress["last"]["adapter_id"], "companion");
         let resp: serde_json::Value = serde_json::from_str(
-            &ureq::post("http://127.0.0.1:18781/v1/events")
+            &ureq::post(&format!("{base}/v1/events"))
                 .set("Authorization", &format!("Bearer {token}"))
                 .set("Content-Type", "application/json")
                 .set(guard_schema::ADAPTER_HEADER_ID, "companion")
@@ -1685,12 +1702,13 @@ mod tests {
     /// 实现也能过。所以这里同时确认那个端口**没有**被占。
     #[test]
     fn 弱令牌不让服务器起来() {
+        let port = available_loopback_port();
         let dir = tempfile::tempdir().unwrap();
         let rules =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../guard-schema/rules/p0_rules.yaml");
         let err = serve(
             ApiConfig {
-                bind: "127.0.0.1:18771".parse().unwrap(),
+                bind: ([127, 0, 0, 1], port).into(),
                 rules: rules.clone(),
                 audit_db: dir.path().join("a.db"),
                 intel: None,
@@ -1717,7 +1735,7 @@ mod tests {
         );
         // 端口必须是空的:拒绝发生在 bind 之前。
         assert!(
-            std::net::TcpListener::bind("127.0.0.1:18771").is_ok(),
+            std::net::TcpListener::bind(("127.0.0.1", port)).is_ok(),
             "serve 在拒绝之前就把端口占了"
         );
     }

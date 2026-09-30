@@ -6,6 +6,10 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-032 real-gateway confirmation CI regression (2026-09-30)
+
+- Both post-merge CI runs failed the same desktop real-gateway fixture. The fixture now uses the exact Host and separately checks cross-origin HTTP 400 and missing-token HTTP 403. The real-gateway case passed locally. After local API tests switched to temporary ports, all 14 automated soft release checks passed; 12 RC evidence categories remain unverified. CI on the correction is pending. Android and iPhone devices are currently connected, while formal platform and signing evidence remains open. See the [record (Chinese)](docs/agd-032-ci-gateway-2026-09-30.zh.md).
+
 ### Source integration and local branch cleanup (2026-09-23)
 
 - Integrated active defense, local STIX round trips and performance-budget work. Only main and the primary checkout remain locally: 36 merged branches were removed, seven old worktrees were fully archived and restoration-verified, and two stale registrations were pruned.

@@ -2181,7 +2181,10 @@ mod tests {
         assert!(!denied.exists());
         assert!(state.answer(&connection_id, "wrong-id", true).is_err());
         // 不带令牌、跨站与错误请求编号均不能批准。
-        for auth in ["", "Origin: https://example.com\r\n"] {
+        for (auth, expected_status) in [
+            ("", "HTTP/1.1 403"),
+            ("Origin: https://example.com\r\n", "HTTP/1.1 400"),
+        ] {
             let mut socket = TcpStream::connect((Ipv4Addr::LOCALHOST, gateway.port)).unwrap();
             socket.set_read_timeout(Some(TIMEOUT)).unwrap();
             let bearer = if auth.is_empty() {
@@ -2189,10 +2192,11 @@ mod tests {
             } else {
                 format!("Authorization: Bearer {}\r\n", gateway.token)
             };
-            write!(socket, "GET /status HTTP/1.1\r\nHost: localhost\r\n{auth}{bearer}Connection: close\r\n\r\n").unwrap();
+            write!(socket, "GET /status HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n{auth}{bearer}Connection: close\r\n\r\n", gateway.port).unwrap();
             let mut buffer = [0; 1024];
             let n = socket.read(&mut buffer).unwrap();
-            assert!(String::from_utf8_lossy(&buffer[..n]).starts_with("HTTP/1.1 403"));
+            let response = String::from_utf8_lossy(&buffer[..n]);
+            assert!(response.starts_with(expected_status), "{response}");
         }
         state.poll(&connection_id).unwrap();
         state.answer(&connection_id, &request.id, false).unwrap();
