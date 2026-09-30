@@ -4,8 +4,8 @@
 
 新增預設關閉的實驗性網頁信箱模組：開啟後僅在候選 Gmail/Outlook 頁面本機讀取可識別的主旨、正文、收件人欄位及附件存在狀態。郵件專項記錄只保留固定風險類別、阻斷狀態、時間、網站來源與 Gmail/Outlook 固定名稱；不存正文、主旨、地址、附件名或完整連結，不讀取附件內容，不呼叫信箱 API 或轉送到桌面端。模組無法阻止信箱本身草稿同步、直接 API 或未覆蓋路徑；關閉只停止郵件專項，既有付款規則保持啟用。
 
-- **最後更新：** 2026-09-07
-- **產品版本：** 1.0.0-rc.1
+- **最後更新：** 2026-10-01
+- **適用版本：** 各平台目前的原始碼候選；準確版本以對應安裝套件的中繼資料為準
 - **適用範圍：** macOS、Windows、Android 伴生應用程式、iOS WebShield/Safari Extension、首個 GA 的 Chrome/Edge Chromium 擴充功能、CLI 與本機 API
 
 > 這是隨原始碼提供的技術揭露草案，不是已完成法律審閱的正式隱私權政策。公開散布前必須補充有效的營運主體、聯絡方式、適用地區與資料保留條款。
@@ -14,7 +14,7 @@ Firefox manifest 與 Native Messaging host 僅作為儲存庫原始碼原型保�
 
 ## 摘要
 
-AgentGuard 預設在本機處理觀測資料，不提供預設雲端帳號、遙測或廠商上傳服務。使用者或企業可主動設定威脅情報、政策同步、Android 中繼或本機 API；這些連線的目標、傳輸安全與資料保留由實際部署設定決定。
+AgentGuard 預設在本機處理觀測資料，不提供預設雲端帳號、遙測或廠商上傳服務。使用者或企業可主動設定威脅情報、政策同步或本機 API；Android 中繼僅能在 Debug 開發建置中設定，目前 Release 建置已關閉。可用連線的目標、傳輸安全與資料保留由實際部署設定決定。
 
 | 資料 | 預設是否離開裝置 | 說明 |
 |---|---|---|
@@ -24,7 +24,7 @@ AgentGuard 預設在本機處理觀測資料，不提供預設雲端帳號、遙
 | iOS Safari 頁面事件 | 否 | 內容規則與原生合同在本機執行；僅保留規則/動作枚舉、時間和縮減到 origin 的 HTTP(S) URL，預設無上傳 |
 | 稽核資料庫 | 否 | 桌面 Release 建置強制 SQLCipher；CLI／開發建置可明確使用普通 SQLite |
 | 威脅情報與企業政策 | 可選下載 | 僅在部署方設定端點後存取；發布路徑要求簽章驗證 |
-| Android 中繼 | 可選 | 使用者可設定 loopback、ADB reverse 或 LAN 位址 |
+| Android 中繼 | Release 不可用；Debug 可選 | Debug 開發建置由使用者設定 loopback、ADB reverse 或 LAN 位址；目前 Release 建置不轉送 |
 | 當機遙測與廣告追蹤 | 否 | 目前原始碼候選未整合預設遙測或廣告 SDK |
 
 ## 本機處理的資料
@@ -56,7 +56,7 @@ Android Keystore 中的適配器私鑰依設計不可匯出。macOS Release 將�
 - 核心規則判斷預設不需要網際網路。
 - 威脅情報與企業政策只在使用者或組織設定端點後下載。
 - 本機 API 預設綁定 loopback 並要求 Bearer token；只有明確使用 `--allow-lan` 才允許 LAN 綁定。LAN 例外可能是明文 HTTP，部署方必須自行提供受信網路或額外傳輸保護。
-- Android 中繼由使用者主動設定；傳送內容與目標取決於該設定。
+- Android 中繼僅在 Debug 開發建置中可用，且須由使用者主動設定；傳送內容與目標取決於該設定。目前 Release 建置已關閉轉送。
 - 首個 GA 的 Chrome/Edge 擴充功能不申請 Native Messaging 權限，也不連接 AgentGuard 雲端服務。靜態 DNR 由瀏覽器本機依 URL、方法與資源類型比對；它不會讀取 HTTPS 請求 body。
 - iOS WebShield 沒有上傳端點、`connectNative` 長連線或遠端 DNR 情報；App 與 Safari Extension 透過本機 App Group/原生訊息交換最小化事件。
 

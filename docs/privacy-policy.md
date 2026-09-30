@@ -4,8 +4,8 @@
 
 新增默认关闭的实验性网页邮箱模块：开启后仅在候选 Gmail/Outlook 页面本地读取可识别的主题、正文、收件人字段及附件存在状态。邮件专项记录仅保留固定风险类别、阻断状态、时间、站点来源和 Gmail/Outlook 固定名称；不存正文、主题、地址、附件名或完整链接，不读取附件内容，不调用邮箱 API 或转发到桌面端。模块不能阻止邮箱自身草稿同步、直接 API 或其他未覆盖路径；关闭仅停止邮件专项，既有付款规则保持启用。
 
-- **最后更新：** 2026-09-07
-- **产品版本：** 1.0.0-rc.1
+- **最后更新：** 2026-10-01
+- **适用版本：** 各平台当前源码候选；准确版本以对应安装包元数据为准
 - **适用范围：** macOS、Windows、Android 伴生应用、iOS WebShield/Safari Extension、首个 GA 的 Chrome/Edge Chromium 扩展、CLI 与本地 API
 
 > 这是随源码提供的技术披露草案，不是已经完成法务审阅的正式隐私政策。公开分发前必须补充有效的运营主体、联系地址、适用地区和数据保留条款。
@@ -14,7 +14,7 @@ Firefox manifest 与 Native Messaging host 只作为仓库源码原型保留，�
 
 ## 摘要
 
-AgentGuard 默认在本机处理观测数据，不提供默认云端账户、遥测或厂商上传服务。用户或企业可以主动配置威胁情报、策略同步、Android 中继或本地 API；这些连接的目标、传输安全和数据保留由实际部署配置决定。
+AgentGuard 默认在本机处理观测数据，不提供默认云端账户、遥测或厂商上传服务。用户或企业可以主动配置威胁情报、策略同步或本地 API；Android 中继仅在 Debug 开发构建中可配置，当前 Release 构建已关闭。可用连接的目标、传输安全和数据保留由实际部署配置决定。
 
 | 数据 | 默认是否离开设备 | 说明 |
 |---|---|---|
@@ -24,7 +24,7 @@ AgentGuard 默认在本机处理观测数据，不提供默认云端账户、遥
 | iOS Safari 页面事件 | 否 | 内容规则和原生合同在本机执行；只保留规则/动作枚举、时间和缩减到 origin 的 HTTP(S) URL，默认无上传 |
 | 审计数据库 | 否 | 桌面发布版强制 SQLCipher；CLI/开发构建可显式使用普通 SQLite |
 | 威胁情报与企业策略 | 可选下载 | 仅在部署方配置端点后访问；发布路径要求签名验证 |
-| Android 中继 | 可选 | 用户可配置 loopback、ADB reverse 或 LAN 地址 |
+| Android 中继 | Release 不可用；Debug 可选 | Debug 开发构建中由用户配置 loopback、ADB reverse 或 LAN 地址；当前 Release 构建不转发 |
 | 崩溃遥测与广告追踪 | 否 | 当前源码候选未集成默认遥测或广告 SDK |
 
 ## 本机处理的数据
@@ -56,7 +56,7 @@ Android Keystore 中的适配器私钥按设计不可导出。macOS 发布版把
 - 核心规则判断默认不需要互联网。
 - 威胁情报和企业策略只在用户或组织配置端点后下载。
 - 本地 API 默认绑定 loopback 并要求 Bearer token；只有显式使用 `--allow-lan` 才允许 LAN 绑定。LAN 例外可能是明文 HTTP，部署方必须自行提供受信网络或额外传输保护。
-- Android 中继由用户主动配置；发送内容和目标取决于该配置。
+- Android 中继仅在 Debug 开发构建中可用且须由用户主动配置；发送内容和目标取决于该配置。当前 Release 构建已关闭转发。
 - 首个 GA 的 Chrome/Edge 扩展不申请 Native Messaging 权限，也不连接 AgentGuard 云服务。静态 DNR 由浏览器本地按 URL、方法与资源类型匹配；它不会读取 HTTPS 请求体。
 - iOS WebShield 没有上传端点、`connectNative` 长连接或远程 DNR 情报；App 与 Safari Extension 通过本机 App Group/原生消息交换最小化事件。
 

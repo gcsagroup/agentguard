@@ -4,8 +4,8 @@
 
 The new experimental webmail module is off by default. When enabled, it locally reads recognized subject, body, recipient fields and attachment-presence signals on candidate Gmail/Outlook pages. Mail-specific records retain only fixed risk category, blocked state, time, site origin and the fixed Gmail/Outlook label: no subject/body, addresses, filenames or full links. It does not inspect attachment contents, call mailbox APIs or forward mail data to the desktop. It cannot stop provider draft syncing, direct APIs or other uncovered paths. Turning it off stops mail-specific checks, not existing payment rules.
 
-- **Last updated:** 2026-09-07
-- **Product version:** 1.0.0-rc.1
+- **Last updated:** 2026-10-01
+- **Applicable versions:** Current source candidates for each platform; consult each package's metadata for its exact version
 - **Applies to:** macOS, Windows, the Android companion, iOS WebShield/Safari Extension, the first-GA Chrome/Edge Chromium extension, the CLI, and the local API
 
 > This is a technical disclosure draft shipped with the source. It is not a legally reviewed privacy policy. Before public distribution, add the real operator, contact details, applicable jurisdictions, and retention terms.
@@ -14,7 +14,7 @@ The Firefox manifest and Native Messaging host remain repository source prototyp
 
 ## Summary
 
-AgentGuard processes observations locally by default. It has no default cloud account, telemetry, or vendor upload service. A user or organization may configure threat-intelligence downloads, policy sync, the Android relay, or the local API; the destination, transport security, and retention of those connections depend on the deployment.
+AgentGuard processes observations locally by default. It has no default cloud account, telemetry, or vendor upload service. A user or organization may configure threat-intelligence downloads, policy sync, or the local API. The Android relay can be configured only in Debug development builds; it is disabled in the current Release build. The destination, transport security, and retention of available connections depend on the deployment.
 
 | Data | Leaves the device by default? | Notes |
 |---|---|---|
@@ -24,7 +24,7 @@ AgentGuard processes observations locally by default. It has no default cloud ac
 | iOS Safari page events | No | Content rules and the native contract run locally; only rule/action enums, time, and an HTTP(S) URL reduced to its origin are retained, with no default upload |
 | Audit database | No | Desktop Release builds require SQLCipher; CLI/development builds may explicitly use plain SQLite |
 | Threat intelligence and enterprise policy | Optional download | Accessed only after an operator configures an endpoint; release paths require signature verification |
-| Android relay | Optional | The user may configure loopback, ADB reverse, or a LAN address |
+| Android relay | Unavailable in Release; optional in Debug | In Debug development builds, the user may configure loopback, ADB reverse, or a LAN address; the current Release build does not forward events |
 | Crash telemetry and advertising tracking | No | The current source candidate includes no default telemetry or advertising SDK |
 
 ## Data processed locally
@@ -56,7 +56,7 @@ Android adapter private keys in Android Keystore are designed to be non-exportab
 - Core rule evaluation does not require internet access by default.
 - Threat intelligence and enterprise policies are downloaded only after a user or organization configures an endpoint.
 - The local API binds to loopback by default and requires a Bearer token. A LAN bind is allowed only with explicit `--allow-lan`. That exception may use plain HTTP, so the operator must provide a trusted network or additional transport protection.
-- The Android relay is explicitly configured by the user; its payload and destination depend on that configuration.
+- The Android relay is available only in Debug development builds and requires explicit user configuration; its payload and destination depend on that configuration. Forwarding is disabled in the current Release build.
 - The first-GA Chrome/Edge extension does not request Native Messaging permission and does not connect to an AgentGuard cloud service. Static DNR matches URL, method, and resource type locally in the browser; it does not inspect HTTPS request bodies.
 - iOS WebShield has no upload endpoint, `connectNative` long-lived connection, or remote DNR intelligence. The app and Safari Extension exchange minimized events locally through the App Group/native messaging contract.
 
