@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The envelope relay targets the desktop over `adb reverse` loopback (or a
-  user-configured LAN address) in plain HTTP. From API 28 the default base config
-  is cleartextTrafficPermitted="false", and the implicit localhost exemption only
-  exists from API 37 — so without this file the relay POST fails, and RelayClient
-  swallows the error, leaving the engine silently unreachable.
-
-  Scoped to loopback only: everything else stays cleartext-denied.
+  开发构建的中继可通过 adb reverse 访问 127.0.0.1 明文 HTTP；LAN 端点必须使用 HTTPS。
+  API 28 起默认禁止明文传输，隐式 localhost 例外直到 API 37 才出现，因此明确放行本机地址。
+  实际端点还要通过 RelayTransport.endpoint 校验：明文 HTTP 只接受 127.0.0.1。
+  其余目标继续禁止明文传输。
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />

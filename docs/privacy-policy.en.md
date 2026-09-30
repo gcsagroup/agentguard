@@ -24,7 +24,7 @@ AgentGuard processes observations locally by default. It has no default cloud ac
 | iOS Safari page events | No | Content rules and the native contract run locally; only rule/action enums, time, and an HTTP(S) URL reduced to its origin are retained, with no default upload |
 | Audit database | No | Desktop Release builds require SQLCipher; CLI/development builds may explicitly use plain SQLite |
 | Threat intelligence and enterprise policy | Optional download | Accessed only after an operator configures an endpoint; release paths require signature verification |
-| Android relay | Unavailable in Release; optional in Debug | In Debug development builds, the user may configure loopback, ADB reverse, or a LAN address; the current Release build does not forward events |
+| Android relay | Unavailable in Release; optional in Debug | Debug development builds allow plain HTTP only to `127.0.0.1` (including ADB reverse), or an HTTPS endpoint; the current Release build does not forward events |
 | Crash telemetry and advertising tracking | No | The current source candidate includes no default telemetry or advertising SDK |
 
 ## Data processed locally
@@ -56,7 +56,7 @@ Android adapter private keys in Android Keystore are designed to be non-exportab
 - Core rule evaluation does not require internet access by default.
 - Threat intelligence and enterprise policies are downloaded only after a user or organization configures an endpoint.
 - The local API binds to loopback by default and requires a Bearer token. A LAN bind is allowed only with explicit `--allow-lan`. That exception may use plain HTTP, so the operator must provide a trusted network or additional transport protection.
-- The Android relay is available only in Debug development builds and requires explicit user configuration; its payload and destination depend on that configuration. Forwarding is disabled in the current Release build.
+- The Android relay is available only in Debug development builds and requires explicit user configuration. Plain HTTP is allowed only to `127.0.0.1`; LAN endpoints must use HTTPS. Its payload and destination depend on that configuration. Forwarding is disabled in the current Release build.
 - The first-GA Chrome/Edge extension does not request Native Messaging permission and does not connect to an AgentGuard cloud service. Static DNR matches URL, method, and resource type locally in the browser; it does not inspect HTTPS request bodies.
 - iOS WebShield has no upload endpoint, `connectNative` long-lived connection, or remote DNR intelligence. The app and Safari Extension exchange minimized events locally through the App Group/native messaging contract.
 
