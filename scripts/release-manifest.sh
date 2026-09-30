@@ -37,12 +37,12 @@ while IFS= read -r file; do
   FILES[${#FILES[@]}]="$file"
 done < <(cd "$DIR" && find . -maxdepth 2 -type f \
   \( -name '*.tar.gz' -o -name '*.tgz' -o -name '*.zip' -o -name '*.dmg' \
-     -o -name '*.pkg' -o -name '*.ipa' -o -name '*.msi' -o -name '*.exe' \
+     -o -name '*.pkg' -o -name '*.ipa' -o -name '*.msi' -o -name '*.msix' -o -name '*.exe' \
      -o -name '*.apk' -o -name '*.aab' -o -name '*.deb' -o -name '*.crx' \) \
   ! -name 'SHA256SUMS' | sed 's|^\./||' | sort)
 
 if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "在 $DIR 里没找到任何发布产物（tar.gz/zip/dmg/pkg/ipa/msi/exe/apk/aab/deb/crx）" >&2
+  echo "在 $DIR 里没找到任何发布产物（tar.gz/zip/dmg/pkg/ipa/msi/msix/exe/apk/aab/deb/crx）" >&2
   exit 1
 fi
 
