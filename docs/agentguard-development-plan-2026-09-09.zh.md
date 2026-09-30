@@ -1,5 +1,7 @@
 # GCSA AgentGuard 开发计划
 
+2026-10-01：从最终成功的 `9bf36e3` CI 取回 Android Debug APK，按哈希、包元数据、签名和编译后的 XML 核对：仅 `127.0.0.1` 可明文访问，多余 `localhost`／`10.0.2.2` 例外已不在包内。见[Android 产物记录](agd-032-android-network-package-2026-10-01.zh.md)。Pixel 当前未连接，未安装该包；Release 签名、真机 A1–A4 与 GA PS3 仍缺证据。
+
 2026-10-01：`ca77986` 的远端 CI 再现 macOS 合成网关冷启动与统一 8 秒收件期限混算的失败；按阶段拆开测试计时，网关初始化最多 15 秒，后续模型请求仍限 8 秒，产品运行时逻辑未改。本机桌面 139 项通过／11 项忽略，修正提交 `e43e936` 的远端 CI 13／13 成功。见[CI 接续记录](agd-032-ci-gateway-2026-09-30.zh.md)；长期稳定性和真实平台证据仍待验证，发布保持 No-Go。
 
 2026-10-01：按 Android Debug／Release 构建开关和中继端点校验修正三语[隐私说明草案](privacy-policy.md)：当前 Release 不提供 Android 中继，Debug 开发构建才可由用户配置；明文 HTTP 仅限 `127.0.0.1`，LAN 须用 HTTPS，并移除网络配置中无用的 `localhost`／`10.0.2.2` 明文例外；跨平台候选不再共用单一产品版本号。这不构成正式隐私政策、真机验收或 GA 发布证据。
