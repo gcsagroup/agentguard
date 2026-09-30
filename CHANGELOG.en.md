@@ -6,9 +6,13 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ## [Unreleased]
 
+### AGD-032 platform acceptance preparation (2026-10-01)
+
+- Repackaged the shared Chrome/Edge ZIP from current source and verified all 24 files. A separate Chrome profile is ready, but the local extension has not been loaded. Retrieved the Android Debug APK from the exact CI run and prepared a development-only copy signed with the Pixel's existing Debug certificate; the phone has not been updated. Local Android rebuilding was blocked by Maven TLS failures. Native acceptance and release signing remain open; release is still No-Go. See the [record (Chinese)](docs/agd-032-ci-gateway-2026-09-30.zh.md).
+
 ### AGD-032 real-gateway confirmation CI regression (2026-09-30)
 
-- Both post-merge CI runs failed the same desktop real-gateway fixture. The fixture now uses the exact Host and separately checks cross-origin HTTP 400 and missing-token HTTP 403. The real-gateway case passed locally. After local API tests switched to temporary ports, all 14 automated soft release checks passed; 12 RC evidence categories remain unverified. CI on the correction is pending. Android and iPhone devices are currently connected, while formal platform and signing evidence remains open. See the [record (Chinese)](docs/agd-032-ci-gateway-2026-09-30.zh.md).
+- Both post-merge CI runs failed the same desktop real-gateway fixture. The fixture now uses the exact Host and separately checks cross-origin HTTP 400 and missing-token HTTP 403. The real-gateway case passed locally. After local API tests switched to temporary ports, all 14 automated soft release checks passed; 12 RC evidence categories remain unverified. CI for correction `63bdda5` completed with 13/13 jobs successful. Android and iPhone devices are currently connected, while formal platform and signing evidence remains open. See the [record (Chinese)](docs/agd-032-ci-gateway-2026-09-30.zh.md).
 
 ### Source integration and local branch cleanup (2026-09-23)
 
