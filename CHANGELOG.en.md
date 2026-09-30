@@ -8,7 +8,7 @@ This file records notable AgentGuard changes. Versions follow Semantic Versionin
 
 ### AGD-032 platform acceptance preparation (2026-10-01)
 
-- Repackaged the shared Chrome/Edge ZIP from current source and verified all 24 files. A separate Chrome profile is ready, but the local extension has not been loaded. Retrieved the Android Debug APK from the exact CI run and prepared a development-only copy signed with the Pixel's existing Debug certificate; the phone has not been updated. Local Android rebuilding was blocked by Maven TLS failures. Native acceptance and release signing remain open; release is still No-Go. See the [record (Chinese)](docs/agd-032-ci-gateway-2026-09-30.zh.md).
+- Repackaged the shared Chrome/Edge ZIP from current source and verified all 24 files. A separate Chrome profile is ready, but the local extension has not been loaded. Retrieved the Android Debug APK from the exact CI run and prepared a development-only copy signed with the Pixel's existing Debug certificate; the phone has not been updated. Local Android rebuilding was blocked by Maven TLS failures. CI for documentation commit `4ea9bc1` reproduced the existing intermittent macOS synthetic-gateway startup timeout (12/13 jobs passed); the failure remains open. Native acceptance and release signing remain open; release is still No-Go. See the [record (Chinese)](docs/agd-032-ci-gateway-2026-09-30.zh.md).
 
 ### AGD-032 real-gateway confirmation CI regression (2026-09-30)
 

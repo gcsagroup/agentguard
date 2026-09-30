@@ -8,7 +8,7 @@
 
 ### AGD-032 平台验收准备（2026-10-01）
 
-- Chrome／Edge 共用 ZIP 已按当前源码重新打包，24 个文件一致；Chrome 独立资料已建，但本地扩展未加载。Android 从准确 CI 取回 Debug APK，并制备与 Pixel 旧版同证书的开发重签副本；手机尚未更新。本机 Android 重建受 Maven TLS 阻断。两项原生操作及正式签名、平台验收仍未完成，发布保持 No-Go。见[记录](docs/agd-032-ci-gateway-2026-09-30.zh.md)。
+- Chrome／Edge 共用 ZIP 已按当前源码重新打包，24 个文件一致；Chrome 独立资料已建，但本地扩展未加载。Android 从准确 CI 取回 Debug APK，并制备与 Pixel 旧版同证书的开发重签副本；手机尚未更新。本机 Android 重建受 Maven TLS 阻断。文档提交 `4ea9bc1` 的 CI 再现既有 macOS 合成网关启动超时，12／13 作业成功，失败保持未解决。原生操作及正式签名、平台验收仍未完成，发布保持 No-Go。见[记录](docs/agd-032-ci-gateway-2026-09-30.zh.md)。
 
 ### AGD-032 真实网关确认 CI 回归修正（2026-09-30）
 
